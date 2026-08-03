@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">KukeChat</string>
+    <string name="title_activity_main">KukeChat</string>
+    <string name="package_name">ink.kuke.chat</string>
+    <string name="custom_url_scheme">ink.kuke.chat</string>
+</resources>

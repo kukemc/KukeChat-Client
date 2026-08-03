@@ -1,0 +1,20 @@
+[package]
+name = "kukechat"
+version = "1.2.1"
+description = "KukeChat Windows desktop client"
+authors = ["KukeChat"]
+edition = "2021"
+
+[lib]
+name = "kukechat_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+ureq = { version = "2", default-features = false, features = ["json", "tls"] }

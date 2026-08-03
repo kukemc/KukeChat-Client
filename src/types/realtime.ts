@@ -1,0 +1,51 @@
+export type RealtimeEventType =
+  | 'connection.ready'
+  | 'account.suspended'
+  | 'message.created'
+  | 'message.recalled'
+  | 'message.reaction.updated'
+  | 'message.featured.updated'
+  | 'message.component.updated'
+  | 'conversation.updated'
+  | 'conversation.read'
+  | 'group.announcement.created'
+  | 'group.announcement.updated'
+  | 'group.announcement.deleted'
+  | 'friend.request.created'
+  | 'friend.request.accepted'
+  | 'friend.request.rejected'
+  | 'friendship.deleted'
+  | 'group.member.invited'
+  | 'group.join_request.created'
+  | 'group.join_request.accepted'
+  | 'group.join_request.rejected'
+  | 'group.member.joined'
+  | 'group.member.role_updated'
+  | 'group.member.mute_updated'
+  | 'group.member.title_updated'
+  | 'group.checkin.created'
+  | 'group.member.level_updated'
+  | 'group.member.left'
+  | 'group.member.removed'
+  | 'conversation.deleted'
+  | 'conversation.temporary.closed'
+  | 'conversation.temporary.blocked'
+  | 'temporary_block.deleted'
+  | 'presence.updated'
+  | 'post.created'
+  | 'post.updated'
+  | 'post.deleted'
+  | 'post.like.updated'
+  | 'post.comment.created'
+  | 'post.comment.like.updated'
+  | 'post.comment.deleted'
+  | 'post.notification.created'
+  | 'post.notification.updated'
+  | 'unknown';
+
+export interface RealtimeEvent<TData = unknown> {
+  type: RealtimeEventType;
+  rawType: string;
+  data: TData;
+  receivedAt: string;
+}

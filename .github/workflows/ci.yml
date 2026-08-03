@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: 类型检查与三端构建
+    runs-on: ubuntu-latest
+
+    env:
+      # CI 只验证能否构建，用占位地址即可 —— 仓库不内置真实后端地址。
+      VITE_API_BASE_URL: https://chat.example.com
+      VITE_WS_URL: wss://chat.example.com/ws
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 构建 Scratch/CCW 扩展
+        run: npx vite build
+
+      - name: 构建桌面端 web 产物
+        run: npx vite build --config vite.desktop.config.ts
+
+      - name: 构建移动端 web 产物
+        run: npx vite build --config vite.mobile.config.ts

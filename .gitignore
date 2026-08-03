@@ -1,0 +1,48 @@
+# 依赖
+node_modules/
+
+# 环境变量与密钥
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+keystore.properties
+
+# 前端构建产物
+dist/
+dist-desktop/
+dist-mobile/
+.vite/
+
+# Tauri 桌面端
+src-tauri/target/
+src-tauri/gen/
+
+# Android
+android/.gradle/
+android/build/
+android/local.properties
+android/app/build/
+android/capacitor-cordova-android-plugins/
+# cap sync 生成，不入库
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+*.apk
+*.aab
+
+# 日志与编辑器状态
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
