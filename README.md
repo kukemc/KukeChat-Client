@@ -49,7 +49,8 @@ KukeChat 的第一形态是一个社区扩展。加载后它用 Shadow DOM 在�
 
 采用 [MIT 协议](LICENSE)，你几乎可以做任何事，包括商用。
 
-> **注意：这个仓库只包含客户端。** 服务端不在开源范围内，你需要自行实现一个提供相同 REST + WebSocket 接口的后端。接口约定可参考 [`docs/bot-api.md`](docs/bot-api.md) 与 `src/api/`、`src/types/`。
+> **注意：这个仓库只包含客户端**，且不内置任何服务器地址。配套的服务端已开源：**[KukeChat-Server](https://github.com/kukemc/KukeChat-Server)**（FastAPI + WebSocket，可用 Docker 一键部署）。
+> 你也可以自行实现一个提供相同 REST + WebSocket 接口的后端，接口约定见 [`docs/bot-api.md`](docs/bot-api.md) 与 `src/api/`、`src/types/`。
 
 ---
 

@@ -49,7 +49,8 @@ Open source means: you can audit exactly what the client sends and where; you ca
 
 Released under the [MIT License](LICENSE), so you can do nearly anything with it, commercial use included.
 
-> **Note: this repository contains the client only.** The server is not part of this release; you'll need to implement a backend exposing the same REST + WebSocket contract. See [`docs/bot-api.md`](docs/bot-api.md) along with `src/api/` and `src/types/` for the contract.
+> **Note: this repository contains the client only**, and ships no server address. The matching backend is open source too: **[KukeChat-Server](https://github.com/kukemc/KukeChat-Server)** (FastAPI + WebSocket, deployable with Docker).
+> You can also implement your own backend exposing the same REST + WebSocket contract — see [`docs/bot-api.md`](docs/bot-api.md) along with `src/api/` and `src/types/`.
 
 ---
 
