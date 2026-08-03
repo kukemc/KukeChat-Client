@@ -13,6 +13,8 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2-ffc131.svg)](https://tauri.app)
 [![Capacitor](https://img.shields.io/badge/Capacitor-6-119eff.svg)](https://capacitorjs.com)
 
+**简体中文** · [English](README.en.md)
+
 </div>
 
 ---
