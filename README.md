@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/assets/cover.png" alt="KukeChat" width="880">
+
 # KukeChat
 
 **长在创作社区里的聊天客户端**

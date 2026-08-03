@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/assets/cover.png" alt="KukeChat" width="880">
+
 # KukeChat
 
 **A chat client that lives where the creating happens**
