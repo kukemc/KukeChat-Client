@@ -308,6 +308,59 @@ scripts/        version sync and Android build scripts
 | `npm run tauri:dev` / `tauri:build` | Desktop development / packaging |
 | `npm run android:sync` / `android:apk` | Mobile sync / packaging |
 
+## Releasing
+
+Push a `v*` tag to trigger [`release.yml`](.github/workflows/release.yml): all three targets build
+in parallel and the artifacts are collected into a **draft** release for you to review and publish.
+
+```bash
+npm version 1.2.2 --no-git-tag-version
+git commit -am "chore: release 1.2.2" && git push
+git tag v1.2.2 && git push origin v1.2.2
+```
+
+Produces the community extension `KukeChat-<version>.js`, Windows `.msi` / `-setup.exe`,
+and `KukeChat-<version>.apk`.
+
+### Build configuration
+
+The backend the release artifacts point at comes from **repository variables**
+(Settings → Secrets and variables → Actions → Variables), not from source, so forks can
+target their own deployment:
+
+| Variable | Required | Purpose |
+| --- | :---: | --- |
+| `VITE_API_BASE_URL` | ✅ | Backend API root |
+| `VITE_WS_URL` | ✅ | Realtime WebSocket endpoint |
+| `VITE_MOBILE_UPDATE_URL` | | Android update metadata |
+| `VITE_EXTENSION_ASSET_URL` | | Published extension file URL |
+| `VITE_BOT_API_DOCS_URL` | | Bot API docs URL |
+| `KUKECHAT_UPDATE_METADATA_URL` | | Desktop update endpoint (read by Rust at compile time) |
+
+Missing a required one fails the workflow at its first step with an explanation.
+
+### Android signing
+
+APKs must be signed with a **stable** key. An APK signed with a different key cannot be
+installed over an existing one — Android refuses the upgrade, and the in-app updater breaks
+along with it. Always use the same keystore.
+
+Store your keystore as repository secrets:
+
+```bash
+# base64-encode the keystore (Windows PowerShell)
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore")) | Set-Clipboard
+
+gh secret set ANDROID_KEYSTORE_BASE64     # paste the base64 from above
+gh secret set ANDROID_KEYSTORE_PASSWORD
+gh secret set ANDROID_KEY_ALIAS
+gh secret set ANDROID_KEY_PASSWORD
+```
+
+The workflow writes a temporary `android/keystore.properties` from these values, deletes the key
+material as soon as the build finishes, and verifies the output is actually signed (it fails
+rather than shipping an `app-release-unsigned.apk` nobody can install).
+
 ## Contributing
 
 Issues and pull requests are welcome. Please make sure `npm run typecheck` and `npm run build` both pass before submitting — see [CONTRIBUTING.md](CONTRIBUTING.md).

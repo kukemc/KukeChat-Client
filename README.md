@@ -308,6 +308,55 @@ scripts/        版本同步与 Android 打包脚本
 | `npm run tauri:dev` / `tauri:build` | 桌面端开发 / 打包 |
 | `npm run android:sync` / `android:apk` | 移动端同步 / 打包 |
 
+## 发布
+
+推一个 `v*` 标签即可触发 [`release.yml`](.github/workflows/release.yml)：三端并行构建，
+产物汇总成一个**草稿** Release，确认无误后在网页上点 Publish 发布。
+
+```bash
+npm version 1.2.2 --no-git-tag-version   # 按需先改版本号
+git commit -am "chore: 发布 1.2.2" && git push
+git tag v1.2.2 && git push origin v1.2.2
+```
+
+产出：社区扩展 `KukeChat-<版本>.js`、Windows `.msi` 与 `-setup.exe`、Android `KukeChat-<版本>.apk`。
+
+### 构建配置
+
+发布产物连接的后端地址来自**仓库变量**（Settings → Secrets and variables → Actions → Variables），
+不写在源码里，这样 fork 的人可以指向自己的服务：
+
+| 变量 | 必填 | 用途 |
+| --- | :---: | --- |
+| `VITE_API_BASE_URL` | ✅ | 后端 API 根地址 |
+| `VITE_WS_URL` | ✅ | 实时消息 WebSocket |
+| `VITE_MOBILE_UPDATE_URL` | | 安卓自更新元数据 |
+| `VITE_EXTENSION_ASSET_URL` | | 已发布的扩展文件地址 |
+| `VITE_BOT_API_DOCS_URL` | | 机器人 API 文档地址 |
+| `KUKECHAT_UPDATE_METADATA_URL` | | 桌面端「检查更新」地址（Rust 编译期读取） |
+
+缺少必填项时工作流会在第一步就失败并说明原因。
+
+### Android 签名
+
+APK 必须用**固定的**密钥签名。换一个密钥签出来的包，Android 会拒绝覆盖安装到已有版本上，
+客户端内的自动更新也会随之失效 —— 所以请始终使用同一个 keystore。
+
+把你的 keystore 配成仓库 Secret：
+
+```bash
+# 把 keystore 转成 base64（Windows PowerShell）
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore")) | Set-Clipboard
+
+gh secret set ANDROID_KEYSTORE_BASE64     # 粘贴上一步的 base64
+gh secret set ANDROID_KEYSTORE_PASSWORD
+gh secret set ANDROID_KEY_ALIAS
+gh secret set ANDROID_KEY_PASSWORD
+```
+
+工作流会在构建时用这些值临时生成 `android/keystore.properties`，构建结束后立即删除密钥材料，
+并校验产物确实已签名（若得到 `app-release-unsigned.apk` 会直接失败，而不是发出一个装不上的包）。
+
 ## 贡献
 
 欢迎 Issue 和 Pull Request。提交前请确保 `npm run typecheck` 和 `npm run build` 都通过，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。

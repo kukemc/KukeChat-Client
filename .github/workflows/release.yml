@@ -1,0 +1,220 @@
+name: Release
+
+# 推一个 v* 标签即可触发：三端并行构建，产物汇总成一个「草稿」Release，
+# 你在网页上确认无误后点 Publish 发布。
+#
+# 构建所需的生产地址来自仓库变量（Settings → Secrets and variables → Actions → Variables）：
+#   VITE_API_BASE_URL          必填，例如 https://chat-api.example.com
+#   VITE_WS_URL                必填，例如 wss://chat-api.example.com/ws
+#   VITE_MOBILE_UPDATE_URL     选填，安卓自更新元数据地址
+#   VITE_EXTENSION_ASSET_URL   选填，已发布的扩展文件地址
+#   VITE_BOT_API_DOCS_URL      选填，机器人 API 文档地址
+#   KUKECHAT_UPDATE_METADATA_URL 选填，桌面端「检查更新」地址（Rust 编译期读取）
+#
+# 仓库源码不含任何服务器地址，fork 后请设置你自己的变量。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "发布用的标签名（例如 v1.2.1）"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  VITE_WS_URL: ${{ vars.VITE_WS_URL }}
+  VITE_MOBILE_UPDATE_URL: ${{ vars.VITE_MOBILE_UPDATE_URL }}
+  VITE_EXTENSION_ASSET_URL: ${{ vars.VITE_EXTENSION_ASSET_URL }}
+  VITE_BOT_API_DOCS_URL: ${{ vars.VITE_BOT_API_DOCS_URL }}
+
+jobs:
+  preflight:
+    name: 配置检查
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 必填变量是否已配置
+        run: |
+          missing=""
+          [ -n "$VITE_API_BASE_URL" ] || missing="$missing VITE_API_BASE_URL"
+          [ -n "$VITE_WS_URL" ] || missing="$missing VITE_WS_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少仓库变量:$missing"
+            echo "请在 Settings → Secrets and variables → Actions → Variables 中设置。"
+            echo "本仓库源码不内置任何服务器地址，构建产物必须显式指定后端。"
+            exit 1
+          fi
+          echo "后端地址: $VITE_API_BASE_URL"
+
+      - name: 解析版本号
+        id: resolve
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "标签: $tag"
+
+  extension:
+    name: 构建社区扩展
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: 重命名产物
+        run: cp dist/KukeChat.js "KukeChat-${{ needs.preflight.outputs.version }}.js"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension
+          path: KukeChat-*.js
+          if-no-files-found: error
+
+  desktop:
+    name: 构建 Windows 桌面端
+    needs: preflight
+    runs-on: windows-latest
+    env:
+      # Rust 侧在编译期通过 option_env! 读取，未设置则桌面端跳过更新检查
+      KUKECHAT_UPDATE_METADATA_URL: ${{ vars.KUKECHAT_UPDATE_METADATA_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run tauri:build
+      - name: 收集安装包
+        shell: bash
+        run: |
+          mkdir -p out
+          find src-tauri/target/release/bundle -type f \( -name "*.msi" -o -name "*-setup.exe" \) -exec cp {} out/ \;
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop
+          path: out/*
+          if-no-files-found: error
+
+  android:
+    name: 构建 Android APK
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: 检查签名密钥
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::error::缺少 ANDROID_KEYSTORE_BASE64 等签名 secret。"
+            echo "未签名或用不同密钥签名的 APK 无法覆盖安装到已有版本上，"
+            echo "Android 会直接拒绝升级，客户端内的自动更新也会失效。"
+            echo "请参考 README 的「发布」一节配置签名密钥后重试。"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build:mobile-web
+      - run: npx cap sync android
+
+      - name: 写入签名配置
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/release.keystore
+          cat > android/keystore.properties <<EOF
+          storeFile=$(pwd)/android/release.keystore
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Gradle 打包
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: 校验 APK 已签名
+        run: |
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$apk" ]; then
+            echo "::error::未找到 release APK；若产物是 app-release-unsigned.apk，说明签名配置没生效。"
+            ls -R android/app/build/outputs/apk || true
+            exit 1
+          fi
+          cp "$apk" "KukeChat-${{ needs.preflight.outputs.version }}.apk"
+
+      - name: 清理密钥材料
+        if: always()
+        run: rm -f android/release.keystore android/keystore.properties
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: KukeChat-*.apk
+          if-no-files-found: error
+
+  release:
+    name: 汇总为草稿 Release
+    needs: [preflight, extension, desktop, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: 列出产物
+        run: find artifacts -type f | sort
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.preflight.outputs.tag }}
+          name: KukeChat ${{ needs.preflight.outputs.tag }}
+          # 草稿状态：你确认产物无误后再手动发布
+          draft: true
+          generate_release_notes: true
+          files: artifacts/**/*
+          body: |
+            ## 下载
+
+            | 形态 | 文件 | 说明 |
+            | --- | --- | --- |
+            | 社区扩展 | `KukeChat-*.js` | 在 CCW / Gandi 扩展加载器中加载 |
+            | Windows 桌面端 | `*.msi` / `*-setup.exe` | 二选一安装 |
+            | Android | `KukeChat-*.apk` | 需允许安装未知来源应用 |
+
+            > 以上产物已连接官方服务，下载后可直接使用。
+            > 想连接自建后端请自行构建，见 README 的「配置」一节。
+
+            ---
