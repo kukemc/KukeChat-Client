@@ -18,56 +18,129 @@
   // 而不是盲信引用：不同版本的编辑器 / 播放器挂载位置不一样，光看名字会拿到
   // 半成品对象。`runtime.extensionManager.vm` 是被验证最可靠的一条。
 
-  const isVM = (o) => o && typeof o === 'object' && (typeof o.toJSON === 'function' || typeof o.setEditingTarget === 'function');
-  const isRuntime = (o) => o && typeof o === 'object' && (o.ccwAPI || o.extensionManager || o.targets || o.gandi);
+  // 判据要足够严：VM 必须同时带 runtime 和序列化能力，runtime 必须带 targets +
+  // extensionManager。之前只判 `o.gandi || o.targets` 会把 window 自身也匹配进去
+  // （window.window === window），导致误报「找到 runtime」。
+  const isVM = (o) =>
+    o && typeof o === 'object' &&
+    o.runtime && typeof o.runtime === 'object' &&
+    (typeof o.toJSON === 'function' || typeof o.setEditingTarget === 'function' || o.extensionManager);
+
+  const isRuntime = (o) =>
+    o && typeof o === 'object' && o !== window &&
+    Array.isArray(o.targets) &&
+    (o.extensionManager || o.ccwAPI || o._primitives);
+
+  // 这些是 window 的自引用，扫描时必须跳过，否则会陷进自身
+  const SELF_REFS = new Set(['window', 'self', 'globalThis', 'top', 'parent', 'frames', 'document']);
+
+  const wrap = (vm) => ({ runtime: vm.runtime, vm, from: '' });
+
+  // ---- React fiber 工具 ----
+  const fiberKey = (node, prefix) => Object.keys(node).find((k) => k.startsWith(prefix));
+
+  function fiberOf(node) {
+    const k = fiberKey(node, '__reactFiber$') || fiberKey(node, '__reactInternalInstance$');
+    return k ? node[k] : null;
+  }
+
+  function rootFiberOf(node) {
+    const k = fiberKey(node, '__reactContainer$');
+    if (k) return node[k];
+    const legacy = node._reactRootContainer;
+    return (legacy && legacy._internalRoot && legacy._internalRoot.current) || null;
+  }
+
+  /** 在一个对象的浅层属性里找 VM（组件 props / state 常见形态）。 */
+  function vmInBag(bag) {
+    if (!bag || typeof bag !== 'object') return null;
+    if (isVM(bag.vm)) return bag.vm;
+    if (isVM(bag)) return bag;
+    // redux: props.store.getState().scratchGui.vm
+    try {
+      if (bag.store && typeof bag.store.getState === 'function') {
+        const state = bag.store.getState();
+        if (state && state.scratchGui && isVM(state.scratchGui.vm)) return state.scratchGui.vm;
+      }
+    } catch { /* store 可能未就绪 */ }
+    return null;
+  }
+
+  function searchFiberTree(startFiber, maxNodes) {
+    const queue = [startFiber];
+    let visited = 0;
+    while (queue.length && visited < maxNodes) {
+      const fiber = queue.shift();
+      if (!fiber) continue;
+      visited += 1;
+      const hit = vmInBag(fiber.memoizedProps) || vmInBag(fiber.memoizedState) || vmInBag(fiber.stateNode);
+      if (hit) return { vm: hit, visited };
+      if (fiber.child) queue.push(fiber.child);
+      if (fiber.sibling) queue.push(fiber.sibling);
+    }
+    return { vm: null, visited };
+  }
 
   function findRuntime() {
     const tried = [];
+    const attempt = (label, resolver) => {
+      let vm = null;
+      try { vm = resolver(); } catch { vm = null; }
+      tried.push({ 路径: label, 命中: Boolean(vm) });
+      return vm;
+    };
 
-    const push = (label, value) => { tried.push({ 路径: label, 命中: Boolean(value) }); return value; };
+    // 1) 全局直挂（旧版编辑器 / 部分播放器）
+    let vm =
+      attempt('window.vm', () => (isVM(window.vm) ? window.vm : null)) ||
+      attempt('window.Scratch.vm', () => (window.Scratch && isVM(window.Scratch.vm) ? window.Scratch.vm : null)) ||
+      attempt('window.__vm__', () => (isVM(window.__vm__) ? window.__vm__ : null)) ||
+      attempt('window.scratchVM', () => (isVM(window.scratchVM) ? window.scratchVM : null));
+    if (vm) { console.table(tried); return { ...wrap(vm), from: tried[tried.length - 1].路径 }; }
 
-    // 1) 直接挂在 window 上的 VM
-    const vmCandidates = [
-      ['window.vm', window.vm],
-      ['window.Scratch?.vm', window.Scratch && window.Scratch.vm],
-      ['window.__vm__', window.__vm__],
-      ['window.scratchVM', window.scratchVM],
-    ];
-    for (const [label, vm] of vmCandidates) {
-      push(label, vm);
-      if (isVM(vm) && isRuntime(vm.runtime)) {
-        console.table(tried);
-        return { runtime: vm.runtime, vm, from: `${label}.runtime` };
+    // 2) 从舞台 canvas 的 fiber 往上找 —— scratch-gui 里大量组件都把 vm 当 prop 传
+    vm = attempt('舞台 canvas 的 React 祖先链', () => {
+      const canvas = document.querySelector('canvas');
+      let fiber = canvas ? fiberOf(canvas) : null;
+      let depth = 0;
+      while (fiber && depth < 60) {
+        const hit = vmInBag(fiber.memoizedProps) || vmInBag(fiber.memoizedState) || vmInBag(fiber.stateNode);
+        if (hit) return hit;
+        fiber = fiber.return;
+        depth += 1;
       }
-    }
+      return null;
+    });
+    if (vm) { console.table(tried); return { ...wrap(vm), from: '舞台 canvas 的 React 祖先链' }; }
 
-    // 2) 直接挂在 window 上的 runtime
-    const runtimeCandidates = [
-      ['window.runtime', window.runtime],
-      ['window.Scratch?.vm?.runtime', window.Scratch && window.Scratch.vm && window.Scratch.vm.runtime],
-    ];
-    for (const [label, rt] of runtimeCandidates) {
-      push(label, rt);
-      if (isRuntime(rt)) {
-        console.table(tried);
-        return { runtime: rt, vm: rt.extensionManager && rt.extensionManager.vm, from: label };
+    // 3) 从 React 根节点广度优先扫整棵树
+    vm = attempt('React 根节点遍历', () => {
+      const roots = [document.getElementById('app'), document.getElementById('root'), ...document.body.children];
+      for (const node of roots) {
+        if (!node || node.nodeType !== 1) continue;
+        const root = rootFiberOf(node) || fiberOf(node);
+        if (!root) continue;
+        const { vm: hit } = searchFiberTree(root, 8000);
+        if (hit) return hit;
       }
-    }
+      return null;
+    });
+    if (vm) { console.table(tried); return { ...wrap(vm), from: 'React 根节点遍历' }; }
 
-    // 3) 兜底：扫一遍 window，找带 runtime 特征的对象
-    for (const key of Object.keys(window)) {
-      let value;
-      try { value = window[key]; } catch { continue; }
-      if (!value || typeof value !== 'object') continue;
-      if (isRuntime(value)) {
-        console.table(tried);
-        return { runtime: value, vm: value.extensionManager && value.extensionManager.vm, from: `window.${key}（扫描命中）` };
+    // 4) 兜底：扫 window 自有属性（跳过自引用，判据从严）
+    vm = attempt('window 属性扫描', () => {
+      for (const key of Object.keys(window)) {
+        if (SELF_REFS.has(key)) continue;
+        let value;
+        try { value = window[key]; } catch { continue; }
+        if (isVM(value)) return value;
+        if (isRuntime(value) && isVM(value.extensionManager && value.extensionManager.vm)) {
+          return value.extensionManager.vm;
+        }
       }
-      if (isVM(value) && isRuntime(value.runtime)) {
-        console.table(tried);
-        return { runtime: value.runtime, vm: value, from: `window.${key}.runtime（扫描命中）` };
-      }
-    }
+      return null;
+    });
+    if (vm) { console.table(tried); return { ...wrap(vm), from: 'window 属性扫描' }; }
 
     console.table(tried);
     return null;
@@ -87,11 +160,40 @@
   console.log('  runtime =', runtime);
   console.log('  vm =', vm, vm ? '' : '（没找到，不影响 ccwAPI 探测）');
 
-  const api = runtime.ccwAPI;
+  // ccwAPI 不一定叫这个名字，也不一定挂在 runtime 上，先四处找一下
+  let api = runtime.ccwAPI;
+  let apiPath = 'runtime.ccwAPI';
   if (!api) {
-    console.error('%c✗ runtime.ccwAPI 不存在', 'color:#e5484d;font-weight:bold');
-    console.info('这个环境可能不提供社区能力（例如离线运行时）。');
+    const searchIn = [['runtime', runtime], ['vm', vm]].filter(([, o]) => o);
+    outer: for (const [label, obj] of searchIn) {
+      for (const key of Object.getOwnPropertyNames(obj)) {
+        if (!/ccw|community|kontakt|platform/i.test(key)) continue;
+        let value;
+        try { value = obj[key]; } catch { continue; }
+        if (value && typeof value === 'object') {
+          api = value;
+          apiPath = `${label}.${key}`;
+          break outer;
+        }
+      }
+    }
+  }
+
+  if (!api) {
+    console.error('%c✗ 没找到 ccwAPI', 'color:#e5484d;font-weight:bold');
+    console.info('runtime 上与社区相关的属性一个都没有。下面把 runtime 的全部属性列出来，请截图发回：');
+    const keys = Object.getOwnPropertyNames(runtime).filter((k) => !k.startsWith('_'));
+    console.log('runtime 自有属性（%d 个）:', keys.length, keys);
+    if (vm) {
+      const vmKeys = Object.getOwnPropertyNames(vm).filter((k) => !k.startsWith('_'));
+      console.log('vm 自有属性（%d 个）:', vmKeys.length, vmKeys);
+    }
+    console.log('提示：如果这是作品播放页而不是编辑器，社区能力也可能确实不下发。');
     return;
+  }
+
+  if (apiPath !== 'runtime.ccwAPI') {
+    console.log('%c⚠ ccwAPI 不在预期位置', 'color:#f5a524;font-weight:bold', `实际路径: ${apiPath}`);
   }
 
   // ---------------------------------------------------------------- 列出成员
