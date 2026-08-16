@@ -727,7 +727,7 @@ export default class KukeChatExtension {
       case 'title': return state.title ?? '';
       case 'conversation_id': return state.conversationId ?? 0;
       case 'member_count': return state.memberCount;
-      case 'creation_oid': return state.creationOid ?? detectCreationOid() ?? '';
+      case 'creation_oid': return state.creationOid ?? detectCreationOid() ?? '';  // 未接入时只能给 URL 解析结果（平台接口是异步的）
       case 'player_name': return auth.displayName ?? '';
       case 'player_id': return auth.userId ?? 0;
       case 'message_count': return state.messages.length;

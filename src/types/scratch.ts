@@ -37,6 +37,8 @@ export interface CcwPlatformApi {
     userId?: string | number;
     userName?: string;
     uuid?: string;
+    /** 24 位十六进制，等同于 KukeChat 的 ccw_student_oid。 */
+    oid?: string;
     avatar?: string;
     following?: number;
     followers?: number;
@@ -44,6 +46,10 @@ export interface CcwPlatformApi {
     gender?: string;
     constellation?: string;
   } | null>;
+  /** 当前作品 UUID。Kontakt 扩展未使用，实测存在，无官方文档。 */
+  getProjectUUID?: () => Promise<string>;
+  /** 当前作品的 sb3 资源 ID。同样无官方文档。 */
+  getProjectSb3Id?: () => Promise<string>;
   getProjectStats?: () => Promise<{
     commentCount?: number;
     likeCount?: number;

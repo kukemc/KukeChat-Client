@@ -9,6 +9,7 @@ import { ApiError } from '@/api/client';
 import { getGameSession, gameWebSocketUrl, sendGameMessage, type GameSession } from '@/api/game';
 import type { Message } from '@/types/api';
 import { getGameAuth, isGameAuthorized, refreshGameAuthAfterFailure } from './auth';
+import { readPlatformCreationOid } from './ccwIdentity';
 
 /** 聊天框里保留的最大消息条数，防止长时间挂机把内存吃满。 */
 const MAX_MESSAGES = 200;
@@ -218,9 +219,12 @@ function closeSocket(): void {
  * @returns 成功返回 null，失败返回可直接展示给开发者的错误信息。
  */
 export async function startGameChat(conversationId: number, creationOid?: string): Promise<string | null> {
-  const oid = (creationOid || detectCreationOid() || '').trim().toLowerCase();
+  // 优先问平台（编辑器里也能拿到），拿不到再退回 URL 解析（仅作品播放页有效）
+  const oid = (creationOid || (await readPlatformCreationOid()) || detectCreationOid() || '')
+    .trim()
+    .toLowerCase();
   if (!oid) {
-    const reason = '无法识别当前作品。游戏模式需要在 CCW 作品页运行（编辑器预览中拿不到作品 ID）。';
+    const reason = '无法识别当前作品。请在 CCW 作品页或编辑器中运行游戏模式。';
     setState({ status: 'error', error: reason });
     return reason;
   }

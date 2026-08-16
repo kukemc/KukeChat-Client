@@ -81,6 +81,30 @@ export async function readUntrustedCcwIdentity(): Promise<UntrustedCcwIdentity |
   return cached;
 }
 
+/**
+ * 向平台询问当前作品的 UUID。
+ *
+ * 相比从 URL 解析，它在**编辑器里也可用**（编辑器路径是 `/gandi/project/<id>`，
+ * 解析不出作品 oid），因此开发者能直接在编辑器内调试游戏模式。
+ *
+ * 信任级别与 URL 解析完全相同：两者都只是「客户端声称自己是哪个作品」，
+ * 真正的校验发生在服务端 —— 它会比对该群绑定的作品是否与此一致。
+ *
+ * 平台不提供该接口时返回 null，由调用方回落到 URL 解析。
+ */
+export async function readPlatformCreationOid(): Promise<string | null> {
+  const api = ccwApi();
+  if (!api?.getProjectUUID) {
+    return null;
+  }
+  try {
+    const oid = await api.getProjectUUID();
+    return typeof oid === 'string' && oid.trim() ? oid.trim().toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 清掉缓存，例如玩家在别的标签页切换了 CCW 账号后。 */
 export function forgetCcwIdentity(): void {
   cached = undefined;

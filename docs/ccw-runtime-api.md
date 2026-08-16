@@ -17,23 +17,39 @@ Kontakt」扩展（`scratch3_ccw_community`）的源码，供本项目开发扩�
 
 ## 快速索引
 
-| 方法 | 返回 | 是否需要用户确认 |
-| --- | --- | :---: |
-| `getUserInfo()` | `Promise<CcwUser \| null>` | |
-| `getProjectStats()` | `Promise<ProjectStats>` | |
-| `isMyFans()` | `Promise<boolean>` | |
-| `isLiked()` | `Promise<boolean>` | |
-| `getCoinCount()` | `Promise<number>` | |
-| `isFollowed(userId)` | `Promise<boolean>` | |
-| `isLikedProject(oid)` | `Promise<boolean>` | |
-| `isFavoriteProject(oid)` | `Promise<boolean>` | |
-| `redirect(path)` | — | |
-| `setAvatar(...)` | `Promise<boolean>` | ✅ |
-| `insertCoin(count)` | — | ✅ |
-| `requestCoins(count)` | `Promise<boolean>` | ✅ |
-| `requestFollow()` | `Promise<boolean>` | ✅ |
-| `commentWithStageSnapshot(content, screenshot)` | `Promise<boolean>` | ✅ |
-| `showShare(encodedData, desc)` | `Promise<unknown>` | ✅ |
+以下 24 个成员是在 CCW 编辑器（`/gandi/project/...`）里实测 dump 出来的完整列表。
+官方 Kontakt 扩展只用到其中一部分，剩下的没有公开文档，语义按名称与参数个数推断。
+
+| 方法 | 参数 | 说明 | 需用户确认 |
+| --- | :---: | --- | :---: |
+| `getUserInfo()` | 0 | 当前访客的社区账号信息 | |
+| `getProjectUUID()` | 0 | **当前作品 UUID** | |
+| `getProjectSb3Id()` | 0 | **当前作品的 sb3 资源 ID** | |
+| `getProjectStats()` | 0 | 评论 / 点赞 / 收藏 / 投币统计 | |
+| `getProjectDonateRanking()` | 0 | 投币排行 | |
+| `getCoinCount()` | 0 | 当前访客给本作品投了多少币 | |
+| `isMyFans()` | 0 | 访客是否是作者粉丝 | |
+| `isLiked()` | 0 | 访客是否已点赞本作品 | |
+| `isFollowed(userId)` | 1 | 是否关注了某人 | |
+| `isLikedProject(oid)` | 1 | 是否点赞了某作品 | |
+| `isFavoriteProject(oid)` | 1 | 是否收藏了某作品 | |
+| `getDeviceType()` | 0 | 设备类型 | |
+| `getOnlineExtensionsConfig()` | 0 | 在线扩展配置 | |
+| `getExtensionURLById(id)` | 1 | 按 ID 取扩展文件地址 | |
+| `getOpenVM()` | 0 | 语义不明，谨慎调用 | |
+| `preActionInterceptor()` | 0 | 语义不明，疑似操作前置拦截 | |
+| `redirect(path)` | 1 | 站内跳转 | |
+| `sendPlayEventCode(code)` | 1 | 上报游玩事件 | |
+| `uploadAssetToCloud(a, b)` | 2 | 上传资源到云端 | |
+| `setAvatar(...)` | 0* | 用舞台截图设为头像 | ✅ |
+| `insertCoin(count)` | — | 投币（Kontakt 调用，本次 dump 未出现） | ✅ |
+| `requestCoins(count)` | 0* | 请求投币 | ✅ |
+| `requestFollow()` | 0 | 请求关注作者 | ✅ |
+| `commentWithStageSnapshot(content, screenshot)` | 0* | 代发评论 | ✅ |
+| `showShare(encodedData, desc)` | 2 | 弹出分享 UI | ✅ |
+
+> `0*` 表示函数声明的形参个数为 0（用了 rest 参数或运行时取参），实际仍需传值。
+> `insertCoin` 出现在 Kontakt 源码里但不在本次 dump 中，可能是版本差异。
 
 ## 用户信息
 
@@ -41,9 +57,10 @@ Kontakt」扩展（`scratch3_ccw_community`）的源码，供本项目开发扩�
 runtime.ccwAPI.getUserInfo(): Promise<CcwUser | null>
 
 interface CcwUser {
-  userId: string | number;   // 社区用户 ID
-  userName: string;          // 用户名
-  uuid: string;              // 用户 uuid
+  userId: string;            // 社区用户 ID，例如 '203910367'
+  userName: string;          // 用户名，例如 '酷可mc'
+  uuid: string;              // 24 位十六进制，与 oid 相同
+  oid: string;               // 24 位十六进制 —— 即 KukeChat 的 ccw_student_oid
   avatar: string;            // 头像 URL
   constellation: string;     // 星座
   following: number;         // 关注数
@@ -52,6 +69,9 @@ interface CcwUser {
   gender: string;            // 性别
 }
 ```
+
+实测返回中 `uuid` 与 `oid` 取值相同，都是社区主页地址 `/student/<oid>` 里的那个
+标识 —— 也就是 KukeChat `User.ccw_student_oid` 存的值。
 
 未登录时返回 falsy 值。
 
@@ -97,16 +117,23 @@ runtime.ccwAPI.isLiked(): Promise<boolean>       // 当前访客是否已点赞�
 runtime.ccwAPI.getCoinCount(): Promise<number>   // 当前访客给本作品投了多少币
 ```
 
-> ### ⚠️ 拿不到当前作品的 oid
+### 当前作品标识
+
+```ts
+runtime.ccwAPI.getProjectUUID(): Promise<string>    // 作品 UUID
+runtime.ccwAPI.getProjectSb3Id(): Promise<string>   // 作品的 sb3 资源 ID
+```
+
+> **这两个接口 Kontakt 扩展没有使用**，是在编辑器里 dump `ccwAPI` 才发现的，
+> 因此没有官方文档，返回格式与稳定性需自行验证。
 >
-> `ccwAPI` **没有**提供获取当前作品标识的方法。已核对官方扩展全部 30 处调用，
-> 无一暴露 projectId / oid。作品相关的调用要么隐含「当前作品」（如
-> `getProjectStats()`），要么要求调用方自己传 oid（如 `isLikedProject(oid)`）。
+> 它们的价值在于：URL 解析只在作品播放页（`/detail/<oid>`）有效，编辑器
+> （`/gandi/project/<id>`）里拿不到；而这两个接口在编辑器里同样可用，
+> 意味着游戏模式可以在编辑器内直接调试。
 >
-> 官方扩展自己也在用 `window.location` 兜底（见其 `getShareCode()`）。
->
-> 所以 KukeChat 游戏模式从 URL 解析作品 oid（`/detail/<24 位十六进制>`）是目前
-> 唯一可行的做法，代价是**编辑器预览中不可用**（编辑器路径为 `/gandi/<id>`）。
+> **注意仍然不可信**：返回值来自页面，可被篡改。它只能作为「客户端声称自己是
+> 哪个作品」的输入，服务端据此校验群的绑定关系 —— 与之前用 URL 解析时的信任
+> 模型完全一致，没有变好也没有变坏。
 
 ## 他人 / 其他作品
 

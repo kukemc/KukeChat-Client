@@ -10,7 +10,22 @@
  * 只打印签名，不实际调用。
  */
 (async () => {
-  const SAFE_TO_CALL = new Set(['getUserInfo', 'getProjectStats', 'isMyFans', 'isLiked', 'getCoinCount']);
+  // 零参数、语义上只读的接口才试调。
+  // 明确排除：preActionInterceptor（用途不明，可能有副作用）、
+  // sendPlayEventCode（会上报事件）、uploadAssetToCloud（会写云端）、
+  // 以及所有需要参数或会弹确认框的接口。
+  const SAFE_TO_CALL = new Set([
+    'getUserInfo',
+    'getProjectStats',
+    'getProjectUUID',
+    'getProjectSb3Id',
+    'getProjectDonateRanking',
+    'getDeviceType',
+    'getOnlineExtensionsConfig',
+    'isMyFans',
+    'isLiked',
+    'getCoinCount',
+  ]);
 
   // ---------------------------------------------------------------- 找 vm / runtime
   //
