@@ -1,7 +1,7 @@
 import { useKukeStore } from '@/store/kukeStore';
 import { closeKukeChatWindow, ensureKukeChatWindow, minimizeKukeChatWindow, toggleKukeChatFullscreen } from '@/app/windowManager';
 import { getConversations } from '@/api/conversations';
-import { botApiGetConversationInfo, botApiGetConversations, botApiGetMembers, botApiGetMessages, botApiGetUserInfo, botApiRecallMessage, botApiSendDirectMessage, botApiSendMessage, botApiToggleReaction, botApiUpdateMessageComponent, botWebSocketUrl } from '@/api/bots';
+import { botApiGetConversationInfo, botApiGetConversations, botApiGetJoinRequests, botApiGetMembers, botApiGetMessages, botApiGetUserInfo, botApiRecallMessage, botApiRemoveMember, botApiReviewJoinRequest, botApiSendDirectMessage, botApiSendMessage, botApiSetMemberMute, botApiSetMemberRole, botApiToggleReaction, botApiUpdateMessageComponent, botWebSocketUrl } from '@/api/bots';
 import { getOnlineCount, getOnlineUsers } from '@/api/users';
 import type { RealtimeEvent } from '@/types/realtime';
 import type { ScratchBlockDefinition, ScratchFormatMessage, ScratchInfo, ScratchLike, ScratchRuntime } from '@/types/scratch';
@@ -26,6 +26,7 @@ import {
   OVERLAY_PRESETS,
   focusGameOverlayInput,
   isGameOverlayCollapsed,
+  isGameOverlayVisible,
   mountGameOverlay,
   resetGameOverlayStyle,
   setGameOverlayCollapsed,
@@ -100,30 +101,26 @@ const messages = {
     'kukechat.block.botGroupInfo': '获取群 [GROUP_ID] 信息 [FIELD]',
     'kukechat.block.botMembers': '机器人群 [GROUP_ID] 成员列表JSON',
     'kukechat.block.botMessages': '机器人会话 [GROUP_ID] 最近 [LIMIT] 条消息JSON',
+    'kukechat.div.botAdmin': '🛡️ KukeChat 机器人群管',
+    'kukechat.block.botMemberInfo': '群 [GROUP_ID] 成员 [USER_ID] 的 [FIELD]',
+    'kukechat.block.botSetMute': '禁言群 [GROUP_ID] 成员 [USER_ID] [MINUTES] 分钟',
+    'kukechat.block.botUnmute': '解除群 [GROUP_ID] 成员 [USER_ID] 的禁言',
+    'kukechat.block.botKick': '把群 [GROUP_ID] 成员 [USER_ID] 移出群聊',
+    'kukechat.block.botSetRole': '[ROLE] 群 [GROUP_ID] 成员 [USER_ID]',
+    'kukechat.block.botJoinRequests': '群 [GROUP_ID] 待处理入群申请JSON',
+    'kukechat.block.botReviewJoinRequest': '[DECISION] 入群申请 [REQUEST_ID] 备注 [NOTE]',
     'kukechat.div.game': '🎮 KukeChat 游戏模式',
-    'kukechat.div.gameStyle': '🎨 游戏模式外观',
     'kukechat.div.gameEvents': '📨 游戏模式事件',
     'kukechat.block.gameConnect': '接入游戏聊天 群号 [GROUP_ID]',
     'kukechat.block.gameDisconnect': '断开游戏聊天',
     'kukechat.block.gameOverlay': '[ACTION] 舞台聊天框',
     'kukechat.block.gameAuthorize': '请求玩家授权 KukeChat 账号',
-    'kukechat.block.gameIsAuthorized': '玩家是否已授权',
-    'kukechat.block.gameCanSend': '玩家当前能否发言',
+    'kukechat.block.gameRequestSend': '请求玩家授予代发言权限',
     'kukechat.block.gameSend': '以玩家身份发送消息 [MESSAGE]',
+    'kukechat.block.gameState': '玩家/聊天框 [FIELD]',
     'kukechat.block.gameInfo': '游戏聊天信息 [FIELD]',
-    'kukechat.block.gameSetCorner': '把聊天框放到 [CORNER]',
-    'kukechat.block.gameSetSize': '设置聊天框宽 [WIDTH] 高 [HEIGHT] （舞台坐标）',
     'kukechat.block.gameSetStyle': '设置聊天框 [FIELD] 为 [VALUE]',
-    'kukechat.block.gameResetStyle': '恢复聊天框默认外观',
-    'kukechat.block.whenGameMessage': '当游戏模式收到消息 发送者=[SENDER_NAME] 发送者ID=[SENDER_ID] 内容=[CONTENT] 是否自己=[IS_SELF]',
-    'kukechat.block.gameLastMessage': '最近一条游戏消息 [FIELD]',
-    'kukechat.block.gameCollapse': '[ACTION] 聊天框',
-    'kukechat.block.gameIsCollapsed': '聊天框是否已折叠',
-    'kukechat.block.gamePreset': '套用聊天框预设 [PRESET]',
-    'kukechat.block.gameCustomCss': '设置聊天框自定义 CSS [CSS]',
-    'kukechat.block.gameClearCss': '清除自定义 CSS',
-    'kukechat.block.gameCanSendOnBehalf': '玩家是否允许本作品代为发言',
-    'kukechat.block.gameRequestSend': '请求玩家授予代发言权限'
+    'kukechat.block.whenGameMessage': '当游戏模式收到消息 发送者=[SENDER_NAME] 发送者ID=[SENDER_ID] 内容=[CONTENT] 是否自己=[IS_SELF]'
   },
   en: {
     'kukechat.div.window': '🪟 KukeChat Window',
@@ -168,30 +165,26 @@ const messages = {
     'kukechat.block.botGroupInfo': 'Get group [GROUP_ID] info [FIELD]',
     'kukechat.block.botMembers': 'Bot group [GROUP_ID] members JSON',
     'kukechat.block.botMessages': 'Bot conversation [GROUP_ID] latest [LIMIT] messages JSON',
+    'kukechat.div.botAdmin': '🛡️ KukeChat Bot Moderation',
+    'kukechat.block.botMemberInfo': 'Group [GROUP_ID] member [USER_ID] [FIELD]',
+    'kukechat.block.botSetMute': 'Mute group [GROUP_ID] member [USER_ID] for [MINUTES] minutes',
+    'kukechat.block.botUnmute': 'Unmute group [GROUP_ID] member [USER_ID]',
+    'kukechat.block.botKick': 'Remove member [USER_ID] from group [GROUP_ID]',
+    'kukechat.block.botSetRole': '[ROLE] group [GROUP_ID] member [USER_ID]',
+    'kukechat.block.botJoinRequests': 'Group [GROUP_ID] pending join requests JSON',
+    'kukechat.block.botReviewJoinRequest': '[DECISION] join request [REQUEST_ID] note [NOTE]',
     'kukechat.div.game': '🎮 KukeChat Game Mode',
-    'kukechat.div.gameStyle': '🎨 Game Mode Appearance',
     'kukechat.div.gameEvents': '📨 Game Mode Events',
     'kukechat.block.gameConnect': 'Connect game chat to group [GROUP_ID]',
     'kukechat.block.gameDisconnect': 'Disconnect game chat',
     'kukechat.block.gameOverlay': '[ACTION] stage chat box',
     'kukechat.block.gameAuthorize': 'Ask player to authorize KukeChat account',
-    'kukechat.block.gameIsAuthorized': 'Player authorized?',
-    'kukechat.block.gameCanSend': 'Player can send messages?',
+    'kukechat.block.gameRequestSend': 'Request permission to send as player',
     'kukechat.block.gameSend': 'Send message as player [MESSAGE]',
+    'kukechat.block.gameState': 'Player/chat box [FIELD]',
     'kukechat.block.gameInfo': 'Game chat info [FIELD]',
-    'kukechat.block.gameSetCorner': 'Move chat box to [CORNER]',
-    'kukechat.block.gameSetSize': 'Set chat box width [WIDTH] height [HEIGHT] (stage units)',
     'kukechat.block.gameSetStyle': 'Set chat box [FIELD] to [VALUE]',
-    'kukechat.block.gameResetStyle': 'Reset chat box appearance',
-    'kukechat.block.whenGameMessage': 'When game mode receives message sender=[SENDER_NAME] sender id=[SENDER_ID] content=[CONTENT] is self=[IS_SELF]',
-    'kukechat.block.gameLastMessage': 'Latest game message [FIELD]',
-    'kukechat.block.gameCollapse': '[ACTION] chat box',
-    'kukechat.block.gameIsCollapsed': 'Chat box collapsed?',
-    'kukechat.block.gamePreset': 'Apply chat box preset [PRESET]',
-    'kukechat.block.gameCustomCss': 'Set chat box custom CSS [CSS]',
-    'kukechat.block.gameClearCss': 'Clear custom CSS',
-    'kukechat.block.gameCanSendOnBehalf': 'Player allows this project to send?',
-    'kukechat.block.gameRequestSend': 'Request permission to send as player'
+    'kukechat.block.whenGameMessage': 'When game mode receives message sender=[SENDER_NAME] sender id=[SENDER_ID] content=[CONTENT] is self=[IS_SELF]'
   }
 };
 
@@ -280,6 +273,42 @@ export default class KukeChatExtension {
           USER_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
           EXTRA_MESSAGE: { type: scratch.ArgumentType.STRING, defaultValue: '' }
         }),
+        `---${this.formatMessage('kukechat.div.game')}`,
+        block('gameConnect', scratch.BlockType.COMMAND, 'kukechat.block.gameConnect', {
+          GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
+        }),
+        block('gameDisconnect', scratch.BlockType.COMMAND, 'kukechat.block.gameDisconnect'),
+        block('gameOverlay', scratch.BlockType.COMMAND, 'kukechat.block.gameOverlay', {
+          ACTION: { type: scratch.ArgumentType.STRING, menu: 'GAME_OVERLAY_ACTION', defaultValue: 'show' }
+        }),
+        block('gameAuthorize', scratch.BlockType.COMMAND, 'kukechat.block.gameAuthorize'),
+        block('gameRequestSend', scratch.BlockType.COMMAND, 'kukechat.block.gameRequestSend'),
+        block('gameSend', scratch.BlockType.COMMAND, 'kukechat.block.gameSend', {
+          MESSAGE: { type: scratch.ArgumentType.STRING, defaultValue: '大家好！' }
+        }),
+        block('gameState', scratch.BlockType.BOOLEAN, 'kukechat.block.gameState', {
+          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_STATE_FIELD', defaultValue: 'authorized' }
+        }),
+        block('gameInfo', scratch.BlockType.REPORTER, 'kukechat.block.gameInfo', {
+          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_INFO_FIELD', defaultValue: 'status' }
+        }),
+        block('gameSetStyle', scratch.BlockType.COMMAND, 'kukechat.block.gameSetStyle', {
+          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_STYLE_FIELD', defaultValue: 'preset' },
+          VALUE: { type: scratch.ArgumentType.STRING, defaultValue: 'glass' }
+        }),
+        `---${this.formatMessage('kukechat.div.gameEvents')}`,
+        {
+          opcode: 'whenGameMessage',
+          blockType: scratch.BlockType.HAT,
+          isEdgeActivated: false,
+          text: this.formatMessage('kukechat.block.whenGameMessage'),
+          arguments: {
+            SENDER_NAME: { type: scratch.ArgumentType.STRING },
+            SENDER_ID: { type: scratch.ArgumentType.NUMBER },
+            CONTENT: { type: scratch.ArgumentType.STRING },
+            IS_SELF: { type: scratch.ArgumentType.STRING }
+          }
+        },
         `---${this.formatMessage('kukechat.div.botConfig')}`,
         `---${this.formatMessage('kukechat.notice.botKey')}`,
         block('setBotKey', scratch.BlockType.COMMAND, 'kukechat.block.setBotKey', { KEY: { type: scratch.ArgumentType.STRING, defaultValue: 'kcb_live_xxx' } }),
@@ -344,64 +373,37 @@ export default class KukeChatExtension {
         }),
         block('botMembers', scratch.BlockType.REPORTER, 'kukechat.block.botMembers', { GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 } }),
         block('botMessages', scratch.BlockType.REPORTER, 'kukechat.block.botMessages', { GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }, LIMIT: { type: scratch.ArgumentType.NUMBER, defaultValue: 20 } }),
-        `---${this.formatMessage('kukechat.div.game')}`,
-        block('gameConnect', scratch.BlockType.COMMAND, 'kukechat.block.gameConnect', {
+        `---${this.formatMessage('kukechat.div.botAdmin')}`,
+        block('botMemberInfo', scratch.BlockType.REPORTER, 'kukechat.block.botMemberInfo', {
+          GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
+          USER_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
+          FIELD: { type: scratch.ArgumentType.STRING, menu: 'BOT_MEMBER_FIELD', defaultValue: 'level' }
+        }),
+        block('botSetMute', scratch.BlockType.COMMAND, 'kukechat.block.botSetMute', {
+          GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
+          USER_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
+          MINUTES: { type: scratch.ArgumentType.NUMBER, defaultValue: 10 }
+        }),
+        block('botUnmute', scratch.BlockType.COMMAND, 'kukechat.block.botUnmute', {
+          GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
+          USER_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
+        }),
+        block('botKick', scratch.BlockType.COMMAND, 'kukechat.block.botKick', {
+          GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
+          USER_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
+        }),
+        block('botSetRole', scratch.BlockType.COMMAND, 'kukechat.block.botSetRole', {
+          ROLE: { type: scratch.ArgumentType.STRING, menu: 'BOT_MEMBER_ROLE', defaultValue: 'admin' },
+          GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
+          USER_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
+        }),
+        block('botJoinRequests', scratch.BlockType.REPORTER, 'kukechat.block.botJoinRequests', {
           GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
         }),
-        block('gameDisconnect', scratch.BlockType.COMMAND, 'kukechat.block.gameDisconnect'),
-        block('gameOverlay', scratch.BlockType.COMMAND, 'kukechat.block.gameOverlay', {
-          ACTION: { type: scratch.ArgumentType.STRING, menu: 'GAME_OVERLAY_ACTION', defaultValue: 'show' }
-        }),
-        block('gameAuthorize', scratch.BlockType.COMMAND, 'kukechat.block.gameAuthorize'),
-        block('gameIsAuthorized', scratch.BlockType.BOOLEAN, 'kukechat.block.gameIsAuthorized'),
-        block('gameCanSend', scratch.BlockType.BOOLEAN, 'kukechat.block.gameCanSend'),
-        block('gameSend', scratch.BlockType.COMMAND, 'kukechat.block.gameSend', {
-          MESSAGE: { type: scratch.ArgumentType.STRING, defaultValue: '大家好！' }
-        }),
-        block('gameInfo', scratch.BlockType.REPORTER, 'kukechat.block.gameInfo', {
-          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_INFO_FIELD', defaultValue: 'status' }
-        }),
-        `---${this.formatMessage('kukechat.div.gameStyle')}`,
-        block('gameSetCorner', scratch.BlockType.COMMAND, 'kukechat.block.gameSetCorner', {
-          CORNER: { type: scratch.ArgumentType.STRING, menu: 'GAME_CORNER', defaultValue: 'bottom-left' }
-        }),
-        block('gameSetSize', scratch.BlockType.COMMAND, 'kukechat.block.gameSetSize', {
-          WIDTH: { type: scratch.ArgumentType.NUMBER, defaultValue: 200 },
-          HEIGHT: { type: scratch.ArgumentType.NUMBER, defaultValue: 130 }
-        }),
-        block('gameSetStyle', scratch.BlockType.COMMAND, 'kukechat.block.gameSetStyle', {
-          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_STYLE_FIELD', defaultValue: 'accent' },
-          VALUE: { type: scratch.ArgumentType.STRING, defaultValue: '#5b8cff' }
-        }),
-        block('gameResetStyle', scratch.BlockType.COMMAND, 'kukechat.block.gameResetStyle'),
-        block('gamePreset', scratch.BlockType.COMMAND, 'kukechat.block.gamePreset', {
-          PRESET: { type: scratch.ArgumentType.STRING, menu: 'GAME_PRESET', defaultValue: 'glass' }
-        }),
-        block('gameCollapse', scratch.BlockType.COMMAND, 'kukechat.block.gameCollapse', {
-          ACTION: { type: scratch.ArgumentType.STRING, menu: 'GAME_COLLAPSE_ACTION', defaultValue: 'toggle' }
-        }),
-        block('gameIsCollapsed', scratch.BlockType.BOOLEAN, 'kukechat.block.gameIsCollapsed'),
-        block('gameCustomCss', scratch.BlockType.COMMAND, 'kukechat.block.gameCustomCss', {
-          CSS: { type: scratch.ArgumentType.STRING, defaultValue: '.row .name { font-style: italic; }' }
-        }),
-        block('gameClearCss', scratch.BlockType.COMMAND, 'kukechat.block.gameClearCss'),
-        block('gameCanSendOnBehalf', scratch.BlockType.BOOLEAN, 'kukechat.block.gameCanSendOnBehalf'),
-        block('gameRequestSend', scratch.BlockType.COMMAND, 'kukechat.block.gameRequestSend'),
-        `---${this.formatMessage('kukechat.div.gameEvents')}`,
-        {
-          opcode: 'whenGameMessage',
-          blockType: scratch.BlockType.HAT,
-          isEdgeActivated: false,
-          text: this.formatMessage('kukechat.block.whenGameMessage'),
-          arguments: {
-            SENDER_NAME: { type: scratch.ArgumentType.STRING },
-            SENDER_ID: { type: scratch.ArgumentType.NUMBER },
-            CONTENT: { type: scratch.ArgumentType.STRING },
-            IS_SELF: { type: scratch.ArgumentType.STRING }
-          }
-        },
-        block('gameLastMessage', scratch.BlockType.REPORTER, 'kukechat.block.gameLastMessage', {
-          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_MESSAGE_FIELD', defaultValue: 'content' }
+        block('botReviewJoinRequest', scratch.BlockType.COMMAND, 'kukechat.block.botReviewJoinRequest', {
+          DECISION: { type: scratch.ArgumentType.STRING, menu: 'BOT_REVIEW_DECISION', defaultValue: 'approve' },
+          REQUEST_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
+          NOTE: { type: scratch.ArgumentType.STRING, defaultValue: '' }
         })
       ],
       menus: {
@@ -458,31 +460,52 @@ export default class KukeChatExtension {
           { text: '公告', value: 'announcement' },
           { text: '机器人是否启用', value: 'bot_enabled' }
         ],
+        BOT_MEMBER_FIELD: [
+          { text: '群昵称', value: 'nickname' },
+          { text: '显示名', value: 'display_name' },
+          { text: '角色', value: 'role' },
+          { text: '是否管理员', value: 'is_admin' },
+          { text: '是否群主', value: 'is_owner' },
+          { text: '等级', value: 'level' },
+          { text: '当前经验', value: 'level_exp' },
+          { text: '升级所需经验', value: 'next_level_exp' },
+          { text: '活跃分', value: 'activity_score' },
+          { text: '是否被禁言', value: 'muted' },
+          { text: '禁言到期时间', value: 'muted_until' },
+          { text: '头衔', value: 'title' },
+          { text: '入群时间', value: 'joined_at' },
+          { text: '累计签到', value: 'total_checkins' },
+          { text: '连续签到', value: 'current_checkin_streak' },
+          { text: '是否在群里', value: 'in_group' }
+        ],
+        BOT_MEMBER_ROLE: [
+          { text: '设为管理员', value: 'admin' },
+          { text: '取消管理员', value: 'member' }
+        ],
+        BOT_REVIEW_DECISION: [
+          { text: '同意', value: 'approve' },
+          { text: '拒绝', value: 'reject' }
+        ],
         GAME_OVERLAY_ACTION: [
           { text: '显示', value: 'show' },
           { text: '隐藏', value: 'hide' },
-          { text: '聚焦输入框', value: 'focus' }
-        ],
-        GAME_CORNER: [
-          { text: '左上角', value: 'top-left' },
-          { text: '右上角', value: 'top-right' },
-          { text: '左下角', value: 'bottom-left' },
-          { text: '右下角', value: 'bottom-right' }
-        ],
-        GAME_PRESET: [
-          { text: '毛玻璃（默认）', value: 'glass' },
-          { text: '午夜', value: 'midnight' },
-          { text: '霜白', value: 'frost' },
-          { text: '终端', value: 'terminal' },
-          { text: '气泡', value: 'bubble' },
-          { text: '极简', value: 'minimal' }
-        ],
-        GAME_COLLAPSE_ACTION: [
+          { text: '聚焦输入框', value: 'focus' },
           { text: '折叠', value: 'collapse' },
           { text: '展开', value: 'expand' },
-          { text: '切换', value: 'toggle' }
+          { text: '切换折叠', value: 'toggle' }
+        ],
+        GAME_STATE_FIELD: [
+          { text: '玩家是否已授权', value: 'authorized' },
+          { text: '玩家当前能否发言', value: 'can_send' },
+          { text: '是否允许本作品代发言', value: 'can_send_on_behalf' },
+          { text: '聊天框是否已折叠', value: 'collapsed' },
+          { text: '聊天框是否显示中', value: 'visible' }
         ],
         GAME_STYLE_FIELD: [
+          { text: '预设外观', value: 'preset' },
+          { text: '位置', value: 'corner' },
+          { text: '宽度（舞台坐标）', value: 'width' },
+          { text: '高度（舞台坐标）', value: 'height' },
           { text: '主题色', value: 'accent' },
           { text: '背景色', value: 'background' },
           { text: '文字色', value: 'textColor' },
@@ -491,7 +514,8 @@ export default class KukeChatExtension {
           { text: '圆角', value: 'radius' },
           { text: '毛玻璃模糊', value: 'blur' },
           { text: '显示头像(true/false)', value: 'showAvatars' },
-          { text: '显示标题栏(true/false)', value: 'showTitle' }
+          { text: '显示标题栏(true/false)', value: 'showTitle' },
+          { text: '自定义CSS（留空则清除）', value: 'customCss' }
         ],
         GAME_INFO_FIELD: [
           { text: '连接状态', value: 'status' },
@@ -502,15 +526,13 @@ export default class KukeChatExtension {
           { text: '玩家昵称', value: 'player_name' },
           { text: '玩家ID', value: 'player_id' },
           { text: '消息条数', value: 'message_count' },
-          { text: '错误信息', value: 'error' }
-        ],
-        GAME_MESSAGE_FIELD: [
-          { text: '内容', value: 'content' },
-          { text: '发送者', value: 'sender_name' },
-          { text: '发送者ID', value: 'sender_id' },
-          { text: '消息ID', value: 'id' },
-          { text: '是否自己', value: 'is_self' },
-          { text: '发送时间', value: 'created_at' }
+          { text: '错误信息', value: 'error' },
+          { text: '最近消息 · 内容', value: 'last_content' },
+          { text: '最近消息 · 发送者', value: 'last_sender_name' },
+          { text: '最近消息 · 发送者ID', value: 'last_sender_id' },
+          { text: '最近消息 · 消息ID', value: 'last_id' },
+          { text: '最近消息 · 是否自己', value: 'last_is_self' },
+          { text: '最近消息 · 发送时间', value: 'last_created_at' }
         ]
       }
     };
@@ -727,6 +749,7 @@ export default class KukeChatExtension {
     unmountGameOverlay();
   }
 
+  /** 聊天框的所有开关动作都收在这一个积木里：显示、隐藏、聚焦、折叠。 */
   gameOverlay(args: { ACTION: string }): void {
     const action = String(args.ACTION ?? 'show');
     if (action === 'hide') {
@@ -737,8 +760,38 @@ export default class KukeChatExtension {
       focusGameOverlayInput();
       return;
     }
+    if (action === 'collapse') {
+      setGameOverlayCollapsed(true);
+      return;
+    }
+    if (action === 'expand') {
+      // 积木明确要求展开，视同固定展开（点外面不会自动收起）
+      setGameOverlayCollapsed(false, 'pinned');
+      return;
+    }
+    if (action === 'toggle') {
+      toggleGameOverlayCollapsed();
+      return;
+    }
     mountGameOverlay();
     setGameOverlayVisible(true);
+  }
+
+  /** 布尔状态统一查询，省得为每个「是否……」单开一个积木。 */
+  gameState(args: { FIELD: string }): boolean {
+    switch (String(args.FIELD ?? 'authorized')) {
+      case 'can_send':
+        return isGameAuthorized() && getGameChatState().status === 'connected';
+      case 'can_send_on_behalf':
+        return canSendOnBehalf(getGameChatState().creationOid);
+      case 'collapsed':
+        return isGameOverlayCollapsed();
+      case 'visible':
+        return isGameOverlayVisible();
+      case 'authorized':
+      default:
+        return isGameAuthorized();
+    }
   }
 
   async gameAuthorize(): Promise<void> {
@@ -776,7 +829,12 @@ export default class KukeChatExtension {
   gameInfo(args: { FIELD: string }): string | number {
     const state = getGameChatState();
     const auth = getGameAuth();
-    switch (String(args.FIELD ?? 'status')) {
+    const field = String(args.FIELD ?? 'status');
+    // last_* 前缀的字段读的是最近一条消息，原来是独立积木，现在并进来
+    if (field.startsWith('last_')) {
+      return this.gameLastMessage({ FIELD: field.slice(5) });
+    }
+    switch (field) {
       case 'title': return state.title ?? '';
       case 'conversation_id': return state.conversationId ?? 0;
       case 'member_count': return state.memberCount;
@@ -814,13 +872,56 @@ export default class KukeChatExtension {
     updateGameOverlayStyle(patch);
   }
 
+  /**
+   * 聊天框外观的唯一入口。
+   *
+   * 位置、尺寸、预设、自定义 CSS 原本各占一个积木，实际都是「设置某个外观属性」，
+   * 合并成一个带菜单的积木后，积木栏短了一大截，用法也更好记。
+   */
   gameSetStyle(args: { FIELD: string; VALUE: string | number }): void {
     const field = String(args.FIELD ?? '');
     const raw = args.VALUE;
     const text = String(raw ?? '').trim();
     const numeric = Number(raw);
+    const stage = stageLogicalSize();
 
     switch (field) {
+      case 'preset': {
+        // 「默认 / default / reset」当作恢复出厂外观
+        const key = text.toLowerCase();
+        if (!key || key === 'default' || key === 'reset' || key === '默认') {
+          resetGameOverlayStyle();
+          updateGameOverlayStyle(DEFAULT_OVERLAY_STYLE);
+          return;
+        }
+        const preset = OVERLAY_PRESETS[key as OverlayPreset];
+        if (preset) {
+          updateGameOverlayStyle(preset);
+        }
+        return;
+      }
+      case 'corner': {
+        const allowed: OverlayCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+        if (allowed.includes(text as OverlayCorner)) {
+          updateGameOverlayStyle({ corner: text as OverlayCorner });
+        }
+        return;
+      }
+      case 'width':
+        // 单位是舞台逻辑坐标，上限就是舞台本身；下限保证内容还能看清
+        if (Number.isFinite(numeric)) {
+          updateGameOverlayStyle({ width: Math.min(Math.max(Math.round(numeric), 80), stage.width) });
+        }
+        return;
+      case 'height':
+        if (Number.isFinite(numeric)) {
+          updateGameOverlayStyle({ height: Math.min(Math.max(Math.round(numeric), 60), stage.height) });
+        }
+        return;
+      case 'customCss':
+        // 只作用于聊天框自己的 Shadow DOM，改不到作品或宿主页面；留空即清除
+        updateGameOverlayStyle({ customCss: String(raw ?? '') });
+        return;
       case 'accent':
       case 'background':
       case 'textColor':
@@ -1034,6 +1135,113 @@ export default class KukeChatExtension {
       payload.user_id = userId;
     }
     await this.runBotOperation(() => botApiUpdateMessageComponent(this.botKey, groupId, messageId, buttonId, payload));
+  }
+
+  // ------------------------------------------------------------------
+  // 群管理
+  //
+  // 机器人在群里就是个普通成员，这些操作能不能成完全取决于群主有没有把它设成
+  // 管理员 —— 后端按人类管理员的同一套规则校验，越权会返回 403 并落到
+  // 「最近一次操作错误」里。
+  // ------------------------------------------------------------------
+
+  /** 取群成员信息；机器人只能查自己已安装的群。 */
+  async botMemberInfo(args: { GROUP_ID?: number | string; USER_ID?: number | string; FIELD?: string }): Promise<string | number | boolean> {
+    const groupId = parseGroupId(args.GROUP_ID);
+    const userId = parseUserId(args.USER_ID);
+    const field = String(args.FIELD ?? 'level');
+    if (!this.botKey || !groupId || !userId) {
+      this.setBotError(!this.botKey ? '请先设置机器人 Key' : '群 ID 或用户 ID 无效');
+      return '';
+    }
+    const members = await this.runBotOperation(() => botApiGetMembers(this.botKey, groupId));
+    const member = (members ?? []).find((item) => (item.user_id ?? item.user?.id) === userId);
+    if (!member) {
+      return field === 'in_group' ? 'false' : '';
+    }
+    const role = String(member.role ?? 'member');
+    switch (field) {
+      case 'in_group': return 'true';
+      case 'nickname': return member.nickname ?? '';
+      case 'display_name': return member.nickname || member.user?.nickname || member.user?.username || '';
+      case 'role': return role;
+      case 'is_admin': return role === 'admin' || role === 'owner' ? 'true' : 'false';
+      case 'is_owner': return role === 'owner' ? 'true' : 'false';
+      case 'level': return member.level ?? 1;
+      case 'level_exp': return member.level_exp ?? 0;
+      case 'next_level_exp': return member.next_level_exp ?? 0;
+      case 'activity_score': return member.activity_score ?? 0;
+      case 'muted': return member.muted ? 'true' : 'false';
+      case 'muted_until': return member.muted_until ?? '';
+      case 'title': return member.title ?? '';
+      case 'joined_at': return member.joined_at ?? '';
+      case 'total_checkins': return member.total_checkins ?? 0;
+      case 'current_checkin_streak': return member.current_checkin_streak ?? 0;
+      default: return '';
+    }
+  }
+
+  async botSetMute(args: { GROUP_ID?: number | string; USER_ID?: number | string; MINUTES?: number | string }): Promise<void> {
+    const groupId = parseGroupId(args.GROUP_ID);
+    const userId = parseUserId(args.USER_ID);
+    if (!this.botKey || !groupId || !userId) {
+      this.setBotError(!this.botKey ? '请先设置机器人 Key' : '群 ID 或用户 ID 无效');
+      return;
+    }
+    // 0 或负数表示不设期限，一直禁到手动解除
+    const minutes = Math.max(0, Math.round(Number(args.MINUTES ?? 0) || 0));
+    await this.runBotOperation(() => botApiSetMemberMute(this.botKey, groupId, userId, true, minutes));
+  }
+
+  async botUnmute(args: { GROUP_ID?: number | string; USER_ID?: number | string }): Promise<void> {
+    const groupId = parseGroupId(args.GROUP_ID);
+    const userId = parseUserId(args.USER_ID);
+    if (!this.botKey || !groupId || !userId) {
+      this.setBotError(!this.botKey ? '请先设置机器人 Key' : '群 ID 或用户 ID 无效');
+      return;
+    }
+    await this.runBotOperation(() => botApiSetMemberMute(this.botKey, groupId, userId, false));
+  }
+
+  async botKick(args: { GROUP_ID?: number | string; USER_ID?: number | string }): Promise<void> {
+    const groupId = parseGroupId(args.GROUP_ID);
+    const userId = parseUserId(args.USER_ID);
+    if (!this.botKey || !groupId || !userId) {
+      this.setBotError(!this.botKey ? '请先设置机器人 Key' : '群 ID 或用户 ID 无效');
+      return;
+    }
+    await this.runBotOperation(() => botApiRemoveMember(this.botKey, groupId, userId));
+  }
+
+  async botSetRole(args: { ROLE?: string; GROUP_ID?: number | string; USER_ID?: number | string }): Promise<void> {
+    const groupId = parseGroupId(args.GROUP_ID);
+    const userId = parseUserId(args.USER_ID);
+    if (!this.botKey || !groupId || !userId) {
+      this.setBotError(!this.botKey ? '请先设置机器人 Key' : '群 ID 或用户 ID 无效');
+      return;
+    }
+    const role = String(args.ROLE ?? 'admin') === 'member' ? 'member' : 'admin';
+    await this.runBotOperation(() => botApiSetMemberRole(this.botKey, groupId, userId, role));
+  }
+
+  async botJoinRequests(args: { GROUP_ID?: number | string }): Promise<string> {
+    const groupId = parseGroupId(args.GROUP_ID);
+    if (!this.botKey || !groupId) {
+      this.setBotError(!this.botKey ? '请先设置机器人 Key' : '群 ID 无效');
+      return '[]';
+    }
+    const result = await this.runBotOperation(() => botApiGetJoinRequests(this.botKey, groupId));
+    return JSON.stringify(result ?? []);
+  }
+
+  async botReviewJoinRequest(args: { DECISION?: string; REQUEST_ID?: number | string; NOTE?: string }): Promise<void> {
+    const requestId = Number(args.REQUEST_ID ?? 0);
+    if (!this.botKey || !Number.isInteger(requestId) || requestId <= 0) {
+      this.setBotError(!this.botKey ? '请先设置机器人 Key' : '申请 ID 无效');
+      return;
+    }
+    const approved = String(args.DECISION ?? 'approve') !== 'reject';
+    await this.runBotOperation(() => botApiReviewJoinRequest(this.botKey, requestId, approved, String(args.NOTE ?? '')));
   }
 
   async botConversations(): Promise<string> {

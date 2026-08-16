@@ -40,6 +40,7 @@ const eventTypeMap: Record<string, RealtimeEventType> = {
   'conversation.temporary.closed': 'conversation.temporary.closed',
   'conversation.temporary.blocked': 'conversation.temporary.blocked',
   'temporary_block.deleted': 'temporary_block.deleted',
+  'conversation.member.poked': 'conversation.member.poked',
   'presence.updated': 'presence.updated',
   'post.created': 'post.created',
   'post.deleted': 'post.deleted',

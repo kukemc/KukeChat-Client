@@ -31,6 +31,7 @@ export type RealtimeEventType =
   | 'conversation.temporary.closed'
   | 'conversation.temporary.blocked'
   | 'temporary_block.deleted'
+  | 'conversation.member.poked'
   | 'presence.updated'
   | 'post.created'
   | 'post.updated'

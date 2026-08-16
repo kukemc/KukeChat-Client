@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData } from '@tanstack/react-query';
-import { blockTemporaryConversation, closeTemporaryConversation, createDirectConversation, getConversationMember, removeConversationMember, searchConversationMembers, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle } from '@/api/conversations';
+import { blockTemporaryConversation, closeTemporaryConversation, createDirectConversation, getConversationMember, pokeMember, removeConversationMember, searchConversationMembers, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle } from '@/api/conversations';
 import { addFavoriteSticker, deleteMessageLocal, forwardMessageBundle, getFavoriteStickers, getFeaturedMessages, getMessageContext, getMessages, markConversationRead, recallMessage, removeFavoriteSticker, searchConversationMessages, sendMessage, toggleMessageBookmark, toggleMessageFeature, toggleMessageReaction, triggerMessageInteraction, uploadMessageImage, uploadMessageVoice, type FavoriteStickerItem, type FeaturedMessageItem, type MessageInteractionPayload } from '@/api/messages';
 import { acceptInvite } from '@/api/invites';
 import { isRecord } from '@/api/normalizers';
@@ -34,6 +34,7 @@ import { AnnouncementModal } from './AnnouncementModal';
 import { ReportModal } from './ReportModal';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
 import { isNativeMobileApp } from '@/utils/appMode';
+import { subscribePoke } from '@/realtime/poke';
 import { registerNativeBackHandler } from '@/native/back';
 import { runNativeRouteTransition } from '@/native/transition';
 
@@ -253,6 +254,8 @@ const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 const EMOJIS = ['😀', '😄', '😂', '🤣', '😊', '😍', '😘', '😎', '😭', '😡', '👍', '👎', '👏', '🙏', '💪', '🎉', '✨', '❤️', '💔', '🔥', '⭐', '🌙', '☀️', '🍀', '🐱', '🐶', '🐧', '🍉', '🍜', '🎮', '📷', '💬'];
 const QUICK_REACTION_EMOJIS = ['😂', '😘', '❔', '🤔', '😡', '😭'];
 const FULL_REACTION_EMOJIS = ['😀', '😃', '😄', '😁', '😂', '🤣', '😊', '😍', '😘', '😎', '😋', '😜', '🤔', '😮', '😢', '😭', '😡', '👍', '👎', '👏', '🙏', '💪', '🎉', '✨', '❤️', '🔥', '⭐', '🌙', '☀️', '🍀', '🐱', '🐶', '🐧', '🍉', '🍜', '🎮', '📷', '💬', '✅', '❌'];
+// 太长的消息复读出去就是刷屏，卡在这个长度以内
+const REPEAT_MAX_LENGTH = 200;
 const MESSAGE_MENU_WIDTH = 252;
 const MESSAGE_MENU_HEIGHT = 416;
 const MEMBER_MENU_WIDTH = 220;
@@ -1355,6 +1358,22 @@ function messageReadableLine(message: Message): string {
   const time = formatMessageTime(message.created_at);
   const prefix = time ? `${messageSenderLabel(message)} ${time}` : messageSenderLabel(message);
   return `${prefix}：${messagePreview(message)}`;
+}
+
+/** 一条消息能不能被「+1」复读出去；不能则返回 null。 */
+function repeatableContentOf(message: Message | undefined | null): string | null {
+  if (!message || message.type !== 'text' || message.recalled_at) {
+    return null;
+  }
+  // 机器人的 Markdown / 交互元素复读出去只剩一堆标签，没有意义
+  if (hasBotRenderableElements(message) || isBotMarkdownMessage(message)) {
+    return null;
+  }
+  const text = (message.content ?? '').trim();
+  if (!text || text.length > REPEAT_MAX_LENGTH) {
+    return null;
+  }
+  return text;
 }
 
 function conversationDisplayTitle(conversation: Conversation, currentUser: User): string {
@@ -2984,6 +3003,12 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   const [jumpContextMessageId, setJumpContextMessageId] = useState<number | null>(null);
   const [isFetchingNewerContext, setIsFetchingNewerContext] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  // 正在抖动的头像。用数组而不是 Set，是为了让 React 的浅比较能察觉变化
+  const [pokedUserIds, setPokedUserIds] = useState<number[]>([]);
+  const [pokeTips, setPokeTips] = useState<{ id: number; text: string }[]>([]);
+  const pokeTipIdRef = useRef(0);
+  const pokeTimersRef = useRef<number[]>([]);
+  const avatarTapTimerRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const overlayRootRef = useRef<HTMLElement | null>(null);
@@ -4076,6 +4101,46 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     setShowMuteSubmenu(false);
   }
 
+  useEffect(() => {
+    return subscribePoke((event) => {
+      if (event.conversationId !== activeConversationId) {
+        return;
+      }
+      setPokedUserIds((current) => (current.includes(event.userId) ? current : [...current, event.userId]));
+      const shakeTimer = window.setTimeout(() => {
+        setPokedUserIds((current) => current.filter((id) => id !== event.userId));
+      }, 700);
+
+      const tipId = pokeTipIdRef.current + 1;
+      pokeTipIdRef.current = tipId;
+      const actor = event.actorId === currentUser.id ? '你' : event.actorName;
+      const target = event.userId === currentUser.id ? '你' : event.userName;
+      // 只留最近几条，刷屏时不至于把消息挤走
+      setPokeTips((current) => [...current, { id: tipId, text: `${actor} 戳了戳 ${target}` }].slice(-4));
+      const tipTimer = window.setTimeout(() => {
+        setPokeTips((current) => current.filter((tip) => tip.id !== tipId));
+      }, 6000);
+
+      pokeTimersRef.current.push(shakeTimer, tipTimer);
+    });
+  }, [activeConversationId, currentUser.id]);
+
+  useEffect(() => {
+    // 切走会话时清干净，别让上一个会话的提示飘到下一个里
+    setPokeTips([]);
+    setPokedUserIds([]);
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    return () => {
+      pokeTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      pokeTimersRef.current = [];
+      if (avatarTapTimerRef.current !== null) {
+        window.clearTimeout(avatarTapTimerRef.current);
+      }
+    };
+  }, []);
+
   function showToast(message: string, tone: ToastState['tone'] = 'info'): void {
     const id = toastIdRef.current + 1;
     toastIdRef.current = id;
@@ -4973,7 +5038,13 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     favoriteStickerMutation.mutate(imageUrl);
   }
 
-  function openUserCard(event: React.MouseEvent<HTMLElement>, user?: User | null, label?: string, member?: ConversationMember | null): void {
+  /**
+   * 按元素定位打开名片。
+   *
+   * 头像上「单击开名片、双击戳一戳」要靠延时区分，而延时之后 React 合成事件的
+   * currentTarget 已经是 null 了，所以这里接元素而不是事件。
+   */
+  function openUserCardAtElement(element: HTMLElement, user?: User | null, label?: string, member?: ConversationMember | null): void {
     setMessageMenu(null);
     setMemberMenu(null);
     const resolvedMember = member ?? (isGroup ? memberFromUser(user) : null);
@@ -4982,7 +5053,48 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
       setMobileUserProfile({ user, label, fallbackUserId: user?.id ?? resolvedMember?.user_id ?? resolvedMember?.user?.id, member: resolvedMember });
       return;
     }
-    setUserCard({ user, label, anchor: elementAnchorInContainer(event.currentTarget, overlayRootRef.current) });
+    setUserCard({ user, label, anchor: elementAnchorInContainer(element, overlayRootRef.current) });
+  }
+
+  function openUserCard(event: React.MouseEvent<HTMLElement>, user?: User | null, label?: string, member?: ConversationMember | null): void {
+    openUserCardAtElement(event.currentTarget, user, label, member);
+  }
+
+  /** 「+1」复读：原样把同一句再发一次。 */
+  function repeatMessage(content: string): void {
+    if (!activeConversationId || sendMutation.isPending) {
+      return;
+    }
+    sendMutation.mutate({ content, type: 'text' });
+  }
+
+  function cancelAvatarTap(): void {
+    if (avatarTapTimerRef.current !== null) {
+      window.clearTimeout(avatarTapTimerRef.current);
+      avatarTapTimerRef.current = null;
+    }
+  }
+
+  /** 单击头像的动作延后一点执行，给双击留出判定窗口。 */
+  function scheduleAvatarTap(action: () => void): void {
+    cancelAvatarTap();
+    avatarTapTimerRef.current = window.setTimeout(() => {
+      avatarTapTimerRef.current = null;
+      action();
+    }, 220);
+  }
+
+  async function pokeUser(userId: number | null | undefined): Promise<void> {
+    const conversationId = activeConversationId;
+    if (!conversationId || !userId || userId === currentUser.id) {
+      return;
+    }
+    try {
+      await pokeMember(conversationId, userId);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '';
+      showToast(/429|too fast/i.test(detail) ? '戳得太快啦，缓一缓' : '戳一戳失败', 'error');
+    }
   }
 
   function openMessageMenu(event: React.MouseEvent<HTMLElement>, message: Message, clickedImageUrl?: string): void {
@@ -5971,6 +6083,12 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               const taskShareCard = taskShareCardOf(message);
               const taskEventCard = taskEventCardOf(message);
               const stickerMessage = isStickerMessage(message);
+              // 连续相同的文本才算「复读」。图标只挂在这一串的最后一条上，
+              // 否则一串重复消息每条旁边都挂一个 +1，比刷屏本身还吵。
+              const repeatText = repeatableContentOf(message);
+              const showRepeatPlusOne = repeatText !== null
+                && repeatableContentOf(messages[index - 1]) === repeatText
+                && repeatableContentOf(messages[index + 1]) !== repeatText;
               if (message.type === 'system') {
                 return (
                   <div key={message.id}>
@@ -6004,8 +6122,25 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                     </label>
                   ) : null}
                   {!mine ? (
-                    <button type="button" onClick={(event) => openUserCard(event, sender, '好友', senderMember)} onContextMenu={(event) => openMemberMenu(event, senderMember)} className={`${isMobile ? 'h-9 w-9' : 'h-9 w-9'} shrink-0 rounded-full text-left [&>*]:h-full [&>*]:w-full`}>
-                      <Avatar user={sender} size="message" />
+                    <button
+                      type="button"
+                      title="双击戳一戳"
+                      onClick={(event) => {
+                        const element = event.currentTarget;
+                        scheduleAvatarTap(() => openUserCardAtElement(element, sender, '好友', senderMember));
+                      }}
+                      onDoubleClick={(event) => {
+                        // 消息行自身的双击是「引用」，这里必须拦住冒泡
+                        event.stopPropagation();
+                        cancelAvatarTap();
+                        void pokeUser(sender?.id ?? senderMember?.user_id);
+                      }}
+                      onContextMenu={(event) => openMemberMenu(event, senderMember)}
+                      className={`${isMobile ? 'h-9 w-9' : 'h-9 w-9'} shrink-0 rounded-full text-left [&>*]:h-full [&>*]:w-full`}
+                    >
+                      <span className={`block h-full w-full ${sender?.id && pokedUserIds.includes(sender.id) ? 'kc-poke-shake' : ''}`}>
+                        <Avatar user={sender} size="message" />
+                      </span>
                     </button>
                   ) : null}
                   <div className={`min-w-0 ${isMobile ? 'kc-mobile-message-stack' : 'max-w-[75%]'} ${mine ? 'items-end' : 'items-start'} flex flex-col gap-0.5`} style={isMobile ? { flex: '0 1 auto', width: 'auto', maxWidth: isNativeApp ? '72vw' : '78%' } : undefined}>
@@ -6096,9 +6231,26 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                     )}
                     {renderMessageReactions(message, mine)}
                   </div>
+                  {showRepeatPlusOne && repeatText ? (
+                    <button
+                      type="button"
+                      title="跟着复读一句"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        repeatMessage(repeatText);
+                      }}
+                      onDoubleClick={(event) => event.stopPropagation()}
+                      disabled={sendMutation.isPending}
+                      className="kc-plus-one self-center shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none transition [border-color:var(--kc-accent)] [color:var(--kc-accent)] hover:[background:var(--kc-accent-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      +1
+                    </button>
+                  ) : null}
                   {mine ? (
                     <button type="button" onClick={(event) => openUserCard(event, currentUser, getDisplayName(currentUser, '用户'), senderMember)} onContextMenu={(event) => openMemberMenu(event, senderMember)} className={`${isMobile ? 'h-9 w-9' : 'h-9 w-9'} shrink-0 rounded-full text-left [&>*]:h-full [&>*]:w-full`}>
-                      <Avatar user={currentUser} size="message" />
+                      <span className={`block h-full w-full ${pokedUserIds.includes(currentUser.id) ? 'kc-poke-shake' : ''}`}>
+                        <Avatar user={currentUser} size="message" />
+                      </span>
                     </button>
                   ) : null}
                   {multiSelectMode && mine ? (
@@ -6111,6 +6263,15 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               );
             })}
             </div>
+            {pokeTips.length > 0 ? (
+              <div className="mt-2 flex flex-col items-center gap-1">
+                {pokeTips.map((tip) => (
+                  <div key={tip.id} className="select-none rounded-full px-3 py-1 text-xs leading-none [animation:kc-poke-tip-enter_220ms_cubic-bezier(0.16,1,0.3,1)_both] [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">
+                    {tip.text}
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {isFetchingNewerContext ? <p className="mt-3 text-center text-xs [color:var(--kc-muted)]">正在加载更新消息...</p> : null}
             {isMobile && multiSelectMode ? <div className="h-24 shrink-0" aria-hidden="true" /> : null}
             <div ref={bottomRef} />

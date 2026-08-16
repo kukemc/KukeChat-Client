@@ -214,6 +214,52 @@ export async function botApiUpdateMessageComponent(key: string, conversationId: 
   return readBotJson<Record<string, unknown>>(response);
 }
 
+/**
+ * 群管理。
+ *
+ * 权限不在这一层判断：机器人在群里就是个普通成员，能不能踢人 / 禁言完全看群主
+ * 有没有把它设成管理员，后端会按人类管理员的同一套规则校验并返回 403。
+ */
+export async function botApiSetMemberMute(key: string, conversationId: number, userId: number, muted: boolean, minutes?: number): Promise<ConversationMember> {
+  const response = await fetch(joinBotApiPath(`/bot-api/conversations/${conversationId}/members/${userId}/mute`), {
+    method: 'PATCH',
+    headers: botHeaders(key),
+    body: JSON.stringify({ muted, minutes: minutes && minutes > 0 ? minutes : null })
+  });
+  return readBotJson<ConversationMember>(response);
+}
+
+export async function botApiSetMemberRole(key: string, conversationId: number, userId: number, role: 'admin' | 'member'): Promise<ConversationMember> {
+  const response = await fetch(joinBotApiPath(`/bot-api/conversations/${conversationId}/members/${userId}/role`), {
+    method: 'PATCH',
+    headers: botHeaders(key),
+    body: JSON.stringify({ role })
+  });
+  return readBotJson<ConversationMember>(response);
+}
+
+export async function botApiRemoveMember(key: string, conversationId: number, userId: number): Promise<void> {
+  const response = await fetch(joinBotApiPath(`/bot-api/conversations/${conversationId}/members/${userId}`), {
+    method: 'DELETE',
+    headers: botHeaders(key)
+  });
+  await readBotJson<unknown>(response);
+}
+
+export async function botApiGetJoinRequests(key: string, conversationId: number, pendingOnly = true): Promise<Record<string, unknown>[]> {
+  const response = await fetch(joinBotApiPath(`/bot-api/conversations/${conversationId}/join-requests?pending_only=${pendingOnly ? 'true' : 'false'}`), { headers: botHeaders(key) });
+  return asList<Record<string, unknown>>(await readBotJson<unknown>(response));
+}
+
+export async function botApiReviewJoinRequest(key: string, requestId: number, approved: boolean, decisionNote?: string): Promise<Record<string, unknown>> {
+  const response = await fetch(joinBotApiPath(`/bot-api/join-requests/${requestId}/review`), {
+    method: 'POST',
+    headers: botHeaders(key),
+    body: JSON.stringify({ approved, decision_note: decisionNote?.trim() || null })
+  });
+  return readBotJson<Record<string, unknown>>(response);
+}
+
 export async function botApiUploadFile(key: string, path: '/bot-api/uploads/image' | '/bot-api/uploads/voice', file: File): Promise<UploadResponse> {
   const body = new FormData();
   body.append('file', file);

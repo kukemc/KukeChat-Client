@@ -822,6 +822,12 @@ textarea {
     animation: kc-message-enter 180ms ease-out both;
   }
 
+  /* 被戳时头像抖一下。用 rotate + scale 而不是单纯平移，
+     手感更「弹」，也不会把同一行的其他元素挤开。 */
+  .kc-poke-shake {
+    animation: kc-poke-shake 620ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
   .kc-window-frame {
     animation: kc-window-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
     transform-origin: top left;
@@ -5195,6 +5201,22 @@ textarea {
     transform: translate3d(0, 0, 0);
     filter: blur(0);
   }
+}
+
+@keyframes kc-poke-shake {
+  0% { transform: rotate(0) scale(1); }
+  12% { transform: rotate(-14deg) scale(1.12); }
+  28% { transform: rotate(12deg) scale(1.1); }
+  44% { transform: rotate(-9deg) scale(1.06); }
+  60% { transform: rotate(7deg) scale(1.04); }
+  76% { transform: rotate(-4deg) scale(1.02); }
+  88% { transform: rotate(2deg) scale(1.01); }
+  100% { transform: rotate(0) scale(1); }
+}
+
+@keyframes kc-poke-tip-enter {
+  from { opacity: 0; transform: translateY(6px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes kc-message-enter {

@@ -10,6 +10,10 @@ export interface ConversationMembersPage {
   has_more: boolean;
 }
 
+export async function pokeMember(conversationId: number, userId: number): Promise<void> {
+  await apiRequest<unknown>(`/conversations/${conversationId}/members/${userId}/poke`, { method: 'POST' });
+}
+
 export async function getConversations(): Promise<Conversation[]> {
   const response = await apiRequest<unknown>('/conversations');
   return asList<Conversation>(response);

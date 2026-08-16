@@ -4,6 +4,7 @@ import type { InfiniteData } from '@tanstack/react-query';
 import { WS_URL } from '@/config';
 import { useKukeStore } from '@/store/kukeStore';
 import { emitRealtimeEvent, parseRealtimePayload } from './events';
+import { emitPoke } from './poke';
 import { pickNumber } from '@/api/normalizers';
 import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead, PresenceStatus, User } from '@/types/api';
 import { requestDesktopAttention } from '@/utils/desktopAttention';
@@ -430,6 +431,22 @@ export function useRealtime(enabled: boolean): void {
               void queryClient.invalidateQueries({ queryKey: ['group-checkin-status', conversationId] });
               void queryClient.invalidateQueries({ queryKey: ['group-leaderboard', conversationId] });
             }
+          }
+        }
+
+        if (event.type === 'conversation.member.poked') {
+          const data = event.data as Record<string, unknown>;
+          const conversationId = pickNumber(data, 'conversation_id');
+          const actorId = pickNumber(data, 'actor_id');
+          const userId = pickNumber(data, 'user_id');
+          if (conversationId !== null && actorId !== null && userId !== null) {
+            emitPoke({
+              conversationId,
+              actorId,
+              userId,
+              actorName: typeof data.actor_name === 'string' ? data.actor_name : `用户 ${actorId}`,
+              userName: typeof data.user_name === 'string' ? data.user_name : `用户 ${userId}`
+            });
           }
         }
 
