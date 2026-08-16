@@ -4,10 +4,22 @@
  * 在 CCW 作品页（或编辑器）的浏览器控制台里整段粘贴执行，用来列出
  * `runtime.ccwAPI` 实际暴露的全部成员，并顺带搜索疑似作品 ID 的字段。
  *
- * 安全说明：脚本只会调用「零参数且不会弹窗」的只读方法（getUserInfo /
- * getProjectStats / isMyFans / isLiked / getCoinCount）。像 requestCoins、
- * setAvatar、commentWithStageSnapshot 这类会打扰用户的接口一律跳过，
- * 只打印签名，不实际调用。
+ * 安全说明：脚本只会调用「零参数且语义只读」的方法。像 requestCoins、setAvatar、
+ * commentWithStageSnapshot、sendPlayEventCode、uploadAssetToCloud 这类会打扰用户
+ * 或产生副作用的接口一律跳过，只打印签名，不实际调用。getOpenVM 与
+ * preActionInterceptor 语义不明，同样跳过。
+ *
+ * ---------------------------------------------------------------------------
+ * 验证「编辑器 ID」与「播放页 oid」是否一致
+ *
+ * 游戏模式用 getProjectUUID() 作为作品绑定标识。需要确认它在编辑器与发布后的
+ * 播放页返回同一个值，否则绑定会对不上。用同一个作品做两次对照：
+ *
+ *   1. 在编辑器 /gandi/project/<id> 里跑本脚本，记下 getProjectUUID() 的返回
+ *   2. 发布后打开播放页 /detail/<oid>，再跑一次
+ *   3. 两次返回应当相同，且都等于播放页 URL 里的 oid
+ *
+ * 若不同，说明两处用的是不同的标识体系，需要改用播放页那个。
  */
 (async () => {
   // 零参数、语义上只读的接口才试调。

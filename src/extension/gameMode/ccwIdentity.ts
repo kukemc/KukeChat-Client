@@ -105,6 +105,25 @@ export async function readPlatformCreationOid(): Promise<string | null> {
   }
 }
 
+/**
+ * 平台报告的设备类型，实测返回 'PC'。
+ *
+ * 用来给舞台聊天框挑一个合适的默认尺寸 —— 手机上舞台本来就小，
+ * 桌面端的默认宽高会盖掉大半个游戏画面。
+ */
+export async function readPlatformDeviceType(): Promise<string | null> {
+  const api = ccwApi();
+  if (!api?.getDeviceType) {
+    return null;
+  }
+  try {
+    const type = await api.getDeviceType();
+    return typeof type === 'string' && type.trim() ? type.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 清掉缓存，例如玩家在别的标签页切换了 CCW 账号后。 */
 export function forgetCcwIdentity(): void {
   cached = undefined;

@@ -46,6 +46,8 @@ export interface CcwPlatformApi {
     gender?: string;
     constellation?: string;
   } | null>;
+  /** 设备类型，实测返回 'PC'。 */
+  getDeviceType?: () => Promise<string>;
   /** 当前作品 UUID。Kontakt 扩展未使用，实测存在，无官方文档。 */
   getProjectUUID?: () => Promise<string>;
   /** 当前作品的 sb3 资源 ID。同样无官方文档。 */

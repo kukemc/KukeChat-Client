@@ -120,20 +120,49 @@ runtime.ccwAPI.getCoinCount(): Promise<number>   // 当前访客给本作品投�
 ### 当前作品标识
 
 ```ts
-runtime.ccwAPI.getProjectUUID(): Promise<string>    // 作品 UUID
-runtime.ccwAPI.getProjectSb3Id(): Promise<string>   // 作品的 sb3 资源 ID
+runtime.ccwAPI.getProjectUUID(): Promise<string>    // 24 位十六进制，作品标识
+runtime.ccwAPI.getProjectSb3Id(): Promise<string>   // 32 位十六进制，sb3 资源哈希
 ```
 
-> **这两个接口 Kontakt 扩展没有使用**，是在编辑器里 dump `ccwAPI` 才发现的，
-> 因此没有官方文档，返回格式与稳定性需自行验证。
+编辑器 `/gandi/project/6a81252691223874330c5c7c` 下实测：
+
+```
+getProjectUUID()  → '6a81252691223874330c5c7c'   ← 与 URL 中的作品 ID 一致
+getProjectSb3Id() → '40f8fdf9e84b6f723d8ee03b05d3882c'
+```
+
+**只能用 `getProjectUUID()` 做绑定标识。** `getProjectSb3Id()` 是 sb3 文件的内容
+哈希，每次保存作品都会变，拿它绑定会在下一次保存后立刻失效。
+
+> **这两个接口 Kontakt 扩展没有使用**，是 dump `ccwAPI` 才发现的，因此没有官方
+> 文档，稳定性需自行验证。
 >
 > 它们的价值在于：URL 解析只在作品播放页（`/detail/<oid>`）有效，编辑器
 > （`/gandi/project/<id>`）里拿不到；而这两个接口在编辑器里同样可用，
 > 意味着游戏模式可以在编辑器内直接调试。
 >
+> ⚠️ **待验证**：编辑器地址里的作品 ID 与发布后播放页 `/detail/<oid>` 的 oid
+> 是否为同一个值，尚未在同一个作品上比对过。若两者不同，开发者在播放页复制
+> 的 oid 与编辑器里 `getProjectUUID()` 的返回就对不上，服务端绑定校验会失败。
+> 验证方法见 [`ccw-api-probe.js`](ccw-api-probe.js) 顶部注释。
+>
 > **注意仍然不可信**：返回值来自页面，可被篡改。它只能作为「客户端声称自己是
 > 哪个作品」的输入，服务端据此校验群的绑定关系 —— 与之前用 URL 解析时的信任
 > 模型完全一致，没有变好也没有变坏。
+
+### 其他实测返回
+
+```
+getDeviceType()             → 'PC'
+getProjectStats()           → { commentCount: 0, favoriteCount: 0, likeCount: 0, totalBucks: 0 }
+getProjectDonateRanking()   → { curUserDonatedRecord: {...}, rankingList: [] }
+getOnlineExtensionsConfig() → { fileSrc: '', hosts: {...}, GandiMedia: {...}, ... }
+getCoinCount()              → 0
+isLiked() / isMyFans()      → false
+```
+
+`getOpenVM()` 与 `preActionInterceptor()` 语义不明，未试调 —— 名称看不出是否有
+副作用，接入前建议先在测试作品里确认。
 
 ## 他人 / 其他作品
 

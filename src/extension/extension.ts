@@ -9,7 +9,7 @@ import { BOT_API_DOCS_URL } from '@/config';
 import { Icon, extensionId } from './assets';
 import { subscribeExtensionEvents } from './bridge';
 import { authorizeGameMode, isGameAuthorized, restoreGameAuth, getGameAuth } from './gameMode/auth';
-import { setCcwRuntime } from './gameMode/ccwIdentity';
+import { readPlatformDeviceType, setCcwRuntime } from './gameMode/ccwIdentity';
 import {
   detectCreationOid,
   getGameChatState,
@@ -669,6 +669,11 @@ export default class KukeChatExtension {
     if (error) {
       this.toast(`游戏模式：${error}`);
       return;
+    }
+    // 手机上舞台本身就小，沿用桌面默认尺寸会盖掉大半个游戏画面
+    const device = await readPlatformDeviceType();
+    if (device && /mobile|phone|android|ios|pad/i.test(device)) {
+      updateGameOverlayStyle({ width: 210, height: 150, fontSize: 11 });
     }
     mountGameOverlay();
   }
