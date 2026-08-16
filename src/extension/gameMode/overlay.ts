@@ -488,37 +488,43 @@ function syncToStage(): void {
   const canvas = findStageCanvas();
   if (!canvas) {
     host.style.display = 'none';
+    attachOverlayHost(host, document.body);
     return;
   }
 
-  // 舞台可能被移动到别的容器（进入/退出全屏），需要跟着改挂载点。
-  // 全屏时 canvas 的父容器可能不在全屏元素内，此时只能挂到全屏元素上，
-  // 否则覆盖层会被全屏渲染整个裁掉 —— 表现就是「放大舞台后直接没了」。
-  const fullscreen = fullscreenElement();
-  let wanted = stageOverlayHost(canvas);
-  if (fullscreen && !fullscreen.contains(wanted)) {
-    wanted = fullscreen;
-  }
-  if (wanted !== mountedHost || host.parentElement !== wanted) {
-    if (!attachOverlayHost(host, wanted)) {
-      host.style.display = 'none';
-      return;
+  // 舞台可能被搬到别的容器（进入/退出全屏），每帧都要重新确认挂载点。
+  // attachOverlayHost 返回实际落点：canvas 自己就是全屏元素时无处可挂，
+  // 返回 null，此时只能把覆盖层藏起来。
+  let activeHost = attachOverlayHost(host, stageOverlayHost(canvas));
+  if (!activeHost) {
+    const fullscreen = fullscreenElement();
+    if (fullscreen) {
+      activeHost = attachOverlayHost(host, fullscreen);
     }
-    mountedHost = wanted;
+  }
+  if (!activeHost) {
+    host.style.display = 'none';
+    return;
+  }
+  if (activeHost !== mountedHost) {
+    mountedHost = activeHost;
     lastGeometryKey = '';
   }
 
-  const geometry = measureStage(canvas, wanted);
+  const geometry = measureStage(canvas, activeHost);
   if (!geometry.width || !geometry.height) {
     host.style.display = 'none';
     return;
   }
 
   const shape = readCanvasShape(canvas);
+  const zIndex = stageOverlayZIndex(canvas);
   const key = [
     geometry.left, geometry.top, geometry.width, geometry.height,
     geometry.logicalWidth, geometry.logicalHeight, geometry.scale,
-    shape.transform, shape.borderRadius, wanted === document.body
+    geometry.offsetX, geometry.offsetY,
+    shape.transform, shape.borderRadius, zIndex,
+    activeHost === document.body
   ].join('|');
   if (key === lastGeometryKey) {
     return;
@@ -526,26 +532,35 @@ function syncToStage(): void {
   lastGeometryKey = key;
 
   host.style.display = 'block';
-  host.style.position = wanted === document.body ? 'fixed' : 'absolute';
+  host.style.position = activeHost === document.body ? 'fixed' : 'absolute';
   host.style.left = `${geometry.left}px`;
   host.style.top = `${geometry.top}px`;
   host.style.width = `${geometry.width}px`;
   host.style.height = `${geometry.height}px`;
-  host.style.zIndex = String(stageOverlayZIndex(canvas));
+  host.style.zIndex = String(zIndex);
   // canvas 自身带的形变与圆角要复刻；祖先层面的由「同父」自动继承
-  host.style.transform = shape.transform;
-  host.style.transformOrigin = shape.transformOrigin;
-  host.style.borderRadius = shape.borderRadius;
-  // 始终裁剪：即使几何算偏了，聊天框也不会溢出到舞台外面去
+  setStyle(host, 'transform', shape.transform);
+  setStyle(host, 'transform-origin', shape.transformOrigin);
+  setStyle(host, 'border-radius', shape.borderRadius);
+  // 始终裁剪：即使几何算偏，聊天框也不会溢出舞台
   host.style.overflow = 'hidden';
 
-  // 逻辑坐标系铺满舞台后整体缩放，聊天框因此按舞台比例伸缩
+  // 逻辑坐标系按舞台等比缩放并居中，聊天框因此随舞台伸缩
   frameEl.style.width = `${geometry.logicalWidth}px`;
   frameEl.style.height = `${geometry.logicalHeight}px`;
+  frameEl.style.left = `${geometry.offsetX}px`;
+  frameEl.style.top = `${geometry.offsetY}px`;
+  frameEl.style.transformOrigin = '0 0';
   frameEl.style.transform = `scale(${geometry.scale})`;
-  // 等比缩放后可能有黑边，把逻辑坐标系居中
-  frameEl.style.left = `${(geometry.width - geometry.logicalWidth * geometry.scale) / 2}px`;
-  frameEl.style.top = `${(geometry.height - geometry.logicalHeight * geometry.scale) / 2}px`;
+}
+
+/** 空值时移除属性而不是写入空串，避免留下无效的 inline 样式。 */
+function setStyle(element: HTMLElement, property: string, value: string): void {
+  if (value) {
+    element.style.setProperty(property, value);
+  } else {
+    element.style.removeProperty(property);
+  }
 }
 
 export function mountGameOverlay(): void {
@@ -587,8 +602,7 @@ export function mountGameOverlay(): void {
   root.append(sheet, frameEl);
 
   const canvas = findStageCanvas();
-  mountedHost = canvas ? stageOverlayHost(canvas) : document.body;
-  attachOverlayHost(host, mountedHost);
+  mountedHost = attachOverlayHost(host, stageOverlayHost(canvas));
 
   lastGeometryKey = '';
   syncToStage();
