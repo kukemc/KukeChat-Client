@@ -8,6 +8,28 @@ import type { ScratchBlockDefinition, ScratchFormatMessage, ScratchInfo, Scratch
 import { BOT_API_DOCS_URL } from '@/config';
 import { Icon, extensionId } from './assets';
 import { subscribeExtensionEvents } from './bridge';
+import { authorizeGameMode, isGameAuthorized, restoreGameAuth, getGameAuth } from './gameMode/auth';
+import {
+  detectCreationOid,
+  getGameChatState,
+  refreshGameSession,
+  sendGameChatMessage,
+  startGameChat,
+  stopGameChat,
+  subscribeGameMessages,
+  type GameChatMessage
+} from './gameMode/session';
+import {
+  DEFAULT_OVERLAY_STYLE,
+  focusGameOverlayInput,
+  mountGameOverlay,
+  resetGameOverlayStyle,
+  setGameOverlayVisible,
+  unmountGameOverlay,
+  updateGameOverlayStyle,
+  type OverlayCorner,
+  type OverlayStyle
+} from './gameMode/overlay';
 import { updateToLatestExtensionUrl } from './extensionUrlUpdater';
 import packageInfo from '../../package.json';
 
@@ -69,7 +91,24 @@ const messages = {
     'kukechat.block.botUserInfo': '获取用户 [USER_ID] 公开信息 [FIELD]',
     'kukechat.block.botGroupInfo': '获取群 [GROUP_ID] 信息 [FIELD]',
     'kukechat.block.botMembers': '机器人群 [GROUP_ID] 成员列表JSON',
-    'kukechat.block.botMessages': '机器人会话 [GROUP_ID] 最近 [LIMIT] 条消息JSON'
+    'kukechat.block.botMessages': '机器人会话 [GROUP_ID] 最近 [LIMIT] 条消息JSON',
+    'kukechat.div.game': '🎮 KukeChat 游戏模式',
+    'kukechat.div.gameStyle': '🎨 游戏模式外观',
+    'kukechat.div.gameEvents': '📨 游戏模式事件',
+    'kukechat.block.gameConnect': '接入游戏聊天 群号 [GROUP_ID]',
+    'kukechat.block.gameDisconnect': '断开游戏聊天',
+    'kukechat.block.gameOverlay': '[ACTION] 舞台聊天框',
+    'kukechat.block.gameAuthorize': '请求玩家授权 KukeChat 账号',
+    'kukechat.block.gameIsAuthorized': '玩家是否已授权',
+    'kukechat.block.gameCanSend': '玩家当前能否发言',
+    'kukechat.block.gameSend': '以玩家身份发送消息 [MESSAGE]',
+    'kukechat.block.gameInfo': '游戏聊天信息 [FIELD]',
+    'kukechat.block.gameSetCorner': '把聊天框放到 [CORNER]',
+    'kukechat.block.gameSetSize': '设置聊天框宽 [WIDTH] 高 [HEIGHT]',
+    'kukechat.block.gameSetStyle': '设置聊天框 [FIELD] 为 [VALUE]',
+    'kukechat.block.gameResetStyle': '恢复聊天框默认外观',
+    'kukechat.block.whenGameMessage': '当游戏模式收到消息 发送者=[SENDER_NAME] 发送者ID=[SENDER_ID] 内容=[CONTENT] 是否自己=[IS_SELF]',
+    'kukechat.block.gameLastMessage': '最近一条游戏消息 [FIELD]'
   },
   en: {
     'kukechat.div.window': '🪟 KukeChat Window',
@@ -113,7 +152,24 @@ const messages = {
     'kukechat.block.botUserInfo': 'Get user [USER_ID] public info [FIELD]',
     'kukechat.block.botGroupInfo': 'Get group [GROUP_ID] info [FIELD]',
     'kukechat.block.botMembers': 'Bot group [GROUP_ID] members JSON',
-    'kukechat.block.botMessages': 'Bot conversation [GROUP_ID] latest [LIMIT] messages JSON'
+    'kukechat.block.botMessages': 'Bot conversation [GROUP_ID] latest [LIMIT] messages JSON',
+    'kukechat.div.game': '🎮 KukeChat Game Mode',
+    'kukechat.div.gameStyle': '🎨 Game Mode Appearance',
+    'kukechat.div.gameEvents': '📨 Game Mode Events',
+    'kukechat.block.gameConnect': 'Connect game chat to group [GROUP_ID]',
+    'kukechat.block.gameDisconnect': 'Disconnect game chat',
+    'kukechat.block.gameOverlay': '[ACTION] stage chat box',
+    'kukechat.block.gameAuthorize': 'Ask player to authorize KukeChat account',
+    'kukechat.block.gameIsAuthorized': 'Player authorized?',
+    'kukechat.block.gameCanSend': 'Player can send messages?',
+    'kukechat.block.gameSend': 'Send message as player [MESSAGE]',
+    'kukechat.block.gameInfo': 'Game chat info [FIELD]',
+    'kukechat.block.gameSetCorner': 'Move chat box to [CORNER]',
+    'kukechat.block.gameSetSize': 'Set chat box width [WIDTH] height [HEIGHT]',
+    'kukechat.block.gameSetStyle': 'Set chat box [FIELD] to [VALUE]',
+    'kukechat.block.gameResetStyle': 'Reset chat box appearance',
+    'kukechat.block.whenGameMessage': 'When game mode receives message sender=[SENDER_NAME] sender id=[SENDER_ID] content=[CONTENT] is self=[IS_SELF]',
+    'kukechat.block.gameLastMessage': 'Latest game message [FIELD]'
   }
 };
 
@@ -141,6 +197,8 @@ export default class KukeChatExtension {
   private lastBotOperationResult: unknown = null;
   private lastBotOperationError = '';
   private lastBotOperationOk = false;
+  private lastGameMessage: GameChatMessage | null = null;
+  private gameMessageUnsubscribe?: () => void;
 
   constructor(runtime?: ScratchRuntime) {
     this.runtime = runtime;
@@ -260,7 +318,53 @@ export default class KukeChatExtension {
           FIELD: { type: scratch.ArgumentType.STRING, menu: 'BOT_GROUP_INFO_FIELD', defaultValue: 'title' }
         }),
         block('botMembers', scratch.BlockType.REPORTER, 'kukechat.block.botMembers', { GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 } }),
-        block('botMessages', scratch.BlockType.REPORTER, 'kukechat.block.botMessages', { GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }, LIMIT: { type: scratch.ArgumentType.NUMBER, defaultValue: 20 } })
+        block('botMessages', scratch.BlockType.REPORTER, 'kukechat.block.botMessages', { GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }, LIMIT: { type: scratch.ArgumentType.NUMBER, defaultValue: 20 } }),
+        `---${this.formatMessage('kukechat.div.game')}`,
+        block('gameConnect', scratch.BlockType.COMMAND, 'kukechat.block.gameConnect', {
+          GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
+        }),
+        block('gameDisconnect', scratch.BlockType.COMMAND, 'kukechat.block.gameDisconnect'),
+        block('gameOverlay', scratch.BlockType.COMMAND, 'kukechat.block.gameOverlay', {
+          ACTION: { type: scratch.ArgumentType.STRING, menu: 'GAME_OVERLAY_ACTION', defaultValue: 'show' }
+        }),
+        block('gameAuthorize', scratch.BlockType.COMMAND, 'kukechat.block.gameAuthorize'),
+        block('gameIsAuthorized', scratch.BlockType.BOOLEAN, 'kukechat.block.gameIsAuthorized'),
+        block('gameCanSend', scratch.BlockType.BOOLEAN, 'kukechat.block.gameCanSend'),
+        block('gameSend', scratch.BlockType.COMMAND, 'kukechat.block.gameSend', {
+          MESSAGE: { type: scratch.ArgumentType.STRING, defaultValue: '大家好！' }
+        }),
+        block('gameInfo', scratch.BlockType.REPORTER, 'kukechat.block.gameInfo', {
+          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_INFO_FIELD', defaultValue: 'status' }
+        }),
+        `---${this.formatMessage('kukechat.div.gameStyle')}`,
+        block('gameSetCorner', scratch.BlockType.COMMAND, 'kukechat.block.gameSetCorner', {
+          CORNER: { type: scratch.ArgumentType.STRING, menu: 'GAME_CORNER', defaultValue: 'bottom-left' }
+        }),
+        block('gameSetSize', scratch.BlockType.COMMAND, 'kukechat.block.gameSetSize', {
+          WIDTH: { type: scratch.ArgumentType.NUMBER, defaultValue: 300 },
+          HEIGHT: { type: scratch.ArgumentType.NUMBER, defaultValue: 220 }
+        }),
+        block('gameSetStyle', scratch.BlockType.COMMAND, 'kukechat.block.gameSetStyle', {
+          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_STYLE_FIELD', defaultValue: 'accent' },
+          VALUE: { type: scratch.ArgumentType.STRING, defaultValue: '#5b8cff' }
+        }),
+        block('gameResetStyle', scratch.BlockType.COMMAND, 'kukechat.block.gameResetStyle'),
+        `---${this.formatMessage('kukechat.div.gameEvents')}`,
+        {
+          opcode: 'whenGameMessage',
+          blockType: scratch.BlockType.HAT,
+          isEdgeActivated: false,
+          text: this.formatMessage('kukechat.block.whenGameMessage'),
+          arguments: {
+            SENDER_NAME: { type: scratch.ArgumentType.STRING },
+            SENDER_ID: { type: scratch.ArgumentType.NUMBER },
+            CONTENT: { type: scratch.ArgumentType.STRING },
+            IS_SELF: { type: scratch.ArgumentType.STRING }
+          }
+        },
+        block('gameLastMessage', scratch.BlockType.REPORTER, 'kukechat.block.gameLastMessage', {
+          FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_MESSAGE_FIELD', defaultValue: 'content' }
+        })
       ],
       menus: {
         WINDOW_ACTION: [
@@ -315,6 +419,46 @@ export default class KukeChatExtension {
           { text: '成员数', value: 'member_count' },
           { text: '公告', value: 'announcement' },
           { text: '机器人是否启用', value: 'bot_enabled' }
+        ],
+        GAME_OVERLAY_ACTION: [
+          { text: '显示', value: 'show' },
+          { text: '隐藏', value: 'hide' },
+          { text: '聚焦输入框', value: 'focus' }
+        ],
+        GAME_CORNER: [
+          { text: '左上角', value: 'top-left' },
+          { text: '右上角', value: 'top-right' },
+          { text: '左下角', value: 'bottom-left' },
+          { text: '右下角', value: 'bottom-right' }
+        ],
+        GAME_STYLE_FIELD: [
+          { text: '主题色', value: 'accent' },
+          { text: '背景色', value: 'background' },
+          { text: '文字色', value: 'textColor' },
+          { text: '不透明度(0-100)', value: 'opacity' },
+          { text: '字号', value: 'fontSize' },
+          { text: '圆角', value: 'radius' },
+          { text: '显示头像(true/false)', value: 'showAvatars' },
+          { text: '显示标题栏(true/false)', value: 'showTitle' }
+        ],
+        GAME_INFO_FIELD: [
+          { text: '连接状态', value: 'status' },
+          { text: '群名', value: 'title' },
+          { text: '群号', value: 'conversation_id' },
+          { text: '成员数', value: 'member_count' },
+          { text: '当前作品ID', value: 'creation_oid' },
+          { text: '玩家昵称', value: 'player_name' },
+          { text: '玩家ID', value: 'player_id' },
+          { text: '消息条数', value: 'message_count' },
+          { text: '错误信息', value: 'error' }
+        ],
+        GAME_MESSAGE_FIELD: [
+          { text: '内容', value: 'content' },
+          { text: '发送者', value: 'sender_name' },
+          { text: '发送者ID', value: 'sender_id' },
+          { text: '消息ID', value: 'id' },
+          { text: '是否自己', value: 'is_self' },
+          { text: '发送时间', value: 'created_at' }
         ]
       }
     };
@@ -498,7 +642,197 @@ export default class KukeChatExtension {
     return this.botConnected;
   }
 
+  private toast(message: string): void {
+    this.runtime?.scratchBlocks?.utils?.toast?.(message);
+  }
+
   whenBotMessage(): boolean { return true; }
+
+  // ---------------------------------------------------------------- 游戏模式
+
+  /** hat 积木本身恒真，实际触发由 startHatsWithParams 驱动。 */
+  whenGameMessage(): boolean { return true; }
+
+  async gameConnect(args: { GROUP_ID: number | string }): Promise<void> {
+    const groupId = parseGroupId(args.GROUP_ID);
+    if (groupId === null) {
+      this.toast('游戏模式：群号无效');
+      return;
+    }
+    // 先恢复上次的授权，玩家在同一次游玩里不需要反复授权
+    restoreGameAuth();
+    this.ensureGameMessageBridge();
+    const error = await startGameChat(groupId);
+    if (error) {
+      this.toast(`游戏模式：${error}`);
+      return;
+    }
+    mountGameOverlay();
+  }
+
+  gameDisconnect(): void {
+    stopGameChat();
+    unmountGameOverlay();
+  }
+
+  gameOverlay(args: { ACTION: string }): void {
+    const action = String(args.ACTION ?? 'show');
+    if (action === 'hide') {
+      setGameOverlayVisible(false);
+      return;
+    }
+    if (action === 'focus') {
+      focusGameOverlayInput();
+      return;
+    }
+    mountGameOverlay();
+    setGameOverlayVisible(true);
+  }
+
+  async gameAuthorize(): Promise<void> {
+    const result = await authorizeGameMode();
+    if (result === 'authorized') {
+      await refreshGameSession();
+      return;
+    }
+    this.toast(result === 'blocked' ? '游戏模式：登录窗口被浏览器拦截，请放行弹窗' : '游戏模式：授权已取消');
+  }
+
+  gameIsAuthorized(): boolean {
+    return isGameAuthorized();
+  }
+
+  gameCanSend(): boolean {
+    return isGameAuthorized() && getGameChatState().status === 'connected';
+  }
+
+  async gameSend(args: { MESSAGE: string }): Promise<void> {
+    const result = await sendGameChatMessage(String(args.MESSAGE ?? ''));
+    if (result === 'unauthorized') {
+      this.toast('游戏模式：需要先授权 KukeChat 账号');
+    } else if (result === 'not-connected') {
+      this.toast('游戏模式：尚未接入群聊');
+    } else if (result === 'failed') {
+      this.toast('游戏模式：消息发送失败');
+    }
+  }
+
+  gameInfo(args: { FIELD: string }): string | number {
+    const state = getGameChatState();
+    const auth = getGameAuth();
+    switch (String(args.FIELD ?? 'status')) {
+      case 'title': return state.title ?? '';
+      case 'conversation_id': return state.conversationId ?? 0;
+      case 'member_count': return state.memberCount;
+      case 'creation_oid': return state.creationOid ?? detectCreationOid() ?? '';
+      case 'player_name': return auth.displayName ?? '';
+      case 'player_id': return auth.userId ?? 0;
+      case 'message_count': return state.messages.length;
+      case 'error': return state.error ?? '';
+      case 'status':
+      default: return state.status;
+    }
+  }
+
+  gameSetCorner(args: { CORNER: string }): void {
+    const corner = String(args.CORNER ?? 'bottom-left') as OverlayCorner;
+    const allowed: OverlayCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+    if (!allowed.includes(corner)) {
+      return;
+    }
+    updateGameOverlayStyle({ corner });
+  }
+
+  gameSetSize(args: { WIDTH: number | string; HEIGHT: number | string }): void {
+    const width = Number(args.WIDTH);
+    const height = Number(args.HEIGHT);
+    const patch: Partial<OverlayStyle> = {};
+    // 限制在合理范围，避免作品把聊天框拉到看不见或盖满舞台
+    if (Number.isFinite(width)) {
+      patch.width = Math.min(Math.max(Math.round(width), 160), 900);
+    }
+    if (Number.isFinite(height)) {
+      patch.height = Math.min(Math.max(Math.round(height), 100), 700);
+    }
+    updateGameOverlayStyle(patch);
+  }
+
+  gameSetStyle(args: { FIELD: string; VALUE: string | number }): void {
+    const field = String(args.FIELD ?? '');
+    const raw = args.VALUE;
+    const text = String(raw ?? '').trim();
+    const numeric = Number(raw);
+
+    switch (field) {
+      case 'accent':
+      case 'background':
+      case 'textColor':
+        if (text) {
+          updateGameOverlayStyle({ [field]: text } as Partial<OverlayStyle>);
+        }
+        return;
+      case 'opacity':
+        if (Number.isFinite(numeric)) {
+          updateGameOverlayStyle({ opacity: Math.min(Math.max(numeric, 0), 100) });
+        }
+        return;
+      case 'fontSize':
+        if (Number.isFinite(numeric)) {
+          updateGameOverlayStyle({ fontSize: Math.min(Math.max(Math.round(numeric), 9), 28) });
+        }
+        return;
+      case 'radius':
+        if (Number.isFinite(numeric)) {
+          updateGameOverlayStyle({ radius: Math.min(Math.max(Math.round(numeric), 0), 40) });
+        }
+        return;
+      case 'showAvatars':
+      case 'showTitle':
+        updateGameOverlayStyle({ [field]: text === 'true' || text === '1' || text === '是' } as Partial<OverlayStyle>);
+        return;
+      default:
+        return;
+    }
+  }
+
+  gameResetStyle(): void {
+    resetGameOverlayStyle();
+    updateGameOverlayStyle(DEFAULT_OVERLAY_STYLE);
+  }
+
+  gameLastMessage(args: { FIELD: string }): string | number {
+    const message = this.lastGameMessage;
+    if (!message) {
+      return '';
+    }
+    switch (String(args.FIELD ?? 'content')) {
+      case 'sender_name': return message.senderName;
+      case 'sender_id': return message.senderId ?? 0;
+      case 'id': return message.id;
+      case 'is_self': return message.own ? 'true' : 'false';
+      case 'created_at': return message.createdAt;
+      case 'content':
+      default: return message.content;
+    }
+  }
+
+  /** 把游戏模式的新消息接到 hat 积木上，只订阅一次。 */
+  private ensureGameMessageBridge(): void {
+    if (this.gameMessageUnsubscribe) {
+      return;
+    }
+    this.gameMessageUnsubscribe = subscribeGameMessages((message) => {
+      this.lastGameMessage = message;
+      const parameters = {
+        SENDER_NAME: message.senderName,
+        SENDER_ID: message.senderId ?? 0,
+        CONTENT: message.content,
+        IS_SELF: message.own ? 'true' : 'false'
+      };
+      this.runtime?.startHatsWithParams?.(`${extensionId}_whenGameMessage`, { parameters });
+      this.runtime?.startHats?.(`${extensionId}_whenGameMessage`);
+    });
+  }
   whenBotEvent(): boolean { return true; }
   whenBotMentioned(): boolean { return true; }
 
