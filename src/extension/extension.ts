@@ -8,7 +8,7 @@ import type { ScratchBlockDefinition, ScratchFormatMessage, ScratchInfo, Scratch
 import { BOT_API_DOCS_URL } from '@/config';
 import { Icon, extensionId } from './assets';
 import { subscribeExtensionEvents } from './bridge';
-import { authorizeGameMode, isGameAuthorized, restoreGameAuth, getGameAuth } from './gameMode/auth';
+import { authorizeGameMode, isGameAuthorized, requestSendPermission, restoreGameAuth, getGameAuth } from './gameMode/auth';
 import { setCcwRuntime } from './gameMode/ccwIdentity';
 import { setStageRuntime, stageLogicalSize } from './gameMode/stage';
 import {
@@ -23,15 +23,21 @@ import {
 } from './gameMode/session';
 import {
   DEFAULT_OVERLAY_STYLE,
+  OVERLAY_PRESETS,
   focusGameOverlayInput,
+  isGameOverlayCollapsed,
   mountGameOverlay,
   resetGameOverlayStyle,
+  setGameOverlayCollapsed,
   setGameOverlayVisible,
+  toggleGameOverlayCollapsed,
   unmountGameOverlay,
   updateGameOverlayStyle,
   type OverlayCorner,
+  type OverlayPreset,
   type OverlayStyle
 } from './gameMode/overlay';
+import { canSendOnBehalf } from './gameMode/permissions';
 import { updateToLatestExtensionUrl } from './extensionUrlUpdater';
 import packageInfo from '../../package.json';
 
@@ -110,7 +116,14 @@ const messages = {
     'kukechat.block.gameSetStyle': '设置聊天框 [FIELD] 为 [VALUE]',
     'kukechat.block.gameResetStyle': '恢复聊天框默认外观',
     'kukechat.block.whenGameMessage': '当游戏模式收到消息 发送者=[SENDER_NAME] 发送者ID=[SENDER_ID] 内容=[CONTENT] 是否自己=[IS_SELF]',
-    'kukechat.block.gameLastMessage': '最近一条游戏消息 [FIELD]'
+    'kukechat.block.gameLastMessage': '最近一条游戏消息 [FIELD]',
+    'kukechat.block.gameCollapse': '[ACTION] 聊天框',
+    'kukechat.block.gameIsCollapsed': '聊天框是否已折叠',
+    'kukechat.block.gamePreset': '套用聊天框预设 [PRESET]',
+    'kukechat.block.gameCustomCss': '设置聊天框自定义 CSS [CSS]',
+    'kukechat.block.gameClearCss': '清除自定义 CSS',
+    'kukechat.block.gameCanSendOnBehalf': '玩家是否允许本作品代为发言',
+    'kukechat.block.gameRequestSend': '请求玩家授予代发言权限'
   },
   en: {
     'kukechat.div.window': '🪟 KukeChat Window',
@@ -171,7 +184,14 @@ const messages = {
     'kukechat.block.gameSetStyle': 'Set chat box [FIELD] to [VALUE]',
     'kukechat.block.gameResetStyle': 'Reset chat box appearance',
     'kukechat.block.whenGameMessage': 'When game mode receives message sender=[SENDER_NAME] sender id=[SENDER_ID] content=[CONTENT] is self=[IS_SELF]',
-    'kukechat.block.gameLastMessage': 'Latest game message [FIELD]'
+    'kukechat.block.gameLastMessage': 'Latest game message [FIELD]',
+    'kukechat.block.gameCollapse': '[ACTION] chat box',
+    'kukechat.block.gameIsCollapsed': 'Chat box collapsed?',
+    'kukechat.block.gamePreset': 'Apply chat box preset [PRESET]',
+    'kukechat.block.gameCustomCss': 'Set chat box custom CSS [CSS]',
+    'kukechat.block.gameClearCss': 'Clear custom CSS',
+    'kukechat.block.gameCanSendOnBehalf': 'Player allows this project to send?',
+    'kukechat.block.gameRequestSend': 'Request permission to send as player'
   }
 };
 
@@ -354,6 +374,19 @@ export default class KukeChatExtension {
           VALUE: { type: scratch.ArgumentType.STRING, defaultValue: '#5b8cff' }
         }),
         block('gameResetStyle', scratch.BlockType.COMMAND, 'kukechat.block.gameResetStyle'),
+        block('gamePreset', scratch.BlockType.COMMAND, 'kukechat.block.gamePreset', {
+          PRESET: { type: scratch.ArgumentType.STRING, menu: 'GAME_PRESET', defaultValue: 'glass' }
+        }),
+        block('gameCollapse', scratch.BlockType.COMMAND, 'kukechat.block.gameCollapse', {
+          ACTION: { type: scratch.ArgumentType.STRING, menu: 'GAME_COLLAPSE_ACTION', defaultValue: 'toggle' }
+        }),
+        block('gameIsCollapsed', scratch.BlockType.BOOLEAN, 'kukechat.block.gameIsCollapsed'),
+        block('gameCustomCss', scratch.BlockType.COMMAND, 'kukechat.block.gameCustomCss', {
+          CSS: { type: scratch.ArgumentType.STRING, defaultValue: '.row .name { font-style: italic; }' }
+        }),
+        block('gameClearCss', scratch.BlockType.COMMAND, 'kukechat.block.gameClearCss'),
+        block('gameCanSendOnBehalf', scratch.BlockType.BOOLEAN, 'kukechat.block.gameCanSendOnBehalf'),
+        block('gameRequestSend', scratch.BlockType.COMMAND, 'kukechat.block.gameRequestSend'),
         `---${this.formatMessage('kukechat.div.gameEvents')}`,
         {
           opcode: 'whenGameMessage',
@@ -436,6 +469,19 @@ export default class KukeChatExtension {
           { text: '左下角', value: 'bottom-left' },
           { text: '右下角', value: 'bottom-right' }
         ],
+        GAME_PRESET: [
+          { text: '毛玻璃（默认）', value: 'glass' },
+          { text: '午夜', value: 'midnight' },
+          { text: '霜白', value: 'frost' },
+          { text: '终端', value: 'terminal' },
+          { text: '气泡', value: 'bubble' },
+          { text: '极简', value: 'minimal' }
+        ],
+        GAME_COLLAPSE_ACTION: [
+          { text: '折叠', value: 'collapse' },
+          { text: '展开', value: 'expand' },
+          { text: '切换', value: 'toggle' }
+        ],
         GAME_STYLE_FIELD: [
           { text: '主题色', value: 'accent' },
           { text: '背景色', value: 'background' },
@@ -443,6 +489,7 @@ export default class KukeChatExtension {
           { text: '不透明度(0-100)', value: 'opacity' },
           { text: '字号', value: 'fontSize' },
           { text: '圆角', value: 'radius' },
+          { text: '毛玻璃模糊', value: 'blur' },
           { text: '显示头像(true/false)', value: 'showAvatars' },
           { text: '显示标题栏(true/false)', value: 'showTitle' }
         ],
@@ -695,7 +742,8 @@ export default class KukeChatExtension {
   }
 
   async gameAuthorize(): Promise<void> {
-    const result = await authorizeGameMode();
+    const state = getGameChatState();
+    const result = await authorizeGameMode({ groupTitle: state.title, creationOid: state.creationOid });
     if (result === 'authorized') {
       await refreshGameSession();
       return;
@@ -712,9 +760,12 @@ export default class KukeChatExtension {
   }
 
   async gameSend(args: { MESSAGE: string }): Promise<void> {
-    const result = await sendGameChatMessage(String(args.MESSAGE ?? ''));
+    // 第二个参数表示「由作品代发」，会触发发送权限检查
+    const result = await sendGameChatMessage(String(args.MESSAGE ?? ''), true);
     if (result === 'unauthorized') {
       this.toast('游戏模式：需要先授权 KukeChat 账号');
+    } else if (result === 'denied') {
+      this.toast('游戏模式：玩家未允许本作品代为发言');
     } else if (result === 'not-connected') {
       this.toast('游戏模式：尚未接入群聊');
     } else if (result === 'failed') {
@@ -792,6 +843,12 @@ export default class KukeChatExtension {
           updateGameOverlayStyle({ radius: Math.min(Math.max(Math.round(numeric), 0), 40) });
         }
         return;
+      case 'blur':
+        if (Number.isFinite(numeric)) {
+          // 上限 40：再高只是徒增合成开销，视觉上已无差别
+          updateGameOverlayStyle({ blur: Math.min(Math.max(Math.round(numeric), 0), 40) });
+        }
+        return;
       case 'showAvatars':
       case 'showTitle':
         updateGameOverlayStyle({ [field]: text === 'true' || text === '1' || text === '是' } as Partial<OverlayStyle>);
@@ -804,6 +861,53 @@ export default class KukeChatExtension {
   gameResetStyle(): void {
     resetGameOverlayStyle();
     updateGameOverlayStyle(DEFAULT_OVERLAY_STYLE);
+  }
+
+  gamePreset(args: { PRESET: string }): void {
+    const preset = OVERLAY_PRESETS[String(args.PRESET ?? 'glass') as OverlayPreset];
+    if (preset) {
+      updateGameOverlayStyle(preset);
+    }
+  }
+
+  gameCollapse(args: { ACTION: string }): void {
+    const action = String(args.ACTION ?? 'toggle');
+    if (action === 'collapse') {
+      setGameOverlayCollapsed(true);
+    } else if (action === 'expand') {
+      setGameOverlayCollapsed(false);
+    } else {
+      toggleGameOverlayCollapsed();
+    }
+  }
+
+  gameIsCollapsed(): boolean {
+    return isGameOverlayCollapsed();
+  }
+
+  gameCustomCss(args: { CSS: string }): void {
+    // 自定义 CSS 只作用于聊天框自己的 Shadow DOM，改不到作品或宿主页面
+    updateGameOverlayStyle({ customCss: String(args.CSS ?? '') });
+  }
+
+  gameClearCss(): void {
+    updateGameOverlayStyle({ customCss: '' });
+  }
+
+  gameCanSendOnBehalf(): boolean {
+    return canSendOnBehalf(getGameChatState().creationOid);
+  }
+
+  async gameRequestSend(): Promise<void> {
+    const state = getGameChatState();
+    if (state.creationOid === null) {
+      this.toast('游戏模式：尚未接入群聊');
+      return;
+    }
+    if (canSendOnBehalf(state.creationOid)) {
+      return;
+    }
+    await requestSendPermission({ groupTitle: state.title, creationOid: state.creationOid });
   }
 
   gameLastMessage(args: { FIELD: string }): string | number {

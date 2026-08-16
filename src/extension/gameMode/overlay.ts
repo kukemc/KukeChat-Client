@@ -30,6 +30,9 @@ import {
 
 export type OverlayCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
+/** 内置外观预设。开发者可以一块积木切换，也可以在预设基础上继续微调。 */
+export type OverlayPreset = 'glass' | 'midnight' | 'frost' | 'terminal' | 'bubble' | 'minimal';
+
 /**
  * 聊天框外观。
  *
@@ -50,8 +53,12 @@ export interface OverlayStyle {
   textColor: string;
   fontSize: number;
   radius: number;
+  /** 毛玻璃模糊半径，0 表示关闭。 */
+  blur: number;
   showAvatars: boolean;
   showTitle: boolean;
+  /** 追加到样式表末尾的自定义 CSS，可覆盖任意内置规则。 */
+  customCss: string;
 }
 
 export const DEFAULT_OVERLAY_STYLE: OverlayStyle = {
@@ -66,8 +73,38 @@ export const DEFAULT_OVERLAY_STYLE: OverlayStyle = {
   textColor: '#eef2ff',
   fontSize: 7,
   radius: 9,
+  blur: 14,
   showAvatars: false,
-  showTitle: true
+  showTitle: true,
+  customCss: ''
+};
+
+/** 预设只覆盖外观相关字段，尺寸与位置保持开发者已有的设置。 */
+export const OVERLAY_PRESETS: Record<OverlayPreset, Partial<OverlayStyle>> = {
+  glass: {
+    opacity: 55, accent: '#7aa2ff', background: '#0a0e1a', textColor: '#eef2ff',
+    radius: 9, blur: 14, showAvatars: false, showTitle: true
+  },
+  midnight: {
+    opacity: 82, accent: '#8b7dff', background: '#05060d', textColor: '#e8e6ff',
+    radius: 12, blur: 6, showAvatars: false, showTitle: true
+  },
+  frost: {
+    opacity: 34, accent: '#2f6bff', background: '#f4f8ff', textColor: '#0b1730',
+    radius: 14, blur: 20, showAvatars: false, showTitle: true
+  },
+  terminal: {
+    opacity: 78, accent: '#4ade80', background: '#04120a', textColor: '#c8ffd9',
+    radius: 3, blur: 0, showAvatars: false, showTitle: true
+  },
+  bubble: {
+    opacity: 62, accent: '#ff8fb1', background: '#1a0f18', textColor: '#ffeaf2',
+    radius: 16, blur: 16, showAvatars: true, showTitle: true
+  },
+  minimal: {
+    opacity: 22, accent: '#ffffff', background: '#000000', textColor: '#ffffff',
+    radius: 6, blur: 8, showAvatars: false, showTitle: false
+  }
 };
 
 let host: HTMLElement | null = null;
@@ -85,6 +122,14 @@ let frameEl: HTMLElement | null = null;
 let syncHandle: number | null = null;
 let mountedHost: HTMLElement | null = null;
 let lastGeometryKey = '';
+let collapsed = false;
+/** 首屏批量渲染历史消息时关掉逐条入场动画，否则一进作品满屏乱动。 */
+let suppressEnterAnimation = false;
+
+const SEND_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12h13M12 5.5 18.5 12 12 18.5"/></svg>';
+const CHEVRON_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" width="8" height="8"><path d="m6 9 6 6 6-6"/></svg>';
 
 
 function cornerCss(corner: OverlayCorner): string {
@@ -127,10 +172,23 @@ function buildStyleSheet(): string {
   const gap = Math.max(style.fontSize * 0.55, 3);
   const pad = Math.max(style.fontSize * 0.9, 5);
   const composerH = Math.max(style.fontSize * 2.4, 16);
+  const blur = Math.max(style.blur, 0);
+  const glassFilter = blur > 0 ? `blur(${blur}px) saturate(1.4)` : 'none';
+  const ink = style.textColor;
+  // 送出按钮用的圆形尺寸
+  const sendSize = composerH - Math.max(style.fontSize * 0.5, 3);
 
   return `
     :host { all: initial; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: inherit; }
+
+    /* 逻辑坐标系：宽高等于舞台逻辑尺寸，由 JS 按舞台实际大小整体 scale */
+    .frame {
+      position: absolute;
+      left: 0; top: 0;
+      transform-origin: 0 0;
+      pointer-events: none;
+    }
 
     /* 面板本身不画背景：它只是「消息卡片 + 独立输入胶囊」的排版容器 */
     .panel {
@@ -138,25 +196,38 @@ function buildStyleSheet(): string {
       display: flex; flex-direction: column;
       gap: ${gap}px;
       width: ${style.width}px; height: ${style.height}px;
-      color: ${style.textColor};
+      color: ${ink};
       font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       font-size: ${style.fontSize}px;
       line-height: ${line}px;
       pointer-events: auto;
       -webkit-font-smoothing: antialiased;
+      /* 折叠时整体高度收缩到只剩胶囊，配合下面的过渡形成收起动画 */
+      transition: height 320ms cubic-bezier(.2, .9, .3, 1), gap 320ms cubic-bezier(.2, .9, .3, 1);
     }
+    .panel.collapsed { height: ${composerH}px; gap: 0px; }
 
     /* 消息卡片：毛玻璃 */
     .messages {
       flex: 1 1 auto; min-height: 0;
       display: flex; flex-direction: column;
       background: ${glass};
-      border: 1px solid ${hexToRgba(style.textColor, 0.1)};
+      border: 1px solid ${hexToRgba(ink, 0.1)};
       border-radius: ${style.radius}px;
-      backdrop-filter: blur(14px) saturate(1.4);
-      -webkit-backdrop-filter: blur(14px) saturate(1.4);
+      backdrop-filter: ${glassFilter};
+      -webkit-backdrop-filter: ${glassFilter};
       box-shadow: 0 ${Math.round(style.fontSize * 0.6)}px ${Math.round(style.fontSize * 2.4)}px rgba(0,0,0,.28);
       overflow: hidden;
+      transform-origin: ${style.corner.includes('bottom') ? 'bottom' : 'top'} center;
+      transition:
+        opacity 260ms cubic-bezier(.2, .9, .3, 1),
+        transform 300ms cubic-bezier(.2, .9, .3, 1),
+        border-color 200ms ease;
+    }
+    .panel.collapsed .messages {
+      opacity: 0;
+      transform: scaleY(.86) translateY(${style.corner.includes('bottom') ? 6 : -6}px);
+      pointer-events: none;
     }
 
     .title {
@@ -167,26 +238,47 @@ function buildStyleSheet(): string {
       letter-spacing: .02em;
       opacity: .8;
       flex: 0 0 auto;
+      cursor: pointer;
+      user-select: none;
+      transition: opacity 180ms ease;
     }
+    .title:hover { opacity: 1; }
     .title .dot {
       width: ${Math.max(style.fontSize * 0.42, 3)}px; height: ${Math.max(style.fontSize * 0.42, 3)}px;
       border-radius: 999px; background: ${style.accent}; flex: 0 0 auto;
       box-shadow: 0 0 ${style.fontSize}px ${hexToRgba(style.accent, 0.9)};
+      animation: kc-pulse 2.6s ease-in-out infinite;
+    }
+    @keyframes kc-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .55; transform: scale(.82); }
     }
     .title .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .title .count { margin-left: auto; opacity: .55; font-weight: 500; flex: 0 0 auto; }
+    .title .chevron {
+      flex: 0 0 auto; opacity: .5;
+      transition: transform 320ms cubic-bezier(.2, .9, .3, 1), opacity 180ms ease;
+    }
+    .title:hover .chevron { opacity: .9; }
+    .panel.collapsed .title .chevron { transform: rotate(180deg); }
 
     .list {
       flex: 1 1 auto; min-height: 0;
       overflow-y: auto; overflow-x: hidden;
       padding: 0 ${pad}px ${Math.max(pad * 0.6, 3)}px;
       display: flex; flex-direction: column; gap: ${Math.max(gap * 0.4, 1)}px;
-      /* 消息不足一屏时贴着底部，更像聊天窗而不是从顶部堆叠 */
-      justify-content: flex-end;
       /* 极简：不占宽度的滚动条 */
       scrollbar-width: none;
+      /* 允许触摸端惯性滚动 */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      scroll-behavior: smooth;
     }
     .list::-webkit-scrollbar { width: 0; height: 0; }
+
+    /* 消息不足一屏时贴底。不能用 justify-content:flex-end —— 那样内容溢出时
+       会从顶部溢出且滚不回去。 */
+    .list > :first-child { margin-top: auto; }
 
     .row {
       display: flex; gap: ${Math.max(gap * 0.6, 2)}px;
@@ -197,7 +289,15 @@ function buildStyleSheet(): string {
       /* 必须禁止收缩：flex 子项设了 overflow:hidden 后自动最小尺寸变成 0，
          几十条消息挤在固定高度的列里会被压成几乎不可见的细条 */
       flex: 0 0 auto;
+      animation: kc-enter 280ms cubic-bezier(.2, .9, .3, 1) both;
     }
+    @keyframes kc-enter {
+      from { opacity: 0; transform: translateY(${Math.max(line * 0.5, 4)}px); }
+      to { opacity: 1; transform: none; }
+    }
+    /* 首次批量渲染历史消息时不逐条播动画，否则一进作品就是一片乱动 */
+    .list.no-anim .row { animation: none; }
+
     .row img.avatar {
       width: ${line * 0.8}px; height: ${line * 0.8}px;
       border-radius: 999px; flex: 0 0 auto; object-fit: cover;
@@ -210,53 +310,99 @@ function buildStyleSheet(): string {
       height: ${line * 1.1}px; width: auto; max-width: 55%;
       border-radius: ${Math.max(style.radius * 0.35, 2)}px;
       object-fit: cover; vertical-align: middle;
+      transition: transform 200ms cubic-bezier(.2, .9, .3, 1);
     }
+    .row img.thumb:hover { transform: scale(1.08); }
 
-    .system { flex: 0 0 auto; text-align: center; opacity: .45; font-size: ${Math.max(style.fontSize - 1, 6)}px; padding: 1px 0; }
+    .system {
+      flex: 0 0 auto; text-align: center; opacity: .45;
+      font-size: ${Math.max(style.fontSize - 1, 6)}px; padding: 1px 0;
+      animation: kc-enter 280ms cubic-bezier(.2, .9, .3, 1) both;
+    }
 
     /* 输入区：与消息卡片分离的独立胶囊 */
     .composer {
       flex: 0 0 auto;
       display: flex; align-items: center; gap: ${Math.max(gap * 0.7, 3)}px;
       height: ${composerH}px;
-      padding: 0 ${Math.max(pad * 0.45, 3)}px 0 ${pad}px;
+      padding: 0 ${Math.max(pad * 0.35, 2)}px 0 ${pad}px;
       background: ${pill};
-      border: 1px solid ${hexToRgba(style.textColor, 0.12)};
+      border: 1px solid ${hexToRgba(ink, 0.12)};
       border-radius: 999px;
-      backdrop-filter: blur(14px) saturate(1.4);
-      -webkit-backdrop-filter: blur(14px) saturate(1.4);
+      backdrop-filter: ${glassFilter};
+      -webkit-backdrop-filter: ${glassFilter};
       box-shadow: 0 ${Math.round(style.fontSize * 0.5)}px ${Math.round(style.fontSize * 1.8)}px rgba(0,0,0,.26);
+      transition:
+        border-color 220ms ease,
+        box-shadow 220ms ease,
+        transform 220ms cubic-bezier(.2, .9, .3, 1);
     }
+    /* 聚焦时整条胶囊微微抬起并亮边，替代生硬的输入框描边 */
+    .composer.focused {
+      border-color: ${hexToRgba(style.accent, 0.55)};
+      box-shadow:
+        0 ${Math.round(style.fontSize * 0.7)}px ${Math.round(style.fontSize * 2.2)}px rgba(0,0,0,.3),
+        0 0 0 ${Math.max(style.fontSize * 0.14, 1)}px ${hexToRgba(style.accent, 0.22)};
+      transform: translateY(-${Math.max(style.fontSize * 0.12, 0.8)}px);
+    }
+    .composer.sending { animation: kc-sent 420ms cubic-bezier(.2, .9, .3, 1); }
+    @keyframes kc-sent {
+      0% { transform: scale(1); }
+      35% { transform: scale(.975); }
+      100% { transform: scale(1); }
+    }
+
     .composer input {
       flex: 1 1 auto; min-width: 0;
       background: transparent; border: 0; outline: none;
-      color: ${style.textColor};
+      color: ${ink};
       font-size: ${style.fontSize}px;
       line-height: ${line}px;
     }
-    .composer input::placeholder { color: ${style.textColor}; opacity: .38; }
-    .composer button {
+    .composer input::placeholder { color: ${ink}; opacity: .38; transition: opacity 200ms ease; }
+    .composer.focused input::placeholder { opacity: .22; }
+
+    /* 发送键：圆形幽灵按钮，只有描边与图标，不再是毛玻璃里嵌一块实心蓝 */
+    .composer .send {
       flex: 0 0 auto;
+      display: grid; place-items: center;
+      width: ${sendSize}px; height: ${sendSize}px;
       border: 0; cursor: pointer;
-      height: ${composerH - Math.max(style.fontSize * 0.55, 4)}px;
-      padding: 0 ${Math.max(style.fontSize, 7)}px;
       border-radius: 999px;
-      background: ${style.accent};
-      color: #0a0e1a;
-      font-size: ${Math.max(style.fontSize - 0.5, 6)}px;
-      font-weight: 700;
-      line-height: 1;
+      background: ${hexToRgba(style.accent, 0.16)};
+      color: ${style.accent};
+      transition:
+        background 200ms ease,
+        transform 200ms cubic-bezier(.2, .9, .3, 1),
+        opacity 200ms ease;
     }
-    .composer button:disabled { opacity: .45; cursor: default; }
+    .composer .send svg { width: ${Math.max(sendSize * 0.52, 6)}px; height: ${Math.max(sendSize * 0.52, 6)}px; display: block; }
+    .composer .send:hover { background: ${hexToRgba(style.accent, 0.3)}; transform: scale(1.08); }
+    .composer .send:active { transform: scale(.9); }
+    .composer .send:disabled { opacity: .35; cursor: default; transform: none; }
+    /* 输入框为空时发送键淡出，减少视觉噪音 */
+    .composer .send.idle { opacity: .3; }
+
     /* 未授权时整条胶囊就是授权按钮 */
     .composer.auth { padding: 0; cursor: pointer; }
-    .composer.auth button {
+    .composer.auth .authorize {
       width: 100%; height: 100%;
-      background: transparent; color: ${style.textColor};
+      border: 0; cursor: pointer; border-radius: 999px;
+      background: transparent; color: ${ink};
+      font-size: ${Math.max(style.fontSize - 0.5, 6)}px;
       font-weight: 600; opacity: .85;
+      transition: background 200ms ease, opacity 200ms ease;
     }
+    .composer.auth .authorize:hover { background: ${hexToRgba(style.accent, 0.14)}; opacity: 1; }
 
     .hidden { display: none !important; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .panel, .messages, .composer, .row, .system, .title .chevron, .composer .send { transition: none !important; animation: none !important; }
+    }
+
+    /* 自定义 CSS：放在最后，可覆盖以上任意规则 */
+    ${style.customCss}
   `;
 }
 
@@ -286,6 +432,7 @@ function renderMessage(message: GameChatMessage): void {
 
   const row = document.createElement('div');
   row.className = message.own ? 'row own' : 'row';
+  row.dataset.messageId = String(message.id);
 
   if (style.showAvatars) {
     const avatar = resolveAssetUrl(message.avatarUrl);
@@ -330,7 +477,12 @@ function renderMessage(message: GameChatMessage): void {
 
   const atBottom = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 40;
   while (listEl.childElementCount > 200) {
-    listEl.removeChild(listEl.firstElementChild as ChildNode);
+    const oldest = listEl.firstElementChild as HTMLElement | null;
+    if (!oldest) break;
+    // 同步清掉记录，否则该 id 会被永久视为「已渲染」，重连后不再重绘
+    const staleId = Number(oldest.dataset.messageId);
+    if (Number.isFinite(staleId)) renderedIds.delete(staleId);
+    listEl.removeChild(oldest);
   }
   if (atBottom || message.own) {
     scrollToBottom();
@@ -370,9 +522,16 @@ function renderFooter(state: GameChatState): void {
     input.type = 'text';
     input.maxLength = 500;
     input.placeholder = state.willAutoJoin ? '发言后将自动加入本群…' : '说点什么…';
+
     const send = document.createElement('button');
     send.type = 'button';
-    send.textContent = '发送';
+    send.className = 'send idle';
+    send.title = '发送';
+    send.innerHTML = SEND_ICON;
+
+    const syncSendState = (): void => {
+      send.classList.toggle('idle', input.value.trim().length === 0);
+    };
 
     const submit = async (): Promise<void> => {
       const value = input.value.trim();
@@ -380,18 +539,32 @@ function renderFooter(state: GameChatState): void {
         return;
       }
       input.value = '';
+      syncSendState();
       send.disabled = true;
+      // 触发一次收缩回弹，给「已发出」一个即时反馈
+      footerEl?.classList.remove('sending');
+      void footerEl?.offsetWidth;
+      footerEl?.classList.add('sending');
+      window.setTimeout(() => footerEl?.classList.remove('sending'), 460);
+
       const result = await sendGameChatMessage(value);
       send.disabled = false;
       if (result === 'unauthorized') {
         renderSystem('登录状态已失效，请重新授权');
         renderFooter(state);
+        return;
+      }
+      if (result === 'denied') {
+        renderSystem('你未允许本作品代你发言');
       } else if (result === 'failed') {
         renderSystem('发送失败，请稍后再试');
       }
       input.focus();
     };
 
+    input.addEventListener('input', syncSendState);
+    input.addEventListener('focus', () => footerEl?.classList.add('focused'));
+    input.addEventListener('blur', () => footerEl?.classList.remove('focused'));
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -413,11 +586,12 @@ function renderFooter(state: GameChatState): void {
   footerEl.classList.add('auth');
   const authorize = document.createElement('button');
   authorize.type = 'button';
+  authorize.className = 'authorize';
   authorize.textContent = defaultLabel;
   authorize.addEventListener('click', async () => {
     authorize.disabled = true;
     authorize.textContent = '授权中…';
-    const result = await authorizeGameMode();
+    const result = await authorizeGameMode({ groupTitle: currentState.title, creationOid: currentState.creationOid });
     authorize.disabled = false;
     if (result === 'authorized') {
       await refreshGameSession();
@@ -458,10 +632,19 @@ function renderState(state: GameChatState): void {
     const count = document.createElement('span');
     count.className = 'count';
     count.textContent = state.memberCount ? `${state.memberCount} 人` : '';
-    titleEl.append(dot, name, count);
+    const chevron = document.createElement('span');
+    chevron.className = 'chevron';
+    chevron.innerHTML = CHEVRON_ICON;
+    titleEl.append(dot, name, count, chevron);
   }
 
   if (listEl) {
+    // 一次性铺开多条历史消息时不逐条播入场动画
+    const bulk = listEl.childElementCount === 0 && state.messages.length > 1;
+    if (bulk) {
+      suppressEnterAnimation = true;
+      listEl.classList.add('no-anim');
+    }
     const known = new Set(state.messages.map((item) => item.id));
     // 会话重建（重新接入）时清空重画，否则只增量追加
     const stale = [...renderedIds].some((id) => !known.has(id));
@@ -471,6 +654,11 @@ function renderState(state: GameChatState): void {
     }
     for (const message of state.messages) {
       renderMessage(message);
+    }
+    if (suppressEnterAnimation) {
+      suppressEnterAnimation = false;
+      // 下一帧再放开，之后到达的新消息就能正常播动画
+      window.requestAnimationFrame(() => listEl?.classList.remove('no-anim'));
     }
   }
 
@@ -602,6 +790,9 @@ export function mountGameOverlay(): void {
   footerEl = document.createElement('div');
   footerEl.className = 'composer';
 
+  // 点标题栏即可折叠 / 展开
+  titleEl.addEventListener('click', () => toggleGameOverlayCollapsed());
+
   panel.append(messagesCard, footerEl);
   frameEl.appendChild(panel);
   root.append(sheet, frameEl);
@@ -641,6 +832,24 @@ let currentState: GameChatState = {
 subscribeGameChat((next) => {
   currentState = next;
 });
+
+/** 折叠 / 展开消息区，只留输入胶囊。 */
+export function setGameOverlayCollapsed(next: boolean): void {
+  collapsed = next;
+  panel?.classList.toggle('collapsed', next);
+  if (!next) {
+    // 展开后滚回底部，否则会停在折叠前的位置
+    window.requestAnimationFrame(scrollToBottom);
+  }
+}
+
+export function isGameOverlayCollapsed(): boolean {
+  return collapsed;
+}
+
+export function toggleGameOverlayCollapsed(): void {
+  setGameOverlayCollapsed(!collapsed);
+}
 
 export function setGameOverlayVisible(next: boolean): void {
   visible = next;
@@ -690,6 +899,7 @@ export function unmountGameOverlay(): void {
   frameEl = null;
   mountedHost = null;
   lastGeometryKey = '';
+  collapsed = false;
   renderedIds = new Set();
   visible = false;
 }

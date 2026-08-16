@@ -8,8 +8,9 @@
 import { ApiError } from '@/api/client';
 import { getGameSession, gameWebSocketUrl, sendGameMessage, type GameSession } from '@/api/game';
 import type { Message } from '@/types/api';
-import { getGameAuth, isGameAuthorized, refreshGameAuthAfterFailure } from './auth';
+import { getGameAuth, isGameAuthorized, refreshGameAuthAfterFailure, requestSendPermission } from './auth';
 import { readPlatformCreationOid } from './ccwIdentity';
+import { canSendOnBehalf, isSendPromptMuted } from './permissions';
 
 /** 聊天框里保留的最大消息条数，防止长时间挂机把内存吃满。 */
 const MAX_MESSAGES = 200;
@@ -319,9 +320,16 @@ export async function refreshGameSession(): Promise<void> {
   }
 }
 
-export type GameSendResult = 'sent' | 'unauthorized' | 'not-connected' | 'failed';
+export type GameSendResult = 'sent' | 'unauthorized' | 'not-connected' | 'failed' | 'denied';
 
-export async function sendGameChatMessage(content: string): Promise<GameSendResult> {
+/**
+ * 发送消息。
+ *
+ * @param onBehalfOfWork 由作品的积木触发（而非玩家手动输入）时为 true。
+ *        这种情况下需要玩家事先授予「允许本作品代我发言」，没有就当场申请。
+ *        玩家自己在输入框敲的消息不需要这道许可 —— 那本来就是他自己的意图。
+ */
+export async function sendGameChatMessage(content: string, onBehalfOfWork = false): Promise<GameSendResult> {
   const text = content.trim();
   if (!text) {
     return 'failed';
@@ -331,6 +339,21 @@ export async function sendGameChatMessage(content: string): Promise<GameSendResu
   }
   if (!isGameAuthorized()) {
     return 'unauthorized';
+  }
+
+  if (onBehalfOfWork && !canSendOnBehalf(state.creationOid)) {
+    // 玩家勾过「之后不再提示」，静默忽略，别让作品靠循环反复弹窗
+    if (isSendPromptMuted(state.creationOid)) {
+      return 'denied';
+    }
+    const granted = await requestSendPermission({
+      groupTitle: state.title,
+      creationOid: state.creationOid,
+      preview: text.length > 40 ? `${text.slice(0, 40)}…` : text
+    });
+    if (!granted) {
+      return 'denied';
+    }
   }
 
   const token = getGameAuth().token as string;

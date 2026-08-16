@@ -17,6 +17,8 @@ import { getCookieSession, openSecureLoginPopup } from '@/api/auth';
 import { ApiError } from '@/api/client';
 import { SECURE_LOGIN_ORIGIN } from '@/config';
 import type { AuthSession } from '@/types/api';
+import { showGameModal } from './modal';
+import { muteSendPrompt, setSendPermission, unmuteSendPrompt } from './permissions';
 
 const STORAGE_KEY = 'kukechat-game-mode-session';
 /** 安全登录弹窗最长等待时间，超时后不再阻塞玩家。 */
@@ -154,12 +156,63 @@ function waitForSecureLogin(popup: Window | null): Promise<boolean> {
 
 export type GameAuthorizeResult = 'authorized' | 'cancelled' | 'blocked';
 
+const ALLOW_SEND_ID = 'allow-send';
+
 /**
- * 完整授权流程。已有安全登录会话时不会弹窗。
+ * 授权前的确认弹窗。
  *
- * 返回 `blocked` 表示浏览器拦截了弹窗，需要提示玩家放行。
+ * 这一步不能省：授权会把玩家的账号自动加入作品绑定的群，还可能把发言能力
+ * 交给作品。玩家必须在看清后果后主动点确认，而不是点一下按钮就静默完成。
+ *
+ * 「允许本作品代我发言」**默认不勾选** —— 收消息不需要它，只有作品调用
+ * 发送积木时才需要，届时会单独再问一次。
  */
-export async function authorizeGameMode(): Promise<GameAuthorizeResult> {
+async function confirmAuthorization(groupTitle: string | null): Promise<{ ok: boolean; allowSend: boolean }> {
+  const target = groupTitle ? `「${groupTitle}」` : '本作品绑定的群聊';
+  const result = await showGameModal({
+    title: '授权 KukeChat 账号',
+    paragraphs: [
+      '本作品接入了 KukeChat 群聊。授权后你就能在作品内直接看到群消息并参与聊天。',
+      '登录始终在 KukeChat 自己的页面完成，本作品拿不到你的账号和密码。'
+    ],
+    notices: [
+      `授权后你的 KukeChat 账号会自动加入${target}。`,
+      '你在群里的发言与普通成员一样，群主的禁言、限速与管理规则同样适用。'
+    ],
+    checkboxes: [
+      {
+        id: ALLOW_SEND_ID,
+        label: '允许本作品代我发送消息',
+        hint: '作品将能用积木以你的身份在群里发言。不勾选也能正常收消息；之后作品需要时会再征求你同意。',
+        checked: false
+      }
+    ],
+    confirmText: '同意并授权',
+    cancelText: '取消'
+  });
+  return { ok: result.confirmed, allowSend: Boolean(result.checked[ALLOW_SEND_ID]) };
+}
+
+/**
+ * 完整授权流程。
+ *
+ * 无论是否已有安全登录会话，都会先弹确认框 —— 「已经登录过」不等于
+ * 「同意把账号接入这个作品」，这两件事必须分开征求。
+ */
+export async function authorizeGameMode(options: { groupTitle?: string | null; creationOid?: string | null } = {}): Promise<GameAuthorizeResult> {
+  const confirmed = await confirmAuthorization(options.groupTitle ?? null);
+  if (!confirmed.ok) {
+    return 'cancelled';
+  }
+
+  // 玩家在授权框里勾了就直接记下，省得作品第一次发言时再问一遍
+  if (confirmed.allowSend) {
+    setSendPermission(options.creationOid, 'granted');
+    unmuteSendPrompt(options.creationOid);
+  } else {
+    setSendPermission(options.creationOid, 'unset');
+  }
+
   if (await trySilentAuthorize()) {
     return 'authorized';
   }
@@ -176,6 +229,54 @@ export async function authorizeGameMode(): Promise<GameAuthorizeResult> {
 
   // 登录页刚种下 Cookie，这里再换一次令牌
   return (await trySilentAuthorize()) ? 'authorized' : 'cancelled';
+}
+
+/**
+ * 作品调用发送积木但还没拿到发言权限时，向玩家申请。
+ *
+ * 提供「之后不再提示」，避免作品用循环反复弹窗骚扰玩家。
+ */
+export async function requestSendPermission(options: {
+  groupTitle?: string | null;
+  creationOid?: string | null;
+  preview?: string;
+}): Promise<boolean> {
+  const MUTE_ID = 'mute';
+  const target = options.groupTitle ? `「${options.groupTitle}」` : '群聊';
+  const paragraphs = ['本作品想以你的身份在群里发送消息。'];
+  if (options.preview) {
+    paragraphs.push(`本次内容：${options.preview}`);
+  }
+
+  const result = await showGameModal({
+    title: '允许本作品代你发言？',
+    paragraphs,
+    notices: [
+      `同意后，本作品可以随时用积木以你的名义在${target}发言，直到你在设置中撤销。`
+    ],
+    checkboxes: [
+      {
+        id: MUTE_ID,
+        label: '之后不再提示',
+        hint: '拒绝并勾选后，本作品的发送请求会被静默忽略，不再打断你。',
+        checked: false
+      }
+    ],
+    confirmText: '允许',
+    cancelText: '不允许'
+  });
+
+  if (result.confirmed) {
+    setSendPermission(options.creationOid, 'granted');
+    unmuteSendPrompt(options.creationOid);
+    return true;
+  }
+
+  setSendPermission(options.creationOid, 'denied');
+  if (result.checked[MUTE_ID]) {
+    muteSendPrompt(options.creationOid);
+  }
+  return false;
 }
 
 /** 令牌失效时清空并尝试静默续期，返回是否仍可发言。 */
