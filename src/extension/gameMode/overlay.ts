@@ -181,6 +181,8 @@ function buildStyleSheet(): string {
       overflow-y: auto; overflow-x: hidden;
       padding: 0 ${pad}px ${Math.max(pad * 0.6, 3)}px;
       display: flex; flex-direction: column; gap: ${Math.max(gap * 0.4, 1)}px;
+      /* 消息不足一屏时贴着底部，更像聊天窗而不是从顶部堆叠 */
+      justify-content: flex-end;
       /* 极简：不占宽度的滚动条 */
       scrollbar-width: none;
     }
@@ -192,6 +194,9 @@ function buildStyleSheet(): string {
       word-break: break-word;
       /* 单条最多两行，防止一条长消息吃掉整个可视区 */
       max-height: ${line * 2}px; overflow: hidden;
+      /* 必须禁止收缩：flex 子项设了 overflow:hidden 后自动最小尺寸变成 0，
+         几十条消息挤在固定高度的列里会被压成几乎不可见的细条 */
+      flex: 0 0 auto;
     }
     .row img.avatar {
       width: ${line * 0.8}px; height: ${line * 0.8}px;
@@ -207,7 +212,7 @@ function buildStyleSheet(): string {
       object-fit: cover; vertical-align: middle;
     }
 
-    .system { text-align: center; opacity: .45; font-size: ${Math.max(style.fontSize - 1, 6)}px; padding: 1px 0; }
+    .system { flex: 0 0 auto; text-align: center; opacity: .45; font-size: ${Math.max(style.fontSize - 1, 6)}px; padding: 1px 0; }
 
     /* 输入区：与消息卡片分离的独立胶囊 */
     .composer {
