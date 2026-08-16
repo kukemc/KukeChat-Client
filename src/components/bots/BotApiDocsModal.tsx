@@ -1,10 +1,42 @@
 import botApiMarkdown from '../../../docs/bot-api.md?raw';
-import { API_BASE_URL, EXTENSION_ASSET_URL } from '@/config';
+import { API_BASE_URL, EXTENSION_ASSET_URL, WS_URL } from '@/config';
 import { Icon } from '@/components/ui/Icon';
 
 interface BotApiDocsModalProps {
   onClose: () => void;
 }
+
+/**
+ * 把文档里的占位域名换成本次构建实际连接的地址。
+ *
+ * 仓库里的 `docs/bot-api.md` 用 `chat.example.com` 作占位符，这样开源仓库不含
+ * 任何具体部署信息；但用户在客户端里看到的应该是能直接复制粘贴的真实地址。
+ *
+ * 只替换 API 与 WebSocket 两处 —— 那是开发者必须调用的端点。示例里的
+ * `files.example.com` 保持不变：图片地址来自上传接口的返回值，换成真实域名
+ * 反而会误导开发者去硬编码它。
+ */
+function resolveDocEndpoints(markdown: string): string {
+  const apiBase = API_BASE_URL.replace(/\/+$/, '');
+  let wsOrigin = WS_URL;
+  try {
+    const parsed = new URL(WS_URL);
+    wsOrigin = `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    // WS_URL 形态异常时保持原样，不至于把文档改坏
+  }
+
+  return markdown
+    .replace(/https:\/\/chat\.example\.com/g, apiBase)
+    .replace(/wss:\/\/chat\.example\.com/g, wsOrigin)
+    // 顶部那段「占位域名」说明在替换后只对图片地址还成立，相应收窄
+    .replace(
+      /^> 文档中的 [\s\S]*?当前这份构建所连接的真实地址。\n/m,
+      '> 示例中的 `files.example.com` 是占位域名，图片、语音等地址请以上传接口的返回值为准。\n'
+    );
+}
+
+const resolvedBotApiMarkdown = resolveDocEndpoints(botApiMarkdown);
 
 type Block =
   | { type: 'heading'; level: number; content: string }
@@ -236,7 +268,7 @@ export function BotApiDocsModal({ onClose }: BotApiDocsModalProps): JSX.Element 
           </section>
 
           <section className="scroll-soft min-h-0 flex-1 overflow-y-auto rounded-[20px] border p-4 [background:var(--kc-panel-muted)] [border-color:var(--kc-border)] sm:rounded-[24px] sm:p-5">
-            <MarkdownDocument markdown={botApiMarkdown} />
+            <MarkdownDocument markdown={resolvedBotApiMarkdown} />
           </section>
         </div>
       </div>
