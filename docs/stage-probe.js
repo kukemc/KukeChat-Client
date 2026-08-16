@@ -93,5 +93,42 @@
     console.warn('  ⚠ 缩放接近 1 但舞台明显更大 —— 说明选错了 canvas 或逻辑尺寸不对');
   }
 
+  // ---- 7. 检查页面上真实存在的覆盖层 ----
+  console.log('%c 真实覆盖层状态 ', 'background:#f5a524;color:#000;font-weight:bold');
+  const live = document.getElementById('kukechat-game-overlay');
+  if (!live) {
+    console.log('页面上没有覆盖层元素 —— 还没执行「接入游戏聊天」积木，或已断开。');
+  } else {
+    const cs = getComputedStyle(live);
+    console.table([{
+      position: cs.position,
+      left: cs.left, top: cs.top,
+      width: cs.width, height: cs.height,
+      overflow: cs.overflow,
+      zIndex: cs.zIndex,
+      display: cs.display,
+    }]);
+    console.log('挂载在:', live.parentElement, live.parentElement === parent ? '(舞台容器，正确)' : '(不是舞台容器！)');
+
+    // overflow 是判断新旧版本最快的标志：旧版没有这行
+    if (cs.overflow !== 'hidden') {
+      console.warn('%c⚠ overflow 不是 hidden —— 加载的应该是旧版扩展。', 'color:#e5484d;font-weight:bold');
+      console.warn('  社区侧有扩展缓存：请先在扩展列表里卸载 KukeChat，再重新加载新的 KukeChat.js。');
+    } else {
+      console.log('overflow=hidden，是新版代码。');
+    }
+
+    const lr = live.getBoundingClientRect();
+    const cr = picked.getBoundingClientRect();
+    console.log('覆盖层屏幕矩形:', { left: Math.round(lr.left), top: Math.round(lr.top), w: Math.round(lr.width), h: Math.round(lr.height) });
+    console.log('舞台屏幕矩形:  ', { left: Math.round(cr.left), top: Math.round(cr.top), w: Math.round(cr.width), h: Math.round(cr.height) });
+    const dx = Math.round(lr.left - cr.left), dy = Math.round(lr.top - cr.top);
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2 || Math.abs(lr.width - cr.width) > 2) {
+      console.warn(`%c⚠ 覆盖层与舞台没对齐：偏移 (${dx}, ${dy})，宽度差 ${Math.round(lr.width - cr.width)}`, 'color:#e5484d;font-weight:bold');
+    } else {
+      console.log('%c覆盖层与舞台已对齐。', 'color:#30a46c');
+    }
+  }
+
   console.log('%c把以上输出整段截图发回即可定位问题。', 'color:#5b8cff;font-weight:bold');
 })();
