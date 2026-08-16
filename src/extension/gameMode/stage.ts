@@ -67,12 +67,92 @@ export function stageLogicalSize(): { width: number; height: number } {
 }
 
 /**
- * 覆盖层应当挂到哪个元素下 —— 永远是舞台 canvas 的父容器。
+ * 覆盖层应当挂到哪个元素下 —— 优先是舞台 canvas 的父容器。
  *
  * 作为 canvas 的兄弟节点，祖先的 transform 会自动同样作用到覆盖层上。
+ * 父容器是 `display: contents` 时它不生成盒子、无法作为定位基准，退回 body。
  */
 export function stageOverlayHost(canvas: HTMLCanvasElement): HTMLElement {
-  return canvas.parentElement ?? document.body;
+  const parent = canvas.parentElement;
+  if (!parent || !parent.isConnected) {
+    return document.body;
+  }
+  try {
+    if (window.getComputedStyle(parent).display === 'contents') {
+      return document.body;
+    }
+  } catch {
+    return document.body;
+  }
+  return parent;
+}
+
+/** 全屏时舞台会被搬进全屏元素，覆盖层要跟着走。 */
+export function fullscreenElement(): HTMLElement | null {
+  const node = document.fullscreenElement as HTMLElement | null;
+  return node && node.nodeType === 1 ? node : null;
+}
+
+// 被我们改成 relative 的容器，卸载时要还原，别在页面上留痕
+let patchedHost: { element: HTMLElement; inlinePosition: string } | null = null;
+
+/**
+ * 把覆盖层挂进 host，并保证它能作为定位基准。
+ *
+ * **这是最容易出错的一步**：`position: absolute` 的覆盖层会以最近的
+ * *已定位* 祖先为基准。舞台容器多数是 `position: static`，直接挂进去
+ * 会让覆盖层以更上层的某个祖先定位 —— 表现就是聊天框跑到舞台外面、
+ * 或者切换舞台大小后彻底消失。所以静态容器要临时改成 relative。
+ */
+export function attachOverlayHost(overlay: HTMLElement, host: HTMLElement): boolean {
+  if (!host.isConnected || host.tagName === 'CANVAS') {
+    return false;
+  }
+  if (overlay.parentElement !== host) {
+    try {
+      host.appendChild(overlay);
+    } catch {
+      return false;
+    }
+  }
+
+  if (patchedHost && patchedHost.element !== host) {
+    restoreOverlayHost();
+  }
+
+  if (host === document.body || patchedHost?.element === host) {
+    return true;
+  }
+
+  try {
+    if (window.getComputedStyle(host).position === 'static') {
+      patchedHost = { element: host, inlinePosition: host.style.position };
+      host.style.position = 'relative';
+    }
+  } catch {
+    // 拿不到样式就按原样挂，至少不会崩
+  }
+  return true;
+}
+
+/** 还原此前为了定位而改过的容器样式。 */
+export function restoreOverlayHost(): void {
+  if (!patchedHost) {
+    return;
+  }
+  const { element, inlinePosition } = patchedHost;
+  patchedHost = null;
+  try {
+    if (element.style.position === 'relative') {
+      if (inlinePosition) {
+        element.style.position = inlinePosition;
+      } else {
+        element.style.removeProperty('position');
+      }
+    }
+  } catch {
+    // 元素已卸载，无需还原
+  }
 }
 
 /**

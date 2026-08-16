@@ -10,9 +10,12 @@ import { resolveAssetUrl } from '@/utils/assetUrl';
 import { authorizeGameMode, isGameAuthorized, subscribeGameAuth } from './auth';
 import { readUntrustedCcwIdentity } from './ccwIdentity';
 import {
+  attachOverlayHost,
   findStageCanvas,
+  fullscreenElement,
   measureStage,
   readCanvasShape,
+  restoreOverlayHost,
   stageLogicalSize,
   stageOverlayHost,
   stageOverlayZIndex
@@ -53,16 +56,17 @@ export interface OverlayStyle {
 
 export const DEFAULT_OVERLAY_STYLE: OverlayStyle = {
   corner: 'bottom-left',
-  // 480×360 舞台下约占宽 42%、高 36%，够读又不挡住主要画面
-  width: 200,
-  height: 130,
-  opacity: 72,
-  accent: '#5b8cff',
-  background: '#0b1020',
-  textColor: '#f3f5ff',
-  fontSize: 11,
-  radius: 10,
-  showAvatars: true,
+  // 480×360 舞台下约占宽 40%、高 33%。字号 7 配 1.45 行高，
+  // 消息区能稳定容纳 6 行以上，这是「一眼能看到对话」的下限。
+  width: 190,
+  height: 118,
+  opacity: 55,
+  accent: '#7aa2ff',
+  background: '#0a0e1a',
+  textColor: '#eef2ff',
+  fontSize: 7,
+  radius: 9,
+  showAvatars: false,
   showTitle: true
 };
 
@@ -115,85 +119,138 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 function buildStyleSheet(): string {
-  const bg = hexToRgba(style.background, Math.min(Math.max(style.opacity, 0), 100) / 100);
+  const alpha = Math.min(Math.max(style.opacity, 0), 100) / 100;
+  const glass = hexToRgba(style.background, alpha);
+  // 输入胶囊比消息面板略实一点，否则在亮色画面上会糊成一片
+  const pill = hexToRgba(style.background, Math.min(alpha + 0.18, 0.95));
+  const line = Math.max(style.fontSize * 1.45, style.fontSize + 2);
+  const gap = Math.max(style.fontSize * 0.55, 3);
+  const pad = Math.max(style.fontSize * 0.9, 5);
+  const composerH = Math.max(style.fontSize * 2.4, 16);
+
   return `
     :host { all: initial; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: inherit; }
-    /* 逻辑坐标系：宽高等于舞台逻辑尺寸，由 JS 按舞台实际大小整体 scale */
-    .frame {
-      position: absolute;
-      left: 0; top: 0;
-      transform-origin: 0 0;
-      pointer-events: none;
-    }
+
+    /* 面板本身不画背景：它只是「消息卡片 + 独立输入胶囊」的排版容器 */
     .panel {
       position: absolute; ${cornerCss(style.corner)}
       display: flex; flex-direction: column;
+      gap: ${gap}px;
       width: ${style.width}px; height: ${style.height}px;
-      background: ${bg};
       color: ${style.textColor};
-      border: 1px solid ${hexToRgba(style.accent, 0.35)};
-      border-radius: ${style.radius}px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 10px 34px rgba(0, 0, 0, 0.38);
       font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       font-size: ${style.fontSize}px;
-      overflow: hidden;
-      z-index: 2147483000;
+      line-height: ${line}px;
       pointer-events: auto;
+      -webkit-font-smoothing: antialiased;
     }
+
+    /* 消息卡片：毛玻璃 */
+    .messages {
+      flex: 1 1 auto; min-height: 0;
+      display: flex; flex-direction: column;
+      background: ${glass};
+      border: 1px solid ${hexToRgba(style.textColor, 0.1)};
+      border-radius: ${style.radius}px;
+      backdrop-filter: blur(14px) saturate(1.4);
+      -webkit-backdrop-filter: blur(14px) saturate(1.4);
+      box-shadow: 0 ${Math.round(style.fontSize * 0.6)}px ${Math.round(style.fontSize * 2.4)}px rgba(0,0,0,.28);
+      overflow: hidden;
+    }
+
     .title {
-      display: flex; align-items: center; gap: 6px;
-      padding: 7px 10px;
-      border-bottom: 1px solid ${hexToRgba(style.accent, 0.22)};
-      font-size: ${Math.max(style.fontSize - 2, 10)}px;
-      font-weight: 700;
+      display: flex; align-items: center; gap: ${gap}px;
+      padding: ${Math.max(pad * 0.55, 3)}px ${pad}px;
+      font-size: ${Math.max(style.fontSize - 1, 6)}px;
+      font-weight: 600;
       letter-spacing: .02em;
-      opacity: .92;
+      opacity: .8;
+      flex: 0 0 auto;
     }
-    .title .dot { width: 6px; height: 6px; border-radius: 999px; background: ${style.accent}; flex: 0 0 auto; }
-    .title .count { margin-left: auto; opacity: .6; font-weight: 600; }
+    .title .dot {
+      width: ${Math.max(style.fontSize * 0.42, 3)}px; height: ${Math.max(style.fontSize * 0.42, 3)}px;
+      border-radius: 999px; background: ${style.accent}; flex: 0 0 auto;
+      box-shadow: 0 0 ${style.fontSize}px ${hexToRgba(style.accent, 0.9)};
+    }
+    .title .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .title .count { margin-left: auto; opacity: .55; font-weight: 500; flex: 0 0 auto; }
+
     .list {
       flex: 1 1 auto; min-height: 0;
       overflow-y: auto; overflow-x: hidden;
-      padding: 8px 10px;
-      display: flex; flex-direction: column; gap: 6px;
-      scrollbar-width: thin;
-      scrollbar-color: ${hexToRgba(style.accent, 0.5)} transparent;
+      padding: 0 ${pad}px ${Math.max(pad * 0.6, 3)}px;
+      display: flex; flex-direction: column; gap: ${Math.max(gap * 0.4, 1)}px;
+      /* 极简：不占宽度的滚动条 */
+      scrollbar-width: none;
     }
-    .list::-webkit-scrollbar { width: 5px; }
-    .list::-webkit-scrollbar-thumb { background: ${hexToRgba(style.accent, 0.5)}; border-radius: 999px; }
-    .row { display: flex; gap: 6px; align-items: flex-start; line-height: 1.45; word-break: break-word; }
-    .row img { width: 18px; height: 18px; border-radius: 999px; flex: 0 0 auto; object-fit: cover; margin-top: 1px; }
-    .row .name { color: ${style.accent}; font-weight: 700; flex: 0 0 auto; }
+    .list::-webkit-scrollbar { width: 0; height: 0; }
+
+    .row {
+      display: flex; gap: ${Math.max(gap * 0.6, 2)}px;
+      align-items: baseline;
+      word-break: break-word;
+      /* 单条最多两行，防止一条长消息吃掉整个可视区 */
+      max-height: ${line * 2}px; overflow: hidden;
+    }
+    .row img.avatar {
+      width: ${line * 0.8}px; height: ${line * 0.8}px;
+      border-radius: 999px; flex: 0 0 auto; object-fit: cover;
+      align-self: center;
+    }
+    .row .name { color: ${style.accent}; font-weight: 600; flex: 0 0 auto; opacity: .95; }
     .row.own .name { color: #ffd479; }
-    .row .text { flex: 1 1 auto; }
-    .system { text-align: center; opacity: .55; font-size: ${Math.max(style.fontSize - 2, 10)}px; padding: 2px 0; }
-    .footer { display: flex; gap: 6px; padding: 7px 8px; border-top: 1px solid ${hexToRgba(style.accent, 0.22)}; }
-    input {
+    .row .text { flex: 1 1 auto; opacity: .92; }
+    .row img.thumb {
+      height: ${line * 1.1}px; width: auto; max-width: 55%;
+      border-radius: ${Math.max(style.radius * 0.35, 2)}px;
+      object-fit: cover; vertical-align: middle;
+    }
+
+    .system { text-align: center; opacity: .45; font-size: ${Math.max(style.fontSize - 1, 6)}px; padding: 1px 0; }
+
+    /* 输入区：与消息卡片分离的独立胶囊 */
+    .composer {
+      flex: 0 0 auto;
+      display: flex; align-items: center; gap: ${Math.max(gap * 0.7, 3)}px;
+      height: ${composerH}px;
+      padding: 0 ${Math.max(pad * 0.45, 3)}px 0 ${pad}px;
+      background: ${pill};
+      border: 1px solid ${hexToRgba(style.textColor, 0.12)};
+      border-radius: 999px;
+      backdrop-filter: blur(14px) saturate(1.4);
+      -webkit-backdrop-filter: blur(14px) saturate(1.4);
+      box-shadow: 0 ${Math.round(style.fontSize * 0.5)}px ${Math.round(style.fontSize * 1.8)}px rgba(0,0,0,.26);
+    }
+    .composer input {
       flex: 1 1 auto; min-width: 0;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid ${hexToRgba(style.accent, 0.28)};
-      border-radius: ${Math.max(style.radius - 6, 6)}px;
-      padding: 5px 8px;
+      background: transparent; border: 0; outline: none;
       color: ${style.textColor};
       font-size: ${style.fontSize}px;
-      outline: none;
+      line-height: ${line}px;
     }
-    input::placeholder { color: ${style.textColor}; opacity: .45; }
-    input:focus { border-color: ${style.accent}; }
-    button {
+    .composer input::placeholder { color: ${style.textColor}; opacity: .38; }
+    .composer button {
       flex: 0 0 auto;
       border: 0; cursor: pointer;
-      border-radius: ${Math.max(style.radius - 6, 6)}px;
-      padding: 5px 11px;
+      height: ${composerH - Math.max(style.fontSize * 0.55, 4)}px;
+      padding: 0 ${Math.max(style.fontSize, 7)}px;
+      border-radius: 999px;
       background: ${style.accent};
-      color: #fff;
-      font-size: ${style.fontSize}px;
+      color: #0a0e1a;
+      font-size: ${Math.max(style.fontSize - 0.5, 6)}px;
       font-weight: 700;
+      line-height: 1;
     }
-    button:disabled { opacity: .55; cursor: default; }
-    .auth { width: 100%; }
+    .composer button:disabled { opacity: .45; cursor: default; }
+    /* 未授权时整条胶囊就是授权按钮 */
+    .composer.auth { padding: 0; cursor: pointer; }
+    .composer.auth button {
+      width: 100%; height: 100%;
+      background: transparent; color: ${style.textColor};
+      font-weight: 600; opacity: .85;
+    }
+
     .hidden { display: none !important; }
   `;
 }
@@ -229,6 +286,7 @@ function renderMessage(message: GameChatMessage): void {
     const avatar = resolveAssetUrl(message.avatarUrl);
     if (avatar) {
       const img = document.createElement('img');
+      img.className = 'avatar';
       img.src = avatar;
       img.alt = '';
       row.appendChild(img);
@@ -238,15 +296,34 @@ function renderMessage(message: GameChatMessage): void {
   const name = document.createElement('span');
   name.className = 'name';
   name.textContent = `${message.senderName}:`;
-  const text = document.createElement('span');
-  text.className = 'text';
-  // 用 textContent 而非 innerHTML —— 消息内容来自其他玩家，绝不能当 HTML 解析
-  text.textContent = message.content;
+  row.appendChild(name);
 
-  row.append(name, text);
+  const thumbUrl = message.imageUrl ? resolveAssetUrl(message.imageUrl) : undefined;
+  if (thumbUrl) {
+    // 图片/表情用小缩略图，而不是把几十字符的 URL 当正文铺满整个列表
+    const thumb = document.createElement('img');
+    thumb.className = 'thumb';
+    thumb.src = thumbUrl;
+    thumb.alt = message.content;
+    // 图裂时退回文字占位，不留一个空白破图
+    thumb.onerror = () => {
+      const fallback = document.createElement('span');
+      fallback.className = 'text';
+      fallback.textContent = message.content;
+      thumb.replaceWith(fallback);
+    };
+    row.appendChild(thumb);
+  } else {
+    const text = document.createElement('span');
+    text.className = 'text';
+    // 用 textContent 而非 innerHTML —— 消息内容来自其他玩家，绝不能当 HTML 解析
+    text.textContent = message.content;
+    row.appendChild(text);
+  }
+
   listEl.appendChild(row);
 
-  const atBottom = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 60;
+  const atBottom = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 40;
   while (listEl.childElementCount > 200) {
     listEl.removeChild(listEl.firstElementChild as ChildNode);
   }
@@ -273,6 +350,7 @@ function renderFooter(state: GameChatState): void {
   footerEl.replaceChildren();
 
   if (state.status === 'error') {
+    footerEl.classList.remove('auth');
     const hint = document.createElement('div');
     hint.className = 'system';
     hint.style.padding = '2px 0';
@@ -282,6 +360,7 @@ function renderFooter(state: GameChatState): void {
   }
 
   if (isGameAuthorized()) {
+    footerEl.classList.remove('auth');
     const input = document.createElement('input');
     input.type = 'text';
     input.maxLength = 500;
@@ -325,21 +404,21 @@ function renderFooter(state: GameChatState): void {
     return;
   }
 
-  const defaultLabel = '授权 KukeChat 账号后发言';
+  const defaultLabel = '授权后发言';
+  footerEl.classList.add('auth');
   const authorize = document.createElement('button');
   authorize.type = 'button';
-  authorize.className = 'auth';
   authorize.textContent = defaultLabel;
   authorize.addEventListener('click', async () => {
     authorize.disabled = true;
-    authorize.textContent = '正在授权…';
+    authorize.textContent = '授权中…';
     const result = await authorizeGameMode();
     authorize.disabled = false;
     if (result === 'authorized') {
       await refreshGameSession();
       renderSystem('已授权，现在可以发言了');
     } else if (result === 'blocked') {
-      authorize.textContent = '弹窗被拦截，请允许后重试';
+      authorize.textContent = '弹窗被拦截，请放行';
       renderSystem('浏览器拦截了登录窗口，请在地址栏放行弹窗');
       return;
     } else {
@@ -352,7 +431,7 @@ function renderFooter(state: GameChatState): void {
   // 拿不到就保持默认文案，绝不因此改变授权流程。
   void readUntrustedCcwIdentity().then((identity) => {
     if (identity?.displayName && authorize.textContent === defaultLabel) {
-      authorize.textContent = `以 ${identity.displayName} 的身份授权发言`;
+      authorize.textContent = `以 ${identity.displayName} 授权发言`;
       authorize.title = 'KukeChat 会通过安全登录确认你的身份';
     }
   });
@@ -412,10 +491,19 @@ function syncToStage(): void {
     return;
   }
 
-  // 舞台可能被移动到别的容器（进入/退出全屏），需要跟着改挂载点
-  const wanted = stageOverlayHost(canvas);
-  if (wanted !== mountedHost) {
-    wanted.appendChild(host);
+  // 舞台可能被移动到别的容器（进入/退出全屏），需要跟着改挂载点。
+  // 全屏时 canvas 的父容器可能不在全屏元素内，此时只能挂到全屏元素上，
+  // 否则覆盖层会被全屏渲染整个裁掉 —— 表现就是「放大舞台后直接没了」。
+  const fullscreen = fullscreenElement();
+  let wanted = stageOverlayHost(canvas);
+  if (fullscreen && !fullscreen.contains(wanted)) {
+    wanted = fullscreen;
+  }
+  if (wanted !== mountedHost || host.parentElement !== wanted) {
+    if (!attachOverlayHost(host, wanted)) {
+      host.style.display = 'none';
+      return;
+    }
     mountedHost = wanted;
     lastGeometryKey = '';
   }
@@ -448,7 +536,8 @@ function syncToStage(): void {
   host.style.transform = shape.transform;
   host.style.transformOrigin = shape.transformOrigin;
   host.style.borderRadius = shape.borderRadius;
-  host.style.overflow = shape.borderRadius ? 'hidden' : '';
+  // 始终裁剪：即使几何算偏了，聊天框也不会溢出到舞台外面去
+  host.style.overflow = 'hidden';
 
   // 逻辑坐标系铺满舞台后整体缩放，聊天框因此按舞台比例伸缩
   frameEl.style.width = `${geometry.logicalWidth}px`;
@@ -480,20 +569,26 @@ export function mountGameOverlay(): void {
   panel = document.createElement('div');
   panel.className = 'panel';
 
+  // 消息卡片与输入胶囊是两个独立元素，中间留出间距 —— 这正是「分离胶囊」的观感
+  const messagesCard = document.createElement('div');
+  messagesCard.className = 'messages';
+
   titleEl = document.createElement('div');
   titleEl.className = 'title';
   listEl = document.createElement('div');
   listEl.className = 'list';
-  footerEl = document.createElement('div');
-  footerEl.className = 'footer';
+  messagesCard.append(titleEl, listEl);
 
-  panel.append(titleEl, listEl, footerEl);
+  footerEl = document.createElement('div');
+  footerEl.className = 'composer';
+
+  panel.append(messagesCard, footerEl);
   frameEl.appendChild(panel);
   root.append(sheet, frameEl);
 
   const canvas = findStageCanvas();
   mountedHost = canvas ? stageOverlayHost(canvas) : document.body;
-  mountedHost.appendChild(host);
+  attachOverlayHost(host, mountedHost);
 
   lastGeometryKey = '';
   syncToStage();
@@ -565,6 +660,7 @@ export function unmountGameOverlay(): void {
     syncHandle = null;
   }
   host?.remove();
+  restoreOverlayHost();
   host = null;
   root = null;
   panel = null;

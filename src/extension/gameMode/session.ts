@@ -21,7 +21,12 @@ export interface GameChatMessage {
   senderId: number | null;
   senderName: string;
   avatarUrl: string | null;
+  /** 已按消息类型整理成适合单行展示的文本；图片/语音等会变成 [图片] 这类占位。 */
   content: string;
+  /** 原始消息类型，供开发者用积木自绘时判断。 */
+  type: string;
+  /** 图片或表情的地址，非图片类消息为 null。 */
+  imageUrl: string | null;
   createdAt: string;
   /** 是否由当前玩家发出。 */
   own: boolean;
@@ -99,9 +104,44 @@ export function detectCreationOid(): string | null {
   return match ? match[1].toLowerCase() : null;
 }
 
+/**
+ * 把消息整理成适合在窄聊天框里单行展示的样子。
+ *
+ * 图片、表情、语音这些消息的 content 存的是资源 URL，直接当文字渲染会铺满
+ * 整个列表（一条几十字符的链接能占掉四五行），必须替换成简短占位。
+ */
+function describeContent(message: Message): { text: string; imageUrl: string | null } {
+  const raw = (message.content ?? '').trim();
+  switch (message.type) {
+    case 'image':
+      return { text: '[图片]', imageUrl: raw || null };
+    case 'sticker':
+      return { text: '[表情]', imageUrl: raw || null };
+    case 'voice':
+      return { text: '[语音]', imageUrl: null };
+    case 'forward_bundle':
+      return { text: '[聊天记录]', imageUrl: null };
+    case 'system':
+      return { text: raw, imageUrl: null };
+    default:
+      // 文本消息里可能嵌了 <img src="..."/> 之类的富文本标签，一并收敛掉
+      return {
+        text: raw
+          .replace(/<img[^>]*\/?>/gi, '[图片]')
+          .replace(/<audio[^>]*\/?>/gi, '[语音]')
+          .replace(/<sticker[^>]*\/?>/gi, '[表情]')
+          .replace(/<quote[^>]*\/?>/gi, '')
+          .replace(/<at[^>]*\/?>/gi, '@')
+          .trim(),
+        imageUrl: null
+      };
+  }
+}
+
 function toChatMessage(message: Message): GameChatMessage {
   const auth = getGameAuth();
   const senderId = message.sender?.id ?? message.sender_id ?? null;
+  const described = describeContent(message);
   return {
     id: message.id,
     senderId,
@@ -111,7 +151,9 @@ function toChatMessage(message: Message): GameChatMessage {
       message.sender?.username ||
       '未知用户',
     avatarUrl: message.sender?.avatar_url ?? null,
-    content: message.content ?? '',
+    content: described.text,
+    type: message.type ?? 'text',
+    imageUrl: described.imageUrl,
     createdAt: message.created_at,
     own: auth.userId !== null && senderId === auth.userId
   };
