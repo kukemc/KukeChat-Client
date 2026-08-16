@@ -55,9 +55,28 @@ interface CcwUser {
 
 未登录时返回 falsy 值。
 
-**对 KukeChat 的意义**：这是在作品内识别 CCW 身份的唯一官方途径。KukeChat 的
-`User.ccw_student_oid` 正是 CCW 身份绑定字段，两者可以对应起来 —— 例如在游戏
-模式里提示「检测到你的 CCW 账号已绑定 KukeChat，点击授权即可发言」。
+> ### 🚨 返回值不可信，永远不能当身份凭据
+>
+> `getUserInfo()` 运行在作品所在的浏览器页面里。作品脚本、用户脚本、浏览器扩展
+> 都可以覆写它：
+>
+> ```js
+> runtime.ccwAPI.getUserInfo = () => Promise.resolve({ userId: '别人的ID' });
+> ```
+>
+> 所以它**只能用于渲染界面文案**。禁止据此判断玩家是谁、跳过授权流程，或把
+> `userId` / `uuid` 发给后端换取任何权限。
+>
+> KukeChat 里唯一有效的身份来源是安全登录换取的令牌 —— 由后端签发、后端校验，
+> 页面无法伪造。
+>
+> 本项目的封装在 `src/extension/gameMode/ccwIdentity.ts`：返回类型叫
+> `UntrustedCcwIdentity` 且只保留 `displayName` / `avatarUrl` 两个展示字段，
+> **刻意不暴露 userId 与 uuid**，从结构上杜绝误用。
+
+**当前用法**：游戏模式在玩家未授权时，把 CCW 昵称显示在授权按钮上
+（「以 XXX 的身份授权发言」），让提示更亲切。拿不到就回落到默认文案，
+授权流程本身完全不受影响。
 
 ## 当前作品
 
@@ -154,6 +173,6 @@ runtime.on('PROJECT_RUN_STOP', handler)
 | 需求 | 现状 |
 | --- | --- |
 | 当前作品 oid | `ccwAPI` 不提供，`src/extension/gameMode/session.ts` 从 URL 解析 |
-| CCW 用户身份 | 尚未使用 `getUserInfo()`，可用于优化游戏模式授权引导 |
+| CCW 用户身份 | `gameMode/ccwIdentity.ts` 封装，仅用于授权按钮的展示文案 |
 | 作品数据（点赞/评论/投币） | 尚未使用，可作为游戏模式之外的积木扩展 |
 | 编辑器内检测 | `src/extension/gandiToolbar.ts` 按 `/gandi/<id>` 路径判断 |

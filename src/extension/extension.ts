@@ -9,6 +9,7 @@ import { BOT_API_DOCS_URL } from '@/config';
 import { Icon, extensionId } from './assets';
 import { subscribeExtensionEvents } from './bridge';
 import { authorizeGameMode, isGameAuthorized, restoreGameAuth, getGameAuth } from './gameMode/auth';
+import { setCcwRuntime } from './gameMode/ccwIdentity';
 import {
   detectCreationOid,
   getGameChatState,
@@ -204,6 +205,8 @@ export default class KukeChatExtension {
     this.runtime = runtime;
     this.formatMessageFn = runtime?.getFormatMessage?.(messages) ?? ((message) => zhCnMessages[message.id] ?? message.default);
     this.unsubscribeEvents = subscribeExtensionEvents((event) => this.handleRealtimeEvent(event));
+    // 供游戏模式读取 CCW 社区身份（仅用于界面提示，不作身份凭据）
+    setCcwRuntime(runtime);
   }
 
   getInfo(): ScratchInfo {

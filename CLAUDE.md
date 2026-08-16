@@ -48,7 +48,17 @@ npm run android:apk      # Windows 一条龙打 APK
 
 `vite.env.ts` 会在三份构建配置里校验必填项，缺失直接构建失败 —— 这是刻意的，不要为了方便加回退默认值。
 
-**2. 本地开发需要 `.env`。**
+**2. 绝不把 `runtime.ccwAPI` 的返回值当作身份或权限依据。**
+
+`ccwAPI` 运行在作品页面里，任何脚本都能覆写它的方法返回伪造数据。它的产物只能
+用于渲染界面文案。身份判断一律以安全登录换取的令牌为准 —— 那个令牌由后端签发
+和校验，页面无法伪造。
+
+封装见 `src/extension/gameMode/ccwIdentity.ts`：类型名带 `Untrusted` 前缀，
+且只暴露 `displayName` / `avatarUrl`，不暴露 `userId` / `uuid`。新增字段前先想清楚
+它会不会被误当成凭据。完整 API 清单见 [`docs/ccw-runtime-api.md`](docs/ccw-runtime-api.md)。
+
+**3. 本地开发需要 `.env`。**
 
 ```bash
 cp .env.example .env    # 至少填 VITE_API_BASE_URL 和 VITE_WS_URL

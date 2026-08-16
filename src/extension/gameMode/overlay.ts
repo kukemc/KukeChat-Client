@@ -8,6 +8,7 @@
 
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { authorizeGameMode, isGameAuthorized, subscribeGameAuth } from './auth';
+import { readUntrustedCcwIdentity } from './ccwIdentity';
 import {
   refreshGameSession,
   sendGameChatMessage,
@@ -311,10 +312,11 @@ function renderFooter(state: GameChatState): void {
     return;
   }
 
+  const defaultLabel = '授权 KukeChat 账号后发言';
   const authorize = document.createElement('button');
   authorize.type = 'button';
   authorize.className = 'auth';
-  authorize.textContent = '授权 KukeChat 账号后发言';
+  authorize.textContent = defaultLabel;
   authorize.addEventListener('click', async () => {
     authorize.disabled = true;
     authorize.textContent = '正在授权…';
@@ -328,10 +330,19 @@ function renderFooter(state: GameChatState): void {
       renderSystem('浏览器拦截了登录窗口，请在地址栏放行弹窗');
       return;
     } else {
-      authorize.textContent = '授权 KukeChat 账号后发言';
+      authorize.textContent = defaultLabel;
     }
   });
   footerEl.appendChild(authorize);
+
+  // CCW 昵称只是让提示更亲切，不参与任何鉴权判断 —— 它来自页面，可被篡改。
+  // 拿不到就保持默认文案，绝不因此改变授权流程。
+  void readUntrustedCcwIdentity().then((identity) => {
+    if (identity?.displayName && authorize.textContent === defaultLabel) {
+      authorize.textContent = `以 ${identity.displayName} 的身份授权发言`;
+      authorize.title = 'KukeChat 会通过安全登录确认你的身份';
+    }
+  });
 }
 
 function renderState(state: GameChatState): void {

@@ -26,7 +26,47 @@ export interface ScratchFormatMessageInput {
 
 export type ScratchFormatMessage = (message: ScratchFormatMessageInput) => string;
 
+/**
+ * CCW / Gandi 社区平台向扩展开放的能力。完整清单见 docs/ccw-runtime-api.md。
+ *
+ * 这些成员在编辑器 / 播放器 / 离线运行时的可用集合不同，调用前必须逐个检测。
+ * 注意：返回值来自页面，可被篡改，只能用于展示，不能作为身份或权限依据。
+ */
+export interface CcwPlatformApi {
+  getUserInfo?: () => Promise<{
+    userId?: string | number;
+    userName?: string;
+    uuid?: string;
+    avatar?: string;
+    following?: number;
+    followers?: number;
+    liked?: number;
+    gender?: string;
+    constellation?: string;
+  } | null>;
+  getProjectStats?: () => Promise<{
+    commentCount?: number;
+    likeCount?: number;
+    favoriteCount?: number;
+    totalBucks?: number;
+  }>;
+  isMyFans?: () => Promise<boolean>;
+  isLiked?: () => Promise<boolean>;
+  getCoinCount?: () => Promise<number>;
+  isFollowed?: (userId: string) => Promise<boolean>;
+  isLikedProject?: (oid: string) => Promise<boolean>;
+  isFavoriteProject?: (oid: string) => Promise<boolean>;
+  redirect?: (path: string) => void;
+  setAvatar?: (...args: unknown[]) => Promise<boolean>;
+  insertCoin?: (count: number) => void;
+  requestCoins?: (count: number) => Promise<boolean>;
+  requestFollow?: () => Promise<boolean>;
+  commentWithStageSnapshot?: (content: string, withScreenshot: boolean) => Promise<boolean>;
+  showShare?: (encodedData: string, desc: string) => Promise<unknown>;
+}
+
 export interface ScratchRuntime {
+  ccwAPI?: CcwPlatformApi;
   gandi?: {
     wildExtensions?: Record<string, { id: string; url: string }>;
     addWildExtension?: (extension: { id: string; url: string }) => void;
