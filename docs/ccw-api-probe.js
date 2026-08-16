@@ -12,27 +12,64 @@
 (async () => {
   const SAFE_TO_CALL = new Set(['getUserInfo', 'getProjectStats', 'isMyFans', 'isLiked', 'getCoinCount']);
 
-  // ---------------------------------------------------------------- 找 runtime
+  // ---------------------------------------------------------------- 找 vm / runtime
+  //
+  // 解析顺序参考 kukemc/WebDev 扩展里经过实战验证的链路。要点是**按能力判断**
+  // 而不是盲信引用：不同版本的编辑器 / 播放器挂载位置不一样，光看名字会拿到
+  // 半成品对象。`runtime.extensionManager.vm` 是被验证最可靠的一条。
+
+  const isVM = (o) => o && typeof o === 'object' && (typeof o.toJSON === 'function' || typeof o.setEditingTarget === 'function');
+  const isRuntime = (o) => o && typeof o === 'object' && (o.ccwAPI || o.extensionManager || o.targets || o.gandi);
+
   function findRuntime() {
-    const candidates = [
-      window.vm,
-      window.__vm__,
-      window.scratchVM,
-      window.Scratch && window.Scratch.vm,
-      window.ScratchVM,
+    const tried = [];
+
+    const push = (label, value) => { tried.push({ 路径: label, 命中: Boolean(value) }); return value; };
+
+    // 1) 直接挂在 window 上的 VM
+    const vmCandidates = [
+      ['window.vm', window.vm],
+      ['window.Scratch?.vm', window.Scratch && window.Scratch.vm],
+      ['window.__vm__', window.__vm__],
+      ['window.scratchVM', window.scratchVM],
     ];
-    for (const vm of candidates) {
-      if (vm && vm.runtime) return { runtime: vm.runtime, from: 'window.vm.runtime' };
-      if (vm && vm.ccwAPI) return { runtime: vm, from: 'window.vm' };
+    for (const [label, vm] of vmCandidates) {
+      push(label, vm);
+      if (isVM(vm) && isRuntime(vm.runtime)) {
+        console.table(tried);
+        return { runtime: vm.runtime, vm, from: `${label}.runtime` };
+      }
     }
-    // 兜底：遍历 window 上的对象，找带 ccwAPI 或 extensionManager 的
+
+    // 2) 直接挂在 window 上的 runtime
+    const runtimeCandidates = [
+      ['window.runtime', window.runtime],
+      ['window.Scratch?.vm?.runtime', window.Scratch && window.Scratch.vm && window.Scratch.vm.runtime],
+    ];
+    for (const [label, rt] of runtimeCandidates) {
+      push(label, rt);
+      if (isRuntime(rt)) {
+        console.table(tried);
+        return { runtime: rt, vm: rt.extensionManager && rt.extensionManager.vm, from: label };
+      }
+    }
+
+    // 3) 兜底：扫一遍 window，找带 runtime 特征的对象
     for (const key of Object.keys(window)) {
       let value;
       try { value = window[key]; } catch { continue; }
       if (!value || typeof value !== 'object') continue;
-      if (value.ccwAPI) return { runtime: value, from: `window.${key}` };
-      if (value.runtime && value.runtime.ccwAPI) return { runtime: value.runtime, from: `window.${key}.runtime` };
+      if (isRuntime(value)) {
+        console.table(tried);
+        return { runtime: value, vm: value.extensionManager && value.extensionManager.vm, from: `window.${key}（扫描命中）` };
+      }
+      if (isVM(value) && isRuntime(value.runtime)) {
+        console.table(tried);
+        return { runtime: value.runtime, vm: value, from: `window.${key}.runtime（扫描命中）` };
+      }
     }
+
+    console.table(tried);
     return null;
   }
 
@@ -44,7 +81,11 @@
   }
 
   const { runtime, from } = found;
+  // runtime.extensionManager.vm 是被验证最可靠的反查路径，优先用它回补 vm
+  const vm = (runtime.extensionManager && runtime.extensionManager.vm) || runtime.vm || runtime._vm || found.vm || null;
   console.log('%c✓ 找到 runtime', 'color:#30a46c;font-weight:bold', `来源: ${from}`);
+  console.log('  runtime =', runtime);
+  console.log('  vm =', vm, vm ? '' : '（没找到，不影响 ccwAPI 探测）');
 
   const api = runtime.ccwAPI;
   if (!api) {
@@ -85,20 +126,53 @@
     console.log('ccwAPI 上没有名字含 oid / projectId / creation 的成员。');
   }
 
-  // runtime 本身也扫一遍
-  const runtimeIdLike = [];
-  for (const key of Object.getOwnPropertyNames(runtime)) {
-    if (/oid|projectid|project_id|creationid/i.test(key)) {
-      let v;
-      try { v = runtime[key]; } catch { v = '<读取失败>'; }
-      runtimeIdLike.push({ 路径: `runtime.${key}`, 值: String(v).slice(0, 80) });
+  // runtime / vm / gandi / 已加载扩展实例，全都扫一遍
+  const ID_RX = /oid|projectid|project_id|creationid|creation_id|workid|work_id/i;
+  const hits = [];
+  const seenPaths = new Set();
+  const seenObjects = new WeakSet();
+
+  function scanObject(label, obj, depth) {
+    if (!obj || typeof obj !== 'object' || depth > 2) return;
+    // 同一个对象可能从多条路径到达（例如 runtime.gandi 既被递归也被显式扫描）
+    if (seenObjects.has(obj)) return;
+    seenObjects.add(obj);
+    let keys;
+    try { keys = Object.getOwnPropertyNames(obj); } catch { return; }
+    for (const key of keys) {
+      if (key.startsWith('_') && depth > 0) continue;
+      let value;
+      try { value = obj[key]; } catch { continue; }
+      if (ID_RX.test(key) && !seenPaths.has(`${label}.${key}`)) {
+        seenPaths.add(`${label}.${key}`);
+        const preview = typeof value === 'function' ? `<function/${value.length}>` : String(value).slice(0, 80);
+        hits.push({ 路径: `${label}.${key}`, 值: preview });
+      }
+      // 只对少量已知容器再下钻一层，避免遍历整棵对象树
+      if (depth < 2 && value && typeof value === 'object' && /gandi|project|meta|config|info/i.test(key)) {
+        scanObject(`${label}.${key}`, value, depth + 1);
+      }
     }
   }
-  if (runtimeIdLike.length) {
-    console.log('%c⚠ runtime 上的疑似字段：', 'color:#f5a524;font-weight:bold');
-    console.table(runtimeIdLike);
+
+  scanObject('runtime', runtime, 0);
+  if (vm) scanObject('vm', vm, 0);
+  if (runtime.gandi) scanObject('runtime.gandi', runtime.gandi, 1);
+
+  // 已加载的扩展实例（其中可能有别的扩展已经拿到了作品信息）
+  const extBag = runtime.ext || (vm && vm.runtime && vm.runtime.ext);
+  if (extBag && typeof extBag === 'object') {
+    console.log('已加载的扩展实例:', Object.keys(extBag));
+    for (const extId of Object.keys(extBag)) {
+      scanObject(`runtime.ext.${extId}`, extBag[extId], 1);
+    }
+  }
+
+  if (hits.length) {
+    console.log('%c⚠ 疑似作品 ID 的字段：', 'color:#f5a524;font-weight:bold');
+    console.table(hits);
   } else {
-    console.log('runtime 顶层也没有 oid / projectId 字段。');
+    console.log('runtime / vm / 扩展实例上都没有 oid / projectId 字段。');
   }
 
   console.log('当前地址:', window.location.href);

@@ -160,6 +160,35 @@ runtime.ccwAPI.showShare(encodedData: string, desc: string): Promise<unknown>
 官方扩展限制原始数据不超过 50 字符。分享链接会带上 `?kontakt=<data>` 参数，
 被分享者打开作品后可从 `window.location.search` 取回。
 
+## 如何拿到 vm / runtime
+
+扩展类的构造函数会收到 `runtime`，但要反查 VM（例如为了 patch `vm.toJSON`）时，
+挂载位置在不同版本的编辑器 / 播放器里不一致。经过验证的解析顺序：
+
+```js
+const vm =
+  runtime?.extensionManager?.vm ??   // 最可靠，本项目 extensionUrlUpdater.ts 也用这条
+  runtime?.vm ??
+  runtime?._vm ??
+  window.Scratch?.vm ??
+  window.vm ??
+  null;
+```
+
+**关键在于按能力判断，而不是盲信引用** —— 不同挂载点可能给到半成品对象，
+所以取到候选后要验证它确实有你需要的方法：
+
+```js
+const usable = candidates.find((c) =>
+  c && typeof c === "object" && typeof c.toJSON === "function"
+);
+```
+
+从控制台侧（没有 `this.runtime`）探测时，用
+[`docs/ccw-api-probe.js`](ccw-api-probe.js)：它按上面的链路找 runtime，
+列出 `ccwAPI` 全部成员，并在 runtime / vm / 已加载扩展实例上搜索疑似作品 ID
+的字段，只试调不会弹窗的只读方法。
+
 ## 运行时事件
 
 ```ts
