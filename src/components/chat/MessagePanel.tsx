@@ -256,6 +256,8 @@ const QUICK_REACTION_EMOJIS = ['😂', '😘', '❔', '🤔', '😡', '😭'];
 const FULL_REACTION_EMOJIS = ['😀', '😃', '😄', '😁', '😂', '🤣', '😊', '😍', '😘', '😎', '😋', '😜', '🤔', '😮', '😢', '😭', '😡', '👍', '👎', '👏', '🙏', '💪', '🎉', '✨', '❤️', '🔥', '⭐', '🌙', '☀️', '🍀', '🐱', '🐶', '🐧', '🍉', '🍜', '🎮', '📷', '💬', '✅', '❌'];
 // 太长的消息复读出去就是刷屏，卡在这个长度以内
 const REPEAT_MAX_LENGTH = 200;
+// 头像双击的判定窗口，同时也是单击开名片的延迟
+const AVATAR_DOUBLE_TAP_MS = 300;
 const MESSAGE_MENU_WIDTH = 252;
 const MESSAGE_MENU_HEIGHT = 416;
 const MEMBER_MENU_WIDTH = 220;
@@ -3009,6 +3011,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   const pokeTipIdRef = useRef(0);
   const pokeTimersRef = useRef<number[]>([]);
   const avatarTapTimerRef = useRef<number | null>(null);
+  const lastAvatarTapRef = useRef<{ userId: number; at: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const overlayRootRef = useRef<HTMLElement | null>(null);
@@ -5075,13 +5078,28 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     }
   }
 
-  /** 单击头像的动作延后一点执行，给双击留出判定窗口。 */
-  function scheduleAvatarTap(action: () => void): void {
+  /**
+   * 头像上的「单击开名片、双击戳一戳」。
+   *
+   * 不用浏览器的 dblclick：名片一旦弹出来就盖在头像上，第二下会点到弹窗上，
+   * dblclick 根本不会触发；触屏上它更是压根不可靠。所以自己数点击 ——
+   * 窗口期内的第二下算双击，并把还没执行的「开名片」撤掉。
+   */
+  function handleAvatarTap(userId: number | null | undefined, openCard: () => void): void {
+    const now = Date.now();
+    const previous = lastAvatarTapRef.current;
+    if (userId && previous && previous.userId === userId && now - previous.at < AVATAR_DOUBLE_TAP_MS) {
+      cancelAvatarTap();
+      lastAvatarTapRef.current = null;
+      void pokeUser(userId);
+      return;
+    }
+    lastAvatarTapRef.current = userId ? { userId, at: now } : null;
     cancelAvatarTap();
     avatarTapTimerRef.current = window.setTimeout(() => {
       avatarTapTimerRef.current = null;
-      action();
-    }, 220);
+      openCard();
+    }, AVATAR_DOUBLE_TAP_MS);
   }
 
   async function pokeUser(userId: number | null | undefined): Promise<void> {
@@ -6083,12 +6101,29 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               const taskShareCard = taskShareCardOf(message);
               const taskEventCard = taskEventCardOf(message);
               const stickerMessage = isStickerMessage(message);
-              // 连续相同的文本才算「复读」。图标只挂在这一串的最后一条上，
-              // 否则一串重复消息每条旁边都挂一个 +1，比刷屏本身还吵。
+              // 连续相同的文本才算「复读」，而且只挂在整个列表的最后一条上：
+              // 复读是「跟一句当下的话」，一旦有新消息把这串顶下去就没意义了，
+              // 图标也就跟着消失。
               const repeatText = repeatableContentOf(message);
               const showRepeatPlusOne = repeatText !== null
-                && repeatableContentOf(messages[index - 1]) === repeatText
-                && repeatableContentOf(messages[index + 1]) !== repeatText;
+                && index === messages.length - 1
+                && repeatableContentOf(messages[index - 1]) === repeatText;
+              // 按钮永远贴着气泡的外侧：别人的消息在右手边，自己的在左手边
+              const plusOneButton = showRepeatPlusOne && repeatText ? (
+                <button
+                  type="button"
+                  title="跟着复读一句"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    repeatMessage(repeatText);
+                  }}
+                  onDoubleClick={(event) => event.stopPropagation()}
+                  disabled={sendMutation.isPending}
+                  className="kc-plus-one grid h-7 w-7 shrink-0 select-none place-items-center self-center rounded-full border text-[11px] font-semibold leading-none transition [border-color:var(--kc-accent)] [color:var(--kc-accent)] hover:[background:var(--kc-accent-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  +1
+                </button>
+              ) : null;
               if (message.type === 'system') {
                 return (
                   <div key={message.id}>
@@ -6127,13 +6162,12 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                       title="双击戳一戳"
                       onClick={(event) => {
                         const element = event.currentTarget;
-                        scheduleAvatarTap(() => openUserCardAtElement(element, sender, '好友', senderMember));
+                        handleAvatarTap(sender?.id ?? senderMember?.user_id, () => openUserCardAtElement(element, sender, '好友', senderMember));
                       }}
                       onDoubleClick={(event) => {
-                        // 消息行自身的双击是「引用」，这里必须拦住冒泡
+                        // 消息行自身的双击是「引用」，这里只负责拦住冒泡；
+                        // 戳一戳由 handleAvatarTap 自己数点击触发
                         event.stopPropagation();
-                        cancelAvatarTap();
-                        void pokeUser(sender?.id ?? senderMember?.user_id);
                       }}
                       onContextMenu={(event) => openMemberMenu(event, senderMember)}
                       className={`${isMobile ? 'h-9 w-9' : 'h-9 w-9'} shrink-0 rounded-full text-left [&>*]:h-full [&>*]:w-full`}
@@ -6143,6 +6177,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                       </span>
                     </button>
                   ) : null}
+                  {mine ? plusOneButton : null}
                   <div className={`min-w-0 ${isMobile ? 'kc-mobile-message-stack' : 'max-w-[75%]'} ${mine ? 'items-end' : 'items-start'} flex flex-col gap-0.5`} style={isMobile ? { flex: '0 1 auto', width: 'auto', maxWidth: isNativeApp ? '72vw' : '78%' } : undefined}>
                     <div className={`kc-mobile-message-meta flex flex-nowrap items-center gap-1 px-1 text-[11px] [color:var(--kc-muted)] ${mine ? 'justify-end' : 'justify-start'}`}>
                       <span className={`kc-mobile-message-identity inline-flex min-w-0 max-w-full items-center gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -6231,21 +6266,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                     )}
                     {renderMessageReactions(message, mine)}
                   </div>
-                  {showRepeatPlusOne && repeatText ? (
-                    <button
-                      type="button"
-                      title="跟着复读一句"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        repeatMessage(repeatText);
-                      }}
-                      onDoubleClick={(event) => event.stopPropagation()}
-                      disabled={sendMutation.isPending}
-                      className="kc-plus-one self-center shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none transition [border-color:var(--kc-accent)] [color:var(--kc-accent)] hover:[background:var(--kc-accent-soft)] disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      +1
-                    </button>
-                  ) : null}
+                  {!mine ? plusOneButton : null}
                   {mine ? (
                     <button type="button" onClick={(event) => openUserCard(event, currentUser, getDisplayName(currentUser, '用户'), senderMember)} onContextMenu={(event) => openMemberMenu(event, senderMember)} className={`${isMobile ? 'h-9 w-9' : 'h-9 w-9'} shrink-0 rounded-full text-left [&>*]:h-full [&>*]:w-full`}>
                       <span className={`block h-full w-full ${pokedUserIds.includes(currentUser.id) ? 'kc-poke-shake' : ''}`}>

@@ -302,12 +302,7 @@ export default class KukeChatExtension {
           blockType: scratch.BlockType.HAT,
           isEdgeActivated: false,
           text: this.formatMessage('kukechat.block.whenGameMessage'),
-          arguments: {
-            SENDER_NAME: { type: scratch.ArgumentType.STRING },
-            SENDER_ID: { type: scratch.ArgumentType.NUMBER },
-            CONTENT: { type: scratch.ArgumentType.STRING },
-            IS_SELF: { type: scratch.ArgumentType.STRING }
-          }
+          arguments: this.gameMessageHatParameters()
         },
         `---${this.formatMessage('kukechat.div.botConfig')}`,
         `---${this.formatMessage('kukechat.notice.botKey')}`,
@@ -1327,6 +1322,16 @@ export default class KukeChatExtension {
       MESSAGE_TYPE: { type: 'ccw_hat_parameter' },
       CONTENT: { type: 'ccw_hat_parameter' },
       EVENT_JSON: { type: 'ccw_hat_parameter' }
+    };
+  }
+
+  /** 和机器人事件一样用 ccw_hat_parameter，参数才会渲染成可拖出来的变量块。 */
+  private gameMessageHatParameters(): ScratchBlockDefinition['arguments'] {
+    return {
+      SENDER_NAME: { type: 'ccw_hat_parameter' },
+      SENDER_ID: { type: 'ccw_hat_parameter' },
+      CONTENT: { type: 'ccw_hat_parameter' },
+      IS_SELF: { type: 'ccw_hat_parameter' }
     };
   }
 
