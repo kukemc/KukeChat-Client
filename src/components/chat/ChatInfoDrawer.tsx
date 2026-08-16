@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getGameModeSettings, updateGameModeSettings } from '@/api/game';
 import { getConversationBots, removeBotInstallation, updateBotInstallation } from '@/api/bots';
 import { acceptGroupJoinRequest, addConversationMembers, checkinGroup, clearConversationHistory, createDirectConversation, dissolveConversation, getGroupCheckinStatus, getGroupLeaderboard, getIncomingGroupJoinRequests, leaveConversation, rejectGroupJoinRequest, removeConversationMember, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle, updateConversationProfile, updateGroupSettings, updateMyConversationSettings, uploadConversationAvatar } from '@/api/conversations';
 import { deleteFriend, getOutgoingFriendRequests, sendFriendRequest } from '@/api/friends';
@@ -623,6 +624,73 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     mutationFn: uploadConversationAvatar,
     onSuccess: (response) => setProfileAvatarUrl(response.url)
   });
+
+  // 游戏模式仅群主可配置，后端也只放行群主，这里的判断只是别让别人白点
+  const isGroupOwner = isGroup && currentRole === 'owner';
+  const [gameCreationOid, setGameCreationOid] = useState('');
+  const [gameModeError, setGameModeError] = useState('');
+
+  const gameModeQuery = useQuery({
+    queryKey: ['game-mode', conversation.id],
+    queryFn: () => getGameModeSettings(conversation.id),
+    enabled: isGroupOwner
+  });
+
+  useEffect(() => {
+    setGameCreationOid(gameModeQuery.data?.creation_oid ?? '');
+    setGameModeError('');
+  }, [gameModeQuery.data?.creation_oid, conversation.id]);
+
+  const gameModeMutation = useMutation({
+    mutationFn: ({ enabled, creationOid }: { enabled: boolean; creationOid: string | null }) =>
+      updateGameModeSettings(conversation.id, enabled, creationOid),
+    onSuccess: (result) => {
+      setGameModeError('');
+      setGameCreationOid(result.creation_oid ?? '');
+      void queryClient.invalidateQueries({ queryKey: ['game-mode', conversation.id] });
+    },
+    // 后端会明确说明拒绝原因（非公开群、缺作品 ID 等），直接透传给群主
+    onError: (error: unknown) => {
+      setGameModeError(error instanceof Error ? error.message : '保存失败，请稍后重试。');
+    }
+  });
+
+  const gameModeEnabled = Boolean(gameModeQuery.data?.enabled);
+
+  function normalizeCreationOid(value: string): string {
+    const trimmed = value.trim();
+    // 支持直接粘贴作品链接，自动抽出其中的 24 位十六进制 ID
+    const fromUrl = trimmed.match(/[0-9a-fA-F]{24}/);
+    return (fromUrl ? fromUrl[0] : trimmed).toLowerCase();
+  }
+
+  function toggleGameMode(next: boolean): void {
+    if (!next) {
+      gameModeMutation.mutate({ enabled: false, creationOid: null });
+      return;
+    }
+    const oid = normalizeCreationOid(gameCreationOid);
+    if (!/^[0-9a-f]{24}$/.test(oid)) {
+      setGameModeError('请先填写要绑定的作品 ID（24 位，可直接粘贴作品链接）。');
+      return;
+    }
+    gameModeMutation.mutate({ enabled: true, creationOid: oid });
+  }
+
+  function saveGameCreationOid(): void {
+    if (!gameModeEnabled) {
+      return;
+    }
+    const oid = normalizeCreationOid(gameCreationOid);
+    if (!/^[0-9a-f]{24}$/.test(oid)) {
+      setGameModeError('作品 ID 应为 24 位十六进制，可直接粘贴作品链接。');
+      return;
+    }
+    if (oid === (gameModeQuery.data?.creation_oid ?? '')) {
+      return;
+    }
+    gameModeMutation.mutate({ enabled: true, creationOid: oid });
+  }
 
   const groupSettingsMutation = useMutation({
     mutationFn: ({ conversationId, payload }: { conversationId: number; payload: UpdateGroupSettingsPayload }) => updateGroupSettings(conversationId, payload),
@@ -1631,6 +1699,31 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
               <ToggleRow label="加群自动审批" checked={joinMode === 'question' ? false : autoApprove} disabled={groupSettingsMutation.isPending || joinMode === 'question'} onChange={updateAutoApproveValue} />
             </DrawerCard>
 
+
+            {isGroupOwner ? (
+            <>
+            <p className="mb-2 mt-5 px-1 text-xs font-semibold [color:var(--kc-muted)]">游戏模式</p>
+            <DrawerCard allowOverflow>
+              <label className="kc-drawer-input-row flex items-center gap-3 px-4 py-3 text-sm">
+                <span className="min-w-0 flex-1">绑定作品 ID</span>
+                <input
+                  value={gameCreationOid}
+                  onChange={(event) => setGameCreationOid(event.target.value)}
+                  onBlur={saveGameCreationOid}
+                  disabled={gameModeMutation.isPending}
+                  placeholder="粘贴作品链接或 ID"
+                  className="w-44 rounded-xl border px-3 py-1.5 text-right text-xs outline-none [background:var(--kc-panel-muted)] [border-color:var(--kc-border)] [color:var(--kc-text)] placeholder:[color:var(--kc-muted)] focus:[border-color:var(--kc-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </label>
+              <ToggleRow label="开启游戏模式" checked={gameModeEnabled} disabled={gameModeMutation.isPending || gameModeQuery.isLoading} onChange={toggleGameMode} />
+            </DrawerCard>
+            <p className="mt-2 px-1 text-[11px] leading-5 [color:var(--kc-muted)]">
+              开启后，绑定作品里的玩家可以直接收发本群消息。<strong className="[color:var(--kc-text)]">本群近期聊天记录会对所有游玩该作品的人可见，包括未登录访客</strong>，因此仅公开群可以开启。玩家发言时会自动入群，你原有的禁言与成员管理照常生效。
+            </p>
+            {gameModeError ? <p className="mt-1 px-1 text-[11px] leading-5 text-red-500">{gameModeError}</p> : null}
+            </>
+            ) : null}
+
             <p className="mb-2 mt-5 px-1 text-xs font-semibold [color:var(--kc-muted)]">任务</p>
             <DrawerCard allowOverflow>
               <ToggleRow label="开启任务功能" checked={tasksEnabled} disabled={groupSettingsMutation.isPending} onChange={updateTasksEnabledValue} />
@@ -2136,6 +2229,29 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
                     <DrawerSelectRow label="谁可以创建任务" value={taskCreationPermission} options={[{ value: 'members', label: '全部成员' }, { value: 'admins', label: '仅管理员' }]} disabled={groupSettingsMutation.isPending} icon={<Icon name="checkSquare" className="h-4 w-4" />} onChange={updateTaskPermissionValue} />
                   ) : null}
                 </DrawerCard>
+                {isGroupOwner ? (
+                  <>
+                    <p className="kc-qq-section-title mt-5">游戏模式</p>
+                    <DrawerCard allowOverflow>
+                      <label className="kc-drawer-input-row flex items-center gap-3 px-4 py-3 text-sm">
+                        <span className="min-w-0 flex-1">绑定作品 ID</span>
+                        <input
+                          value={gameCreationOid}
+                          onChange={(event) => setGameCreationOid(event.target.value)}
+                          onBlur={saveGameCreationOid}
+                          disabled={gameModeMutation.isPending}
+                          placeholder="粘贴作品链接或 ID"
+                          className="w-40 rounded-xl border px-3 py-1.5 text-right text-xs outline-none [background:var(--kc-panel-muted)] [border-color:var(--kc-border)] [color:var(--kc-text)] placeholder:[color:var(--kc-muted)] focus:[border-color:var(--kc-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                      </label>
+                      <ToggleRow label="开启游戏模式" checked={gameModeEnabled} disabled={gameModeMutation.isPending || gameModeQuery.isLoading} onChange={toggleGameMode} />
+                    </DrawerCard>
+                    <p className="mt-2 px-1 text-[11px] leading-5 [color:var(--kc-muted)]">
+                      开启后，绑定作品里的玩家可以直接收发本群消息。<strong className="[color:var(--kc-text)]">本群近期聊天记录会对所有游玩该作品的人可见，包括未登录访客</strong>，因此仅公开群可以开启。
+                    </p>
+                    {gameModeError ? <p className="mt-1 px-1 text-[11px] leading-5 text-red-500">{gameModeError}</p> : null}
+                  </>
+                ) : null}
               </section>
             ) : null}
 
