@@ -229,15 +229,6 @@ export async function botApiSetMemberMute(key: string, conversationId: number, u
   return readBotJson<ConversationMember>(response);
 }
 
-export async function botApiSetMemberRole(key: string, conversationId: number, userId: number, role: 'admin' | 'member'): Promise<ConversationMember> {
-  const response = await fetch(joinBotApiPath(`/bot-api/conversations/${conversationId}/members/${userId}/role`), {
-    method: 'PATCH',
-    headers: botHeaders(key),
-    body: JSON.stringify({ role })
-  });
-  return readBotJson<ConversationMember>(response);
-}
-
 export async function botApiRemoveMember(key: string, conversationId: number, userId: number): Promise<void> {
   const response = await fetch(joinBotApiPath(`/bot-api/conversations/${conversationId}/members/${userId}`), {
     method: 'DELETE',

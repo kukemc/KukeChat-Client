@@ -1,7 +1,7 @@
 import { useKukeStore } from '@/store/kukeStore';
 import { closeKukeChatWindow, ensureKukeChatWindow, minimizeKukeChatWindow, toggleKukeChatFullscreen } from '@/app/windowManager';
 import { getConversations } from '@/api/conversations';
-import { botApiGetConversationInfo, botApiGetConversations, botApiGetJoinRequests, botApiGetMembers, botApiGetMessages, botApiGetUserInfo, botApiRecallMessage, botApiRemoveMember, botApiReviewJoinRequest, botApiSendDirectMessage, botApiSendMessage, botApiSetMemberMute, botApiSetMemberRole, botApiToggleReaction, botApiUpdateMessageComponent, botWebSocketUrl } from '@/api/bots';
+import { botApiGetConversationInfo, botApiGetConversations, botApiGetJoinRequests, botApiGetMembers, botApiGetMessages, botApiGetUserInfo, botApiRecallMessage, botApiRemoveMember, botApiReviewJoinRequest, botApiSendDirectMessage, botApiSendMessage, botApiSetMemberMute, botApiToggleReaction, botApiUpdateMessageComponent, botWebSocketUrl } from '@/api/bots';
 import { getOnlineCount, getOnlineUsers } from '@/api/users';
 import type { RealtimeEvent } from '@/types/realtime';
 import type { ScratchBlockDefinition, ScratchFormatMessage, ScratchInfo, ScratchLike, ScratchRuntime } from '@/types/scratch';
@@ -106,7 +106,6 @@ const messages = {
     'kukechat.block.botSetMute': '禁言群 [GROUP_ID] 成员 [USER_ID] [MINUTES] 分钟',
     'kukechat.block.botUnmute': '解除群 [GROUP_ID] 成员 [USER_ID] 的禁言',
     'kukechat.block.botKick': '把群 [GROUP_ID] 成员 [USER_ID] 移出群聊',
-    'kukechat.block.botSetRole': '[ROLE] 群 [GROUP_ID] 成员 [USER_ID]',
     'kukechat.block.botJoinRequests': '群 [GROUP_ID] 待处理入群申请JSON',
     'kukechat.block.botReviewJoinRequest': '[DECISION] 入群申请 [REQUEST_ID] 备注 [NOTE]',
     'kukechat.div.game': '🎮 KukeChat 游戏模式',
@@ -170,7 +169,6 @@ const messages = {
     'kukechat.block.botSetMute': 'Mute group [GROUP_ID] member [USER_ID] for [MINUTES] minutes',
     'kukechat.block.botUnmute': 'Unmute group [GROUP_ID] member [USER_ID]',
     'kukechat.block.botKick': 'Remove member [USER_ID] from group [GROUP_ID]',
-    'kukechat.block.botSetRole': '[ROLE] group [GROUP_ID] member [USER_ID]',
     'kukechat.block.botJoinRequests': 'Group [GROUP_ID] pending join requests JSON',
     'kukechat.block.botReviewJoinRequest': '[DECISION] join request [REQUEST_ID] note [NOTE]',
     'kukechat.div.game': '🎮 KukeChat Game Mode',
@@ -387,11 +385,6 @@ export default class KukeChatExtension {
           GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
           USER_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
         }),
-        block('botSetRole', scratch.BlockType.COMMAND, 'kukechat.block.botSetRole', {
-          ROLE: { type: scratch.ArgumentType.STRING, menu: 'BOT_MEMBER_ROLE', defaultValue: 'admin' },
-          GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 },
-          USER_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
-        }),
         block('botJoinRequests', scratch.BlockType.REPORTER, 'kukechat.block.botJoinRequests', {
           GROUP_ID: { type: scratch.ArgumentType.NUMBER, defaultValue: 1 }
         }),
@@ -472,10 +465,6 @@ export default class KukeChatExtension {
           { text: '累计签到', value: 'total_checkins' },
           { text: '连续签到', value: 'current_checkin_streak' },
           { text: '是否在群里', value: 'in_group' }
-        ],
-        BOT_MEMBER_ROLE: [
-          { text: '设为管理员', value: 'admin' },
-          { text: '取消管理员', value: 'member' }
         ],
         BOT_REVIEW_DECISION: [
           { text: '同意', value: 'approve' },
@@ -1206,17 +1195,6 @@ export default class KukeChatExtension {
       return;
     }
     await this.runBotOperation(() => botApiRemoveMember(this.botKey, groupId, userId));
-  }
-
-  async botSetRole(args: { ROLE?: string; GROUP_ID?: number | string; USER_ID?: number | string }): Promise<void> {
-    const groupId = parseGroupId(args.GROUP_ID);
-    const userId = parseUserId(args.USER_ID);
-    if (!this.botKey || !groupId || !userId) {
-      this.setBotError(!this.botKey ? '请先设置机器人 Key' : '群 ID 或用户 ID 无效');
-      return;
-    }
-    const role = String(args.ROLE ?? 'admin') === 'member' ? 'member' : 'admin';
-    await this.runBotOperation(() => botApiSetMemberRole(this.botKey, groupId, userId, role));
   }
 
   async botJoinRequests(args: { GROUP_ID?: number | string }): Promise<string> {

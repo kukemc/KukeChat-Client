@@ -106,6 +106,10 @@ X-Kuke-Bot-Key: <机器人Key>
 | `DELETE` | `/bot-api/conversations/{conversation_id}/messages/{message_id}/reactions/{emoji}` | 删除指定表情回应 |
 | `POST` | `/bot-api/uploads/image` | 上传消息图片 |
 | `POST` | `/bot-api/uploads/voice` | 上传语音 |
+| `PATCH` | `/bot-api/conversations/{conversation_id}/members/{user_id}/mute` | 禁言或解除禁言（需管理员） |
+| `DELETE` | `/bot-api/conversations/{conversation_id}/members/{user_id}` | 把成员移出群聊（需管理员） |
+| `GET` | `/bot-api/conversations/{conversation_id}/join-requests` | 查看入群申请（需管理员） |
+| `POST` | `/bot-api/join-requests/{request_id}/review` | 同意或拒绝入群申请（需管理员） |
 
 `limit` 范围是 `1-100`。
 
@@ -339,6 +343,76 @@ Content-Type: multipart/form-data
 file=<音频文件>
 ```
 
+## 群管理
+
+机器人在群里就是一个普通成员，**没有任何天生的管理权限**。要用下面这些接口，
+群主得先在群成员列表里把机器人设成管理员；没设就一律返回 `403`。
+
+权限规则和人类管理员完全一致，包括那些限制：
+
+- 管理员动不了群主和其他管理员（禁言、踢人都不行）。
+- 机器人**永远当不了群主**，群主只在建群时属于创建者。因此机器人也无法任免
+  管理员 —— 改角色是群主专属操作，故没有提供对应接口。
+
+所有操作都会像人类管理员那样在群里留下系统消息，并广播给在线成员。
+
+### 禁言 / 解除禁言
+
+```http
+PATCH /bot-api/conversations/123/members/88/mute
+```
+
+```json
+{ "muted": true, "minutes": 10 }
+```
+
+`minutes` 留空或填 `0` 表示不设期限，一直禁到手动解除。解除禁言传
+`{ "muted": false }` 即可，此时 `minutes` 会被忽略。
+
+返回更新后的成员对象，其中 `muted`、`muted_until` 反映最新状态。
+
+### 移出群聊
+
+```http
+DELETE /bot-api/conversations/123/members/88
+```
+
+返回 `{ "detail": "Removed member" }`。被移出者会收到 `conversation.deleted`。
+
+### 入群申请
+
+```http
+GET /bot-api/conversations/123/join-requests
+```
+
+默认只返回待处理的申请，带 `?pending_only=false` 可以看到已处理的历史记录。
+
+```http
+POST /bot-api/join-requests/456/review
+```
+
+```json
+{ "approved": true, "decision_note": "欢迎" }
+```
+
+`decision_note` 可省略，最长 200 字。同意后申请人立即入群，群里会出现
+「XX 加入了群聊」的系统消息。
+
+想做自动审批的话，监听 WebSocket 的 `group.join_request.created` 事件，
+拿到里面的 `request_id` 直接调这个接口即可。
+
+### 查成员资料
+
+群管相关的判断（等级、是否管理员、是否已被禁言）都从现成的成员列表接口拿：
+
+```http
+GET /bot-api/conversations/123/members
+```
+
+每个成员对象里包含 `role`、`level`、`level_exp`、`activity_score`、`muted`、
+`muted_until`、`title`、`joined_at`、`total_checkins`、`current_checkin_streak`
+等字段。
+
 ## 表情回应
 
 添加或取消表情回应：
@@ -404,6 +478,7 @@ Content-Type: application/json
 | `group.member.removed` | 群成员被移出 |
 | `group.member.role_updated` | 群成员角色变化 |
 | `group.member.mute_updated` | 群成员禁言状态变化 |
+| `group.join_request.created` | 有人申请入群，可据此做自动审批 |
 
 客户端可以定期发送文本 `ping`，服务端会返回 `pong`。
 
@@ -427,12 +502,29 @@ Content-Type: application/json
 }
 ```
 
+`group.join_request.created` 示例：
+
+```json
+{
+  "type": "group.join_request.created",
+  "data": {
+    "conversation_id": 123,
+    "request_id": 456,
+    "user_id": 88,
+    "message": "想进来学扩展",
+    "answer": "我是 CCW 的老用户"
+  }
+}
+```
+
+`message` 是申请者的附言，`answer` 是群里设置了入群问题时的回答，都可能为 `null`。
+
 ## 错误码
 
 | 状态码 | 说明 |
 | --- | --- |
 | `401` | 缺少 Bot Key、Key 无效或鉴权格式错误 |
-| `403` | 机器人被停用、未启用、权限不足、被禁言或没有 `@全体` 权限 |
+| `403` | 机器人被停用、未启用、权限不足、被禁言、没有 `@全体` 权限，或未被设为群管理员就调用群管接口 |
 | `404` | 群聊、私聊、用户、消息或安装记录不存在 |
 | `422` | 请求参数不合法，例如消息为空、Markdown 超长、URL 不合法、emoji 非法 |
 

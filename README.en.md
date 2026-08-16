@@ -119,6 +119,28 @@ bot toggle reaction [EMOJI] on message [] in group []
 bot update button [] label [] variant [] disabled [] scope [] on message [] in conversation []
 ```
 
+Once the group owner promotes the bot to admin, the moderation blocks unlock too —
+they follow exactly the same rules as a human admin:
+
+```
+group [GROUP_ID] member [USER_ID] [level/role/is admin/muted/…]
+mute group [GROUP_ID] member [USER_ID] for [MINUTES] minutes   (0 = no expiry)
+unmute group [GROUP_ID] member [USER_ID]
+remove member [USER_ID] from group [GROUP_ID]
+group [GROUP_ID] pending join requests JSON
+[approve/reject] join request [REQUEST_ID] note [NOTE]
+```
+
+Game mode wires a group chat onto the project stage, so players can chat inside the game:
+
+```
+connect game chat to group [GROUP_ID]
+[show/hide/focus/collapse/expand] stage chat box
+ask player to authorize KukeChat account  →  send message as player [MESSAGE]
+set chat box [preset/corner/size/accent/radius/blur/custom CSS] to [VALUE]
+when game mode receives message  sender=[] sender id=[] content=[] is self=[]
+```
+
 Prefer not to use blocks? Call the REST + WebSocket API directly — see the [Bot API docs](docs/bot-api.md).
 
 ## Tech stack
