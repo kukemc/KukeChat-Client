@@ -9,7 +9,8 @@ import { BOT_API_DOCS_URL } from '@/config';
 import { Icon, extensionId } from './assets';
 import { subscribeExtensionEvents } from './bridge';
 import { authorizeGameMode, isGameAuthorized, restoreGameAuth, getGameAuth } from './gameMode/auth';
-import { readPlatformDeviceType, setCcwRuntime } from './gameMode/ccwIdentity';
+import { setCcwRuntime } from './gameMode/ccwIdentity';
+import { setStageRuntime, stageLogicalSize } from './gameMode/stage';
 import {
   detectCreationOid,
   getGameChatState,
@@ -105,7 +106,7 @@ const messages = {
     'kukechat.block.gameSend': '以玩家身份发送消息 [MESSAGE]',
     'kukechat.block.gameInfo': '游戏聊天信息 [FIELD]',
     'kukechat.block.gameSetCorner': '把聊天框放到 [CORNER]',
-    'kukechat.block.gameSetSize': '设置聊天框宽 [WIDTH] 高 [HEIGHT]',
+    'kukechat.block.gameSetSize': '设置聊天框宽 [WIDTH] 高 [HEIGHT] （舞台坐标）',
     'kukechat.block.gameSetStyle': '设置聊天框 [FIELD] 为 [VALUE]',
     'kukechat.block.gameResetStyle': '恢复聊天框默认外观',
     'kukechat.block.whenGameMessage': '当游戏模式收到消息 发送者=[SENDER_NAME] 发送者ID=[SENDER_ID] 内容=[CONTENT] 是否自己=[IS_SELF]',
@@ -166,7 +167,7 @@ const messages = {
     'kukechat.block.gameSend': 'Send message as player [MESSAGE]',
     'kukechat.block.gameInfo': 'Game chat info [FIELD]',
     'kukechat.block.gameSetCorner': 'Move chat box to [CORNER]',
-    'kukechat.block.gameSetSize': 'Set chat box width [WIDTH] height [HEIGHT]',
+    'kukechat.block.gameSetSize': 'Set chat box width [WIDTH] height [HEIGHT] (stage units)',
     'kukechat.block.gameSetStyle': 'Set chat box [FIELD] to [VALUE]',
     'kukechat.block.gameResetStyle': 'Reset chat box appearance',
     'kukechat.block.whenGameMessage': 'When game mode receives message sender=[SENDER_NAME] sender id=[SENDER_ID] content=[CONTENT] is self=[IS_SELF]',
@@ -207,6 +208,7 @@ export default class KukeChatExtension {
     this.unsubscribeEvents = subscribeExtensionEvents((event) => this.handleRealtimeEvent(event));
     // 供游戏模式读取 CCW 社区身份（仅用于界面提示，不作身份凭据）
     setCcwRuntime(runtime);
+    setStageRuntime(runtime);
   }
 
   getInfo(): ScratchInfo {
@@ -344,8 +346,8 @@ export default class KukeChatExtension {
           CORNER: { type: scratch.ArgumentType.STRING, menu: 'GAME_CORNER', defaultValue: 'bottom-left' }
         }),
         block('gameSetSize', scratch.BlockType.COMMAND, 'kukechat.block.gameSetSize', {
-          WIDTH: { type: scratch.ArgumentType.NUMBER, defaultValue: 300 },
-          HEIGHT: { type: scratch.ArgumentType.NUMBER, defaultValue: 220 }
+          WIDTH: { type: scratch.ArgumentType.NUMBER, defaultValue: 200 },
+          HEIGHT: { type: scratch.ArgumentType.NUMBER, defaultValue: 130 }
         }),
         block('gameSetStyle', scratch.BlockType.COMMAND, 'kukechat.block.gameSetStyle', {
           FIELD: { type: scratch.ArgumentType.STRING, menu: 'GAME_STYLE_FIELD', defaultValue: 'accent' },
@@ -670,11 +672,6 @@ export default class KukeChatExtension {
       this.toast(`游戏模式：${error}`);
       return;
     }
-    // 手机上舞台本身就小，沿用桌面默认尺寸会盖掉大半个游戏画面
-    const device = await readPlatformDeviceType();
-    if (device && /mobile|phone|android|ios|pad/i.test(device)) {
-      updateGameOverlayStyle({ width: 210, height: 150, fontSize: 11 });
-    }
     mountGameOverlay();
   }
 
@@ -754,13 +751,14 @@ export default class KukeChatExtension {
   gameSetSize(args: { WIDTH: number | string; HEIGHT: number | string }): void {
     const width = Number(args.WIDTH);
     const height = Number(args.HEIGHT);
+    const stage = stageLogicalSize();
     const patch: Partial<OverlayStyle> = {};
-    // 限制在合理范围，避免作品把聊天框拉到看不见或盖满舞台
+    // 单位是舞台逻辑坐标，上限就是舞台本身；下限保证内容还能看清
     if (Number.isFinite(width)) {
-      patch.width = Math.min(Math.max(Math.round(width), 160), 900);
+      patch.width = Math.min(Math.max(Math.round(width), 80), stage.width);
     }
     if (Number.isFinite(height)) {
-      patch.height = Math.min(Math.max(Math.round(height), 100), 700);
+      patch.height = Math.min(Math.max(Math.round(height), 60), stage.height);
     }
     updateGameOverlayStyle(patch);
   }
@@ -786,7 +784,7 @@ export default class KukeChatExtension {
         return;
       case 'fontSize':
         if (Number.isFinite(numeric)) {
-          updateGameOverlayStyle({ fontSize: Math.min(Math.max(Math.round(numeric), 9), 28) });
+          updateGameOverlayStyle({ fontSize: Math.min(Math.max(Math.round(numeric), 6), 24) });
         }
         return;
       case 'radius':

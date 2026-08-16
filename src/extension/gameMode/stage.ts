@@ -1,0 +1,149 @@
+/**
+ * 把覆盖层贴合到 Scratch 舞台上。
+ *
+ * 舞台的逻辑坐标是固定的（默认 480×360，Gandi 可自定义），但它在页面上的物理
+ * 尺寸随小窗 / 大窗 / 全屏 / 手机旋转不断变化。这里负责把两者对上，让开发者
+ * 用**舞台逻辑坐标**摆放聊天框，实际显示自动等比缩放。
+ *
+ * 三条经验来自 kukemc/WebDev 扩展踩过的坑：
+ *
+ * 1. **用布局盒（offsetLeft/offsetWidth）而不是 getBoundingClientRect()。**
+ *    后者返回的是应用 CSS transform 之后的轴对齐包围盒；手机端播放器会把舞台
+ *    整体 rotate(90deg)，包围盒的宽高会被对调、原点也不对，覆盖层就会缩成一小
+ *    块贴在角落。布局盒不受 transform 影响。
+ *
+ * 2. **覆盖层必须挂成 canvas 的兄弟节点。** 这样祖先层面的 transform / 裁剪
+ *    会自动同样作用到覆盖层上，不需要自己复刻。
+ *
+ * 3. **用 requestAnimationFrame 持续对齐，而不是 ResizeObserver。** 舞台尺寸
+ *    变化的来源太多（布局切换、全屏、窗口缩放、设备旋转、CSS 动画），逐个监听
+ *    容易漏；每帧对齐一次代价很低且绝不会失同步。
+ */
+
+import type { ScratchRuntime } from '@/types/scratch';
+
+/** Scratch 默认舞台逻辑尺寸。 */
+const DEFAULT_STAGE_WIDTH = 480;
+const DEFAULT_STAGE_HEIGHT = 360;
+
+export interface StageGeometry {
+  /** 舞台在页面上的物理尺寸与位置（相对挂载父容器的布局盒）。 */
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  /** 舞台逻辑尺寸。 */
+  logicalWidth: number;
+  logicalHeight: number;
+  /** 逻辑 → 物理的等比缩放系数。 */
+  scale: number;
+}
+
+let runtimeRef: ScratchRuntime | undefined;
+
+export function setStageRuntime(runtime: ScratchRuntime | undefined): void {
+  runtimeRef = runtime;
+}
+
+export function findStageCanvas(): HTMLCanvasElement | null {
+  // 舞台 canvas 通常是页面里唯一的、或第一个有实际尺寸的 canvas
+  const candidates = Array.from(document.querySelectorAll('canvas'));
+  for (const canvas of candidates) {
+    if (canvas.width > 0 && canvas.height > 0 && canvas.offsetParent !== null) {
+      return canvas;
+    }
+  }
+  return candidates[0] ?? null;
+}
+
+/**
+ * 舞台逻辑尺寸。Gandi 支持自定义舞台大小，优先问 runtime。
+ */
+export function stageLogicalSize(): { width: number; height: number } {
+  const rt = runtimeRef as (ScratchRuntime & { stageWidth?: number; stageHeight?: number }) | undefined;
+  const width = typeof rt?.stageWidth === 'number' && rt.stageWidth > 0 ? rt.stageWidth : DEFAULT_STAGE_WIDTH;
+  const height = typeof rt?.stageHeight === 'number' && rt.stageHeight > 0 ? rt.stageHeight : DEFAULT_STAGE_HEIGHT;
+  return { width, height };
+}
+
+/**
+ * 覆盖层应当挂到哪个元素下 —— 永远是舞台 canvas 的父容器。
+ *
+ * 作为 canvas 的兄弟节点，祖先的 transform 会自动同样作用到覆盖层上。
+ */
+export function stageOverlayHost(canvas: HTMLCanvasElement): HTMLElement {
+  return canvas.parentElement ?? document.body;
+}
+
+/**
+ * 计算覆盖层要对齐到的盒子。
+ *
+ * 优先读布局盒；只有当 canvas 并非由该 host 定位时（绝对/固定定位到别处，
+ * 或只能挂到 body）才退回矩形差值。
+ */
+function overlayBox(canvas: HTMLCanvasElement, host: HTMLElement): { left: number; top: number; width: number; height: number } {
+  if (host !== document.body && canvas.offsetParent === host) {
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
+    if (width && height) {
+      return { left: canvas.offsetLeft, top: canvas.offsetTop, width, height };
+    }
+  }
+
+  const canvasRect = canvas.getBoundingClientRect();
+  if (host === document.body) {
+    // 挂在 body 上时用 fixed 定位，直接用视口坐标
+    return { left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height };
+  }
+  const hostRect = host.getBoundingClientRect();
+  return {
+    left: canvasRect.left - hostRect.left,
+    top: canvasRect.top - hostRect.top,
+    width: canvasRect.width,
+    height: canvasRect.height
+  };
+}
+
+export function measureStage(canvas: HTMLCanvasElement, host: HTMLElement): StageGeometry {
+  const box = overlayBox(canvas, host);
+  const logical = stageLogicalSize();
+  // 舞台始终等比渲染，取较小的一边即可；两边一致时结果相同
+  const scale = Math.min(box.width / logical.width, box.height / logical.height) || 1;
+  return {
+    ...box,
+    logicalWidth: logical.width,
+    logicalHeight: logical.height,
+    scale
+  };
+}
+
+/** canvas 自身带的 transform 与圆角需要复刻，祖先层面的由「同父」自动继承。 */
+export function readCanvasShape(canvas: HTMLCanvasElement): { transform: string; transformOrigin: string; borderRadius: string } {
+  try {
+    const style = window.getComputedStyle(canvas);
+    const transform = style.transform && style.transform !== 'none' ? style.transform : '';
+    const radius = style.borderRadius && style.borderRadius !== '0px' ? style.borderRadius : '';
+    return {
+      transform,
+      transformOrigin: transform ? style.transformOrigin || '50% 50%' : '',
+      borderRadius: radius
+    };
+  } catch {
+    // 跨文档或已卸载的元素
+    return { transform: '', transformOrigin: '', borderRadius: '' };
+  }
+}
+
+/**
+ * 覆盖层的 z-index。取舞台 canvas 的层级再加一点，既盖住画面又不越过
+ * 编辑器自己的弹窗。
+ */
+export function stageOverlayZIndex(canvas: HTMLCanvasElement): number {
+  try {
+    const raw = window.getComputedStyle(canvas).zIndex;
+    const base = Number.parseInt(raw, 10);
+    return Number.isFinite(base) ? base + 5 : 10;
+  } catch {
+    return 10;
+  }
+}

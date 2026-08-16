@@ -108,6 +108,17 @@ src-tauri/      Tauri 桌面端（Rust）
 
 **扩展在社区侧有缓存**，更新后要先卸载旧扩展再重新加载。
 
+**游戏模式覆盖层贴合舞台**（`src/extension/gameMode/stage.ts`）有三条不能改的约定：
+
+- 用布局盒 `offsetLeft/offsetWidth` 定位，**不要用 `getBoundingClientRect()`** ——
+  手机播放器会把舞台整体 rotate(90deg)，包围盒宽高会被对调、原点也不对，
+  覆盖层会缩成一小块贴在角落
+- 覆盖层必须挂成舞台 canvas 的**兄弟节点**，祖先层面的 transform 才会自动生效
+- 用 `requestAnimationFrame` 持续对齐，不要用 ResizeObserver —— 舞台尺寸变化
+  来源太多（布局切换、全屏、窗口缩放、设备旋转、CSS 动画），逐个监听会漏
+
+聊天框的宽高与字号都是**舞台逻辑单位**（默认 480×360），不是屏幕像素。
+
 **Android 签名密钥必须固定**。换密钥签出来的 APK 无法覆盖安装到已有版本，客户端自动更新会一起失效。
 
 ## 发布

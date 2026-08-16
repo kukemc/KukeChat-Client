@@ -10,6 +10,14 @@ import { resolveAssetUrl } from '@/utils/assetUrl';
 import { authorizeGameMode, isGameAuthorized, subscribeGameAuth } from './auth';
 import { readUntrustedCcwIdentity } from './ccwIdentity';
 import {
+  findStageCanvas,
+  measureStage,
+  readCanvasShape,
+  stageLogicalSize,
+  stageOverlayHost,
+  stageOverlayZIndex
+} from './stage';
+import {
   refreshGameSession,
   sendGameChatMessage,
   subscribeGameChat,
@@ -19,9 +27,18 @@ import {
 
 export type OverlayCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
+/**
+ * 聊天框外观。
+ *
+ * **所有尺寸都是舞台逻辑单位**（默认 480×360 坐标系），不是屏幕像素 ——
+ * 覆盖层整体按舞台实际大小缩放，所以聊天框在小窗、大窗、全屏下始终占据
+ * 相同比例的画面，就像作品自己画上去的一样。
+ */
 export interface OverlayStyle {
   corner: OverlayCorner;
+  /** 宽度，舞台逻辑单位 */
   width: number;
+  /** 高度，舞台逻辑单位 */
   height: number;
   /** 面板不透明度，0–100。 */
   opacity: number;
@@ -36,14 +53,15 @@ export interface OverlayStyle {
 
 export const DEFAULT_OVERLAY_STYLE: OverlayStyle = {
   corner: 'bottom-left',
-  width: 300,
-  height: 220,
+  // 480×360 舞台下约占宽 42%、高 36%，够读又不挡住主要画面
+  width: 200,
+  height: 130,
   opacity: 72,
   accent: '#5b8cff',
   background: '#0b1020',
   textColor: '#f3f5ff',
-  fontSize: 13,
-  radius: 14,
+  fontSize: 11,
+  radius: 10,
   showAvatars: true,
   showTitle: true
 };
@@ -59,28 +77,14 @@ let style: OverlayStyle = { ...DEFAULT_OVERLAY_STYLE };
 let visible = false;
 let unsubscribers: Array<() => void> = [];
 let renderedIds = new Set<number>();
+let frameEl: HTMLElement | null = null;
+let syncHandle: number | null = null;
+let mountedHost: HTMLElement | null = null;
+let lastGeometryKey = '';
 
-/**
- * 找到 Scratch 舞台容器。
- *
- * 不同版本的编辑器/播放器类名不一样，所以优先按舞台 canvas 反查其定位父元素，
- * 找不到就退回 body（此时聊天框相对视口定位，仍然可用）。
- */
-function findStageContainer(): HTMLElement {
-  const canvas = document.querySelector<HTMLCanvasElement>('canvas[class*="stage"], .stage canvas, canvas');
-  let node: HTMLElement | null = canvas?.parentElement ?? null;
-  while (node && node !== document.body) {
-    const position = window.getComputedStyle(node).position;
-    if (position === 'relative' || position === 'absolute' || position === 'fixed') {
-      return node;
-    }
-    node = node.parentElement;
-  }
-  return canvas?.parentElement ?? document.body;
-}
 
 function cornerCss(corner: OverlayCorner): string {
-  const inset = '12px';
+  const inset = '8px';  // 舞台逻辑单位
   switch (corner) {
     case 'top-left':
       return `top:${inset};left:${inset};`;
@@ -115,6 +119,13 @@ function buildStyleSheet(): string {
   return `
     :host { all: initial; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: inherit; }
+    /* 逻辑坐标系：宽高等于舞台逻辑尺寸，由 JS 按舞台实际大小整体 scale */
+    .frame {
+      position: absolute;
+      left: 0; top: 0;
+      transform-origin: 0 0;
+      pointer-events: none;
+    }
     .panel {
       position: absolute; ${cornerCss(style.corner)}
       display: flex; flex-direction: column;
@@ -195,6 +206,8 @@ function applyStyle(): void {
   if (sheet) {
     sheet.textContent = buildStyleSheet();
   }
+  // 尺寸类样式改了，下一帧要重新对齐
+  lastGeometryKey = '';
 }
 
 function scrollToBottom(): void {
@@ -380,6 +393,72 @@ function renderState(state: GameChatState): void {
   renderFooter(state);
 }
 
+/**
+ * 每帧把覆盖层对齐到舞台。
+ *
+ * 用 rAF 而不是 ResizeObserver：舞台尺寸变化的来源太多（小窗/大窗切换、全屏、
+ * 窗口缩放、设备旋转、CSS 动画），逐个监听容易漏；每帧对齐代价很低且不会失同步。
+ * 几何没变时跳过写样式，避免无谓的重排。
+ */
+function syncToStage(): void {
+  syncHandle = window.requestAnimationFrame(syncToStage);
+  if (!host || !frameEl) {
+    return;
+  }
+
+  const canvas = findStageCanvas();
+  if (!canvas) {
+    host.style.display = 'none';
+    return;
+  }
+
+  // 舞台可能被移动到别的容器（进入/退出全屏），需要跟着改挂载点
+  const wanted = stageOverlayHost(canvas);
+  if (wanted !== mountedHost) {
+    wanted.appendChild(host);
+    mountedHost = wanted;
+    lastGeometryKey = '';
+  }
+
+  const geometry = measureStage(canvas, wanted);
+  if (!geometry.width || !geometry.height) {
+    host.style.display = 'none';
+    return;
+  }
+
+  const shape = readCanvasShape(canvas);
+  const key = [
+    geometry.left, geometry.top, geometry.width, geometry.height,
+    geometry.logicalWidth, geometry.logicalHeight, geometry.scale,
+    shape.transform, shape.borderRadius, wanted === document.body
+  ].join('|');
+  if (key === lastGeometryKey) {
+    return;
+  }
+  lastGeometryKey = key;
+
+  host.style.display = 'block';
+  host.style.position = wanted === document.body ? 'fixed' : 'absolute';
+  host.style.left = `${geometry.left}px`;
+  host.style.top = `${geometry.top}px`;
+  host.style.width = `${geometry.width}px`;
+  host.style.height = `${geometry.height}px`;
+  host.style.zIndex = String(stageOverlayZIndex(canvas));
+  // canvas 自身带的形变与圆角要复刻；祖先层面的由「同父」自动继承
+  host.style.transform = shape.transform;
+  host.style.transformOrigin = shape.transformOrigin;
+  host.style.borderRadius = shape.borderRadius;
+  host.style.overflow = shape.borderRadius ? 'hidden' : '';
+
+  // 逻辑坐标系铺满舞台后整体缩放，聊天框因此按舞台比例伸缩
+  frameEl.style.width = `${geometry.logicalWidth}px`;
+  frameEl.style.height = `${geometry.logicalHeight}px`;
+  frameEl.style.transform = `scale(${geometry.scale})`;
+  // 等比缩放后可能有黑边，把逻辑坐标系居中
+  frameEl.style.left = `${(geometry.width - geometry.logicalWidth * geometry.scale) / 2}px`;
+  frameEl.style.top = `${(geometry.height - geometry.logicalHeight * geometry.scale) / 2}px`;
+}
+
 export function mountGameOverlay(): void {
   if (host) {
     setGameOverlayVisible(true);
@@ -389,13 +468,14 @@ export function mountGameOverlay(): void {
   host = document.createElement('div');
   host.id = 'kukechat-game-overlay';
   host.style.position = 'absolute';
-  host.style.inset = '0';
   host.style.pointerEvents = 'none';
-  host.style.zIndex = '2147483000';
 
   root = host.attachShadow({ mode: 'open' });
   const sheet = document.createElement('style');
   sheet.textContent = buildStyleSheet();
+
+  frameEl = document.createElement('div');
+  frameEl.className = 'frame';
 
   panel = document.createElement('div');
   panel.className = 'panel';
@@ -408,13 +488,15 @@ export function mountGameOverlay(): void {
   footerEl.className = 'footer';
 
   panel.append(titleEl, listEl, footerEl);
-  root.append(sheet, panel);
+  frameEl.appendChild(panel);
+  root.append(sheet, frameEl);
 
-  const container = findStageContainer();
-  if (container === document.body) {
-    host.style.position = 'fixed';
-  }
-  container.appendChild(host);
+  const canvas = findStageCanvas();
+  mountedHost = canvas ? stageOverlayHost(canvas) : document.body;
+  mountedHost.appendChild(host);
+
+  lastGeometryKey = '';
+  syncToStage();
 
   renderedIds = new Set();
   unsubscribers = [
@@ -478,6 +560,10 @@ export function unmountGameOverlay(): void {
     dispose();
   }
   unsubscribers = [];
+  if (syncHandle !== null) {
+    window.cancelAnimationFrame(syncHandle);
+    syncHandle = null;
+  }
   host?.remove();
   host = null;
   root = null;
@@ -486,6 +572,9 @@ export function unmountGameOverlay(): void {
   inputEl = null;
   footerEl = null;
   titleEl = null;
+  frameEl = null;
+  mountedHost = null;
+  lastGeometryKey = '';
   renderedIds = new Set();
   visible = false;
 }
