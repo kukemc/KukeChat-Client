@@ -875,7 +875,8 @@ export default class KukeChatExtension {
     if (action === 'collapse') {
       setGameOverlayCollapsed(true);
     } else if (action === 'expand') {
-      setGameOverlayCollapsed(false);
+      // 积木明确要求展开，视同固定展开
+      setGameOverlayCollapsed(false, 'pinned');
     } else {
       toggleGameOverlayCollapsed();
     }

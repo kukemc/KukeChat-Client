@@ -123,6 +123,16 @@ let syncHandle: number | null = null;
 let mountedHost: HTMLElement | null = null;
 let lastGeometryKey = '';
 let collapsed = false;
+/**
+ * 展开的两种来源：
+ *
+ * - `pinned` 由展开键或积木触发，点外面不会收起，玩家想一直看着聊天。
+ * - `peek`   由点输入框 / 点胶囊触发，属于「瞄一眼顺手回一句」，
+ *            点到聊天框外面就自动收回，不占着游戏画面。
+ */
+type ExpandMode = 'pinned' | 'peek';
+let expandMode: ExpandMode = 'pinned';
+let outsideListener: ((event: Event) => void) | null = null;
 /** 首屏批量渲染历史消息时关掉逐条入场动画，否则一进作品满屏乱动。 */
 let suppressEnterAnimation = false;
 
@@ -539,7 +549,8 @@ function renderFooter(state: GameChatState): void {
   expand.innerHTML = CHEVRON_ICON;
   expand.addEventListener('click', (event) => {
     event.stopPropagation();
-    setGameOverlayCollapsed(false);
+    // 展开键是「我要一直看着」，固定展开
+    setGameOverlayCollapsed(false, 'pinned');
   });
   footerEl.appendChild(expand);
 
@@ -603,9 +614,10 @@ function renderFooter(state: GameChatState): void {
     input.addEventListener('input', syncSendState);
     input.addEventListener('focus', () => {
       footerEl?.classList.add('focused');
-      // 折叠状态下开始打字，自动展开让玩家看得到上下文
+      // 折叠状态下开始打字，临时展开让玩家看得到上下文；
+      // 点到别处就自动收回，不长期占着游戏画面
       if (collapsed) {
-        setGameOverlayCollapsed(false);
+        setGameOverlayCollapsed(false, 'peek');
       }
     });
     input.addEventListener('blur', () => footerEl?.classList.remove('focused'));
@@ -846,7 +858,7 @@ export function mountGameOverlay(): void {
     if (target?.closest('button, input')) {
       return;
     }
-    setGameOverlayCollapsed(false);
+    setGameOverlayCollapsed(false, 'peek');
   });
 
   panel.append(messagesCard, footerEl);
@@ -889,18 +901,74 @@ subscribeGameChat((next) => {
   currentState = next;
 });
 
-/** 折叠 / 展开消息区，只留输入胶囊。 */
-export function setGameOverlayCollapsed(next: boolean): void {
+/**
+ * 临时展开时，点到聊天框以外的任何地方就收回。
+ *
+ * 覆盖层活在 Shadow DOM 里，document 级监听拿到的 event.target 会被重定向成
+ * 宿主元素，直接比对判不准；必须用 composedPath() 看真实路径里有没有宿主。
+ * 权限弹窗是页面级的独立宿主，也要一并排除，否则一点弹窗聊天框就收了。
+ */
+function bindOutsideCollapse(): void {
+  unbindOutsideCollapse();
+  outsideListener = (event: Event) => {
+    if (collapsed || expandMode !== 'peek' || !host) {
+      return;
+    }
+    const path = typeof (event as Event & { composedPath?: () => EventTarget[] }).composedPath === 'function'
+      ? (event as Event & { composedPath: () => EventTarget[] }).composedPath()
+      : [];
+    if (path.includes(host)) {
+      return;
+    }
+    if (path.some((node) => node instanceof HTMLElement && node.id === 'kukechat-game-modal')) {
+      return;
+    }
+    setGameOverlayCollapsed(true);
+  };
+  document.addEventListener('pointerdown', outsideListener, true);
+}
+
+function unbindOutsideCollapse(): void {
+  if (outsideListener) {
+    document.removeEventListener('pointerdown', outsideListener, true);
+    outsideListener = null;
+  }
+}
+
+/**
+ * 折叠 / 展开消息区，只留输入胶囊。
+ *
+ * @param mode 展开时的模式，默认 `pinned`（点外面不收）。
+ */
+export function setGameOverlayCollapsed(next: boolean, mode: ExpandMode = 'pinned'): void {
   collapsed = next;
   panel?.classList.toggle('collapsed', next);
-  if (!next) {
-    // 展开后滚回底部，否则会停在折叠前的位置
-    window.requestAnimationFrame(scrollToBottom);
+
+  if (next) {
+    expandMode = 'pinned';
+    unbindOutsideCollapse();
+    // 收起时把焦点交还给作品，否则键盘还被输入框占着
+    inputEl?.blur();
+    return;
   }
+
+  expandMode = mode;
+  if (mode === 'peek') {
+    bindOutsideCollapse();
+  } else {
+    unbindOutsideCollapse();
+  }
+  // 展开后滚回底部，否则会停在折叠前的位置
+  window.requestAnimationFrame(scrollToBottom);
 }
 
 export function isGameOverlayCollapsed(): boolean {
   return collapsed;
+}
+
+/** 当前是否处于「临时展开」（点外面会自动收起）。 */
+export function isGameOverlayPeeking(): boolean {
+  return !collapsed && expandMode === 'peek';
 }
 
 export function toggleGameOverlayCollapsed(): void {
@@ -956,6 +1024,8 @@ export function unmountGameOverlay(): void {
   mountedHost = null;
   lastGeometryKey = '';
   collapsed = false;
+  expandMode = 'pinned';
+  unbindOutsideCollapse();
   renderedIds = new Set();
   visible = false;
 }
