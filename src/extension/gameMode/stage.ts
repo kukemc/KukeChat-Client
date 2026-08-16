@@ -45,22 +45,58 @@ export function setStageRuntime(runtime: ScratchRuntime | undefined): void {
   runtimeRef = runtime;
 }
 
+/**
+ * 找到舞台 canvas。
+ *
+ * 首选从渲染器直接取 —— 这是唯一确定的答案。编辑器页面里同时存在多个
+ * canvas（角色缩略图、造型编辑器、绘图板等），按「第一个可见的」去猜会选错，
+ * 表现为聊天框尺寸和位置都对不上舞台。
+ */
 export function findStageCanvas(): HTMLCanvasElement | null {
-  // 舞台 canvas 通常是页面里唯一的、或第一个有实际尺寸的 canvas
-  const candidates = Array.from(document.querySelectorAll('canvas'));
-  for (const canvas of candidates) {
-    if (canvas.width > 0 && canvas.height > 0 && canvas.offsetParent !== null) {
-      return canvas;
+  const renderer = (runtimeRef as (ScratchRuntime & { renderer?: { canvas?: unknown; gl?: { canvas?: unknown } } }) | undefined)?.renderer;
+  const fromRenderer = renderer?.canvas ?? renderer?.gl?.canvas;
+  if (fromRenderer instanceof HTMLCanvasElement && fromRenderer.isConnected) {
+    return fromRenderer;
+  }
+
+  // 兜底：取渲染面积最大的可见 canvas。舞台几乎总是页面里最大的那个。
+  let best: HTMLCanvasElement | null = null;
+  let bestArea = 0;
+  for (const canvas of Array.from(document.querySelectorAll('canvas'))) {
+    if (canvas.offsetParent === null) {
+      continue;
+    }
+    const area = canvas.offsetWidth * canvas.offsetHeight;
+    if (area > bestArea) {
+      bestArea = area;
+      best = canvas;
     }
   }
-  return candidates[0] ?? null;
+  return best;
 }
 
 /**
  * 舞台逻辑尺寸。Gandi 支持自定义舞台大小，优先问 runtime。
  */
 export function stageLogicalSize(): { width: number; height: number } {
-  const rt = runtimeRef as (ScratchRuntime & { stageWidth?: number; stageHeight?: number }) | undefined;
+  const rt = runtimeRef as
+    | (ScratchRuntime & {
+        stageWidth?: number;
+        stageHeight?: number;
+        renderer?: { _nativeSize?: unknown };
+      })
+    | undefined;
+
+  // 渲染器的 _nativeSize 是舞台逻辑尺寸的权威来源，Gandi 改过舞台大小时
+  // 只有它是准的；runtime.stageWidth 与默认值都只是退路。
+  const native = rt?.renderer?._nativeSize;
+  if (Array.isArray(native) && native.length >= 2) {
+    const [w, h] = native;
+    if (typeof w === 'number' && w > 0 && typeof h === 'number' && h > 0) {
+      return { width: w, height: h };
+    }
+  }
+
   const width = typeof rt?.stageWidth === 'number' && rt.stageWidth > 0 ? rt.stageWidth : DEFAULT_STAGE_WIDTH;
   const height = typeof rt?.stageHeight === 'number' && rt.stageHeight > 0 ? rt.stageHeight : DEFAULT_STAGE_HEIGHT;
   return { width, height };

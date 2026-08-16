@@ -75,6 +75,11 @@ export interface CcwPlatformApi {
 
 export interface ScratchRuntime {
   ccwAPI?: CcwPlatformApi;
+  /** 渲染器，用于精确定位舞台 canvas（编辑器里存在多个 canvas）。 */
+  renderer?: { canvas?: unknown; gl?: { canvas?: unknown }; _nativeSize?: unknown };
+  /** Gandi 支持自定义舞台尺寸。 */
+  stageWidth?: number;
+  stageHeight?: number;
   gandi?: {
     wildExtensions?: Record<string, { id: string; url: string }>;
     addWildExtension?: (extension: { id: string; url: string }) => void;
