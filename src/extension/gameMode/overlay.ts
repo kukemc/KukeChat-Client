@@ -383,10 +383,34 @@ function buildStyleSheet(): string {
     /* 输入框为空时发送键淡出，减少视觉噪音 */
     .composer .send.idle { opacity: .3; }
 
+    /* 折叠后标题栏随消息卡片一起隐藏，出口必须留在胶囊上，
+       否则折叠了就再也展不开。仅折叠状态显示。 */
+    .composer .expand {
+      flex: 0 0 auto;
+      display: none;
+      place-items: center;
+      width: ${sendSize}px; height: ${sendSize}px;
+      margin-right: ${Math.max(gap * 0.4, 2)}px;
+      border: 0; cursor: pointer;
+      border-radius: 999px;
+      background: ${hexToRgba(ink, 0.1)};
+      color: ${ink};
+      opacity: .7;
+      transition: background 200ms ease, opacity 200ms ease, transform 200ms cubic-bezier(.2, .9, .3, 1);
+    }
+    .composer .expand svg { width: ${Math.max(sendSize * 0.5, 6)}px; height: ${Math.max(sendSize * 0.5, 6)}px; display: block; transform: rotate(180deg); }
+    .composer .expand:hover { background: ${hexToRgba(ink, 0.18)}; opacity: 1; transform: scale(1.08); }
+    .composer .expand:active { transform: scale(.9); }
+    .panel.collapsed .composer .expand { display: grid; }
+    /* 折叠时胶囊左内边距让位给展开键 */
+    .panel.collapsed .composer { padding-left: ${Math.max(pad * 0.35, 2)}px; }
+
     /* 未授权时整条胶囊就是授权按钮 */
     .composer.auth { padding: 0; cursor: pointer; }
+    .panel.collapsed .composer.auth { padding-left: ${Math.max(pad * 0.35, 2)}px; }
     .composer.auth .authorize {
-      width: 100%; height: 100%;
+      flex: 1 1 auto;
+      height: 100%;
       border: 0; cursor: pointer; border-radius: 999px;
       background: transparent; color: ${ink};
       font-size: ${Math.max(style.fontSize - 0.5, 6)}px;
@@ -506,11 +530,25 @@ function renderFooter(state: GameChatState): void {
   }
   footerEl.replaceChildren();
 
+  // 展开键放在最前，CSS 控制它只在折叠时显示。三种状态都要有，
+  // 否则在某个状态下折叠就没有出口了。
+  const expand = document.createElement('button');
+  expand.type = 'button';
+  expand.className = 'expand';
+  expand.title = '展开聊天';
+  expand.innerHTML = CHEVRON_ICON;
+  expand.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setGameOverlayCollapsed(false);
+  });
+  footerEl.appendChild(expand);
+
   if (state.status === 'error') {
     footerEl.classList.remove('auth');
     const hint = document.createElement('div');
     hint.className = 'system';
     hint.style.padding = '2px 0';
+    hint.style.flex = '1 1 auto';
     hint.textContent = state.error ?? '接入失败';
     footerEl.appendChild(hint);
     return;
@@ -563,7 +601,13 @@ function renderFooter(state: GameChatState): void {
     };
 
     input.addEventListener('input', syncSendState);
-    input.addEventListener('focus', () => footerEl?.classList.add('focused'));
+    input.addEventListener('focus', () => {
+      footerEl?.classList.add('focused');
+      // 折叠状态下开始打字，自动展开让玩家看得到上下文
+      if (collapsed) {
+        setGameOverlayCollapsed(false);
+      }
+    });
     input.addEventListener('blur', () => footerEl?.classList.remove('focused'));
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -792,6 +836,18 @@ export function mountGameOverlay(): void {
 
   // 点标题栏即可折叠 / 展开
   titleEl.addEventListener('click', () => toggleGameOverlayCollapsed());
+
+  // 折叠时点胶囊的任意空白处也展开 —— 不必精准命中那个小箭头
+  footerEl.addEventListener('click', (event) => {
+    if (!collapsed) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, input')) {
+      return;
+    }
+    setGameOverlayCollapsed(false);
+  });
 
   panel.append(messagesCard, footerEl);
   frameEl.appendChild(panel);
