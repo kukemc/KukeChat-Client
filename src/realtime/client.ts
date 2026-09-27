@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { InfiniteData } from '@tanstack/react-query';
 import { WS_URL } from '@/config';
 import { useKukeStore } from '@/store/kukeStore';
 import { emitRealtimeEvent, parseRealtimePayload } from './events';
 import { emitPoke } from './poke';
 import { pickNumber } from '@/api/normalizers';
-import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead, PresenceStatus, User } from '@/types/api';
+import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead } from '@/types/api';
 import { requestDesktopAttention } from '@/utils/desktopAttention';
-import { applyLatestMessageToConversations, sortConversationsByActivity } from '@/utils/conversations';
+import { applyCreatedMessageToConversations, recordReceivedMessage, shouldAlertIncomingMessage, patchConversation, patchMemberPages, patchMemberPresence, patchMembers, patchMessageInPages, patchUserPresence, upsertMessageIntoFirstPage } from './cache';
+import type { MessagesInfiniteData, ConversationMembersPageData } from './cache';
 import { canAlertConversation, isConversationBlocked, notifyConnectionReady, notifyIncomingMessage, notifyMemberJoined, notifyMemberLeft } from '@/utils/notifications';
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
@@ -18,50 +18,7 @@ const RECONNECT_MAX_DELAY_MS = 30_000;
 const RECONNECT_JITTER_MS = 500;
 const AUTH_CLOSE_CODES = new Set([1008]);
 
-type MessagesInfiniteData = InfiniteData<Message[], number | undefined>;
-type ConversationMembersPageData = InfiniteData<{ items: ConversationMember[] }, number | undefined>;
-
-const RECONNECT_REFRESH_COOLDOWN_MS = 30_000;
-
-function patchMessageInPages(data: MessagesInfiniteData | undefined, messageId: number, updater: (message: Message) => Message): MessagesInfiniteData | undefined {
-  if (!data) {
-    return data;
-  }
-
-  let changed = false;
-  const pages = data.pages.map((page) => page.map((message) => {
-    if (message.id !== messageId) {
-      return message;
-    }
-    changed = true;
-    return updater(message);
-  }));
-  return changed ? { ...data, pages } : data;
-}
-
-function upsertMessageIntoFirstPage(data: MessagesInfiniteData | undefined, message: Message): MessagesInfiniteData | undefined {
-  if (!data || data.pages.length === 0) {
-    return data;
-  }
-
-  let exists = false;
-  const pages = data.pages.map((page) => page.map((item) => {
-    if (item.id !== message.id) {
-      return item;
-    }
-    exists = true;
-    return { ...item, ...message };
-  }));
-
-  if (exists) {
-    return { ...data, pages };
-  }
-
-  return {
-    ...data,
-    pages: [[...data.pages[0], message].sort((a, b) => a.id - b.id), ...data.pages.slice(1)]
-  };
-}
+const MEMBER_REFRESH_DEBOUNCE_MS = 150;
 
 function patchMessageComponentState(message: Message, componentId: string, state: MessageComponentState): Message {
   return {
@@ -76,43 +33,6 @@ function patchMessageComponentState(message: Message, componentId: string, state
         }
       }
     }
-  };
-}
-
-function patchMemberPresence(member: ConversationMember, userId: number, online: boolean, data: Record<string, unknown>): ConversationMember {
-  if (member.user_id !== userId && member.user?.id !== userId) {
-    return member;
-  }
-  return {
-    ...member,
-    user: member.user ? {
-      ...member.user,
-      presence_status: online ? (typeof data.presence_status === 'string' ? data.presence_status as PresenceStatus : member.user.presence_status) : null,
-      presence_text: online ? (typeof data.presence_text === 'string' ? data.presence_text : null) : null,
-      presence_updated_at: typeof data.presence_updated_at === 'string' ? data.presence_updated_at : member.user.presence_updated_at
-    } : member.user
-  };
-}
-
-function patchUserPresence(user: User, userId: number, online: boolean, data: Record<string, unknown>): User {
-  if (user.id !== userId) {
-    return user;
-  }
-  return {
-    ...user,
-    presence_status: online ? (typeof data.presence_status === 'string' ? data.presence_status as PresenceStatus : user.presence_status) : null,
-    presence_text: online ? (typeof data.presence_text === 'string' ? data.presence_text : null) : null,
-    presence_updated_at: typeof data.presence_updated_at === 'string' ? data.presence_updated_at : user.presence_updated_at
-  };
-}
-
-function patchMemberPages(data: ConversationMembersPageData | undefined, updater: (member: ConversationMember) => ConversationMember): ConversationMembersPageData | undefined {
-  if (!data) {
-    return data;
-  }
-  return {
-    ...data,
-    pages: data.pages.map((page) => ({ ...page, items: page.items.map(updater) }))
   };
 }
 
@@ -160,8 +80,36 @@ export function useRealtime(enabled: boolean): void {
     let pongTimeoutId: number | null = null;
     let reconnectTimerId: number | null = null;
     let reconnectAttempt = 0;
-    let lastReconnectRefreshAt = 0;
     let closedByEffect = false;
+    const memberRefreshTimers = new Map<number, number>();
+    let conversationRefreshTimer: number | null = null;
+    const recentlyReceivedMessages = new Set<string>();
+    const lastReadMessageIds = new Map<number, number>();
+
+    const scheduleConversationRefresh = (): void => {
+      if (conversationRefreshTimer !== null) return;
+      conversationRefreshTimer = window.setTimeout(() => {
+        conversationRefreshTimer = null;
+        if (!closedByEffect) void queryClient.invalidateQueries({ queryKey: ['conversations'], exact: true });
+      }, MEMBER_REFRESH_DEBOUNCE_MS);
+    };
+
+    const scheduleMemberRefresh = (conversationId: number): void => {
+      if (memberRefreshTimers.has(conversationId)) return;
+      memberRefreshTimers.set(conversationId, window.setTimeout(() => {
+        memberRefreshTimers.delete(conversationId);
+        if (closedByEffect) return;
+        void queryClient.invalidateQueries({ queryKey: ['conversation-members', conversationId] });
+        void queryClient.invalidateQueries({ queryKey: ['conversation-members-page', conversationId] });
+      }, MEMBER_REFRESH_DEBOUNCE_MS));
+    };
+
+    const clearPendingRefreshes = (): void => {
+      if (conversationRefreshTimer !== null) window.clearTimeout(conversationRefreshTimer);
+      conversationRefreshTimer = null;
+      for (const timer of memberRefreshTimers.values()) window.clearTimeout(timer);
+      memberRefreshTimers.clear();
+    };
 
     const clearHeartbeat = (): void => {
       if (pingId !== null) {
@@ -175,11 +123,10 @@ export function useRealtime(enabled: boolean): void {
     };
 
     const refreshAfterReconnect = (): void => {
-      const now = Date.now();
-      if (now - lastReconnectRefreshAt < RECONNECT_REFRESH_COOLDOWN_MS) {
-        return;
-      }
-      lastReconnectRefreshAt = now;
+      // Full reconciliation remains mandatory after disconnects, including cross-worker Redis delivery gaps.
+      clearPendingRefreshes();
+      recentlyReceivedMessages.clear();
+      lastReadMessageIds.clear();
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
       void queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['group-join-requests'] });
@@ -279,14 +226,21 @@ export function useRealtime(enabled: boolean): void {
             if (isConversationBlocked(currentConversation)) {
               return;
             }
-            notifyIncomingMessage(message, currentConversation);
-            if (message.sender_id !== currentUser?.id && canAlertConversation(currentConversation)) {
-              void requestDesktopAttention();
+            if (!currentConversation) scheduleConversationRefresh();
+            // The messages HTTP query may finish before this WS event while the
+            // conversations query still holds an old unread snapshot. Never use
+            // message-page cache hits to suppress a first WS unread/notification.
+            const firstDelivery = recordReceivedMessage(recentlyReceivedMessages, conversationId, message.id);
+            // The server also echoes our own messages: never count those as unread.
+            const shouldNotify = shouldAlertIncomingMessage(firstDelivery, message, currentUser?.id ?? null, lastReadMessageIds.get(conversationId) ?? 0);
+            // A conversations HTTP response can already include this WS message,
+            // including its unread count, even when the message page did not load yet.
+            const shouldIncrementUnread = shouldNotify && currentConversation?.last_message?.id !== message.id;
+            if (shouldIncrementUnread) {
+              notifyIncomingMessage(message, currentConversation);
+              if (canAlertConversation(currentConversation)) void requestDesktopAttention();
             }
-            if (!currentConversation) {
-              void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-            }
-            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyLatestMessageToConversations(current, message, { visibleConversationId: currentVisibleConversationId, incrementUnread: true }));
+            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyCreatedMessageToConversations(current, message, currentVisibleConversationId, !shouldIncrementUnread));
             queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', conversationId], (current) => upsertMessageIntoFirstPage(current, message));
           }
           if (event.type === 'message.recalled' && conversationId !== null) {
@@ -295,16 +249,10 @@ export function useRealtime(enabled: boolean): void {
             if (messageId === null) {
               return;
             }
-            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current ? sortConversationsByActivity(current.map((conversation) => {
-              if (conversation.id !== conversationId || conversation.last_message?.id !== messageId) {
-                return conversation;
-              }
-              return {
-                ...conversation,
-                last_message: { ...conversation.last_message, ...message },
-                updated_at: typeof message.recalled_at === 'string' ? message.recalled_at : conversation.updated_at
-              };
-            })) : current);
+            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => patchConversation(current, conversationId, (conversation) => {
+              if (conversation.last_message?.id !== messageId) return conversation;
+              return { ...conversation, last_message: { ...conversation.last_message, ...message } };
+            }));
             queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', conversationId], (current) => patchMessageInPages(current, messageId, (item) => ({ ...item, ...message })));
           }
           if (event.type === 'message.reaction.updated' && conversationId !== null) {
@@ -323,7 +271,7 @@ export function useRealtime(enabled: boolean): void {
             const messageId = pickNumber(event.data, 'message_id');
             const featured = (event.data as { featured?: unknown }).featured;
             if (messageId !== null && typeof featured === 'boolean') {
-              queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', conversationId], (current) => patchMessageInPages(current, messageId, (item) => ({ ...item, featured })));
+              queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', conversationId], (current) => patchMessageInPages(current, messageId, (item) => item.featured === featured ? item : { ...item, featured }));
             }
           }
           if (event.type === 'message.component.updated' && conversationId !== null) {
@@ -331,10 +279,8 @@ export function useRealtime(enabled: boolean): void {
             const data = event.data as { component_id?: unknown; state?: unknown };
             if (messageId !== null && typeof data.component_id === 'string' && data.state && typeof data.state === 'object' && !Array.isArray(data.state)) {
               queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', conversationId], (current) => patchMessageInPages(current, messageId, (item) => patchMessageComponentState(item, data.component_id as string, data.state as MessageComponentState)));
-              queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current?.map((conversation) => {
-                if (conversation.id !== conversationId || conversation.last_message?.id !== messageId) {
-                  return conversation;
-                }
+              queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => patchConversation(current, conversationId, (conversation) => {
+                if (conversation.last_message?.id !== messageId) return conversation;
                 return { ...conversation, last_message: patchMessageComponentState(conversation.last_message, data.component_id as string, data.state as MessageComponentState) };
               }));
             }
@@ -381,25 +327,36 @@ export function useRealtime(enabled: boolean): void {
         ) {
           const conversationId = pickNumber(event.data, 'conversation_id');
           const currentActiveConversationId = activeConversationIdRef.current;
-          if (
-            (event.type === 'conversation.deleted' || event.type === 'conversation.temporary.closed' || event.type === 'conversation.temporary.blocked') &&
-            conversationId !== null &&
-            conversationId === currentActiveConversationId
-          ) {
-            setActiveConversationId(null);
+          if ((event.type === 'conversation.deleted' || event.type === 'conversation.temporary.closed' || event.type === 'conversation.temporary.blocked') && conversationId !== null) {
+            // Membership/temporary-chat revocation must not leave readable private cache data.
+            if (conversationId === currentActiveConversationId) setActiveConversationId(null);
+            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current?.filter((item) => item.id !== conversationId));
+            queryClient.removeQueries({ queryKey: ['messages', conversationId], exact: true });
+            queryClient.removeQueries({ queryKey: ['conversation-members', conversationId] });
+            queryClient.removeQueries({ queryKey: ['conversation-members-page', conversationId] });
+            scheduleConversationRefresh();
           }
           if (event.type === 'conversation.updated' && conversationId !== null) {
             const patch = event.data as Partial<Conversation>;
-            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current?.map((conversation) => {
-              if (conversation.id !== conversationId) {
-                return conversation;
-              }
-              return { ...conversation, ...patch, id: conversation.id };
-            }));
+            const previous = queryClient.getQueryData<Conversation[]>(['conversations']);
+            if (!previous?.some((conversation) => conversation.id === conversationId)) scheduleConversationRefresh();
+            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => patchConversation(current, conversationId, (conversation) => ({ ...conversation, ...patch, id: conversation.id })));
+          }
+          if (event.type === 'conversation.read' && conversationId !== null && pickNumber(event.data, 'user_id') === currentUser?.id) {
+            // A delayed receipt may precede a newer WS message; do not roll unread back.
+            const readId = pickNumber(event.data, 'last_read_message_id');
+            const previousReadId = lastReadMessageIds.get(conversationId) ?? 0;
+            if (readId !== null && readId >= previousReadId) {
+              lastReadMessageIds.set(conversationId, readId);
+              queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => patchConversation(current, conversationId, (conversation) => {
+                if (!conversation.unread_count || (conversation.last_message?.id ?? 0) > readId) return conversation;
+                return { ...conversation, unread_count: 0 };
+              }));
+            }
           }
           if (event.type === 'group.join_request.created' || event.type === 'group.join_request.accepted' || event.type === 'group.join_request.rejected') {
             void queryClient.invalidateQueries({ queryKey: ['group-join-requests'] });
-            void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            scheduleConversationRefresh();
             void queryClient.invalidateQueries({ queryKey: ['notifications'] });
           }
           if (conversationId !== null) {
@@ -424,8 +381,10 @@ export function useRealtime(enabled: boolean): void {
               event.type === 'group.member.left' ||
               event.type === 'group.member.removed'
             ) {
-              void queryClient.invalidateQueries({ queryKey: ['conversation-members', conversationId] });
-              void queryClient.invalidateQueries({ queryKey: ['conversation-members-page', conversationId] });
+              scheduleMemberRefresh(conversationId);
+              if (event.type === 'group.member.joined' || event.type === 'group.member.invited' || event.type === 'group.member.left' || event.type === 'group.member.removed') {
+                scheduleConversationRefresh();
+              }
             }
             if (event.type === 'group.checkin.created') {
               void queryClient.invalidateQueries({ queryKey: ['group-checkin-status', conversationId] });
@@ -459,16 +418,17 @@ export function useRealtime(enabled: boolean): void {
           }
           if (userId !== null) {
             const presenceData = event.data as Record<string, unknown>;
-            queryClient.setQueriesData<ConversationMember[] | undefined>({ queryKey: ['conversation-members'] }, (current) => current?.map((member) => patchMemberPresence(member, userId, online, presenceData)));
+            queryClient.setQueriesData<ConversationMember[] | undefined>({ queryKey: ['conversation-members'] }, (current) => current && patchMembers(current, (member) => patchMemberPresence(member, userId, online, presenceData)));
             queryClient.setQueriesData<ConversationMembersPageData | undefined>({ queryKey: ['conversation-members-page'] }, (current) => patchMemberPages(current, (member) => patchMemberPresence(member, userId, online, presenceData)));
             queryClient.setQueryData<OnlineUsersRead | undefined>(['online-users'], (current) => {
               if (!current) {
                 return current;
               }
               const users = online
-                ? current.users.map((user) => patchUserPresence(user, userId, online, presenceData))
-                : current.users.filter((user) => user.id !== userId);
-              return { ...current, online_count: onlineCount ?? current.online_count, users };
+                ? patchMembers(current.users, (user) => patchUserPresence(user, userId, online, presenceData))
+                : current.users.some((user) => user.id === userId) ? current.users.filter((user) => user.id !== userId) : current.users;
+              const count = onlineCount ?? current.online_count;
+              return users === current.users && count === current.online_count ? current : { ...current, online_count: count, users };
             });
             queryClient.setQueriesData<{ online?: boolean; presence_status?: string; presence_text?: string | null; presence_updated_at?: string | null } | undefined>({ queryKey: ['user-online', userId] }, (current) => current ? {
               ...current,
@@ -539,6 +499,7 @@ export function useRealtime(enabled: boolean): void {
 
     return () => {
       closedByEffect = true;
+      clearPendingRefreshes();
       window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (reconnectTimerId !== null) {

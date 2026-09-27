@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from 'react';
+import { VirtualConversationList } from './VirtualConversationList';
 import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useKukeStore } from '@/store/kukeStore';
@@ -241,6 +242,73 @@ function presenceText(user: User): string {
   return '在线';
 }
 
+interface ConversationRowProps {
+  conversation: Conversation;
+  currentUser: User;
+  variant: 'desktop' | 'mobile';
+  active: boolean;
+  visible: boolean;
+  index: number;
+  onSelect: (conversation: Conversation) => void;
+  onContextMenu: (event: ReactMouseEvent<HTMLElement>, conversation: Conversation) => void;
+  onPointerDown: (event: ReactPointerEvent<HTMLElement>, conversation: Conversation) => void;
+  onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
+  onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
+  onTouchStart: (event: ReactTouchEvent<HTMLElement>, conversation: Conversation) => void;
+  onTouchMove: (event: ReactTouchEvent<HTMLElement>) => void;
+  onTouchEnd: (event: ReactTouchEvent<HTMLElement>) => void;
+  onClickCapture: (event: ReactMouseEvent<HTMLElement>) => void;
+}
+
+const ConversationRow = memo(function ConversationRow({ conversation, currentUser, variant, active, visible, index, onSelect, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onTouchStart, onTouchMove, onTouchEnd, onClickCapture }: ConversationRowProps): JSX.Element {
+  const title = conversationTitle(conversation, currentUser);
+  const peer = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
+  const muted = isConversationMuted(conversation);
+  const blocked = isConversationBlocked(conversation);
+  const unread = visible ? 0 : Math.max(0, conversation.unread_count ?? 0);
+  if (variant === 'mobile') {
+    return <button type="button" onContextMenu={(event) => onContextMenu(event, conversation)}
+      onPointerDownCapture={(event) => onPointerDown(event, conversation)} onPointerMoveCapture={onPointerMove} onPointerUpCapture={onPointerUp} onPointerCancelCapture={onPointerUp}
+      onTouchStartCapture={(event) => onTouchStart(event, conversation)} onTouchMoveCapture={onTouchMove} onTouchEndCapture={onTouchEnd} onTouchCancelCapture={onTouchEnd}
+      onClickCapture={onClickCapture} onClick={() => onSelect(conversation)} className="kc-qq-conversation-item"
+      style={index ? { borderTop: '1px solid rgba(15, 23, 42, 0.045)' } : undefined}>
+      <span className="relative shrink-0">
+        {renderMobileConversationAvatar(conversation, title, peer)}
+        {unread && !muted && !blocked ? <span className="kc-qq-unread-badge">{unread > 99 ? '99+' : unread}</span> : null}
+      </span>
+      <span className="min-w-0 flex-1 overflow-hidden">
+        <span className="flex min-w-0 items-start justify-between gap-3">
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#151922]">{title}</span>
+          <span className="shrink-0 pt-0.5 text-[11px] font-medium text-[#b0b6c0]">{formatClockTime(conversation.updated_at)}</span>
+        </span>
+        <span className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden">
+          <span className="min-w-0 flex-1 truncate text-[12px] leading-4 text-[#8b95a5]">{lastMessage(conversation)}</span>
+          <ConversationStatusIcon conversation={conversation} />
+          {conversation.pending_join_request_count ? <span className="rounded-full bg-[#168bff] px-2 py-0.5 text-[10px] font-bold text-white">审 {conversation.pending_join_request_count}</span> : null}
+          {unread && (muted || blocked) ? <span className="kc-qq-unread-badge kc-qq-unread-muted">{unread > 99 ? '99+' : unread}</span> : null}
+        </span>
+      </span>
+    </button>;
+  }
+  return <button type="button" onContextMenu={(event) => onContextMenu(event, conversation)} onClick={() => onSelect(conversation)}
+    className={`kc-pc-conversation-item flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl px-2 py-2.5 text-left transition ${active ? '[background:var(--kc-active)] [color:var(--kc-text)]' : '[color:var(--kc-text)] hover:[background:var(--kc-hover)]'}`} style={{ animation: 'none' }}>
+    {renderConversationAvatar(conversation, title, peer)}
+    <span className="min-w-0 flex-1 overflow-hidden">
+      <span className="flex min-w-0 items-center justify-between gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</span>
+        <span className="shrink-0 text-[10px] [color:var(--kc-subtle)]">{formatClockTime(conversation.updated_at)}</span>
+      </span>
+      <span className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden">
+        <span className="min-w-0 flex-1 truncate text-xs [color:var(--kc-muted)]">{lastMessage(conversation)}</span>
+        <ConversationStatusIcon conversation={conversation} />
+        {conversation.pending_join_request_count ? <span className="rounded-full bg-[var(--kc-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">审 {conversation.pending_join_request_count}</span> : null}
+        {unread && !muted && !blocked ? <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{unread > 99 ? '99+' : unread}</span> : null}
+        {unread && (muted || blocked) ? <span className="rounded-full bg-slate-300 px-1.5 py-0.5 text-[10px] font-bold text-white dark:bg-slate-600">{unread > 99 ? '99+' : unread}</span> : null}
+      </span>
+    </span>
+  </button>;
+});
+
 export function ConversationList({ conversations, isLoading, currentUser, onCreateGroup, onOpenGlobalSearch, variant = 'desktop', onSelectConversation, onOpenSettings, onOpenOnlineUsers }: ConversationListProps): JSX.Element {
   const activeConversationId = useKukeStore((state) => state.activeConversationId);
   const visibleConversationId = useKukeStore((state) => state.visibleConversationId);
@@ -267,8 +335,10 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
   const longPressTimerRef = useRef<number | null>(null);
   const longPressStartRef = useRef<LongPressState | null>(null);
   const suppressNextClickRef = useRef(false);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
   const cleanSearchQuery = searchQuery.trim().toLowerCase();
-  const filteredConversations = sortConversationsByActivity(cleanSearchQuery ? conversations.filter((conversation) => matchesConversation(conversation, currentUser, cleanSearchQuery)) : conversations);
+  const filteredConversations = useMemo(() => sortConversationsByActivity(cleanSearchQuery ? conversations.filter((conversation) => matchesConversation(conversation, currentUser, cleanSearchQuery)) : conversations), [conversations, currentUser.id, cleanSearchQuery]);
   const groupSettingsMutation = useMutation({
     mutationFn: ({ conversationId, payload }: { conversationId: number; payload: { pinned?: boolean; do_not_disturb?: boolean; message_setting?: MessageSetting } }) => updateMyConversationSettings(conversationId, payload),
     onSuccess: (_member, variables) => {
@@ -341,21 +411,31 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
     setShowAddMenu(false);
   }
 
-  function openConversationContextMenu(event: ReactMouseEvent<HTMLElement>, conversation: Conversation): void {
+  const openConversationContextMenu = useCallback((event: ReactMouseEvent<HTMLElement>, conversation: Conversation): void => {
     event.preventDefault();
     setShowMessageSubmenu(false);
     setConversationMenu({ conversation, left: event.clientX, top: event.clientY });
-  }
+  }, []);
 
-  function clearConversationLongPress(): void {
+  const clearConversationLongPress = useCallback((): void => {
     if (longPressTimerRef.current !== null) {
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
     longPressStartRef.current = null;
-  }
+  }, []);
 
-  function triggerConversationLongPress(): void {
+  useEffect(() => {
+    const scroll = mobileScrollRef.current;
+    if (!scroll) return;
+    scroll.addEventListener('scroll', clearConversationLongPress, { passive: true });
+    return () => {
+      scroll.removeEventListener('scroll', clearConversationLongPress);
+      clearConversationLongPress();
+    };
+  }, [variant, clearConversationLongPress]);
+
+  const triggerConversationLongPress = useCallback((): void => {
     const start = longPressStartRef.current;
     if (!start) {
       return;
@@ -366,18 +446,18 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
     setConversationMenu({ conversation: start.conversation, left: start.x, top: start.y });
     navigator.vibrate?.(8);
     clearConversationLongPress();
-  }
+  }, [clearConversationLongPress]);
 
-  function startConversationLongPress(event: ReactPointerEvent<HTMLElement>, conversation: Conversation): void {
+  const startConversationLongPress = useCallback((event: ReactPointerEvent<HTMLElement>, conversation: Conversation): void => {
     if (variant !== 'mobile' || event.pointerType === 'mouse') {
       return;
     }
     clearConversationLongPress();
     longPressStartRef.current = { x: event.clientX, y: event.clientY, conversation, startedAt: Date.now(), pointerId: event.pointerId };
     longPressTimerRef.current = window.setTimeout(triggerConversationLongPress, LONG_PRESS_DELAY);
-  }
+  }, [variant, clearConversationLongPress, triggerConversationLongPress]);
 
-  function startConversationTouchLongPress(event: ReactTouchEvent<HTMLElement>, conversation: Conversation): void {
+  const startConversationTouchLongPress = useCallback((event: ReactTouchEvent<HTMLElement>, conversation: Conversation): void => {
     if (variant !== 'mobile' || event.touches.length !== 1) {
       return;
     }
@@ -385,9 +465,9 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
     clearConversationLongPress();
     longPressStartRef.current = { x: touch.clientX, y: touch.clientY, conversation, startedAt: Date.now(), pointerId: touch.identifier };
     longPressTimerRef.current = window.setTimeout(triggerConversationLongPress, LONG_PRESS_DELAY);
-  }
+  }, [variant, clearConversationLongPress, triggerConversationLongPress]);
 
-  function moveConversationLongPress(event: ReactPointerEvent<HTMLElement>): void {
+  const moveConversationLongPress = useCallback((event: ReactPointerEvent<HTMLElement>): void => {
     const start = longPressStartRef.current;
     if (!start) {
       return;
@@ -395,9 +475,9 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
     if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) {
       clearConversationLongPress();
     }
-  }
+  }, [clearConversationLongPress]);
 
-  function finishConversationLongPress(event?: ReactPointerEvent<HTMLElement> | ReactTouchEvent<HTMLElement>): void {
+  const finishConversationLongPress = useCallback((event?: ReactPointerEvent<HTMLElement> | ReactTouchEvent<HTMLElement>): void => {
     const start = longPressStartRef.current;
     if (start && Date.now() - start.startedAt >= LONG_PRESS_DELAY - 30) {
       event?.preventDefault();
@@ -406,9 +486,9 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
       return;
     }
     clearConversationLongPress();
-  }
+  }, [clearConversationLongPress, triggerConversationLongPress]);
 
-  function moveConversationTouchLongPress(event: ReactTouchEvent<HTMLElement>): void {
+  const moveConversationTouchLongPress = useCallback((event: ReactTouchEvent<HTMLElement>): void => {
     const start = longPressStartRef.current;
     const touch = event.touches[0];
     if (!start || !touch) {
@@ -417,7 +497,36 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
     if (Math.hypot(touch.clientX - start.x, touch.clientY - start.y) > 10) {
       clearConversationLongPress();
     }
-  }
+  }, [clearConversationLongPress]);
+
+  const suppressLongPressClick = useCallback((event: ReactMouseEvent<HTMLElement>): void => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, []);
+
+  const selectConversation = useCallback((conversation: Conversation): void => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+    if (variant === 'mobile' && onSelectConversation) {
+      onSelectConversation(conversation);
+      return;
+    }
+    setActiveConversationId(conversation.id);
+    onSelectConversation?.(conversation);
+  }, [variant, onSelectConversation, setActiveConversationId]);
+
+  const renderRow = useCallback((conversation: Conversation, index: number) => <ConversationRow
+    conversation={conversation} currentUser={currentUser} variant={variant} active={activeConversationId === conversation.id}
+    visible={visibleConversationId === conversation.id} index={index} onSelect={selectConversation} onContextMenu={openConversationContextMenu}
+    onPointerDown={startConversationLongPress} onPointerMove={moveConversationLongPress} onPointerUp={finishConversationLongPress}
+    onTouchStart={startConversationTouchLongPress} onTouchMove={moveConversationTouchLongPress} onTouchEnd={finishConversationLongPress}
+    onClickCapture={suppressLongPressClick}
+  />, [currentUser, variant, activeConversationId, visibleConversationId, selectConversation, openConversationContextMenu, startConversationLongPress, moveConversationLongPress, finishConversationLongPress, startConversationTouchLongPress, moveConversationTouchLongPress, suppressLongPressClick]);
 
   function updateMenuConversation(conversationId: number, payload: { pinned?: boolean; do_not_disturb?: boolean; message_setting?: MessageSetting }): void {
     if (typeof payload.pinned === 'boolean') {
@@ -507,7 +616,7 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
     return (
       <aside className="kc-qq-page relative h-full min-h-0 overflow-hidden">
         <MobileStatusBar />
-        <div className="kc-qq-scroll kc-native-list-scroll scroll-soft h-[calc(100%-30px)] overflow-y-auto px-3.5 pb-4">
+        <div ref={mobileScrollRef} className="kc-qq-scroll kc-native-list-scroll scroll-soft h-[calc(100%-30px)] overflow-y-auto px-3.5 pb-4">
           <header className="kc-qq-home-header kc-qq-sticky-home-header">
             <div className="flex min-w-0 items-center gap-2.5">
               <button type="button" onClick={onOpenSettings} className="shrink-0 rounded-full" aria-label="打开设置">
@@ -568,52 +677,7 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
             {isLoading ? <p className="p-5 text-sm text-[#8b95a5]">正在加载会话...</p> : null}
             {!isLoading && conversations.length === 0 ? <p className="p-5 text-sm leading-6 text-[#8b95a5]">暂无会话。先在好友页添加好友，再创建私聊或群聊。</p> : null}
             {!isLoading && conversations.length > 0 && filteredConversations.length === 0 ? <p className="p-5 text-sm leading-6 text-[#8b95a5]">没有匹配会话，按 Enter 搜索用户或群聊。</p> : null}
-            {filteredConversations.map((conversation) => {
-              const active = activeConversationId === conversation.id;
-              const title = conversationTitle(conversation, currentUser);
-              const peer = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
-              const muted = isConversationMuted(conversation);
-              const blocked = isConversationBlocked(conversation);
-              const unread = conversation.id !== visibleConversationId ? Math.max(0, conversation.unread_count ?? 0) : 0;
-
-              return (
-                <button key={conversation.id} type="button" onContextMenu={(event) => openConversationContextMenu(event, conversation)} onPointerDownCapture={(event) => startConversationLongPress(event, conversation)} onPointerMoveCapture={moveConversationLongPress} onPointerUpCapture={finishConversationLongPress} onPointerCancelCapture={finishConversationLongPress} onTouchStartCapture={(event) => startConversationTouchLongPress(event, conversation)} onTouchMoveCapture={moveConversationTouchLongPress} onTouchEndCapture={finishConversationLongPress} onTouchCancelCapture={finishConversationLongPress} onClickCapture={(event) => {
-                  if (suppressNextClickRef.current) {
-                    suppressNextClickRef.current = false;
-                    event.preventDefault();
-                    event.stopPropagation();
-                    return;
-                  }
-                }} onClick={() => {
-                  if (suppressNextClickRef.current) {
-                    suppressNextClickRef.current = false;
-                    return;
-                  }
-                  if (onSelectConversation) {
-                    onSelectConversation(conversation);
-                    return;
-                  }
-                  setActiveConversationId(conversation.id);
-                }} className="kc-qq-conversation-item">
-                  <span className="relative shrink-0">
-                    {renderMobileConversationAvatar(conversation, title, peer)}
-                    {unread && !muted && !blocked ? <span className="kc-qq-unread-badge">{unread > 99 ? '99+' : unread}</span> : null}
-                  </span>
-                  <span className="min-w-0 flex-1 overflow-hidden">
-                    <span className="flex min-w-0 items-start justify-between gap-3">
-                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#151922]">{title}</span>
-                      <span className="shrink-0 pt-0.5 text-[11px] font-medium text-[#b0b6c0]">{formatClockTime(conversation.updated_at)}</span>
-                    </span>
-                    <span className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden">
-                      <span className="min-w-0 flex-1 truncate text-[12px] leading-4 text-[#8b95a5]">{lastMessage(conversation)}</span>
-                      <ConversationStatusIcon conversation={conversation} />
-                      {conversation.pending_join_request_count ? <span className="rounded-full bg-[#168bff] px-2 py-0.5 text-[10px] font-bold text-white">审 {conversation.pending_join_request_count}</span> : null}
-                      {unread && (muted || blocked) ? <span className="kc-qq-unread-badge kc-qq-unread-muted">{unread > 99 ? '99+' : unread}</span> : null}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+            <VirtualConversationList items={filteredConversations} scrollRef={mobileScrollRef} activeId={activeConversationId} searchKey={cleanSearchQuery} estimatedRowHeight={64} renderRow={renderRow} />
           </div>
         </div>
         {conversationContextMenu}
@@ -663,7 +727,7 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
           ) : null}
         </div>
       </div>
-      <div className="scroll-soft h-[calc(100%-52px)] overflow-y-auto px-2 pb-2">
+      <div ref={desktopScrollRef} className="scroll-soft h-[calc(100%-52px)] overflow-y-auto px-2 pb-2">
         {isLoading ? <p className="rounded-lg p-4 text-sm [color:var(--kc-muted)]">正在加载会话...</p> : null}
         {!isLoading && conversations.length === 0 ? (
           <div className="rounded-xl p-5 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">
@@ -675,38 +739,7 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
             没有匹配会话，按 Enter 搜索用户或群聊。
           </div>
         ) : null}
-        <div className="grid gap-1">
-          {filteredConversations.map((conversation) => {
-            const active = activeConversationId === conversation.id;
-            const title = conversationTitle(conversation, currentUser);
-            const peer = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
-            const muted = isConversationMuted(conversation);
-            const blocked = isConversationBlocked(conversation);
-            const unread = conversation.id !== visibleConversationId ? Math.max(0, conversation.unread_count ?? 0) : 0;
-
-            return (
-              <button key={conversation.id} type="button" onContextMenu={(event) => openConversationContextMenu(event, conversation)} onClick={() => {
-                setActiveConversationId(conversation.id);
-                onSelectConversation?.(conversation);
-              }} className={`kc-pc-conversation-item flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl px-2 py-2.5 text-left transition ${active ? '[background:var(--kc-active)] [color:var(--kc-text)]' : '[color:var(--kc-text)] hover:[background:var(--kc-hover)]'}`}>
-                {renderConversationAvatar(conversation, title, peer)}
-                <span className="min-w-0 flex-1 overflow-hidden">
-                  <span className="flex min-w-0 items-center justify-between gap-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</span>
-                    <span className="shrink-0 text-[10px] [color:var(--kc-subtle)]">{formatClockTime(conversation.updated_at)}</span>
-                  </span>
-                  <span className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden">
-                    <span className="min-w-0 flex-1 truncate text-xs [color:var(--kc-muted)]">{lastMessage(conversation)}</span>
-                    <ConversationStatusIcon conversation={conversation} />
-                    {conversation.pending_join_request_count ? <span className="rounded-full bg-[var(--kc-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">审 {conversation.pending_join_request_count}</span> : null}
-                    {unread && !muted && !blocked ? <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{unread > 99 ? '99+' : unread}</span> : null}
-                    {unread && (muted || blocked) ? <span className="rounded-full bg-slate-300 px-1.5 py-0.5 text-[10px] font-bold text-white dark:bg-slate-600">{unread > 99 ? '99+' : unread}</span> : null}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <VirtualConversationList items={filteredConversations} scrollRef={desktopScrollRef} activeId={activeConversationId} searchKey={cleanSearchQuery} estimatedRowHeight={68} rowGap={4} renderRow={renderRow} />
       </div>
       {conversationContextMenu}
     </aside>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getConversationMembers, getConversationMembersPage, getConversations } from '@/api/conversations';
@@ -40,7 +40,7 @@ import { clearNativeSession } from '@/native/session';
 import { stopNativeBackgroundRealtime, updateNativeBackgroundRealtimeConversations } from '@/native/backgroundRealtime';
 import { runNativeRouteTransition, type NativeRouteDirection } from '@/native/transition';
 import { isNativeMobileApp } from '@/utils/appMode';
-import { isConversationBlocked, isConversationMuted } from '@/utils/notifications';
+import { nativeConversationChange, projectDashboardConversations, sameConversationMembership } from '@/utils/conversations';
 import { userPresenceLabel } from '@/utils/presence';
 
 type MobileSharedSecondaryPage = { type: 'post'; postId: number } | { type: 'user'; user: User | null | undefined; fallbackId: number } | { type: 'onlineUsers'; users: User[]; onlineCount: number } | { type: 'bots' } | { type: 'home' } | { type: 'bot'; botId: number } | { type: 'botEditor'; mode: 'create' | 'edit'; bot?: Bot } | { type: 'conversation'; conversationId: number } | { type: 'announcement' } | { type: 'teamup' } | { type: 'tasks' } | { type: 'favorites' };
@@ -301,10 +301,22 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const friendsQuery = useQuery({ queryKey: ['friends'], queryFn: getFriends });
   const conversations = conversationsQuery.data ?? [];
   const friends = friendsQuery.data ?? [];
+  const previousProjectionRef = useRef<ReturnType<typeof projectDashboardConversations> | null>(null);
+  const conversationProjection = useMemo(() => {
+    const next = projectDashboardConversations(conversations, previousProjectionRef.current ?? undefined);
+    previousProjectionRef.current = next;
+    return next;
+  }, [conversations]);
+  const membershipRef = useRef<{ ids: number[]; version: number }>({ ids: [], version: 0 });
+  if (!sameConversationMembership(membershipRef.current.ids, conversationProjection.ids)) {
+    membershipRef.current = { ids: conversationProjection.ids, version: membershipRef.current.version + 1 };
+  }
+  const membershipVersion = membershipRef.current.version;
   const bookmarksQuery = useQuery({
-    queryKey: ['bookmarks-all', conversations.map((conversation) => conversation.id).join(',')],
+    queryKey: ['bookmarks-all', currentUser.id, membershipVersion],
     queryFn: () => getAllBookmarkedMessages(conversations),
-    enabled: (workspaceView === 'favorites' || (layoutMode === 'mobile' && workspaceView === 'posts')) && conversations.length > 0
+    enabled: (workspaceView === 'favorites' || (layoutMode === 'mobile' && workspaceView === 'posts') || (layoutMode === 'mobile' && mobileSharedSecondaryStack.some((page) => page.type === 'favorites'))) && conversations.length > 0,
+    staleTime: 30_000
   });
   const openTasksQuery = useQuery({ queryKey: ['tasks', 'open-assigned'], queryFn: () => getTasks({ scope: 'assigned', limit: 1 }), staleTime: 30_000 });
   const hasOpenTasks = (openTasksQuery.data?.length ?? 0) > 0;
@@ -349,23 +361,57 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     }
   }, [activeConversationId, conversationsQuery.data, setActiveConversationId]);
 
+  const totalUnread = conversationProjection.unread - (conversationProjection.unreadById.get(visibleConversationId ?? -1) ?? 0);
   useEffect(() => {
-    const totalUnread = conversations.reduce((sum, conversation) => {
-      if (conversation.id === visibleConversationId || isConversationMuted(conversation) || isConversationBlocked(conversation)) {
-        return sum;
-      }
-      return sum + Math.max(0, conversation.unread_count ?? 0);
-    }, 0);
     setUnreadCount(totalUnread);
-  }, [visibleConversationId, conversations, setUnreadCount]);
+  }, [totalUnread, setUnreadCount]);
 
   useEffect(() => {
-    setSearchableConversationIds(conversations.map((conversation) => conversation.id));
-  }, [conversations, setSearchableConversationIds]);
+    setSearchableConversationIds(conversationProjection.ids);
+  }, [membershipVersion, setSearchableConversationIds]);
 
+  const nativeSnapshotRef = useRef<Map<number, Conversation> | null>(null);
+  const nativePendingRef = useRef<{ projection: Map<number, Conversation>; conversations: Conversation[] } | null>(null);
+  const nativeMetadataTimerRef = useRef<number | null>(null);
   useEffect(() => {
-    void updateNativeBackgroundRealtimeConversations(conversations);
-  }, [conversations]);
+    if (!conversationsQuery.data) return;
+    nativePendingRef.current = { projection: conversationProjection.byId, conversations };
+    // A pending metadata update means the last bridge snapshot may be older than
+    // the immediately preceding list; compare all fields before cancelling it.
+    const change = nativeConversationChange(nativeSnapshotRef.current, conversationProjection.byId,
+      nativeMetadataTimerRef.current === null ? conversationProjection.changedIds : undefined);
+    if (change === 'none') {
+      if (nativeMetadataTimerRef.current !== null) {
+        window.clearTimeout(nativeMetadataTimerRef.current);
+        nativeMetadataTimerRef.current = null;
+      }
+      return;
+    }
+    if (change === 'urgent') {
+      if (nativeMetadataTimerRef.current !== null) {
+        window.clearTimeout(nativeMetadataTimerRef.current);
+        nativeMetadataTimerRef.current = null;
+      }
+      nativeSnapshotRef.current = new Map(conversationProjection.byId);
+      void updateNativeBackgroundRealtimeConversations(conversations);
+      return;
+    }
+    // Titles/avatars can be coalesced; membership and notification settings never wait.
+    if (nativeMetadataTimerRef.current === null) {
+      nativeMetadataTimerRef.current = window.setTimeout(() => {
+        nativeMetadataTimerRef.current = null;
+        // Read the latest committed list, rather than an obsolete render captured at scheduling time.
+        const latest = nativePendingRef.current;
+        if (latest) {
+          nativeSnapshotRef.current = new Map(latest.projection);
+          void updateNativeBackgroundRealtimeConversations(latest.conversations);
+        }
+      }, 180);
+    }
+  }, [conversationProjection, conversations, conversationsQuery.data]);
+  useEffect(() => () => {
+    if (nativeMetadataTimerRef.current !== null) window.clearTimeout(nativeMetadataTimerRef.current);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -397,7 +443,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     return () => window.clearTimeout(timer);
   }, [currentUser.ccw_student_oid, currentUser.id]);
 
-  const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? (optimisticConversation?.id === activeConversationId ? optimisticConversation : null) ?? conversations[0];
+  const activeConversation = conversationProjection.byId.get(activeConversationId ?? -1) ?? (optimisticConversation?.id === activeConversationId ? optimisticConversation : null) ?? conversations[0];
   const shouldLoadActiveMembers = Boolean(
     activeConversation?.id && (
       activeConversation.type === 'direct' ||
@@ -420,25 +466,26 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     enabled: workspaceView === 'chat' && shouldLoadActiveMembers && activeConversation?.type === 'group',
     staleTime: 30_000
   });
-  const groupMemberPages = groupMembersQuery.data?.pages ?? [];
-  const fetchedMembers = activeConversation?.type === 'group'
-    ? groupMemberPages.flatMap((page) => page.items)
-    : directMembersQuery.data ?? [];
-  const fallbackMembers = activeConversation?.members ?? [];
-  const conversationMembers = fetchedMembers.length > 0 ? fetchedMembers : fallbackMembers;
-  const normalizedConversationMembers: ConversationMember[] = activeConversation?.type === 'group' && !conversationMembers.some((member) => memberUserId(member) === currentUser.id)
-    ? [{ id: -currentUser.id, conversation_id: activeConversation.id, user_id: currentUser.id, role: activeConversation.created_by_id === currentUser.id ? 'owner' : 'member', user: currentUser }, ...conversationMembers]
-    : conversationMembers;
-  const directMembers: ConversationMember[] = [];
-  if (activeConversation?.type === 'direct') {
-    directMembers.push({ id: -currentUser.id, conversation_id: activeConversation.id, user_id: currentUser.id, role: 'member', user: currentUser });
+  const memberView = useMemo(() => {
+    const fetchedMembers = activeConversation?.type === 'group'
+      ? groupMembersQuery.data?.pages.flatMap((page) => page.items) ?? []
+      : directMembersQuery.data ?? [];
+    const conversationMembers = fetchedMembers.length > 0 ? fetchedMembers : activeConversation?.members ?? [];
+    const currentMember = conversationMembers.find((member) => memberUserId(member) === currentUser.id);
+    const normalizedMembers: ConversationMember[] = activeConversation?.type === 'group' && !currentMember
+      ? [{ id: -currentUser.id, conversation_id: activeConversation.id, user_id: currentUser.id, role: activeConversation.created_by_id === currentUser.id ? 'owner' : 'member', user: currentUser }, ...conversationMembers]
+      : conversationMembers;
+    if (normalizedMembers.length > 0 || activeConversation?.type !== 'direct') {
+      return { visibleMembers: normalizedMembers, currentMember };
+    }
+    const directMembers: ConversationMember[] = [{ id: -currentUser.id, conversation_id: activeConversation.id, user_id: currentUser.id, role: 'member', user: currentUser }];
     if (activeConversation.direct_user && activeConversation.direct_user.id !== currentUser.id) {
       directMembers.push({ id: -activeConversation.direct_user.id, conversation_id: activeConversation.id, user_id: activeConversation.direct_user.id, role: 'member', user: activeConversation.direct_user });
     }
-  }
-  const visibleMembers = normalizedConversationMembers.length > 0 ? normalizedConversationMembers : directMembers;
-  const currentMember = normalizedConversationMembers.find((member) => memberUserId(member) === currentUser.id);
-  const currentRole: MemberRole = activeConversation?.my_role ?? currentMember?.role ?? (activeConversation?.created_by_id === currentUser.id ? 'owner' : 'member');
+    return { visibleMembers: directMembers, currentMember };
+  }, [activeConversation?.id, activeConversation?.type, activeConversation?.members, activeConversation?.created_by_id, activeConversation?.direct_user, groupMembersQuery.data, directMembersQuery.data, currentUser]);
+  const visibleMembers = memberView.visibleMembers;
+  const currentRole: MemberRole = activeConversation?.my_role ?? memberView.currentMember?.role ?? (activeConversation?.created_by_id === currentUser.id ? 'owner' : 'member');
   const membersLoading = activeConversation?.type === 'group'
     ? groupMembersQuery.isLoading
     : directMembersQuery.isLoading;

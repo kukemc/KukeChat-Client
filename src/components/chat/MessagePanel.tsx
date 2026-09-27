@@ -37,6 +37,8 @@ import { isNativeMobileApp } from '@/utils/appMode';
 import { subscribePoke } from '@/realtime/poke';
 import { registerNativeBackHandler } from '@/native/back';
 import { runNativeRouteTransition } from '@/native/transition';
+import { useVirtualMessageRows } from './useVirtualMessageRows';
+import { setInstantMessageScrollTop } from './instantMessageScroll';
 
 interface MessagePanelProps {
   conversations: Conversation[];
@@ -133,6 +135,7 @@ interface MentionPickerState {
 }
 
 const MAX_IMAGE_UPLOAD_BYTES = 3 * 1024 * 1024;
+const MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES = 12 * 1024 * 1024;
 const MAX_VOICE_UPLOAD_BYTES = 2 * 1024 * 1024;
 const MAX_VOICE_RECORDING_MS = 3 * 60 * 1000;
 const MOBILE_VOICE_CANCEL_DISTANCE = 56;
@@ -3014,6 +3017,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   const lastAvatarTapRef = useRef<{ userId: number; at: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const messageListRef = useRef<HTMLDivElement | null>(null);
   const overlayRootRef = useRef<HTMLElement | null>(null);
   const lastMessageIdRef = useRef<number | null>(null);
   const lastConversationIdRef = useRef<number | null>(null);
@@ -3084,7 +3088,13 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   });
   const messagePages = messagesQuery.data?.pages;
   const latestMessageId = messagePages?.[0]?.[messagePages[0].length - 1]?.id ?? null;
-  const messages = messagePages ? [...messagePages].reverse().flat() : [];
+  const messages = useMemo(() => messagePages ? [...messagePages].reverse().flat() : [], [messagePages]);
+  const messageIds = useMemo(() => messages.map((message) => message.id), [messages]);
+  const messageIndexById = useMemo(() => new Map(messageIds.map((id, index) => [id, index])), [messageIds]);
+  const messageIndexByIdRef = useRef(messageIndexById);
+  messageIndexByIdRef.current = messageIndexById;
+  const selectedMessageIdSet = useMemo(() => new Set(selectedMessageIds), [selectedMessageIds]);
+  const virtualMessages = useVirtualMessageRows(messageIds, scrollRef, messageListRef, activeConversationId, isMobile ? 12 : 28, stickToBottomRef);
 
   function openInfoDrawer(): void {
     onMembersNeeded?.();
@@ -3658,7 +3668,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
         return;
       }
       if (/3MB|413|too large/i.test(message)) {
-        setActionError(/voice|语音/i.test(message) ? '语音不能超过 2MB。' : '图片不能超过 3MB。');
+        setActionError(/voice|语音/i.test(message) ? '语音不能超过 2MB。' : '图片压缩后不能超过 3MB（GIF 保留原图，原图不能超过 3MB）。');
         return;
       }
       setActionError(message || '发送失败，请稍后重试。');
@@ -3934,16 +3944,23 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
 
     const previousBehavior = element.style.scrollBehavior;
     element.style.scrollBehavior = 'auto';
-    const anchor = snapshot.messageId === null ? null : element.querySelector<HTMLElement>(`[data-message-id="${snapshot.messageId}"]`);
+    // A prepended page can move the previous anchor outside the mounted window.
+    // Set the estimated new position first; the measured row can then correct it.
+    if (snapshot.messageId !== null && messageIndexById.has(snapshot.messageId)) {
+      const index = messageIndexById.get(snapshot.messageId)!;
+      element.scrollTop = (messageListRef.current?.offsetTop ?? 0) + virtualMessages.offsets[index] - snapshot.offsetTop;
+      virtualMessages.syncScroll();
+    }
+    const anchor = snapshot.messageId === null ? null : element.querySelector<HTMLElement>(`[data-virtual-message-id="${snapshot.messageId}"]`);
     if (anchor) {
       const rootTop = element.getBoundingClientRect().top;
       element.scrollTop += anchor.getBoundingClientRect().top - rootTop - snapshot.offsetTop;
-    } else {
+    } else if (snapshot.messageId === null || !messageIndexById.has(snapshot.messageId)) {
       element.scrollTop = snapshot.top + element.scrollHeight - snapshot.height;
     }
     element.style.scrollBehavior = previousBehavior;
     preserveScrollSnapshotRef.current = null;
-  }, [activeConversationId, messagePages]);
+  }, [activeConversationId, messagePages, messageIndexById, virtualMessages.offsets]);
 
   useEffect(() => {
     if (!isMobile || !isNativeApp || import.meta.env.PROD) {
@@ -4771,15 +4788,18 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     if (nextFiles.length === 0) {
       return;
     }
-    const validFiles = nextFiles.filter((file) => file.size <= MAX_IMAGE_UPLOAD_BYTES);
-    const oversizedFiles = nextFiles.filter((file) => file.size > MAX_IMAGE_UPLOAD_BYTES);
-    if (oversizedFiles.length > 0) {
-      setActionError(`图片不能超过 3MB，已忽略：${oversizedFiles.map((file) => `${file.name} (${formatBytes(file.size)})`).join('、')}`);
-    }
+    const oversizedFiles = nextFiles.filter((file) => file.size > (
+      /^(image\/jpeg|image\/png|image\/webp)$/i.test(file.type)
+        ? MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES
+        : MAX_IMAGE_UPLOAD_BYTES
+    ));
+    const validFiles = nextFiles.filter((file) => !oversizedFiles.includes(file));
+    setActionError(oversizedFiles.length > 0
+      ? `JPEG/PNG/WEBP 原图不能超过 12MB，GIF 及其他图片原图不能超过 3MB；压缩后不能超过 3MB。已忽略：${oversizedFiles.map((file) => `${file.name} (${formatBytes(file.size)})`).join('、')}`
+      : '');
     if (validFiles.length === 0) {
       return;
     }
-    setActionError('');
     setStagedImages((current) => [
       ...current,
       ...validFiles.map((file, index) => ({
@@ -4861,6 +4881,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   }
 
   function handleMessagesScroll(): void {
+    virtualMessages.syncScroll();
     const element = scrollRef.current;
     const nearBottom = isNearBottom(element);
     stickToBottomRef.current = nearBottom;
@@ -4878,10 +4899,10 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     }
 
     const rootTop = element.getBoundingClientRect().top;
-    const anchor = Array.from(element.querySelectorAll<HTMLElement>('[data-message-id]')).find((node) => node.getBoundingClientRect().bottom > rootTop + 1) ?? null;
+    const anchor = Array.from(element.querySelectorAll<HTMLElement>('[data-virtual-message-id]')).find((node) => node.getBoundingClientRect().bottom > rootTop + 1) ?? null;
     preserveScrollSnapshotRef.current = {
       conversationId: activeConversationId,
-      messageId: anchor ? Number(anchor.dataset.messageId) : null,
+      messageId: anchor ? Number(anchor.dataset.virtualMessageId) : null,
       offsetTop: anchor ? anchor.getBoundingClientRect().top - rootTop : 0,
       height: element.scrollHeight,
       top: element.scrollTop
@@ -5486,7 +5507,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   }
 
   async function ensureMessageContextLoaded(messageId: number): Promise<boolean> {
-    if (scrollRef.current?.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`)) {
+    if (messageIndexById.has(messageId)) {
       return true;
     }
     if (!activeConversationId) {
@@ -5505,7 +5526,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     queryClient.setQueryData<MessagesInfiniteData>(['messages', activeConversationId], replaceMessagesWithContextPage(contextMessages));
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    return Boolean(scrollRef.current?.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`));
+    return true; // The new context page includes it; jumpToMessageId positions its virtual row.
   }
 
   async function jumpToMessageId(messageId: number): Promise<void> {
@@ -5521,13 +5542,20 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
       showToast('已找到该消息，但该消息对当前账号不可见或已被清除。', 'error');
       return;
     }
-    const target = scrollRef.current?.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
-    if (!target) {
-      return;
-    }
+    // The context query may commit on the following frame after setQueryData.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     stickToBottomRef.current = false;
+    // A loaded-but-offscreen row is located by ID, not by a DOM query.
+    const resolvedIndex = messageIndexByIdRef.current.get(messageId) ?? -1;
+    if (resolvedIndex < 0) return;
+    virtualMessages.scrollToIndex(resolvedIndex);
     requestAnimationFrame(() => {
-      target.scrollIntoView({ block: 'center', behavior: 'auto' });
+      const target = scrollRef.current?.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+      if (target) {
+        // scrollIntoView's ancestor traversal can scroll the host page in an extension.
+        const scroll = scrollRef.current;
+        if (scroll) setInstantMessageScrollTop(scroll, scroll.scrollTop + target.getBoundingClientRect().top - scroll.getBoundingClientRect().top - (scroll.clientHeight - target.clientHeight) / 2);
+      }
       highlightMessage(messageId);
     });
   }
@@ -6073,8 +6101,9 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
             {messagesQuery.isLoading ? <p className="rounded-xl p-4 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">正在加载消息...</p> : null}
             {messagesQuery.isFetchingNextPage ? <p className="mb-3 text-center text-xs [color:var(--kc-muted)]">正在加载更早消息...</p> : null}
             {!messagesQuery.hasNextPage && messages.length > 0 ? <p className="mb-3 text-center text-xs [color:var(--kc-muted)]">没有更早消息了</p> : null}
-            <div className={`grid ${isMobile ? 'kc-mobile-message-list min-w-0 max-w-full gap-3 overflow-x-hidden' : 'gap-7'}`}>
-            {messages.map((message, index) => {
+            <div ref={messageListRef} className={`relative min-w-0 max-w-full ${isMobile ? 'kc-mobile-message-list overflow-x-hidden' : ''}`} style={{ height: virtualMessages.totalHeight }}>
+            {messages.slice(virtualMessages.start, virtualMessages.end).map((message, windowIndex) => {
+              const index = virtualMessages.start + windowIndex;
               const showTimeDivider = shouldShowTimeDivider(message, messages[index - 1]);
               const sender = senderOf(message);
               const mine = (message.sender_id ?? sender?.id) === currentUser.id;
@@ -6082,7 +6111,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               const senderRoleBadge = messageRoleBadge(message, sender);
               const senderTitleBadge = messageTitleBadge(message, senderRoleBadge);
               const senderMember = memberFromMessage(message, mine ? currentUser : sender);
-              const selected = selectedMessageIds.includes(message.id);
+              const selected = selectedMessageIdSet.has(message.id);
               const messageQuote = quoteMetadataOf(message);
               const rawMentionData = mentionMetadataOf(message);
               const messageMentionData = {
@@ -6126,7 +6155,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               ) : null;
               if (message.type === 'system') {
                 return (
-                  <div key={message.id}>
+                  <div key={message.id} data-virtual-message-id={message.id} ref={virtualMessages.measureRow} className="absolute left-0 right-0" style={{ top: virtualMessages.offsets[index] }}>
                     {showTimeDivider ? <MessageTimeDivider value={message.created_at} /> : null}
                     <div data-message-id={message.id} className="kc-message-enter kc-pc-message-row flex justify-center" onContextMenu={(event) => openMessageMenu(event, message)}>
                       <div className={`min-w-0 max-w-[76%] select-text rounded-full px-3 py-1.5 text-center text-xs leading-5 [background:var(--kc-panel-muted)] [color:var(--kc-muted)] ${WRAP_ANYWHERE_CLASS}`}>
@@ -6138,7 +6167,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               }
               if (recalled) {
                 return (
-                  <div key={message.id}>
+                  <div key={message.id} data-virtual-message-id={message.id} ref={virtualMessages.measureRow} className="absolute left-0 right-0" style={{ top: virtualMessages.offsets[index] }}>
                     {showTimeDivider ? <MessageTimeDivider value={message.created_at} /> : null}
                     <div data-message-id={message.id} className="kc-message-enter kc-pc-message-row flex justify-center" onContextMenu={(event) => openMessageMenu(event, message)}>
                       <div className="select-none rounded-full px-3 py-1.5 text-xs leading-none [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">消息已撤回</div>
@@ -6148,7 +6177,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               }
 
               return (
-                <div key={message.id} className={isMobile ? 'min-w-0 max-w-full overflow-hidden' : undefined}>
+                <div key={message.id} data-virtual-message-id={message.id} ref={virtualMessages.measureRow} className={`absolute left-0 right-0 ${isMobile ? 'min-w-0 max-w-full overflow-hidden' : ''}`} style={{ top: virtualMessages.offsets[index] }}>
                   {showTimeDivider ? <MessageTimeDivider value={message.created_at} /> : null}
                   <div data-message-id={message.id} className={`kc-message-enter ${isMobile ? 'kc-mobile-message-row w-full min-w-0 max-w-full overflow-hidden' : 'kc-pc-message-row'} flex items-start rounded-2xl transition ${isMobile ? 'gap-2 px-1 py-0.5' : 'gap-3 px-2 py-1'} ${jumpHighlightMessageId === message.id ? '[background:rgba(22,139,255,0.12)]' : ''} ${mine ? 'justify-end' : 'justify-start'}`} onContextMenu={(event) => openMessageMenu(event, message)} onDoubleClick={() => quoteMessage(message)}>
                   {multiSelectMode && !mine ? (
@@ -6198,7 +6227,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                     {message.type === 'image' ? (
                       <div className={`kc-mobile-message-content flex max-w-full flex-col gap-2 ${mine ? 'items-end' : 'items-start'}`}>
                         {messageQuote ? renderQuoteBlock(messageQuote, false, jumpToQuotedMessage) : null}
-                        {resolveAssetUrl(message.content) ? <button type="button" onClick={() => openImageViewer([message.content], 0)} onContextMenu={(event) => openMessageMenu(event, message, message.content)} className={`${stickerMessage ? 'kc-mobile-sticker-frame border-transparent bg-transparent' : 'kc-mobile-image-message [border-color:var(--kc-border)]'} kc-mobile-media-frame block select-text overflow-hidden rounded-xl border text-left`}><img src={resolveMessageImagePreviewUrl(message.content)} alt={stickerMessage ? '表情包' : '聊天图片'} onLoad={scrollImageIntoView} className={stickerMessage ? 'max-h-32 max-w-32 object-contain' : 'max-h-72 max-w-full object-contain'} /></button> : <UnavailableImageLabel />}
+                        {resolveAssetUrl(message.content) ? <button type="button" onClick={() => openImageViewer([message.content], 0)} onContextMenu={(event) => openMessageMenu(event, message, message.content)} className={`${stickerMessage ? 'kc-mobile-sticker-frame border-transparent bg-transparent' : 'kc-mobile-image-message [border-color:var(--kc-border)]'} kc-mobile-media-frame block select-text overflow-hidden rounded-xl border text-left`}><img src={resolveMessageImagePreviewUrl(message.content)} alt={stickerMessage ? '表情包' : '聊天图片'} loading="lazy" decoding="async" onLoad={scrollImageIntoView} className={stickerMessage ? 'max-h-32 max-w-32 object-contain' : 'max-h-72 max-w-full object-contain'} /></button> : <UnavailableImageLabel />}
                       </div>
                     ) : message.type === 'voice' ? (
                       <div className={`kc-mobile-message-content flex max-w-full flex-col gap-2 ${mine ? 'items-end' : 'items-start'}`}>
@@ -6253,7 +6282,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                           {messageImages.map((imageUrl, index) => {
                             const originalSrc = resolveAssetUrl(imageUrl);
                             const src = resolveMessageImagePreviewUrl(imageUrl);
-                            return originalSrc && src ? <button key={`${imageUrl}-${index}`} type="button" onClick={() => openImageViewer(messageImages, index)} onContextMenu={(event) => openMessageMenu(event, message, imageUrl)} className="kc-mobile-media-frame kc-mobile-image-message block overflow-hidden rounded-xl border text-left [border-color:var(--kc-border)]" style={isMobile ? { width: '100%', maxWidth: '100%' } : undefined}><img src={src} alt="聊天图片" onLoad={scrollImageIntoView} className={isMobile ? 'max-h-64 w-full object-cover' : 'max-h-60 w-full object-cover'} /></button> : <UnavailableImageLabel key={`${imageUrl}-${index}`} />;
+                            return originalSrc && src ? <button key={`${imageUrl}-${index}`} type="button" onClick={() => openImageViewer(messageImages, index)} onContextMenu={(event) => openMessageMenu(event, message, imageUrl)} className="kc-mobile-media-frame kc-mobile-image-message block overflow-hidden rounded-xl border text-left [border-color:var(--kc-border)]" style={isMobile ? { width: '100%', maxWidth: '100%' } : undefined}><img src={src} alt="聊天图片" loading="lazy" decoding="async" onLoad={scrollImageIntoView} className={isMobile ? 'max-h-64 w-full object-cover' : 'max-h-60 w-full object-cover'} /></button> : <UnavailableImageLabel key={`${imageUrl}-${index}`} />;
                           })}
                         </div>
                       </div>

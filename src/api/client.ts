@@ -2,6 +2,7 @@ import { API_BASE_URL } from '@/config';
 import { useKukeStore } from '@/store/kukeStore';
 import { isRecord } from './normalizers';
 import type { AccountSuspension } from '@/types/api';
+import { prepareImageUpload } from '@/utils/imageUpload';
 
 function resolveApiBaseUrl(): string {
   if (import.meta.env.DEV) {
@@ -181,7 +182,11 @@ export async function uploadFile<T>(path: string, file: File, fieldName = 'file'
   const state = useKukeStore.getState();
   const headers: Record<string, string> = {};
   const body = new FormData();
-  body.append(fieldName, file);
+  const imagePaths = new Set([
+    '/uploads/avatar', '/uploads/profile-cover', '/uploads/message-image',
+    '/uploads/post-image', '/uploads/teamup-image'
+  ]);
+  body.append(fieldName, imagePaths.has(path.split('?')[0]) ? await prepareImageUpload(file) : file);
 
   if (state.token) {
     headers.Authorization = `Bearer ${state.token}`;

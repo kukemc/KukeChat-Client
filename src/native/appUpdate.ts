@@ -9,7 +9,7 @@ import { isNativeMobileApp } from '@/utils/appMode';
  * APK's versionName in `android/app/build.gradle` (and the server metadata)
  * whenever a new mobile release ships.
  */
-export const MOBILE_APP_VERSION = '1.1.3';
+export const MOBILE_APP_VERSION = '1.3.1';
 
 export interface MobileUpdateInfo {
   hasUpdate: boolean;

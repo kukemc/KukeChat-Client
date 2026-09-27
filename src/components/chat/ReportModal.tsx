@@ -30,6 +30,7 @@ const REPORT_REASONS = [
 const MAX_DESCRIPTION_LENGTH = 300;
 const MAX_ATTACHMENTS = 6;
 const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024;
+const MAX_COMPRESSIBLE_ATTACHMENT_ORIGINAL_BYTES = 12 * 1024 * 1024;
 
 function getKukePortalRoot(): Element {
   const host = document.getElementById('kukechat-shadow-host');
@@ -85,10 +86,14 @@ export function ReportModal({ targetType, targetId, targetLabel, conversationId,
     if (files.length === 0) {
       return;
     }
-    const oversized = files.filter((file) => file.size > MAX_ATTACHMENT_BYTES);
-    const validFiles = files.filter((file) => file.size <= MAX_ATTACHMENT_BYTES);
+    const oversized = files.filter((file) => file.size > (
+      /^(image\/jpeg|image\/png|image\/webp)$/i.test(file.type)
+        ? MAX_COMPRESSIBLE_ATTACHMENT_ORIGINAL_BYTES
+        : MAX_ATTACHMENT_BYTES
+    ));
+    const validFiles = files.filter((file) => !oversized.includes(file));
     if (oversized.length > 0) {
-      setUploadError('图片不能超过 3MB，过大的图片已忽略。');
+      setUploadError('JPEG/PNG/WEBP 原图不能超过 12MB，GIF 及其他图片原图不能超过 3MB；压缩后不能超过 3MB。过大的图片已忽略。');
     }
     if (validFiles.length === 0) {
       return;

@@ -60,6 +60,7 @@ interface ComposerDraft {
 const PAGE_SIZE = 20;
 const MAX_IMAGES = 9;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+const MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES = 12 * 1024 * 1024;
 const URL_PATTERN_SOURCE = '(https?:\\/\\/[^\\s]+)';
 const POST_URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
@@ -1122,8 +1123,11 @@ function ComposerModal({ currentUser, isMobile, editingPost, onClose, transition
           setError('只能上传图片文件');
           continue;
         }
-        if (file.size > MAX_IMAGE_BYTES) {
-          setError('单张图片不能超过 3MB');
+        const maxOriginalBytes = /^(image\/jpeg|image\/png|image\/webp)$/i.test(file.type)
+          ? MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES
+          : MAX_IMAGE_BYTES;
+        if (file.size > maxOriginalBytes) {
+          setError('JPEG/PNG/WEBP 原图不能超过 12MB，GIF 及其他图片原图不能超过 3MB；压缩后不能超过 3MB');
           continue;
         }
         accepted.push({ id: `${file.name}-${file.size}-${randomId()}`, file, previewUrl: URL.createObjectURL(file) });
