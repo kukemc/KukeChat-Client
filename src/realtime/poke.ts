@@ -1,9 +1,9 @@
 /**
  * 戳一戳的进程内广播。
  *
- * 戳一戳既不落库也不进消息列表，走 react-query 的缓存体系反而绕远路，
- * 所以单独开一条极轻的订阅通道：realtime 客户端收到事件就往这里丢，
- * 聊天面板订阅后播动画、弹提示。
+ * 聊天记录里的那行字是一条系统消息，走正常的 message.created；这条通道只管即时效果：
+ * realtime 客户端收到 conversation.member.poked 就往这里丢，聊天面板订阅后让头像抖一下。
+ * （移动端的旧面板还会用它弹一条临时提示。）
  */
 
 export interface PokeEvent {

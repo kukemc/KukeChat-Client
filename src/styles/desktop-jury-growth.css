@@ -1,0 +1,1697 @@
+/* 桌面端：风纪 · 考试、练习场、风纪值、层级、成就、排行榜（基础样式见 kui.css 和 desktop-jury.css）。
+ *
+ * 和 desktop-jury.css 是一家：面只用标准令牌（--kc-chat-surface / --kc-panel / --kc-list），整窗背景和毛玻璃主题下跟着变；
+ * 强调、对错、提醒的淡底一律是「令牌色掺透明」，不写死颜色。卡片里不套卡片，分区靠发丝线和小标题。
+ * 文件顺序：通用小件 → 题目与标准结论（考试、练习共用）→ 练习场 → 评审台新增 → 考试 → 成长（层级、风纪值、成就）→
+ * 排行榜 → 总览新增（趋势图）→ 委员徽章（聊天里也用）→ 轻提示 → 窄窗口。
+ */
+
+/* ───────── 通用小件 ───────── */
+
+/* 轻提示挂在风纪页的右下角，要一个定位基准 */
+.kjr-root {
+  position: relative;
+}
+
+/* 标题栏里的「24 小时内 4 / 30」比原来的「今日 4 / 30」长：宽度跟着字走，不换行 */
+.kjr-progress {
+  width: auto;
+  min-width: 96px;
+  white-space: nowrap;
+}
+
+.kjr-flash--warn {
+  background: color-mix(in srgb, var(--kui-warn) 10%, var(--kc-chat-surface));
+}
+
+.kjr-flash-points {
+  margin-left: 6px;
+  color: var(--kui-ok);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* 票数分布里的「上下文不足」：比弃权深一档的灰 */
+.kjr-split-seg.is-context {
+  background: color-mix(in srgb, var(--kc-text) 46%, transparent);
+}
+
+.kjr-notices {
+  display: grid;
+  gap: 8px;
+}
+
+.kjr-me > .kjr-notices {
+  margin-top: 12px;
+}
+
+.kjr-me-practice {
+  padding-top: 12px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-me-practice > .kjr-meta {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+/* ───────── 题目与标准结论（考试、练习共用） ───────── */
+
+.kjr-pq-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.kjr-pq-reasons li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-pq-reasons b {
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 对答案：选项不能再点，但不变灰 —— 这时它们是「答案」，要看得清 */
+.kjr-opt.is-revealed:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.kjr-opt.is-revealed:not(.is-selected, .is-standard) {
+  opacity: 0.55;
+}
+
+.kjr-opt.is-revealed.is-right {
+  background: color-mix(in srgb, var(--kui-ok) 9%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--kui-ok);
+}
+
+.kjr-opt.is-revealed.is-wrong {
+  background: color-mix(in srgb, var(--kui-danger) 8%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--kui-danger);
+}
+
+.kjr-opt.is-revealed.is-right .kjr-key {
+  background: var(--kui-ok);
+  color: #ffffff;
+}
+
+.kjr-opt.is-revealed.is-wrong .kjr-key {
+  background: var(--kui-danger);
+  color: #ffffff;
+}
+
+.kjr-opt.is-revealed.is-standard:not(.is-selected) {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--kc-accent) 60%, transparent);
+}
+
+.kjr-opt-marks {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+
+.kjr-answer {
+  display: grid;
+  gap: 8px;
+}
+
+.kjr-answer-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.kjr-answer-fact {
+  font-weight: 600;
+}
+
+.kjr-answer-fact + .kjr-answer-fact::before {
+  margin-right: 10px;
+  color: var(--kc-subtle);
+  font-weight: 400;
+  content: '·';
+}
+
+/* 讲解：一段引文式的说明，左边一条强调色的线 */
+.kjr-explain {
+  padding: 2px 0 2px 11px;
+  border-left: 2px solid color-mix(in srgb, var(--kc-accent) 55%, transparent);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.kjr-explain-title {
+  display: block;
+  color: var(--kc-accent);
+  font-size: calc(11px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.kjr-explain p {
+  white-space: pre-wrap;
+}
+
+.kjr-qc > .kjr-explain,
+.kjr-vs-block > .kjr-explain {
+  margin-top: 10px;
+}
+
+/* ───────── 练习场 ───────── */
+
+.kjr-pq-total {
+  flex: none;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-pq-feedback {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0 6px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-pq-feedback .kjr-h {
+  margin: 6px 0 0;
+}
+
+.kjr-pq-verdict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(15.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kjr-pq-verdict-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+}
+
+.kjr-pq-feedback.is-right .kjr-pq-verdict-icon {
+  background: var(--kui-ok);
+}
+
+.kjr-pq-feedback.is-wrong .kjr-pq-verdict-icon {
+  background: var(--kui-danger);
+}
+
+.kjr-pq-session {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--kc-border);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-pq-session b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.kjr-pq-record .kjr-quiet {
+  margin-top: 12px;
+}
+
+/* ───────── 评审台新增：上下文不足、主动回避、违规类别、加分反馈 ───────── */
+
+/* 这两项不是「判断」，外框用虚线，和上面四个实线的判断选项分开 */
+.kjr-opt.is-context:not(.is-selected),
+.kjr-opt.is-recuse:not(.is-selected) {
+  box-shadow: none;
+  outline: 1px dashed var(--kc-border-strong);
+  outline-offset: -1px;
+}
+
+.kjr-opt-detail {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 9px 11px 9px 12px;
+  border-left: 2px solid var(--kc-accent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--kc-accent) 6%, transparent);
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kjr-opt-detail li {
+  position: relative;
+  padding-left: 12px;
+}
+
+.kjr-opt-detail li::before {
+  position: absolute;
+  top: 0.72em;
+  left: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kc-accent) 70%, transparent);
+  content: '';
+}
+
+/* 违规类别接在等级选项下面，是同一块里的第二步 */
+.kjr-cats-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--kc-border-strong);
+}
+
+.kjr-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.kjr-cat {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--kui-r-sm);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  transition: background-color 80ms ease, box-shadow 80ms ease;
+}
+
+.kjr-cat:hover:not(:disabled) {
+  background: var(--kc-hover);
+}
+
+.kjr-cat.is-selected {
+  background: color-mix(in srgb, var(--kc-accent) 9%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--kc-accent);
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+.kjr-cat small {
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+  font-weight: 400;
+}
+
+.kjr-cat.is-selected small {
+  color: color-mix(in srgb, var(--kc-accent) 70%, transparent);
+}
+
+#kukechat-root [data-font-scale] .kjr-cat {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* 投票后的加分：一行，左边是数字，中间是来由，右边是累计 */
+.kjr-reward {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  padding: 10px 18px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kui-ok);
+}
+
+.kjr-reward.is-loss {
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kui-danger);
+}
+
+.kjr-reward-sum {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.kjr-reward-sum strong {
+  color: var(--kui-ok);
+  font-size: calc(22px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.kjr-reward.is-loss .kjr-reward-sum strong {
+  color: var(--kui-danger);
+}
+
+.kjr-reward-sum span {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kjr-reward-items {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 160px;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-reward-items b {
+  margin-left: 5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-reward-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-reward-total b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+#kukechat-root [data-font-scale] :is(.kjr-reward, .kjr-exam-review-line, .kjr-toast) .kui-link {
+  font-size: inherit;
+}
+
+.kjr-vs-points {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--kc-border-strong);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-vs-points b {
+  color: var(--kui-ok);
+  font-size: calc(14px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-vs-points b.kjr-no {
+  color: var(--kui-danger);
+}
+
+.kjr-vs-points small {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ───────── 入门考试 ───────── */
+
+.kjr-exam-timer {
+  display: inline-flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  font-size: calc(14px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.kjr-exam-timer > svg {
+  color: var(--kc-muted);
+}
+
+.kjr-exam-timer.is-warn {
+  background: color-mix(in srgb, var(--kui-warn) 15%, transparent);
+  color: var(--kui-warn);
+}
+
+.kjr-exam-timer.is-danger {
+  background: var(--kui-danger);
+  color: #ffffff;
+}
+
+.kjr-exam-timer.is-warn > svg,
+.kjr-exam-timer.is-danger > svg {
+  color: inherit;
+}
+
+/* 快到时间时压在答题区上面的一整条：要一眼看得到 */
+.kjr-exam-banner {
+  flex: none;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--kc-border);
+  font-size: calc(13px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kjr-exam-banner.is-warn {
+  background: color-mix(in srgb, var(--kui-warn) 14%, var(--kc-chat-surface));
+  color: var(--kc-text);
+}
+
+.kjr-exam-banner.is-danger {
+  background: var(--kui-danger);
+  color: #ffffff;
+}
+
+/* 题号一排五个：十道题正好两排，窄窗口下也不会剩一个孤零零地换行 */
+.kjr-exam-nav {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.kjr-exam-nav button {
+  display: grid;
+  height: 30px;
+  place-items: center;
+  border-radius: var(--kui-r-sm);
+  box-shadow: inset 0 0 0 1px var(--kc-border-strong);
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  transition: background-color 80ms ease;
+}
+
+.kjr-exam-nav button:hover {
+  background: var(--kc-hover);
+}
+
+/* 答过的是实底，没答的是空心；当前这一题外面再套一圈 */
+.kjr-exam-nav button.is-answered {
+  background: color-mix(in srgb, var(--kc-accent) 14%, transparent);
+  box-shadow: none;
+  color: var(--kc-accent);
+}
+
+.kjr-exam-nav button.is-current {
+  box-shadow: inset 0 0 0 2px var(--kc-accent);
+  color: var(--kc-text);
+}
+
+.kjr-exam-nav button.is-current.is-answered {
+  background: var(--kui-fill);
+  box-shadow: none;
+  color: var(--kui-on-fill);
+}
+
+#kukechat-root [data-font-scale] .kjr-exam-nav button {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-exam-step {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.kjr-exam-step-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.kjr-exam-step-body > .kjr-meta {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.kjr-exam-home .kjr-card-actions > .kjr-meta {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.kjr-exam-last {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.kjr-exam-last strong {
+  font-size: calc(24px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.kjr-exam-last strong small,
+.kjr-exam-score .kjr-ring-label small {
+  margin-left: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.kjr-exam-score {
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kui-danger);
+}
+
+.kjr-exam-score.is-pass {
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kui-ok);
+}
+
+.kjr-exam-score > .kui-note {
+  margin-top: 14px;
+}
+
+.kjr-exam-score-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.kjr-exam-score .kjr-ring-label {
+  display: flex;
+  align-items: baseline;
+}
+
+.kjr-exam-score .kjr-ring-label b {
+  font-size: calc(24px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.kjr-exam-score.is-pass .kjr-ring-value {
+  stroke: var(--kui-ok);
+}
+
+.kjr-exam-score.is-fail .kjr-ring-value {
+  stroke: var(--kui-danger);
+}
+
+.kjr-exam-reviews {
+  display: grid;
+}
+
+.kjr-exam-review {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.kjr-exam-review + .kjr-exam-review {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-exam-review:first-child {
+  padding-top: 0;
+}
+
+.kjr-exam-review:last-child {
+  padding-bottom: 0;
+}
+
+.kjr-exam-review-no {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-exam-review.is-wrong .kjr-exam-review-no {
+  background: color-mix(in srgb, var(--kui-danger) 12%, transparent);
+  color: var(--kui-danger);
+}
+
+.kjr-exam-review-main {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.kjr-exam-review-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.kjr-exam-review-line .kui-link {
+  margin-left: auto;
+}
+
+.kjr-exam-review-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+}
+
+.kjr-exam-review-mark.is-right {
+  color: var(--kui-ok);
+}
+
+.kjr-exam-review-mark.is-wrong {
+  color: var(--kui-danger);
+}
+
+.kjr-exam-review-answer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.kjr-exam-review-answer > .kjr-meta {
+  line-height: 20px;
+}
+
+.kjr-exam-review-content {
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: var(--kui-r-md);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+/* ───────── 成长：层级 ───────── */
+
+.kjr-growth-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.kjr-insignia {
+  flex: none;
+}
+
+.kjr-insignia-plate {
+  fill: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  stroke: var(--kc-border-strong);
+  stroke-linejoin: round;
+  stroke-width: 1.3;
+}
+
+.kjr-insignia-mark {
+  fill: none;
+  stroke: var(--kc-muted);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+/* 三级连成一条路：节点上方一条线，走过的是实线 */
+.kjr-tierpath {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.kjr-tierpath li {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  padding: 14px 10px 0 0;
+  border-top: 2px dashed var(--kc-border-strong);
+}
+
+.kjr-tierpath li.is-past,
+.kjr-tierpath li.is-current {
+  border-top-style: solid;
+  border-top-color: var(--kui-fill);
+}
+
+.kjr-tierpath li.is-past .kjr-insignia-plate,
+.kjr-tierpath li.is-current .kjr-insignia-plate {
+  fill: color-mix(in srgb, var(--kc-accent) 12%, transparent);
+  stroke: var(--kc-accent);
+}
+
+.kjr-tierpath li.is-past .kjr-insignia-mark,
+.kjr-tierpath li.is-current .kjr-insignia-mark {
+  stroke: var(--kc-accent);
+}
+
+.kjr-tierpath-name {
+  color: var(--kc-muted);
+  font-weight: 600;
+}
+
+.kjr-tierpath li.is-current .kjr-tierpath-name {
+  color: var(--kc-text);
+  font-size: calc(15.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kjr-tierpath-rule {
+  display: grid;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.kjr-tier > .kui-note {
+  margin-bottom: 12px;
+}
+
+.kjr-tier > .kjr-h {
+  margin-top: 4px;
+}
+
+.kjr-tier > .kjr-quiet {
+  margin-top: 10px;
+}
+
+/* 预警下面那行数字：服务端判断时用的值、界线、样本 */
+.kjr-warning-facts {
+  display: block;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-flash .kjr-warning-facts {
+  display: inline;
+  margin-left: 10px;
+}
+
+/* 一项晋升条件：标记、名称、数值在一行，下面一条进度，再下面是「还差多少」 */
+.kjr-reqs2 {
+  display: grid;
+  gap: 10px;
+}
+
+.kjr-req {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 8px;
+}
+
+.kjr-req-mark {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--kc-border-strong);
+  color: #ffffff;
+}
+
+.kjr-req.is-ok .kjr-req-mark {
+  background: var(--kui-ok);
+  box-shadow: none;
+}
+
+.kjr-req-label {
+  font-weight: 600;
+}
+
+.kjr-req-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kjr-req-bar {
+  position: relative;
+  height: 5px;
+  grid-column: 2 / -1;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+.kjr-req-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--kui-fill);
+}
+
+.kjr-req.is-ok .kjr-req-bar i {
+  background: var(--kui-ok);
+}
+
+/* 比率类的目标线：一道竖线，比进度条高一点 */
+.kjr-req-bar b {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--kc-text);
+}
+
+.kjr-req-note {
+  grid-column: 2 / -1;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-req:not(.is-ok) .kjr-req-note {
+  color: var(--kc-muted);
+}
+
+/* 总览里的层级小结：整块可点，进成长页 */
+.kjr-tiermini {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--kui-r-md);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.kjr-tiermini:hover {
+  background: var(--kc-hover);
+}
+
+.kjr-tiermini .kjr-insignia-plate {
+  fill: color-mix(in srgb, var(--kc-accent) 12%, transparent);
+  stroke: var(--kc-accent);
+}
+
+.kjr-tiermini .kjr-insignia-mark {
+  stroke: var(--kc-accent);
+}
+
+.kjr-tiermini > svg:last-child {
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+.kjr-tiermini-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.kjr-tiermini-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.kjr-tiermini-title b {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kjr-tiermini-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.kjr-tiermini-dots i {
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--kc-text) 10%, transparent);
+}
+
+.kjr-tiermini-dots i.is-on {
+  background: var(--kui-ok);
+}
+
+.kjr-tiermini-text {
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .kjr-tiermini {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* ───────── 成长：风纪值 ───────── */
+
+.kjr-points-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.kjr-points-total strong {
+  font-size: calc(40px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.kjr-points-total span {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.kjr-points > .kjr-h {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-points-table {
+  display: grid;
+  margin-bottom: 8px;
+}
+
+.kjr-points-table > div {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kjr-points-table > div + div {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-points-table dt {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+}
+
+.kjr-points-table dt small {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.kjr-points-table dd {
+  flex: none;
+  color: var(--kui-ok);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-table--ledger .kjr-tr {
+  grid-template-columns: 140px minmax(96px, 1fr) 96px 72px;
+  min-height: 36px;
+}
+
+.kjr-table--ledger .kjr-tr > :last-child {
+  text-align: right;
+}
+
+.kjr-ledger-points {
+  color: var(--kui-ok);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-ledger-points.kjr-no,
+.kjr-points-table dd.kjr-no {
+  color: var(--kui-danger);
+}
+
+/* ───────── 成长：成就 ───────── */
+
+.kjr-achs > .kjr-quiet {
+  margin-bottom: 12px;
+}
+
+.kjr-ach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+  gap: 6px 18px;
+}
+
+.kjr-ach {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.kjr-ach-main {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.kjr-ach-name {
+  color: var(--kc-muted);
+  font-weight: 600;
+}
+
+.kjr-ach.is-earned .kjr-ach-name {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.kjr-ach-desc {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+.kjr-ach-state {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-ach.is-earned .kjr-ach-state {
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+/* 徽章：外圈是进度，里面一块牌和它的图形。没拿到的是灰色线稿，拿到的是强调色 */
+.kjr-medal {
+  display: block;
+  flex: none;
+}
+
+.kjr-medal-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--kc-text) 10%, transparent);
+  stroke-width: 1;
+}
+
+.kjr-medal-arc {
+  fill: none;
+  stroke: color-mix(in srgb, var(--kc-accent) 55%, transparent);
+  stroke-linecap: round;
+  stroke-width: 1;
+}
+
+.kjr-medal-plate > * {
+  fill: color-mix(in srgb, var(--kc-text) 4%, transparent);
+  stroke: var(--kc-border-strong);
+  stroke-linejoin: round;
+  stroke-width: 0.9;
+}
+
+.kjr-medal-glyph {
+  fill: none;
+  stroke: var(--kc-subtle);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.1;
+}
+
+.kjr-medal-num,
+.kjr-medal-unit {
+  fill: var(--kc-subtle);
+  stroke: none;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.kjr-medal-unit {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.kjr-medal.is-earned .kjr-medal-arc {
+  stroke: var(--kc-accent);
+  stroke-width: 1.3;
+}
+
+.kjr-medal.is-earned .kjr-medal-plate > * {
+  fill: color-mix(in srgb, var(--kc-accent) 13%, transparent);
+  stroke: var(--kc-accent);
+}
+
+.kjr-medal.is-earned .kjr-medal-glyph {
+  stroke: var(--kc-accent);
+  stroke-width: 1.25;
+}
+
+.kjr-medal.is-earned :is(.kjr-medal-num, .kjr-medal-unit) {
+  fill: var(--kc-accent);
+}
+
+/* ───────── 成长：公开身份 ───────── */
+
+.kjr-badge-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--kc-border);
+  cursor: pointer;
+}
+
+.kjr-badge-switch > span {
+  display: grid;
+  min-width: 0;
+}
+
+.kjr-badge-switch b {
+  font-weight: 600;
+}
+
+.kjr-badge-switch small {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kjr-badge-setting > .kui-note {
+  margin-bottom: 12px;
+}
+
+.kjr-badge-sample {
+  display: inline-flex;
+  margin: 0 2px;
+  vertical-align: 1px;
+}
+
+/* ───────── 排行榜 ───────── */
+
+.kjr-lb-me {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.kjr-lb-me-main {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 280px;
+  align-items: center;
+  gap: 16px;
+}
+
+.kjr-lb-me-rank {
+  display: flex;
+  min-width: 64px;
+  flex: none;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  padding-right: 16px;
+  border-right: 1px solid var(--kc-border);
+}
+
+.kjr-lb-me-rank strong {
+  font-size: calc(34px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.kjr-lb-me-rank small {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kjr-lb-me-rank.is-empty strong {
+  color: var(--kc-subtle);
+}
+
+.kjr-lb-me-title {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-table--lb .kjr-tr {
+  grid-template-columns: 44px minmax(120px, 1.4fr) 64px 80px minmax(120px, 1fr);
+  min-height: 46px;
+}
+
+/* 自己的那一行：强调色的淡底 */
+.kjr-table--lb .kjr-tr.is-me {
+  background: color-mix(in srgb, var(--kc-accent) 7%, transparent);
+  box-shadow: none;
+}
+
+.kjr-table--lb .kjr-tr.is-me + .kjr-tr {
+  box-shadow: none;
+}
+
+.kjr-rank {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* 前三名：名次放在一个圆牌里，第一名是实底 */
+.kjr-rank.is-top {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--kc-accent);
+  color: var(--kc-accent);
+}
+
+.kjr-rank.is-top1 {
+  background: var(--kui-fill);
+  box-shadow: none;
+  color: var(--kui-on-fill);
+}
+
+.kjr-lb-who {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.kjr-lb-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 匿名委员：方的、单色的 —— 和观点区的代号标记一个做法，刻意不像头像 */
+.kjr-lb-anon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-subtle);
+}
+
+.kjr-lb-anon + .kjr-lb-name {
+  color: var(--kc-muted);
+  font-weight: 400;
+}
+
+.kjr-tr.is-me .kjr-lb-anon + .kjr-lb-name {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+.kjr-lb-votes {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-lb-points {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.kjr-lb-points b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.kjr-lb-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+}
+
+.kjr-lb-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kc-accent) 45%, transparent);
+}
+
+.kjr-tr.is-me .kjr-lb-bar i,
+.kjr-tr[data-rank='1'] .kjr-lb-bar i {
+  background: var(--kui-fill);
+}
+
+/* 自己不在这一页榜单里时补的那一行：钉在滚动区域的下沿。底色要盖得住下面滚过去的行，所以用面板色垫底 */
+.kjr-lb-pinned {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 -10px -8px;
+  padding: 0 10px 8px;
+  border-radius: 0 0 var(--kui-r-lg) var(--kui-r-lg);
+  background: var(--kc-panel);
+  box-shadow: 0 -1px 0 var(--kc-border);
+}
+
+.kjr-lb-pinned .kjr-tr {
+  box-shadow: none;
+}
+
+.kjr-lb-gap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.kjr-lb-gap i {
+  height: 1px;
+  flex: 1;
+  background: var(--kc-border);
+}
+
+.kjr-lb-note {
+  margin-top: 10px;
+}
+
+.kjr-lb-rules {
+  max-width: 760px;
+  padding: 0 4px;
+}
+
+/* ───────── 总览：每天的趋势 ───────── */
+
+.kjr-trend .kjr-sub {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kjr-trend-peak {
+  color: var(--kc-subtle);
+}
+
+.kjr-trend-plot {
+  position: relative;
+  height: 72px;
+  border-bottom: 1px solid var(--kc-border-strong);
+}
+
+.kjr-trend-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.kjr-trend-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 新进队列是灰色的虚线，定案是强调色的实线，下面带一层淡淡的面 */
+.kjr-trend-line.is-queued {
+  stroke: color-mix(in srgb, var(--kc-text) 42%, transparent);
+  stroke-dasharray: 3 3;
+}
+
+.kjr-trend-line.is-settled {
+  stroke: var(--kui-fill);
+}
+
+.kjr-trend-area {
+  fill: color-mix(in srgb, var(--kc-accent) 10%, transparent);
+  stroke: none;
+}
+
+.kjr-trend-cols {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.kjr-trend-cols span {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+}
+
+.kjr-trend-cols span:hover {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+.kjr-trend-legend {
+  display: flex;
+  gap: 14px;
+  color: var(--kc-muted);
+}
+
+.kjr-trend-legend i {
+  display: inline-block;
+  width: 12px;
+  height: 0;
+  margin-right: 5px;
+  border-top: 2px solid var(--kui-fill);
+  vertical-align: middle;
+}
+
+.kjr-trend-legend i.is-queued {
+  border-top: 2px dashed color-mix(in srgb, var(--kc-text) 42%, transparent);
+}
+
+.kjr-trend-legend b {
+  color: var(--kc-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ───────── 委员徽章（聊天里的昵称旁、资料卡、成员栏；不在 .kjr 里面，所以不依赖它的变量） ───────── */
+
+/* 和等级 / 头衔标签一个做法：不描边，淡底 + 同色字。见习是中性灰，正式和资深上色 */
+.kjr-badge {
+  --kjr-badge-ink: var(--kc-muted);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  background: color-mix(in srgb, var(--kjr-badge-ink) 13%, transparent);
+  color: var(--kjr-badge-ink);
+}
+
+.kjr-badge.is-regular,
+.kjr-badge.is-senior {
+  --kjr-badge-ink: var(--kui-ok);
+}
+
+.kjr-badge > svg {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
+.kjr-badge.kui-tag > svg {
+  width: 11px;
+  height: 11px;
+}
+
+.kjr-badge-shield {
+  fill: none;
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 1.3;
+}
+
+.kjr-badge-mark {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+}
+
+/* 资深：盾牌是实心的，折线反白 */
+.kjr-badge.is-senior .kjr-badge-shield {
+  fill: currentColor;
+}
+
+.kjr-badge.is-senior .kjr-badge-mark {
+  stroke: var(--kc-panel);
+}
+
+/* 成员栏里只有一个小标记，没有底色 */
+.kjr-badge--icon {
+  background: none;
+}
+
+.kjr-badge--icon > svg {
+  width: 13px;
+  height: 13px;
+}
+
+.kjr-badge-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ───────── 轻提示 ───────── */
+
+.kjr-toasts {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 5;
+  display: grid;
+  width: min(340px, calc(100% - 36px));
+  gap: 8px;
+  pointer-events: none;
+}
+
+.kjr-toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 8px 9px 12px;
+  border-radius: var(--kui-r-lg);
+  /* 和菜单、对话框一样是浮层：材质是玻璃时用主题给的半透明底 + 模糊，否则是实底 */
+  background: var(--kc-overlay-surface, var(--kui-raised));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kui-ok);
+  pointer-events: auto;
+}
+
+.kjr-toast.is-loss {
+  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kui-danger);
+}
+
+.kjr-toast.is-achievement {
+  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kc-accent);
+}
+
+.kjr-toast-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kui-ok) 13%, transparent);
+  color: var(--kui-ok);
+}
+
+.kjr-toast.is-loss .kjr-toast-icon {
+  background: color-mix(in srgb, var(--kui-danger) 12%, transparent);
+  color: var(--kui-danger);
+}
+
+.kjr-toast-main {
+  display: grid;
+  min-width: 0;
+  text-align: left;
+}
+
+.kjr-toast-main b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-toast-main span {
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .kjr-toast-main {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* ───────── 窄窗口 ───────── */
+
+@container kjr (max-width: 1060px) {
+  .kjr-growth-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kjr-exam-banner {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .kjr-table--lb .kjr-tr {
+    grid-template-columns: 40px minmax(104px, 1.4fr) 60px 72px minmax(96px, 1fr);
+  }
+
+  .kjr-table--ledger .kjr-tr {
+    grid-template-columns: 128px minmax(88px, 1fr) 80px 64px;
+  }
+}
+
+@container kjr (max-width: 860px) {
+  .kjr-tierpath-rule {
+    display: none;
+  }
+
+  .kjr-table--lb .kjr-tr > :nth-child(4) {
+    display: none;
+  }
+
+  .kjr-table--lb .kjr-tr {
+    grid-template-columns: 36px minmax(96px, 1.4fr) 56px minmax(88px, 1fr);
+  }
+
+  .kjr-pq-total {
+    display: none;
+  }
+
+  .kjr-exam-score-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -4,6 +4,7 @@ import { getCookieSession, getMe } from '@/api/auth';
 import { getOnlineCount } from '@/api/users';
 import { useKukeStore } from '@/store/kukeStore';
 import { AuthPanel } from '@/components/auth/AuthPanel';
+import { AuthRestoring } from '@/components/auth/desktop/AuthPanelDesktop';
 import { AccountSuspensionModal } from '@/components/auth/AccountSuspensionModal';
 import { ChatDashboard } from '@/components/chat/ChatDashboard';
 import { clearNativeSession, loadNativeSession } from '@/native/session';
@@ -137,6 +138,10 @@ export function ChatShell(): JSX.Element {
 }
 
 function SessionRestorePanel(): JSX.Element {
+  const isMobile = useKukeStore((state) => state.layoutMode === 'mobile');
+  if (!isMobile) {
+    return <AuthRestoring />;
+  }
   return (
     <div className="grid h-full place-items-center bg-white px-8 text-center text-slate-700">
       <div>

@@ -1,8 +1,37 @@
+import { useState } from 'react';
 import type { AccountSuspension } from '@/types/api';
+import { PenaltyCenterModal } from '@/components/moderation/PenaltyCenter';
 import { formatChinaDateTime } from '@/utils/dateTime';
 import { Icon } from '@/components/ui/Icon';
+import { useKukeStore } from '@/store/kukeStore';
 
 export function AccountSuspensionModal({ notice, onClose }: { notice: AccountSuspension; onClose: () => void }): JSX.Element {
+  const [showPenalties, setShowPenalties] = useState(false);
+  const isMobile = useKukeStore((state) => state.layoutMode === 'mobile');
+  if (showPenalties && notice.appeal_token) {
+    return <PenaltyCenterModal token={notice.appeal_token} onClose={() => setShowPenalties(false)} />;
+  }
+  const reason = notice.reason?.trim() || '管理员未提供具体原因';
+  const period = notice.permanent || !notice.banned_until ? '永久封禁' : `至 ${formatChinaDateTime(notice.banned_until)}（中国时间）`;
+  if (!isMobile) {
+    return (
+      <div className="kau-overlay kau-overlay--top">
+        <section role="alertdialog" aria-modal="true" aria-labelledby="account-suspension-title" className="kau-dialog kau-suspension kui-scroll">
+          <span className="kau-suspension-mark"><Icon name="shield" className="h-6 w-6" /></span>
+          <h2 id="account-suspension-title">账号已被封禁</h2>
+          <p className="kau-dialog-text">当前账号暂时无法登录或继续使用 KukeChat。</p>
+          <dl>
+            <dt>封禁原因</dt>
+            <dd>{reason}</dd>
+            <dt>封禁期限</dt>
+            <dd>{period}</dd>
+          </dl>
+          {notice.appeal_token ? <button type="button" className="kau-btn kau-btn--outline kau-btn--block" onClick={() => setShowPenalties(true)}>查看处罚并申诉</button> : null}
+          <button type="button" className="kau-btn kau-btn--dark kau-btn--block" onClick={onClose}>知道了</button>
+        </section>
+      </div>
+    );
+  }
   return (
     <div className="fixed inset-0 z-[2147483647] grid place-items-center bg-slate-950/35 p-5 backdrop-blur-md">
       <section role="alertdialog" aria-modal="true" aria-labelledby="account-suspension-title" className="w-full max-w-[430px] overflow-hidden rounded-[28px] border border-white/60 bg-white/95 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-saturate-150">
@@ -16,16 +45,17 @@ export function AccountSuspensionModal({ notice, onClose }: { notice: AccountSus
           <div className="mt-5 grid gap-3 rounded-[20px] bg-slate-50 p-4">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">封禁原因</span>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-800">{notice.reason?.trim() || '管理员未提供具体原因'}</p>
+              <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-800">{reason}</p>
             </div>
             <div className="h-px bg-slate-200/80" />
             <div>
               <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">封禁期限</span>
-              <p className="mt-1 text-sm font-black text-slate-900">{notice.permanent || !notice.banned_until ? '永久封禁' : `至 ${formatChinaDateTime(notice.banned_until)}（中国时间）`}</p>
+              <p className="mt-1 text-sm font-black text-slate-900">{period}</p>
             </div>
           </div>
 
-          <button type="button" onClick={onClose} className="mt-6 h-12 w-full rounded-[17px] bg-slate-950 text-sm font-black text-white transition hover:bg-slate-800 active:scale-[0.99]">知道了</button>
+          {notice.appeal_token ? <button type="button" onClick={() => setShowPenalties(true)} className="mt-6 h-12 w-full rounded-[17px] border border-slate-200 text-sm font-black text-slate-800 transition hover:bg-slate-50 active:scale-[0.99]">查看处罚并申诉</button> : null}
+          <button type="button" onClick={onClose} className="mt-3 h-12 w-full rounded-[17px] bg-slate-950 text-sm font-black text-white transition hover:bg-slate-800 active:scale-[0.99]">知道了</button>
         </div>
       </section>
     </div>

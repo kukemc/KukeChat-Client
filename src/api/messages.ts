@@ -1,4 +1,5 @@
 import type { BookmarkedMessageRead, Conversation, FeaturedMessageRead, Message, MessageBookmarkToggleRead, MessageFeatureToggleRead, MessageMetadata, MessageReactionSummary, MessageSearchResponse, MessageType, Task, UploadResponse } from '@/types/api';
+import { parseApiDate } from '@/utils/dateTime';
 import { apiRequest, uploadFile } from './client';
 import { asList, isRecord } from './normalizers';
 
@@ -76,7 +77,8 @@ function normalizeMessageSearchResponse(response: unknown, fallbackLimit: number
 
   const messages = asList<Message>(response);
   return {
-    items: messages.map((message) => ({ message, match_type: message.type === 'image' && message.metadata?.sticker ? 'sticker' : message.type, snippet: message.content || null })),
+    // 投票没有单独的搜索分类：它的正文就是文本摘要，按文本命中算
+    items: messages.map((message) => ({ message, match_type: message.type === 'image' && message.metadata?.sticker ? 'sticker' : message.type === 'poll' ? 'text' : message.type, snippet: message.content || null })),
     total: messages.length,
     limit: fallbackLimit,
     has_more: messages.length >= fallbackLimit,
@@ -264,7 +266,7 @@ export async function getAllBookmarkedMessages(conversations: Conversation[]): P
       return [] as BookmarkedMessageRead[];
     }
   }));
-  return bookmarkLists.flat().sort((a, b) => new Date(b.message.created_at).getTime() - new Date(a.message.created_at).getTime());
+  return bookmarkLists.flat().sort((a, b) => (parseApiDate(b.message.created_at)?.getTime() ?? 0) - (parseApiDate(a.message.created_at)?.getTime() ?? 0));
 }
 
 export async function forwardMessageBundle(targetConversationId: number, sourceConversationId: number, messageIds: number[], note?: string): Promise<Message> {

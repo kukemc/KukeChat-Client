@@ -4,7 +4,12 @@ import { WS_URL } from '@/config';
 import { useKukeStore } from '@/store/kukeStore';
 import { emitRealtimeEvent, parseRealtimePayload } from './events';
 import { emitPoke } from './poke';
-import { pickNumber } from '@/api/normalizers';
+import { isRecord, pickNumber } from '@/api/normalizers';
+import { handleJuryGrowthEvent } from '@/components/jury/data/growth';
+import { handleLevelEvent } from '@/components/level/data';
+import { handleProfileLikeEvent } from '@/components/likes/data';
+import { handleShopEvent } from '@/components/shop/data';
+import { useModerationStore } from '@/store/moderationStore';
 import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead } from '@/types/api';
 import { requestDesktopAttention } from '@/utils/desktopAttention';
 import { applyCreatedMessageToConversations, recordReceivedMessage, shouldAlertIncomingMessage, patchConversation, patchMemberPages, patchMemberPresence, patchMembers, patchMessageInPages, patchUserPresence, upsertMessageIntoFirstPage } from './cache';
@@ -49,6 +54,14 @@ function buildSocketUrl(wsUrl: string, token: string): string {
   return url.toString();
 }
 
+/** 当前连接的发送口，由 useRealtime 在连接存续期间挂上。 */
+let sendOnSocket: ((data: string) => boolean) | null = null;
+
+/** 往当前连接发一帧 JSON。没连上时返回 false 且不排队：走这里的都是过期就没意义的帧（比如「正在输入」）。 */
+export function sendRealtimeFrame(payload: Record<string, unknown>): boolean {
+  return sendOnSocket?.(JSON.stringify(payload)) ?? false;
+}
+
 export function useRealtime(enabled: boolean): void {
   const token = useKukeStore((state) => state.token);
   const currentUser = useKukeStore((state) => state.currentUser);
@@ -85,6 +98,19 @@ export function useRealtime(enabled: boolean): void {
     let conversationRefreshTimer: number | null = null;
     const recentlyReceivedMessages = new Set<string>();
     const lastReadMessageIds = new Map<number, number>();
+
+    const sendFrame = (data: string): boolean => {
+      if (socket?.readyState !== WebSocket.OPEN) {
+        return false;
+      }
+      try {
+        socket.send(data);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    sendOnSocket = sendFrame;
 
     const scheduleConversationRefresh = (): void => {
       if (conversationRefreshTimer !== null) return;
@@ -176,9 +202,15 @@ export function useRealtime(enabled: boolean): void {
         return;
       }
 
-      socket = new WebSocket(buildSocketUrl(resolveWsUrl(), authToken));
+      // A socket still CLOSING (e.g. after a pong timeout) may be replaced; its late events must not touch the new one.
+      const ws = new WebSocket(buildSocketUrl(resolveWsUrl(), authToken));
+      socket = ws;
 
-      socket.addEventListener('open', () => {
+      ws.addEventListener('open', () => {
+        if (socket !== ws) {
+          ws.close();
+          return;
+        }
         const wasReconnect = reconnectAttempt > 0;
         reconnectAttempt = 0;
         notifyConnectionReady();
@@ -188,8 +220,8 @@ export function useRealtime(enabled: boolean): void {
         }
       });
 
-      socket.addEventListener('message', (message) => {
-        if (typeof message.data !== 'string') {
+      ws.addEventListener('message', (message) => {
+        if (socket !== ws || typeof message.data !== 'string') {
           return;
         }
         if (message.data === 'pong') {
@@ -465,14 +497,86 @@ export function useRealtime(enabled: boolean): void {
           }
         }
 
+        // 处罚、举报结果、风纪委员资格：这几类事件不在类型表里，按原始事件名处理
+        if (event.rawType === 'moderation.penalty') {
+          const violation = isRecord(event.data) ? event.data : null;
+          if (violation && violation.penalty_kind === 'mute' && typeof violation.penalty_ends_at === 'string') {
+            useModerationStore.getState().setMute(violation.penalty_ends_at, typeof violation.category_label === 'string' ? violation.category_label : null);
+          }
+          void queryClient.invalidateQueries({ queryKey: ['moderation', 'me'] });
+          void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        }
+        if (event.rawType === 'moderation.violation.updated') {
+          const standing = isRecord(event.data) && isRecord(event.data.standing) ? event.data.standing : null;
+          if (standing) {
+            useModerationStore.getState().setMute(typeof standing.muted_until === 'string' ? standing.muted_until : null, typeof standing.mute_reason === 'string' ? standing.mute_reason : null);
+          }
+          void queryClient.invalidateQueries({ queryKey: ['moderation', 'me'] });
+          void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        }
+        if (event.rawType === 'report.resolved') {
+          void queryClient.invalidateQueries({ queryKey: ['my-reports'] });
+          void queryClient.invalidateQueries({ queryKey: ['report-quota'] });
+          void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        }
+        if (event.rawType === 'jury.status.changed') {
+          void queryClient.invalidateQueries({ queryKey: ['jury'] });
+        }
+        // 风纪 v2（docs/jury-v2.md 1.9）。缓存 key 的定义在 components/jury/data/queries.ts 的 juryKeys
+        if (event.rawType === 'jury.queue.changed') {
+          // 有案件进入 / 离开委员队列：导航角标和评审台的「没有案件」要跟着变
+          void queryClient.invalidateQueries({ queryKey: ['jury', 'me'] });
+          void queryClient.invalidateQueries({ queryKey: ['jury', 'next'] });
+          void queryClient.invalidateQueries({ queryKey: ['jury', 'overview'] });
+          // 三期：资深委员的合议 / 复审队列也走这个事件（key 在 components/jury/data/senior.ts）
+          void queryClient.invalidateQueries({ queryKey: ['jury', 'senior'] });
+        }
+        // 二期（docs/jury-v2.md 2.10）：风纪值变动、获得成就。缓存怎么跟上写在 components/jury/data/growth.ts
+        if (event.rawType === 'jury.points.changed' || event.rawType === 'jury.achievement.earned') {
+          handleJuryGrowthEvent(queryClient, event.rawType, event.data);
+        }
+        // 三期（docs/jury-v2.md 3.5）：议事厅有帖子新建 / 更新 / 结束表决。key 在 components/jury/data/hall.ts
+        if (event.rawType === 'jury.hall.changed') {
+          void queryClient.invalidateQueries({ queryKey: ['jury', 'hall'] });
+        }
+        if (event.rawType === 'jury.case.settled' || event.rawType === 'jury.opinion.created' || event.rawType === 'jury.opinion.changed') {
+          const caseId = isRecord(event.data) && typeof event.data.case_id === 'number' ? event.data.case_id : null;
+          if (caseId !== null) {
+            void queryClient.invalidateQueries({ queryKey: ['jury', 'opinions', caseId] });
+            void queryClient.invalidateQueries({ queryKey: ['jury', 'case', caseId] });
+          }
+          if (event.rawType === 'jury.case.settled') {
+            // 定案 / 改判：历史、个人统计、一致率都可能变
+            for (const scope of ['votes', 'history', 'stats', 'me', 'overview']) {
+              void queryClient.invalidateQueries({ queryKey: ['jury', scope] });
+            }
+          }
+        }
+
+        // 商店（docs/shop.md 第 4 节）：目录有变化、我得到了一件商品、有人换了装扮。缓存怎么跟上写在 components/shop/data.ts
+        if (event.rawType === 'shop.changed' || event.rawType === 'shop.item.granted' || event.rawType === 'user.cosmetics.updated') {
+          handleShopEvent(queryClient, event.rawType, event.data);
+        }
+        // 账号等级（docs/account-level.md 第 4 节）：我升级了。缓存怎么跟上写在 components/level/data.ts
+        if (event.rawType === 'account.level.up') {
+          handleLevelEvent(queryClient, event.rawType, event.data);
+        }
+        // 资料点赞（docs/chat-features.md 6.4）：有人赞了我。缓存怎么跟上写在 components/likes/data.ts
+        if (event.rawType === 'user.profile.liked') {
+          handleProfileLikeEvent(queryClient, event.data);
+        }
+
         emitRealtimeEvent(event);
       });
 
-      socket.addEventListener('error', () => {
-        socket?.close();
+      ws.addEventListener('error', () => {
+        ws.close();
       });
 
-      socket.addEventListener('close', (event) => {
+      ws.addEventListener('close', (event) => {
+        if (socket !== ws) {
+          return;
+        }
         clearHeartbeat();
         socket = null;
         scheduleReconnect(event);
@@ -499,6 +603,9 @@ export function useRealtime(enabled: boolean): void {
 
     return () => {
       closedByEffect = true;
+      if (sendOnSocket === sendFrame) {
+        sendOnSocket = null;
+      }
       clearPendingRefreshes();
       window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);

@@ -2,11 +2,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { useKukeStore } from '@/store/kukeStore';
 import { shadowStyles } from '@/styles/shadowStyles';
 import { AppRoot } from './AppRoot';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 const HOST_ID = 'kukechat-shadow-host';
 
 let root: Root | null = null;
 let host: HTMLElement | null = null;
+/** #kukechat-root 上记着当前挂在它上面的 React 根（见 mountReactApp） */
+type MountedRootElement = HTMLElement & { __kukeChatRoot?: Root | null };
 const guardedShadows = new WeakSet<ShadowRoot>();
 
 type KukeKeyboardEvent = KeyboardEvent & { __kukeChatBackspaceHandled?: boolean };
@@ -154,8 +157,14 @@ function mountReactApp(): void {
   }
 
   if (!root) {
+    // 这个模块被再执行一遍时（扩展脚本被宿主页面重复加载、开发时热更新），模块里的 root 是空的，
+    // 但页面上那棵旧的 React 树还活着：它的实时连接、定时器都还在跑。直接再 createRoot 会得到两套同时工作的
+    // 界面逻辑 —— 两条 WebSocket，未读数、提示音、戳一戳都触发两次。所以把根记在节点上，先卸掉旧的那棵。
+    const holder = rootElement as MountedRootElement;
+    holder.__kukeChatRoot?.unmount();
     root = createRoot(rootElement);
-    root.render(<AppRoot />);
+    holder.__kukeChatRoot = root;
+    root.render(<ErrorBoundary onClose={() => useKukeStore.getState().closeWindow()}><AppRoot /></ErrorBoundary>);
   }
 }
 

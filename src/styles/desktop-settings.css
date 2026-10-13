@@ -1,0 +1,1351 @@
+/* 桌面端：登录页（kau-）、窗口外框与标题栏（kwf-）。设置各页沿用 settingsUi.tsx，没有样式在这里。 */
+
+/* ───────── 登录 / 注册 ───────── */
+
+/*
+ * 登录页是门面，不受 kui.css「不用渐变、不发光」那几条约束，有自己的一套造型：
+ * 左边一块固定深色的视觉区（网格、三圈环、一团缓慢移动的光，应用图标在正中），右边是跟主题走的表单。
+ * 找回密码、封号提示、恢复登录跟它用同一套控件。颜色取主题令牌，光的颜色跟强调色走。
+ * 动效只动 transform 和 opacity：光是径向渐变画的，不用实时模糊。
+ */
+:is(.kau, .kau-overlay) {
+  --kau-fill: var(--kc-accent-fill, var(--kc-accent));
+  --kau-on-fill: var(--kc-accent-contrast, #ffffff);
+  /* 压在深色底上的强调色：提亮一档 */
+  --kau-glow: color-mix(in srgb, var(--kau-fill) 58%, #ffffff);
+  --kau-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --kau-mono: ui-monospace, 'Cascadia Mono', 'JetBrains Mono', Consolas, monospace;
+}
+
+.kau {
+  position: relative;
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template: minmax(0, 1fr) / auto minmax(0, 1fr);
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--kc-panel);
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* ───────── 视觉区 ───────── */
+
+.kau-visual {
+  position: relative;
+  width: clamp(300px, 43cqw, 560px);
+  grid-area: 1 / 1;
+  overflow: hidden;
+  background: radial-gradient(70% 46% at 100% 0%, color-mix(in srgb, var(--kau-fill) 16%, transparent), transparent 72%), #05070d;
+  isolation: isolate;
+}
+
+/* 和表单那一面的接缝：一条中间亮、两头暗的细线 */
+.kau-visual::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--kau-glow) 45%, transparent);
+  content: '';
+  opacity: 0.6;
+}
+
+/* 网格线，交点上再点一个小点；用遮罩让它向四周淡出 */
+.kau-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.26) 1px, transparent 1.6px),
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-position: -22px -22px, 0 0, 0 0;
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 110% 95% at 35% 55%, #000 22%, transparent 84%);
+  mask-image: radial-gradient(ellipse 110% 95% at 35% 55%, #000 22%, transparent 84%);
+}
+
+/* 光从左下角慢慢移到应用图标背后，再移回来 */
+.kau-light {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(140%, 680px);
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--kau-fill) 64%, transparent), color-mix(in srgb, var(--kau-fill) 22%, transparent) 44%, transparent 74%);
+  animation: kau-drift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes kau-drift {
+  from {
+    transform: translate(-90%, -10%) scale(1);
+  }
+
+  to {
+    transform: translate(-56%, -54%) scale(1.1);
+  }
+}
+
+/* 以应用图标为圆心的三圈环：最外一圈实线，中间一圈虚线慢转，最里面一段亮弧转得快一些 */
+.kau-rings {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 520px;
+  height: 520px;
+  margin: -260px 0 0 -260px;
+}
+
+.kau-rings i {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 50%;
+}
+
+.kau-rings i:nth-child(2) {
+  inset: 84px;
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.15);
+  animation: kau-spin 160s linear infinite;
+}
+
+.kau-rings i:nth-child(3) {
+  inset: 176px;
+  border-color: transparent;
+  border-top-color: var(--kau-glow);
+  animation: kau-spin 28s linear infinite;
+  opacity: 0.75;
+}
+
+/* ───────── 品牌区：叠在视觉区上面 ───────── */
+
+.kau-brand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  grid-area: 1 / 1;
+  flex-direction: column;
+  padding: 34px 38px 32px;
+  color: #f2f5fb;
+  pointer-events: none;
+  animation: kau-in 700ms var(--kau-ease) both;
+}
+
+/* 位置和三圈环的圆心对齐 */
+.kau-logo {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  filter: drop-shadow(0 14px 26px color-mix(in srgb, var(--kau-fill) 55%, transparent));
+}
+
+.kau-eyebrow {
+  margin-top: auto;
+  color: var(--kau-glow);
+  font-family: var(--kau-mono);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+}
+
+.kau-wordmark {
+  margin-top: 14px;
+  font-size: calc(42px * var(--kui-fs));
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.kau-tagline {
+  max-width: 320px;
+  margin-top: 14px;
+  color: rgba(226, 232, 245, 0.62);
+  line-height: 1.75;
+}
+
+.kau-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 28px;
+  color: rgba(226, 232, 245, 0.62);
+  font-family: var(--kau-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.kau-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+}
+
+.kau-meta span:first-child::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--kau-glow);
+  box-shadow: 0 0 8px var(--kau-glow);
+  content: '';
+}
+
+/* ───────── 表单 ───────── */
+
+/* 表单所在的面。找回密码的遮罩盖在它上面，视觉区不盖 */
+.kau-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  grid-area: 1 / 2;
+  overflow: hidden;
+}
+
+.kau-main {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 32px;
+}
+
+/* 上下用 auto 外边距居中：内容比窗口高时从顶部开始排，不会被裁掉 */
+.kau-form,
+.kau-restoring {
+  flex: none;
+  margin: auto 0;
+}
+
+.kau-form {
+  position: relative;
+  width: 100%;
+  max-width: 372px;
+}
+
+/* 表单里的东西依次浮上来 */
+.kau-form > * {
+  animation: kau-in 560ms var(--kau-ease) both;
+}
+
+.kau-form > :nth-child(3) { animation-delay: 40ms; }
+.kau-form > :nth-child(4) { animation-delay: 80ms; }
+.kau-form > :nth-child(5) { animation-delay: 120ms; }
+.kau-form > :nth-child(6) { animation-delay: 160ms; }
+.kau-form > :nth-child(7) { animation-delay: 200ms; }
+.kau-form > :nth-child(n + 8) { animation-delay: 240ms; }
+
+@keyframes kau-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* 视觉区收起来（窗口太窄）以后，表单顶上补一行应用名 */
+.kau-form-brand {
+  display: none;
+  margin-bottom: 22px;
+  font-size: calc(16px * var(--kui-fs));
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.kau-kicker {
+  color: var(--kc-accent);
+  font-family: var(--kau-mono);
+  font-size: 11px;
+  letter-spacing: 0.26em;
+}
+
+.kau-form h1 {
+  margin-top: 10px;
+  font-size: calc(28px * var(--kui-fs));
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.kau-sub {
+  margin-top: 6px;
+  color: var(--kc-muted);
+  line-height: 1.6;
+}
+
+.kau-field {
+  display: block;
+  min-width: 0;
+  margin-top: 14px;
+}
+
+.kau-sub + .kau-field {
+  margin-top: 24px;
+}
+
+.kau-label {
+  display: block;
+  margin-bottom: 6px;
+  color: color-mix(in srgb, var(--kc-text) 72%, var(--kc-muted));
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.kau-input {
+  display: block;
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--kc-text) 3.5%, var(--kc-panel));
+  color: var(--kc-text);
+  outline: none;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.kau-input::placeholder {
+  color: var(--kc-subtle);
+}
+
+.kau-field .kau-input:hover:not(:focus) {
+  border-color: color-mix(in srgb, var(--kc-text) 30%, transparent);
+}
+
+/* 聚焦：强调色描边，外面一圈光，底下再落一点同色的影子。
+   选择器多带一级：tailwind.css 里有一条给桌面端所有输入框清掉聚焦阴影的旧规则，要压过它 */
+.kau-field .kau-input:focus {
+  border-color: var(--kau-fill);
+  background: var(--kc-panel);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kau-fill) 18%, transparent), 0 10px 26px -14px color-mix(in srgb, var(--kau-fill) 85%, transparent);
+}
+
+.kau-field .kau-input[aria-invalid='true'] {
+  border-color: color-mix(in srgb, var(--kui-danger) 60%, transparent);
+}
+
+.kau-field .kau-input[aria-invalid='true']:focus {
+  border-color: var(--kui-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kui-danger) 16%, transparent);
+}
+
+#kukechat-root [data-font-scale] .kau-input {
+  font-size: calc(14px * var(--kui-fs));
+}
+
+.kau-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+.kau-hint.is-error {
+  color: var(--kui-danger);
+}
+
+.kau-password {
+  position: relative;
+  display: block;
+}
+
+.kau-password .kau-input {
+  padding-right: 44px;
+}
+
+.kau-password button {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--kc-muted);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.kau-password button:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kau-aside {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+:is(.kau-aside, .kau-switch) button {
+  flex: none;
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+:is(.kau-aside, .kau-switch) button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 一段提示：默认是中性的说明，--danger / --warn 换成对应的颜色 */
+.kau-alert {
+  margin-top: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--kc-text) 3.5%, var(--kc-panel));
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.kau-alert--danger {
+  border-color: color-mix(in srgb, var(--kui-danger) 34%, transparent);
+  background: color-mix(in srgb, var(--kui-danger) 9%, var(--kc-panel));
+  color: var(--kui-danger);
+}
+
+.kau-alert--warn {
+  border-color: color-mix(in srgb, var(--kui-warn) 34%, transparent);
+  background: color-mix(in srgb, var(--kui-warn) 10%, var(--kc-panel));
+  color: var(--kui-warn);
+}
+
+.kau-note {
+  margin-top: 8px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.5;
+  text-align: center;
+}
+
+.kau-note + .kau-alert {
+  margin-top: 10px;
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kau-switch {
+  margin-top: 16px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  text-align: center;
+}
+
+.kau-switch button {
+  margin-left: 4px;
+}
+
+#kukechat-root [data-font-scale] :is(.kau-aside, .kau-switch) button {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* ───────── 登录页的按钮 ───────── */
+
+.kau-btn {
+  display: inline-flex;
+  height: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--kau-fill);
+  color: var(--kau-on-fill);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease, opacity 180ms ease, transform 180ms ease;
+}
+
+.kau-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kau-fill) 88%, #ffffff);
+}
+
+.kau-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.kau-btn--block {
+  width: 100%;
+  height: 44px;
+}
+
+/* 登录 / 创建：上亮下实的一块，底下一层同色的光；悬停时抬起 1px，一道高光从左扫到右 */
+.kau-btn--submit {
+  position: relative;
+  width: 100%;
+  height: 46px;
+  margin-top: 20px;
+  overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kau-fill) 84%, #ffffff), var(--kau-fill) 64%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 0 1px color-mix(in srgb, var(--kau-fill) 82%, #000000), 0 14px 30px -12px color-mix(in srgb, var(--kau-fill) 80%, transparent);
+}
+
+.kau-btn--submit::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 36%, rgba(255, 255, 255, 0.3) 50%, transparent 64%);
+  content: '';
+  transform: translateX(-120%);
+}
+
+.kau-btn--submit:hover:not(:disabled) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kau-fill) 78%, #ffffff), color-mix(in srgb, var(--kau-fill) 94%, #ffffff) 64%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 0 0 1px color-mix(in srgb, var(--kau-fill) 82%, #000000), 0 18px 36px -12px color-mix(in srgb, var(--kau-fill) 90%, transparent);
+  transform: translateY(-1px);
+}
+
+.kau-btn--submit:hover:not(:disabled)::after {
+  transform: translateX(120%);
+  transition: transform 800ms var(--kau-ease);
+}
+
+.kau-btn--submit:disabled {
+  box-shadow: none;
+}
+
+.kau-btn--soft {
+  width: 100%;
+  height: 42px;
+  margin-top: 10px;
+  border-color: color-mix(in srgb, var(--kau-fill) 30%, transparent);
+  background: color-mix(in srgb, var(--kau-fill) 7%, var(--kc-panel));
+  color: var(--kc-accent);
+}
+
+.kau-btn--soft:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--kau-fill) 55%, transparent);
+  background: color-mix(in srgb, var(--kau-fill) 13%, var(--kc-panel));
+}
+
+.kau-btn--ghost {
+  background: transparent;
+  color: var(--kc-muted);
+  font-weight: 600;
+}
+
+.kau-btn--ghost:hover:not(:disabled) {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kau-btn--outline {
+  border-color: var(--kc-border-strong);
+  background: transparent;
+  color: var(--kc-text);
+}
+
+.kau-btn--outline:hover:not(:disabled) {
+  background: var(--kc-hover);
+}
+
+/* 反色按钮：浅色主题下是黑底白字，深色主题下反过来 */
+.kau-btn--dark,
+.kau-btn--dark:hover:not(:disabled) {
+  background: var(--kc-text);
+  color: var(--kc-panel);
+}
+
+.kau-btn--dark:hover:not(:disabled) {
+  opacity: 0.86;
+}
+
+.kau-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+#kukechat-root [data-font-scale] .kau-btn {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+#kukechat-root [data-font-scale] .kau-btn--submit {
+  font-size: calc(14.5px * var(--kui-fs));
+}
+
+/* ───────── 恢复登录 ───────── */
+
+.kau-restoring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--kc-muted);
+  text-align: center;
+}
+
+.kau-spinner {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 16px;
+  border: 2.5px solid color-mix(in srgb, var(--kc-text) 12%, transparent);
+  border-top-color: var(--kau-fill);
+  border-radius: 50%;
+  animation: kau-spin 900ms linear infinite;
+}
+
+.kau-restoring h2 {
+  color: var(--kc-text);
+  font-size: calc(17px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kau-restoring p {
+  margin-top: 6px;
+}
+
+@keyframes kau-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ───────── 窄窗口 ───────── */
+
+/* 放不下两栏（扩展浮窗缩小时）：收起视觉区，只留表单 */
+@container (max-width: 760px) {
+  .kau-visual,
+  .kau-brand {
+    display: none;
+  }
+
+  .kau-form-brand {
+    display: block;
+  }
+
+  .kau-main {
+    padding: 24px 20px;
+  }
+}
+
+/* ───────── 找回密码、封号提示 ───────── */
+
+.kau-overlay {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--kui-scrim);
+  animation: kau-fade 160ms ease-out both;
+}
+
+/* 封号提示：盖住整个窗口，并且压在其他所有浮层上面 */
+.kau-overlay--top {
+  position: fixed;
+  z-index: 2147483647;
+}
+
+.kau-dialog {
+  display: flex;
+  width: 100%;
+  max-width: 432px;
+  max-height: 100%;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--kc-panel);
+  box-shadow: 0 0 0 1px var(--kc-border-strong), 0 30px 70px -24px rgba(0, 0, 0, 0.5);
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+  animation: kau-dialog-in 260ms var(--kau-ease) both;
+}
+
+/* 放不下时整块滚动，里面的东西不压缩 */
+.kau-dialog > * {
+  flex: none;
+}
+
+.kau-dialog .kau-field,
+.kau-dialog .kau-alert {
+  margin-top: 0;
+}
+
+.kau-dialog h3 {
+  font-size: calc(18px * var(--kui-fs));
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
+
+.kau-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 2px;
+}
+
+.kau-dialog-head p {
+  margin-top: 4px;
+  color: var(--kc-muted);
+  line-height: 1.6;
+}
+
+.kau-dialog-head button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  margin: -4px -6px 0 0;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--kc-muted);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.kau-dialog-head button:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kau-dialog-text {
+  margin-top: -6px;
+  color: var(--kc-muted);
+  line-height: 1.7;
+  user-select: text;
+}
+
+.kau-dialog textarea.kau-input {
+  height: auto;
+  min-height: 92px;
+  padding: 10px 14px;
+  line-height: 1.6;
+  resize: none;
+}
+
+.kau-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.kau-dialog > .kau-btn--block {
+  margin-top: 6px;
+}
+
+/* 账号绑定过 CCW 时多出来的一条捷径 */
+.kau-shortcut {
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--kau-fill) 30%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--kau-fill) 7%, var(--kc-panel));
+  color: var(--kc-muted);
+  line-height: 1.6;
+  text-align: left;
+  transition: border-color 150ms ease;
+}
+
+.kau-shortcut:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--kau-fill) 60%, transparent);
+}
+
+.kau-shortcut:disabled {
+  cursor: wait;
+}
+
+.kau-shortcut strong {
+  display: block;
+  color: var(--kc-accent);
+  font-weight: 700;
+}
+
+#kukechat-root [data-font-scale] .kau-shortcut {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+#kukechat-root [data-font-scale] .kau-shortcut strong {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* 验证码：点一下复制 */
+.kau-code {
+  padding: 14px 16px 12px;
+  border: 1px solid color-mix(in srgb, var(--kau-fill) 26%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kau-fill) 6%, var(--kc-panel));
+}
+
+.kau-code p {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kau-code button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 4px 0;
+  border-radius: 8px;
+  color: var(--kc-accent);
+  font-family: var(--kau-mono);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  transition: background-color 120ms ease;
+}
+
+.kau-code button:hover {
+  background: color-mix(in srgb, var(--kau-fill) 12%, transparent);
+}
+
+.kau-code button svg {
+  opacity: 0.6;
+}
+
+#kukechat-root [data-font-scale] .kau-code button {
+  font-size: calc(24px * var(--kui-fs));
+}
+
+.kau-code span {
+  display: block;
+  margin-top: 2px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  text-align: center;
+}
+
+.kau-steps {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+  color: var(--kc-muted);
+  line-height: 1.7;
+  list-style: decimal;
+}
+
+.kau-steps a {
+  margin: 0 4px;
+  color: var(--kc-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 封号提示沿用弹窗的面，里面各块自己留间距 */
+.kau-suspension {
+  gap: 0;
+  padding: 26px;
+}
+
+.kau-suspension-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  align-self: flex-start;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kui-danger) 11%, var(--kc-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kui-danger) 24%, transparent);
+  color: var(--kui-danger);
+}
+
+.kau-suspension h2 {
+  margin-top: 18px;
+  font-size: calc(22px * var(--kui-fs));
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.kau-suspension .kau-dialog-text {
+  margin-top: 6px;
+}
+
+.kau-suspension dl {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kc-text) 4%, var(--kc-panel));
+}
+
+.kau-suspension dt {
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.kau-suspension dd {
+  margin-top: 4px;
+  font-weight: 600;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.kau-suspension dd + dt {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kau-suspension .kau-btn {
+  margin-top: 20px;
+}
+
+.kau-suspension .kau-btn + .kau-btn {
+  margin-top: 10px;
+}
+
+@keyframes kau-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes kau-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kau-light,
+  .kau-rings i,
+  .kau-brand,
+  .kau-form > *,
+  .kau-overlay,
+  .kau-dialog {
+    animation: none;
+  }
+
+  .kau-spinner {
+    animation-duration: 2.4s;
+  }
+
+  .kau-btn--submit::after {
+    display: none;
+  }
+}
+
+/* ───────── 窗口外框 ───────── */
+
+/* 扩展里的浮窗（桌面布局）。手机布局的外框仍是 tailwind.css 里那一套 */
+.kwf-frame {
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-window);
+  box-shadow: var(--kui-shadow-dialog);
+  isolation: isolate;
+}
+
+/* ───────── 标题栏 ───────── */
+
+/* 扩展浮窗和桌面端（src/desktop-app.tsx）共用。高度 40px：WindowFrame 里内容区按 100% - 40px 算 */
+.kwf-titlebar {
+  position: relative;
+  z-index: 100;
+  display: flex;
+  height: 40px;
+  flex: none;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 12px;
+  border-bottom: 1px solid var(--kc-border);
+  /* 桌面端窗口的圆角由 .kc-desktop-app 上的变量决定（目前是 0，交给系统） */
+  border-top-left-radius: var(--kc-desktop-window-radius, 0);
+  border-top-right-radius: var(--kc-desktop-window-radius, 0);
+  background: var(--kc-titlebar);
+  color: var(--kc-text);
+  touch-action: none;
+  user-select: none;
+}
+
+.kwf-titlebar--floating {
+  cursor: grab;
+}
+
+.kwf-titlebar--floating:active {
+  cursor: grabbing;
+}
+
+.kwf-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 头像组件最小一档是 32px，标题栏里再收一号 */
+.kwf-identity > :is(img, div):first-child {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  font-size: 11px;
+}
+
+/* 放不下时先截签名，名字尽量留全 */
+.kwf-title {
+  min-width: 0;
+  max-width: 260px;
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kwf-bio {
+  min-width: 0;
+  max-width: 300px;
+  flex: 0 100 auto;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kwf-online {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  align-self: stretch;
+  cursor: default;
+}
+
+.kwf-online-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kwf-online-count::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--kui-ok);
+  content: '';
+}
+
+.kwf-online:hover .kwf-online-count {
+  color: var(--kc-text);
+}
+
+/* 窗口按钮：贴着右上角、占满标题栏高度的方块，和系统标题栏的按钮一个摆法 */
+.kwf-controls {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+}
+
+.kwf-control {
+  display: grid;
+  width: 42px;
+  place-items: center;
+  color: var(--kc-muted);
+  cursor: default;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.kwf-control:hover {
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  color: var(--kc-text);
+}
+
+.kwf-control:active {
+  background: color-mix(in srgb, var(--kc-text) 13%, transparent);
+}
+
+.kwf-control--close:hover {
+  background: #e5383e;
+  color: #ffffff;
+}
+
+.kwf-control--close:active {
+  background: #c92f35;
+  color: #ffffff;
+}
+
+/* 焦点环画在里面：按钮贴着窗口边，画在外面会被裁掉 */
+[data-layout='desktop'] .kwf-control:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ───────── 在线名单 ───────── */
+
+/* 扩展浮窗：挂在「在线 N」下面，悬停显示 */
+.kwf-popover {
+  position: absolute;
+  z-index: 120;
+  top: 100%;
+  left: 50%;
+  width: 288px;
+  padding-top: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 3px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.kwf-online:hover .kwf-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+/* 桌面端：定位由 desktop-app.tsx 用内联样式算好，挂到根节点上 */
+.kwf-popover-fixed {
+  pointer-events: auto;
+  user-select: none;
+}
+
+.kwf-online-card {
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+  cursor: default;
+}
+
+.kwf-online-card .kui-group-title {
+  padding: 12px 14px 6px;
+}
+
+.kwf-online-list {
+  max-height: 288px;
+  padding: 0 6px 6px;
+}
+
+.kwf-online-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: var(--kui-r-sm);
+}
+
+.kwf-online-user:hover {
+  background: var(--kc-hover);
+}
+
+.kwf-online-user > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.kwf-online-user :is(b, small) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kwf-online-user b {
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kwf-online-user small {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kwf-online-empty {
+  padding: 8px 8px 12px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* ───────── 缩放手柄、悬浮球 ───────── */
+
+/* 右下角 28px 见方都能拖，只在最角上画一个小折角提示 */
+.kwf-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  height: 28px;
+  cursor: nwse-resize;
+}
+
+.kwf-resize::after {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 7px;
+  height: 7px;
+  border: solid color-mix(in srgb, var(--kc-text) 30%, transparent);
+  border-width: 0 1.5px 1.5px 0;
+  border-bottom-right-radius: 4px;
+  content: '';
+}
+
+/* 最小化后的悬浮球。外框只管位置和吸边动画，球本身画在按钮上；
+   手机布局下外框另有底色（tailwind.css），被按钮盖住，不用管 */
+.kwf-bubble-frame {
+  overflow: visible;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.kwf-bubble {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: var(--kui-shadow);
+  cursor: grab;
+  transition: transform 140ms ease;
+}
+
+.kwf-bubble:hover {
+  transform: translateY(-1px);
+}
+
+.kwf-bubble:active {
+  cursor: grabbing;
+  transform: scale(0.96);
+}
+
+/* 应用图标是圆角方形，四周带一圈透明边；放大一点再裁成圆，正好把边裁掉 */
+.kwf-bubble-logo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.kwf-bubble-logo img {
+  width: 116%;
+  max-width: none;
+  height: 116%;
+  margin: -8%;
+  pointer-events: none;
+}
+
+.kwf-bubble .kui-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  box-shadow: 0 0 0 2px var(--kc-panel);
+}
+
+/* 拖到屏幕边缘、松手会吸附时的提示圈，跟着强调色走 */
+.kwf-bubble-frame:is(.kc-window-bubble-snap-left, .kc-window-bubble-snap-right) {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--kc-accent) 26%, transparent);
+}
+
+/* ───────── 桌面端自动更新（src/components/desktop/DesktopUpdateDialog.tsx） ───────── */
+
+/* 标题栏里「有新版本」的入口，排在窗口按钮左边 */
+.kwf-update-pill {
+  align-self: center;
+  margin-right: 8px;
+}
+
+.kwf-update {
+  max-width: 420px;
+}
+
+.kwf-update-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 18px 0;
+}
+
+.kwf-update-head h2 {
+  min-width: 0;
+  flex: 1;
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
+
+/* 状态图标只换颜色，不垫色块 */
+.kwf-update-icon {
+  display: grid;
+  flex: none;
+  color: var(--kc-accent);
+}
+
+.kwf-update-icon.is-ok {
+  color: var(--kui-ok);
+}
+
+.kwf-update-icon.is-danger {
+  color: var(--kui-danger);
+}
+
+/* 正文和标题左对齐：让出图标的宽度 */
+.kwf-update-body {
+  padding: 8px 18px 18px 48px;
+}
+
+.kwf-update-actions {
+  flex-wrap: wrap;
+}
+
+/* 更新完成后第一次启动时，底部的一条提示 */
+.kwf-toast {
+  position: fixed;
+  z-index: 2147483000;
+  bottom: 20px;
+  left: 50%;
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 5px 0 12px;
+  border-radius: var(--kui-r-md);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 500;
+  transform: translateX(-50%);
+}
+
+.kwf-toast > svg {
+  color: var(--kui-ok);
+}
+
+.kwf-toast .kui-icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kwf-bubble,
+  .kwf-popover {
+    transition: none;
+  }
+}

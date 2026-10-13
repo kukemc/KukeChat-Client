@@ -243,7 +243,7 @@ All deployment configuration lives in [`src/config/`](src/config/) and is inject
 | `VITE_EXTENSION_ASSET_URL` | | Published extension file URL, shown in the bot onboarding dialog; hidden if unset |
 | `VITE_BOT_API_DOCS_URL` | | Bot API docs URL for the block palette's docs entry; hidden if unset |
 
-The desktop "check for updates" URL is read by the Rust side at **compile time** from `KUKECHAT_UPDATE_METADATA_URL` (no `VITE_` prefix). If unset, the update check is skipped.
+Desktop auto-update reads `<VITE_API_BASE_URL>/desktop-update.json` by default (the PC version and installer URL from the admin "download settings"); set `VITE_DESKTOP_UPDATE_URL` to use another address. `KUKECHAT_UPDATE_METADATA_URL` (compile-time or runtime) still overrides it for local testing.
 
 The three config files have clear boundaries:
 
@@ -357,7 +357,7 @@ target their own deployment:
 | `VITE_MOBILE_UPDATE_URL` | | Android update metadata |
 | `VITE_EXTENSION_ASSET_URL` | | Published extension file URL |
 | `VITE_BOT_API_DOCS_URL` | | Bot API docs URL |
-| `KUKECHAT_UPDATE_METADATA_URL` | | Desktop update endpoint (read by Rust at compile time) |
+| `KUKECHAT_UPDATE_METADATA_URL` | | Optional override for the desktop update endpoint (compile time or runtime) |
 
 Missing a required one fails the workflow at its first step with an explanation.
 

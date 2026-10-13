@@ -1,0 +1,786 @@
+/*
+ * 资料点赞（src/components/likes）。基础样式见 kui.css；契约是 KukeChat-Server 的 docs/chat-features.md 第 6 节。
+ *
+ * 五部分：
+ *   1. 点赞按钮（klk / klk-btn）——别人的资料卡、个人空间，桌面和移动两套界面共用；
+ *   2. 我收到的赞（klk-mine）——自己的资料卡、自己的个人空间上的大拇指 + 总数 + 红色的 +N；
+ *   3. 「谁赞了我」的名单（klk-list），和它的三个壳：资料卡里就地展开（ksc-liked）、对话框（klk-dialog）、手机整页（klk-page）；
+ *   4. 这些东西在各个页面上摆在哪（资料卡头部、个人空间的名字那一行）；
+ *   5. 有人赞了我时的一条小提示（klk-toast）。
+ *
+ * 守 kui 的「利落」取向：按钮是发丝边 + 标准的面，强调色只在「已赞」时出现；数字等宽。
+ * 移动布局没有 --kui-* 这些量（它们只定义在桌面布局和 .kui 上），所以这里每处都带了退路，并在最前面起几个自己的别名。
+ * 动画只有三处：点下去图标弹一下、数字滚一格、提示落下来；系统设了「减少动态效果」或开了性能优先（is-still）时都不动。
+ */
+
+.klk,
+.klk-mine,
+.klk-list,
+.klk-toast-layer {
+  --klk-fs: var(--kui-fs, var(--kc-font-multiplier, 1));
+  /* 「+N」的红和未读数字是同一个红：都是「有新的」 */
+  --klk-red: var(--kui-unread, #ec3d44);
+  --klk-face: var(--kui-control, var(--kc-panel));
+}
+
+/* ───────── 1. 点赞按钮 ───────── */
+
+.klk {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.klk-btn {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm, 7px);
+  background: var(--klk-face);
+  box-shadow: var(--kui-shadow-key, none);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--klk-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease, transform 60ms ease;
+}
+
+#kukechat-root [data-font-scale] .klk-btn {
+  font-size: calc(12.5px * var(--klk-fs));
+}
+
+.klk-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.klk-thumb {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  transform-origin: 40% 80%;
+}
+
+.klk-btn:not(.is-liked, .is-blocked, .is-loading):hover {
+  border-color: color-mix(in srgb, var(--kc-accent) 50%, transparent);
+  color: var(--kc-accent);
+}
+
+.klk-btn:not(.is-liked, .is-blocked, .is-loading):active {
+  background: color-mix(in srgb, var(--kc-accent) 8%, var(--klk-face));
+  transform: translateY(1px);
+}
+
+/* 今天已经赞过：实心的大拇指 + 强调色，底上铺一层很淡的强调色 */
+.klk-btn.is-liked {
+  --klk-liked-face: color-mix(in srgb, var(--kc-accent) 11%, var(--klk-face));
+  border-color: color-mix(in srgb, var(--kc-accent) 38%, transparent);
+  background: var(--klk-liked-face);
+  box-shadow: none;
+  color: var(--kc-accent);
+  cursor: default;
+}
+
+.klk-btn.is-liked .klk-icon {
+  fill: currentColor;
+}
+
+/* 实心之后袖口那一道线会糊进去：把它换成底色，手和袖口还是分得开 */
+.klk-btn.is-liked .klk-icon > path:last-of-type {
+  stroke: var(--klk-liked-face);
+}
+
+/* 不能点：退成一块安静的灰，不描重边、不带阴影 */
+.klk-btn.is-blocked {
+  border-color: var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 3%, transparent);
+  box-shadow: none;
+  color: var(--kc-subtle);
+  cursor: not-allowed;
+}
+
+.klk-btn.is-loading {
+  cursor: default;
+}
+
+/* 点下去的那一下：大拇指往上一翘再落回来，后面一圈淡淡的光散开 */
+.klk-thumb.is-pop {
+  animation: klk-pop 460ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.klk-thumb.is-pop::after {
+  position: absolute;
+  inset: -5px;
+  border: 1.5px solid var(--kc-accent);
+  border-radius: 50%;
+  animation: klk-ring 460ms ease-out both;
+  content: '';
+  pointer-events: none;
+}
+
+@keyframes klk-pop {
+  0% {
+    transform: scale(0.82);
+  }
+
+  38% {
+    transform: scale(1.34) rotate(-14deg);
+  }
+
+  68% {
+    transform: scale(0.95) rotate(3deg);
+  }
+
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes klk-ring {
+  from {
+    opacity: 0.55;
+    transform: scale(0.5);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+/* 数字：新旧两份叠在同一格里，旧的往上滑出去、新的从下面进来 */
+.klk-count {
+  display: inline-grid;
+  overflow: hidden;
+  /* 行高留足，上下滑的时候字不被裁 */
+  line-height: 1.5;
+}
+
+.klk-count > span {
+  grid-area: 1 / 1;
+}
+
+/* 旧的那份平时就是看不见的：动画被关掉时它也不会和新的叠在一起 */
+.klk-count > .is-out {
+  opacity: 0;
+  animation: klk-roll-out 280ms cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+.klk-count > .is-in {
+  animation: klk-roll-in 280ms cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+@keyframes klk-roll-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-85%);
+  }
+}
+
+@keyframes klk-roll-in {
+  from {
+    opacity: 0;
+    transform: translateY(85%);
+  }
+}
+
+/* 说明的小气泡：点赞失败的原因、点了不能点的按钮时为什么不能点。反色的一小块，几秒后自己消失，不接鼠标 */
+.klk-notice {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 6px);
+  right: 0;
+  width: max-content;
+  max-width: min(236px, 70vw);
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--kc-text) 90%, var(--kc-panel));
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.35);
+  color: var(--kc-panel);
+  font-size: calc(12px * var(--klk-fs));
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  animation: klk-notice-in 140ms ease both;
+  pointer-events: none;
+}
+
+.klk--start > .klk-notice {
+  right: auto;
+  left: 0;
+}
+
+@keyframes klk-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+/* 移动布局：手指点的东西做大一号，形状跟那边的胶囊走 */
+[data-layout='mobile'] .klk-btn,
+[data-layout='mobile'] .klk-mine {
+  height: 32px;
+  gap: 6px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-panel) 78%, transparent);
+  box-shadow: none;
+}
+
+#kukechat-root [data-layout='mobile'] :is(.klk-btn, .klk-mine) {
+  font-size: calc(13px * var(--klk-fs));
+}
+
+[data-layout='mobile'] :is(.klk-btn, .klk-mine) .klk-icon {
+  width: 16px;
+  height: 16px;
+}
+
+[data-layout='mobile'] .klk-btn.is-liked {
+  --klk-liked-face: color-mix(in srgb, var(--kc-accent) 14%, var(--kc-panel));
+  border-color: color-mix(in srgb, var(--kc-accent) 42%, transparent);
+  background: var(--klk-liked-face);
+}
+
+[data-layout='mobile'] .klk-btn.is-blocked {
+  border-color: var(--kc-border);
+  background: color-mix(in srgb, var(--kc-panel) 46%, transparent);
+}
+
+[data-layout='mobile'] .klk-notice {
+  padding: 8px 11px;
+  border-radius: 12px;
+  font-size: 12.5px;
+}
+
+/* ───────── 2. 我收到的赞 ───────── */
+
+/* 不是操作而是一个可以点开的数字：不描边，悬停才有底 */
+.klk-mine {
+  position: relative;
+  display: inline-flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: var(--kui-r-sm, 7px);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--klk-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+#kukechat-root [data-font-scale] .klk-mine {
+  font-size: calc(13px * var(--klk-fs));
+}
+
+[data-layout='mobile'] .klk-mine {
+  color: var(--kc-text);
+}
+
+.klk-mine > .klk-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--kc-muted);
+  transition: color 100ms ease;
+}
+
+.klk-mine:hover {
+  background: var(--kc-hover);
+}
+
+.klk-mine:active,
+.klk-mine.is-open {
+  background: var(--kc-active, var(--kc-hover));
+}
+
+.klk-mine:is(:hover, .is-open) > .klk-icon {
+  color: var(--kc-accent);
+}
+
+/* 今天收到的赞：压在右上角的红色小数字，外面一圈和底同色的描边把它切出来 */
+.klk-plus {
+  position: absolute;
+  /* 抬到数字的上面去：数字多一位（+12、+1.2k）时往左长，不能压住总数。字号调大时总数的字变高，它跟着再抬一点 */
+  top: calc(-1.5px - 7.5px * var(--klk-fs));
+  right: -10px;
+  min-width: 17px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--klk-red);
+  box-shadow: 0 0 0 1.5px var(--klk-ring, var(--kui-raised, var(--kc-panel)));
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 15px;
+  text-align: center;
+  animation: klk-plus-in 320ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+@keyframes klk-plus-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+/* ───────── 3. 「谁赞了我」 ───────── */
+
+.klk-list {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  color: var(--kc-text);
+}
+
+.klk-list-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  padding: 0 0 7px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--klk-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.klk-list-sum b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.klk-list-today b {
+  color: var(--klk-red);
+}
+
+/* 行的悬停底向两侧各探出 6px，头像和上面那行字的左边对齐 */
+.klk-rows {
+  display: grid;
+  /* 列宽不能跟着内容长：名字很长的那一行要截断，而不是把整列撑宽 */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 0 -6px;
+}
+
+.klk-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 7px;
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+button.klk-row {
+  cursor: pointer;
+}
+
+button.klk-row:hover {
+  background: var(--kc-hover);
+}
+
+button.klk-row:active {
+  background: var(--kc-active, var(--kc-hover));
+}
+
+#kukechat-root [data-font-scale] .klk-row {
+  font-size: calc(13px * var(--klk-fs));
+}
+
+.klk-row-name {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-size: calc(13px * var(--klk-fs));
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.klk-row-today {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--klk-red) 12%, transparent);
+  color: var(--klk-red);
+  font-size: calc(10.5px * var(--klk-fs));
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 17px;
+}
+
+.klk-row-time {
+  flex: none;
+  margin-left: auto;
+  padding-left: 6px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--klk-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+/* 骨架：头像的圆、名字的一条、时间的一小条 */
+.klk-row.is-bone > :is(i, span, em) {
+  display: block;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  animation: klk-bone 1.2s ease-in-out infinite alternate;
+}
+
+.klk-row.is-bone > i {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.klk-row.is-bone > span {
+  width: 38%;
+  height: 11px;
+}
+
+.klk-row.is-bone > em {
+  width: 44px;
+  height: 9px;
+  margin-left: auto;
+}
+
+@keyframes klk-bone {
+  to {
+    opacity: 0.45;
+  }
+}
+
+.klk-list-state {
+  padding: 26px 8px 28px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--klk-fs));
+  line-height: 1.7;
+  text-align: center;
+}
+
+.klk-list-retry {
+  margin-left: 8px;
+  color: var(--kc-accent);
+  cursor: pointer;
+}
+
+#kukechat-root [data-font-scale] .klk-list-retry {
+  font-size: calc(12.5px * var(--klk-fs));
+}
+
+/* 名单最下面：滚到这里就接着加载。空着的时候也留 1px，观察得到 */
+.klk-list-more {
+  min-height: 1px;
+  padding: 8px 0 2px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--klk-fs));
+  text-align: center;
+}
+
+.klk-list-more:empty {
+  padding: 0;
+}
+
+.klk-list-more > .klk-list-retry {
+  margin-left: 0;
+}
+
+/* —— 壳之一：自己的资料卡里就地展开，占掉资料行和底栏的位置 —— */
+
+.ksc-rows[hidden],
+.ksc-card > .kmd-card-actions[hidden] {
+  display: none;
+}
+
+.ksc-liked {
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ksc-liked-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+/* 分组标题：小号加粗 + 字距 */
+.ksc-liked-head > h4 {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.ksc-liked-head > .kui-btn {
+  margin-right: -8px;
+}
+
+/* 名单自己滚：往两侧探出去一点，滚动条贴着卡片的边，不压在时间上 */
+.ksc-liked-scroll {
+  max-height: 292px;
+  margin: 0 -12px;
+  padding: 0 12px;
+}
+
+/* —— 壳之二：桌面的对话框 —— */
+
+.klk-dialog {
+  max-height: min(560px, calc(100% - 32px));
+}
+
+.klk-dialog-body {
+  padding: 14px 18px 14px;
+}
+
+/* —— 壳之三：手机上的一整页，名单放在一张卡片里 —— */
+
+.klk-page-card {
+  padding: 14px 14px 8px;
+  border-radius: 20px;
+  background: var(--kc-mobile-card, var(--kc-panel));
+}
+
+[data-layout='mobile'] .klk-list-sum {
+  padding-bottom: 9px;
+  font-size: 13px;
+}
+
+[data-layout='mobile'] .klk-row {
+  min-height: 54px;
+  gap: 12px;
+  border-radius: 14px;
+}
+
+[data-layout='mobile'] .klk-row-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+[data-layout='mobile'] .klk-row-time {
+  font-size: 12px;
+}
+
+[data-layout='mobile'] .klk-row-today {
+  font-size: 11px;
+  line-height: 18px;
+}
+
+[data-layout='mobile'] :is(.klk-list-state, .klk-list-more) {
+  font-size: 13px;
+}
+
+/* ───────── 4. 摆在哪 ───────── */
+
+/* 别人的资料卡：压在头部的右下角，和状态那一行齐平；关闭按钮照旧在右上角 */
+.kmd-card-head {
+  position: relative;
+}
+
+.kmd-card-like {
+  position: absolute;
+  right: 16px;
+  bottom: 10px;
+}
+
+/* 收矮一点：只占状态那一行的高度，不碰到上面的用户名 */
+.kmd-card-like > .klk-btn {
+  height: 24px;
+  padding: 0 9px 0 7px;
+}
+
+/* 状态那一行给它让出位置（状态通常很短，只有自己写的长状态会被截到这里） */
+.kmd-card-head:has(> .kmd-card-like) .kmd-card-status {
+  padding-right: 78px;
+}
+
+/* 自己的资料卡：头部右侧，和名字那一行对齐 */
+.ksc-likes {
+  margin-top: 1px;
+}
+
+/* 个人空间：名字那一行的最右边；放不下时和标签一起折到下一行 */
+.kpo-hero-like {
+  margin-left: auto;
+}
+
+.kpo-hero-name > .klk-mine {
+  --klk-ring: var(--kc-panel);
+}
+
+/* ───────── 5. 有人赞了我 ───────── */
+
+/* 和升级的提示一样从窗口上沿落下来，但小得多，也不接鼠标 */
+.klk-toast-layer {
+  position: absolute;
+  z-index: 69;
+  top: 12px;
+  right: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 14px;
+  color: var(--kc-text);
+  pointer-events: none;
+}
+
+/* 移动布局：挂在窗口根上，盖过各个全屏的二级页面 */
+.klk-toast-layer.is-mobile {
+  position: fixed;
+  z-index: 2147483647;
+  top: calc(var(--kc-native-safe-top, env(safe-area-inset-top, 0px)) + 10px);
+}
+
+.klk-toast {
+  display: inline-flex;
+  max-width: min(360px, 100%);
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 6px;
+  border-radius: var(--kui-r-lg, 10px);
+  background: var(--kc-overlay-surface, var(--kui-raised, var(--kc-panel)));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow, 0 0 0 1px rgba(18, 22, 38, 0.08), 0 8px 20px -8px rgba(18, 22, 38, 0.28));
+  font-size: calc(12.5px * var(--klk-fs));
+  /* 落下来、停住、收起，整段时长和 ProfileLikeToasts 里的 LIFETIME_MS 一致 */
+  animation: klk-toast 3200ms ease both;
+}
+
+.klk-toast-layer.is-mobile > .klk-toast {
+  height: 40px;
+  padding: 0 14px 0 8px;
+  border-radius: 999px;
+  font-size: 13.5px;
+}
+
+/* 头像组件最小一档是 32px，这里再收一号 */
+.klk-toast > :is(img, div):first-child {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  font-size: 11px;
+}
+
+.klk-toast-mark {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kc-accent) 14%, transparent);
+  color: var(--kc-accent);
+}
+
+.klk-toast-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.klk-toast-text > b {
+  font-weight: 600;
+}
+
+.klk-toast-plus {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding-left: 8px;
+  border-left: 1px solid var(--kc-border);
+  color: var(--klk-red);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@keyframes klk-toast {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  7% {
+    opacity: 1;
+    transform: none;
+  }
+
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* ───────── 减少动态效果 ───────── */
+
+.is-still .klk-thumb.is-pop,
+.is-still .klk-thumb.is-pop::after,
+.is-still .klk-count > span,
+.klk-mine.is-still .klk-count > span,
+.klk-mine.is-still > .klk-plus,
+.klk-toast.is-still {
+  animation: none;
+}
+
+.is-still .klk-thumb.is-pop::after {
+  content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .klk-thumb.is-pop,
+  .klk-count > :is(.is-in, .is-out),
+  .klk-notice,
+  .klk-plus,
+  .klk-toast,
+  .klk-row.is-bone > :is(i, span, em) {
+    animation: none;
+  }
+
+  .klk-thumb.is-pop::after {
+    content: none;
+  }
+
+  .klk-btn {
+    transition: none;
+  }
+}

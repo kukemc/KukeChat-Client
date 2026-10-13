@@ -1,0 +1,1457 @@
+/*
+ * 账号等级（src/components/level）。基础样式见 kui.css；契约是 KukeChat-Server 的 docs/account-level.md。
+ *
+ * 五部分：
+ *   1. 等级图标（klv-g / klv）——昵称旁、资料卡、排行榜、等级页到处都用，桌面和移动两套界面共用；
+ *   2. 悬停 / 点开的小卡片（klv-pop）；
+ *   3. 等级页的内容（klv-card 等）——桌面和移动共用同一份内容，两套外框各给一组量（面、圆角、内边距）；
+ *      进度条、小柱图、条件清单、排行榜的行是风纪页现成的（kjr-meter / kjr-bars / kjr-req / kjr-table），这里只补等级页自己的东西；
+ *   4. 资料卡、个人主页上的等级卡（klv-user）；
+ *   5. 升级的庆祝提示（klv-up）。
+ *
+ * 守 kui 的「利落」取向：面只用标准令牌，卡片不描边、不套卡片；数字等宽，关键数字放大并收紧字距。
+ * 图标的金黄色是这里唯一自带的颜色（它们是插画，不跟主题的强调色走），深色下另取一组。
+ */
+
+/* ───────── 1. 等级图标 ───────── */
+
+/*
+ * 四种图形各一组色：a 主体 / b 提亮 / c 压暗的边 / d 点缀。星星偏暖黄，月亮是淡金，太阳偏橙，皇冠是更沉的金、正中一粒红宝石。
+ * 每个图形都有一圈比主体深的边：浅色画布上淡金色的月亮靠它才立得住。
+ */
+.klv-g {
+  width: var(--klv-s, 13px);
+  height: var(--klv-s, 13px);
+  flex: none;
+  overflow: visible;
+}
+
+.klv-g--star {
+  --klv-a: #ffc933;
+  --klv-b: #ffe996;
+  --klv-c: #dd9100;
+}
+
+.klv-g--moon {
+  --klv-a: #ffe394;
+  --klv-b: #fffae6;
+  --klv-c: #c48f24;
+  --klv-d: #f2b02e;
+}
+
+.klv-g--sun {
+  --klv-a: #ff9a26;
+  --klv-b: #ffd591;
+  --klv-c: #dc6205;
+  --klv-d: #ff8412;
+}
+
+.klv-g--crown {
+  --klv-a: #f8b716;
+  --klv-b: #ffe796;
+  --klv-c: #bd7700;
+  --klv-d: #e5484d;
+}
+
+/* 深色下主体提亮一点，边收得淡一些：深底上一圈太深的边会把图形吃小 */
+[data-theme='dark'] .klv-g--star {
+  --klv-a: #ffd04a;
+  --klv-c: #c98a0a;
+}
+
+[data-theme='dark'] .klv-g--moon {
+  --klv-a: #ffecb5;
+  --klv-c: #b58a34;
+  --klv-d: #ffc24a;
+}
+
+[data-theme='dark'] .klv-g--sun {
+  --klv-a: #ffa63a;
+  --klv-c: #c85c0c;
+  --klv-d: #ff9226;
+}
+
+[data-theme='dark'] .klv-g--crown {
+  --klv-a: #ffc42e;
+  --klv-c: #b57a0c;
+  --klv-d: #f0565b;
+}
+
+.klv-g .klv-a {
+  fill: var(--klv-a);
+  stroke: var(--klv-c);
+  stroke-linejoin: round;
+  stroke-width: 0.9;
+}
+
+.klv-g .klv-b {
+  fill: var(--klv-b);
+}
+
+.klv-g .klv-c {
+  fill: var(--klv-c);
+}
+
+.klv-g .klv-d {
+  fill: var(--klv-d);
+}
+
+.klv-g .klv-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 1.1;
+}
+
+.klv-g .klv-b.klv-line {
+  stroke: var(--klv-b);
+}
+
+.klv-g .klv-d.klv-line {
+  stroke: var(--klv-d);
+  stroke-width: 1.5;
+}
+
+.klv-g .klv-w {
+  stroke: #ffffff;
+  stroke-opacity: 0.7;
+  stroke-width: 0.9;
+}
+
+/* 皇冠尖上的三颗珠也描一圈边，不然浅底上看不见 */
+.klv-g--crown circle.klv-b {
+  stroke: var(--klv-c);
+  stroke-width: 0.55;
+}
+
+/* 一串图标。full 是完整的图标串，compact 是「最大的那一种 + 等级数字」 */
+.klv {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  border-radius: 4px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.klv-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.klv--compact {
+  --klv-s: calc(13px * var(--kc-font-multiplier, 1));
+  height: 16px;
+  gap: 2px;
+}
+
+/* 同一种图标挨着时叠上一点，三个也只比两个半宽 */
+.klv--compact .klv-g + .klv-g {
+  margin-left: -2.5px;
+}
+
+.klv-num {
+  color: var(--kc-notice-text, var(--kc-muted));
+  font-size: calc(10.5px * var(--kc-font-multiplier, 1));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-shadow: var(--kc-notice-halo, none);
+}
+
+/* 能点 / 能悬停的那些（data-klv 由 LevelIcons 写上，事件在 LevelHoverCard 里统一监听） */
+.klv[data-klv]:not([data-klv-passive]) {
+  cursor: pointer;
+}
+
+/* 移动端的消息行：昵称那一行是 11px 的小字，图标跟着收一点 */
+.kc-mobile-message-meta .klv--compact {
+  --klv-s: 12px;
+  height: 14px;
+}
+
+/* 联系人列表里选中的那一行是强调色的实底：数字跟着这一行的字色走 */
+.kcc-item.is-active .klv-num {
+  color: inherit;
+  opacity: 0.86;
+}
+
+/* 成员栏很窄：等级贴着昵称后面，数字再淡一点 */
+.kcd-member .klv-num {
+  color: var(--kc-subtle);
+}
+
+/* ───────── 2. 悬停 / 点开的小卡片 ───────── */
+
+.klv-pop-layer {
+  position: fixed;
+  z-index: 2147483647;
+  inset: 0;
+  pointer-events: none;
+}
+
+.klv-pop {
+  position: absolute;
+  display: grid;
+  max-width: min(300px, calc(100% - 16px));
+  justify-items: start;
+  gap: 3px;
+  padding: 10px 12px 9px;
+  border-radius: var(--kui-r-md, 9px);
+  background: var(--kc-overlay-surface, var(--kui-raised, var(--kc-panel)));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow, 0 8px 24px rgba(15, 23, 42, 0.18));
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kc-font-multiplier, 1));
+  line-height: 1.5;
+  pointer-events: auto;
+  animation: klv-pop-in 110ms ease both;
+}
+
+.klv-pop > .klv {
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+
+.klv-pop > .klv .klv-icons {
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.klv-pop-title {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.klv-pop-title b {
+  font-weight: 700;
+}
+
+.klv-pop-title span,
+.klv-pop-sub {
+  color: var(--kc-muted);
+}
+
+.klv-pop-sub {
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#kukechat-root .klv-pop-link {
+  margin-top: 2px;
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+  font-weight: 600;
+}
+
+@keyframes klv-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+/* ───────── 3. 等级页 ───────── */
+
+/* 两套外框各给一组量。桌面：贴着画布的面、10px 圆角；移动：移动端的卡片色、大圆角 */
+.klv-page {
+  --klv-surface: var(--kc-chat-surface, var(--kc-panel));
+  --klv-well: var(--kc-chat);
+  --klv-radius: var(--kui-r-lg, 10px);
+  --klv-edge: var(--kui-shadow-card);
+  --klv-pad: 16px 18px 18px;
+  --klv-gap: 14px;
+}
+
+.klv-m {
+  --kui-fs: var(--kc-font-multiplier, 1);
+  --klv-surface: var(--kc-mobile-card, var(--kc-panel));
+  --klv-well: var(--kc-mobile-card-muted, var(--kc-panel-muted));
+  --klv-radius: 20px;
+  --klv-edge: 0 1px 0 rgba(15, 23, 42, 0.04);
+  --klv-pad: 14px 14px 16px;
+  --klv-gap: 12px;
+  /* 外框借了商店移动页的几个部件（返回键、标题、空状态），它们读的是这几个量 */
+  --ksp-m-card: var(--kc-mobile-card, var(--kc-panel));
+  --ksp-m-muted: var(--kc-mobile-muted, var(--kc-muted));
+  --ksp-m-strong: var(--kc-mobile-strong, var(--kc-text));
+  --ksp-m-line: var(--kc-mobile-border, var(--kc-border));
+  position: relative;
+  color: var(--kc-mobile-text, var(--kc-text));
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+#kukechat-root .klv-wrap {
+  max-width: 1000px;
+}
+
+.klv-grid {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: var(--klv-gap);
+}
+
+.klv-col {
+  display: grid;
+  min-width: 0;
+  gap: var(--klv-gap);
+}
+
+/* 这一栏里什么都没有（商店不可用时的「等级解锁的装扮」）：不占列 */
+.klv-col:empty {
+  display: none;
+}
+
+.klv-card {
+  min-width: 0;
+  padding: var(--klv-pad);
+  border-radius: var(--klv-radius);
+  background: var(--klv-surface);
+  box-shadow: var(--klv-edge);
+}
+
+.klv-card-head {
+  display: flex;
+  min-height: 26px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+
+.klv-card-head h2 {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.klv-card-aside {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.klv-card-aside .kui-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+}
+
+/* 卡片里的分区小标题：小号加粗 + 字距 */
+.klv-h {
+  margin: 16px 0 8px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.klv-card-head + .klv-h {
+  margin-top: 0;
+}
+
+.klv-text {
+  line-height: 1.75;
+}
+
+.klv-text b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.klv-quiet,
+.klv-meta {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 1.7;
+}
+
+.klv-meta b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.klv-bone {
+  display: block;
+  height: 220px;
+  border-radius: var(--klv-radius);
+}
+
+.klv-fail {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+/* —— 当前等级 —— */
+
+.klv-hero-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+/* 图标垫在一小块暖色的底上：整页只有这里用了强调色以外的颜色，和图标本身是一家 */
+.klv-hero-badge {
+  display: grid;
+  min-width: 64px;
+  min-height: 60px;
+  max-width: 100%;
+  place-items: center;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, #ffb400 11%, var(--klv-well));
+}
+
+[data-theme='dark'] .klv-hero-badge {
+  background: color-mix(in srgb, #ffb400 9%, var(--klv-well));
+}
+
+.klv-hero-icons {
+  --klv-s: 30px;
+}
+
+.klv-hero-icons .klv-icons {
+  max-width: 236px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 3px;
+}
+
+.klv-hero-ghost {
+  --klv-s: 30px;
+  filter: grayscale(1);
+  opacity: 0.3;
+}
+
+.klv-hero-fig {
+  min-width: 0;
+}
+
+.klv-hero-level {
+  font-size: calc(36px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.klv-hero-level small {
+  margin-right: 3px;
+  color: var(--kc-muted);
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.klv-hero-days {
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.klv-hero-days b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.klv-next {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.klv-next-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.klv-next-text b {
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.klv-next-range {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.klv-next .kjr-meter {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.klv-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px;
+  padding-top: 13px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.klv-facts > div {
+  min-width: 0;
+  padding: 0 14px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.klv-facts > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.klv-facts dt {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+.klv-facts dd {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.klv-facts dd b {
+  color: var(--kc-text);
+  font-size: calc(19px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.klv-facts-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  color: inherit;
+}
+
+.klv-facts-link > svg {
+  align-self: center;
+  color: var(--kc-subtle);
+}
+
+.klv-facts-link:hover b,
+.klv-facts-link:hover > svg {
+  color: var(--kc-accent);
+}
+
+/* —— 排行榜入口 —— */
+
+#kukechat-root .klv-entry {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  transition: background-color 100ms ease;
+}
+
+#kukechat-root .klv-entry:hover {
+  background: color-mix(in srgb, var(--kc-text) 4%, var(--klv-surface));
+}
+
+.klv-entry-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--kc-accent) 12%, transparent);
+  color: var(--kc-accent);
+}
+
+.klv-entry-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+
+.klv-entry-main b {
+  font-weight: 600;
+}
+
+.klv-entry-main span {
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.klv-entry > svg:last-child {
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+/* —— 今天 —— */
+
+.klv-today-sum {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.klv-today-sum b {
+  color: var(--kc-text);
+  font-size: calc(17px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+[data-level='today'] > .kjr-meter {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.klv-online {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.klv-online-text {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.klv-online-text b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+/* 在线时长的刻度条：每个档位一道竖线，到了的变实 */
+.klv-online-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+.klv-online-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--kui-fill, var(--kc-accent));
+}
+
+.klv-online-bar b {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--kc-text) 28%, var(--klv-surface));
+}
+
+.klv-online-bar b:last-of-type {
+  margin-left: -2px;
+}
+
+.klv-online-bar b.is-on {
+  background: var(--kc-text);
+}
+
+.klv-online-ticks {
+  position: relative;
+  height: 18px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.klv-online-ticks span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.klv-online-ticks span:last-child {
+  transform: translateX(-100%);
+}
+
+.klv-online-ticks span.is-on {
+  color: var(--kc-muted);
+}
+
+.klv-bonuses .kjr-req-value {
+  color: var(--kc-muted);
+}
+
+.klv-bonuses .kjr-req.is-ok .kjr-req-value {
+  color: var(--kui-ok);
+}
+
+/* 没有进度条的加成（签到、绑定 CCW）：说明紧跟在名称下面 */
+.klv-bonuses .kjr-req-note {
+  margin-top: -2px;
+}
+
+/* —— 规则 —— */
+
+.klv-exchange {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.klv-exchange li {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.klv-exchange i {
+  color: var(--kc-subtle);
+  font-style: normal;
+}
+
+.klv-exchange .klv-g {
+  --klv-s: 15px;
+}
+
+.klv-milestones li {
+  display: grid;
+  min-height: 36px;
+  align-items: center;
+  grid-template-columns: 58px 52px minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.klv-milestones li + li {
+  border-top: 1px solid var(--kc-border);
+}
+
+.klv-milestone-icons .klv {
+  --klv-s: 17px;
+}
+
+.klv-milestone-level {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.klv-milestone-days {
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.klv-milestone-state {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.klv-milestones li.is-reached .klv-milestone-state {
+  color: var(--kui-ok);
+}
+
+/* —— 等级解锁的装扮 —— */
+
+.klv-rewards {
+  display: grid;
+  gap: 10px;
+}
+
+.klv-rewards li {
+  display: grid;
+  min-height: 52px;
+  align-items: center;
+  grid-template-columns: minmax(0, 46%) minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+}
+
+/* 一小块消息画布，气泡压在画布色上 */
+.klv-rewards li > .ksp-stage {
+  display: flex;
+  min-height: 52px;
+  justify-content: center;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: var(--klv-well);
+  grid-row: 1 / 3;
+}
+
+/* 预览只有一句话：让气泡用满这一小块的宽度，别把五个字折成三行 */
+.klv-rewards li > .ksp-stage :is(.kcd-main, .kcd-line, .kc-mobile-message-stack) {
+  max-width: 100% !important;
+}
+
+.klv-reward-name {
+  align-self: end;
+  overflow: hidden;
+  font-weight: 600;
+  grid-column: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.klv-reward-need {
+  align-self: start;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.klv-rewards li > .kui-tag {
+  grid-column: 3;
+  grid-row: 1 / 3;
+}
+
+.klv-rewards li.is-owned .klv-reward-need {
+  color: var(--kc-subtle);
+}
+
+#kukechat-root .klv-reward-go {
+  font-size: calc(10.5px * var(--kui-fs));
+  cursor: pointer;
+}
+
+/* —— 排行榜 —— */
+
+.klv-board > .klv-card-head {
+  margin-bottom: 8px;
+}
+
+.klv-board-state {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 18px 0 8px;
+}
+
+#kukechat-root .klv-table .kjr-tr {
+  width: 100%;
+  font-size: inherit;
+}
+
+.klv-table--desktop .kjr-tr {
+  min-height: 46px;
+  grid-template-columns: 44px minmax(140px, 1.4fr) minmax(110px, 1fr) 92px 84px;
+}
+
+.klv-table--mobile .kjr-tr {
+  min-height: 54px;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.klv-table .kjr-tr.is-me {
+  background: color-mix(in srgb, var(--kc-accent) 7%, transparent);
+  box-shadow: none;
+}
+
+.klv-table .kjr-tr.is-me + .kjr-tr {
+  box-shadow: none;
+}
+
+.klv-table .kjr-lb-who {
+  min-width: 0;
+}
+
+.klv-lb-id {
+  display: grid;
+  min-width: 0;
+}
+
+.klv-lb-sub {
+  overflow: hidden;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.klv-lb-level {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.klv-lb-level .klv--full {
+  --klv-s: 14px;
+}
+
+.klv-lb-level .klv--full .klv-icons {
+  flex-wrap: wrap;
+}
+
+.klv-lb-num {
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.klv-lb-num.is-key {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+#kukechat-root .klv-lb-num small {
+  display: inline;
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+  font-weight: 400;
+}
+
+/* 前三名：金、银、铜的实底圆牌，其余是灰色的数字 */
+.klv-table .kjr-rank.is-top {
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.klv-table .kjr-rank.is-top1 {
+  background: #f0a800;
+}
+
+.klv-table .kjr-rank.is-top2 {
+  background: #8f9bb0;
+}
+
+.klv-table .kjr-rank.is-top3 {
+  background: #c4844c;
+}
+
+.klv-board .kjr-lb-pinned {
+  background: var(--klv-surface);
+}
+
+.klv-board-more {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+
+.klv-board-note {
+  margin-top: 10px;
+}
+
+.klv-board-note > svg {
+  display: inline;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+/* —— 移动端的外框 —— */
+
+.klv-m-tabs {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  margin: 10px 16px 0;
+}
+
+#kukechat-root .klv-m-tab {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--ksp-m-card);
+  color: var(--ksp-m-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#kukechat-root .klv-m-tab.is-active {
+  background: var(--kc-accent);
+  color: #ffffff;
+}
+
+.klv-m-scroll {
+  padding-top: 12px;
+}
+
+.klv-m-scroll > * + * {
+  margin-top: var(--klv-gap);
+}
+
+/* 排行榜里「我的位置」：滚动区域外面的页脚，里面没有东西时不占地方 */
+.klv-m-foot {
+  position: relative;
+  z-index: 2;
+  flex: none;
+}
+
+.klv-m-foot:empty {
+  display: none;
+}
+
+.klv-m-foot:not(:empty) {
+  padding: 8px 16px calc(var(--kc-native-safe-bottom, env(safe-area-inset-bottom, 0px)) + 10px);
+  background: var(--klv-surface);
+  box-shadow: 0 -1px 0 var(--kc-mobile-border, var(--kc-border)), 0 -8px 20px -12px rgba(15, 23, 42, 0.18);
+}
+
+.klv-pinned-foot {
+  margin: 0;
+}
+
+/* 页脚出来之后，滚动区域不用再给底栏留那一截 */
+#kukechat-root .klv-m .klv-m-scroll:has(+ .klv-m-foot:not(:empty)) {
+  padding-bottom: 16px !important;
+}
+
+/* 手机上是一列：当前等级 → 今天 → 排行榜入口 → 近 30 天 */
+.klv-m .klv-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.klv-m .klv-col {
+  display: contents;
+}
+
+.klv-m [data-level='hero'] {
+  order: 1;
+}
+
+.klv-m [data-level='today'] {
+  order: 2;
+}
+
+.klv-m [data-level='board-entry'] {
+  order: 3;
+}
+
+.klv-m [data-level='history'] {
+  order: 4;
+}
+
+.klv-m .klv-hero-level {
+  font-size: 34px;
+}
+
+.klv-m .klv-facts > div {
+  padding: 0 10px;
+}
+
+.klv-m .klv-rewards li {
+  grid-template-columns: minmax(0, 44%) minmax(0, 1fr) auto;
+}
+
+/* 风纪页的那几个部件读 --kc-muted / --kc-border，手机上换成移动端的令牌 */
+.klv-m .klv-card {
+  --kc-border: var(--kc-mobile-border, rgba(15, 23, 42, 0.06));
+}
+
+#kukechat-root .klv-m .kui-btn {
+  font-size: 12.5px;
+}
+
+/* ───────── 4. 资料卡、个人主页上的等级卡 ───────── */
+
+.klv-user {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--kc-text);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.klv-user-main {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 7px;
+}
+
+.klv-user-main .klv {
+  --klv-s: 15px;
+}
+
+.klv-user-main .klv-icons {
+  flex-wrap: wrap;
+}
+
+.klv-user-level {
+  font-weight: 700;
+}
+
+.klv-user-days,
+.klv-user-facts {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+}
+
+.klv-user-facts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.klv-user-facts i {
+  margin-right: 4px;
+  color: var(--kc-subtle);
+  font-style: normal;
+}
+
+.klv-user-arrow {
+  flex: none;
+  margin-left: auto;
+  color: var(--kc-subtle);
+}
+
+#kukechat-root .klv-user.is-link {
+  width: 100%;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#kukechat-root .klv-user.is-link:hover .klv-user-level,
+#kukechat-root .klv-user.is-link:hover .klv-user-arrow {
+  color: var(--kc-accent);
+}
+
+/* 个人主页上的一块：上面是等级，下面三个数字排成一排 */
+.klv-user--block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.klv-user--block .klv-user-main .klv {
+  --klv-s: 20px;
+}
+
+.klv-user--block .klv-user-level {
+  font-size: calc(17px * var(--kc-font-multiplier, 1));
+  letter-spacing: -0.01em;
+}
+
+.klv-user--block .klv-user-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kc-font-multiplier, 1));
+  font-weight: 600;
+}
+
+.klv-user--block .klv-user-facts > span {
+  display: grid;
+  min-width: 0;
+}
+
+.klv-user--block .klv-user-facts i {
+  font-size: calc(11.5px * var(--kc-font-multiplier, 1));
+  font-weight: 400;
+}
+
+.klv-user--block .klv-user-arrow {
+  position: absolute;
+  top: 2px;
+  right: 0;
+}
+
+.klv-user--block.is-link {
+  position: relative;
+}
+
+/* 桌面资料卡里夹在标签和资料之间的一条 */
+.kmd-card .klv-user--row {
+  padding: 0 16px 13px;
+}
+
+/* 手机资料卡里的一条：和简介一样是一块淡底 */
+.klv-user--pill {
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: var(--kc-panel-muted);
+}
+
+/* ───────── 5. 升级的庆祝提示 ───────── */
+
+.klv-up-layer {
+  position: absolute;
+  z-index: 70;
+  top: 14px;
+  right: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 14px;
+  color: var(--kc-text);
+  pointer-events: none;
+}
+
+/* 移动布局：挂在窗口根上，盖过各个全屏的二级页面 */
+.klv-up-layer.is-mobile {
+  position: fixed;
+  z-index: 2147483647;
+  top: calc(var(--kc-native-safe-top, env(safe-area-inset-top, 0px)) + 10px);
+}
+
+.klv-up {
+  position: relative;
+  display: flex;
+  max-width: min(380px, 100%);
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--kc-overlay-surface, var(--kui-raised, var(--kc-panel)));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow-dialog, 0 18px 40px -12px rgba(18, 22, 38, 0.32)), inset 0 2px 0 #f5b301;
+  pointer-events: auto;
+  animation: klv-up-in 320ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+
+#kukechat-root .klv-up-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 6px 10px 14px;
+  border-radius: 9px;
+  text-align: left;
+}
+
+.klv-up-text {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: 2px;
+}
+
+.klv-up-kicker {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.klv-up-level {
+  font-size: calc(22px * var(--kc-font-multiplier, 1));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.klv-up-text .klv-icons {
+  flex-wrap: wrap;
+}
+
+.klv-up-sub {
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+#kukechat-root .klv-up-close {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  margin: 4px 4px 0 0;
+  border-radius: 6px;
+  color: var(--kc-subtle);
+}
+
+#kukechat-root .klv-up-close:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+/* 隆重版：换出了月亮 / 太阳 / 皇冠。图标放大摆在左边，后面一圈慢慢转的光，四周几粒碎光 */
+.klv-up.is-grand {
+  max-width: min(420px, 100%);
+}
+
+.klv-up.is-grand .klv-up-main {
+  gap: 18px;
+  padding: 16px 8px 16px 18px;
+}
+
+.klv-up.is-grand .klv-up-level {
+  font-size: calc(30px * var(--kc-font-multiplier, 1));
+}
+
+.klv-up-stage {
+  --klv-glow: #ffc21a;
+  position: relative;
+  display: grid;
+  width: 84px;
+  height: 84px;
+  flex: none;
+  place-items: center;
+  isolation: isolate;
+}
+
+.klv-up-stage--moon {
+  --klv-glow: #ffdc7a;
+}
+
+.klv-up-stage--sun {
+  --klv-glow: #ff9a26;
+}
+
+.klv-up-stage--crown {
+  --klv-glow: #f8b716;
+}
+
+.klv-up-big {
+  --klv-s: 56px;
+  filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--klv-glow) 45%, transparent));
+  animation: klv-up-pop 620ms cubic-bezier(0.2, 0.9, 0.3, 1.25) 80ms both;
+}
+
+.klv-up-halo,
+.klv-up-rays {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.klv-up-halo {
+  background: radial-gradient(circle, color-mix(in srgb, var(--klv-glow) 34%, transparent) 0%, color-mix(in srgb, var(--klv-glow) 12%, transparent) 46%, transparent 70%);
+}
+
+.klv-up-rays {
+  inset: -14px;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--klv-glow) 26%, transparent) 0deg 9deg, transparent 9deg 30deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 30%, #000000 42%, transparent 70%);
+  mask-image: radial-gradient(circle, transparent 30%, #000000 42%, transparent 70%);
+  animation: klv-up-spin 14s linear infinite;
+}
+
+/* 碎光：四角星，从中心弹到各自的位置再淡掉 */
+.klv-up-spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--klv-z);
+  height: var(--klv-z);
+  margin: calc(var(--klv-z) / -2) 0 0 calc(var(--klv-z) / -2);
+  background: var(--klv-glow);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: klv-up-spark 1500ms cubic-bezier(0.2, 0.8, 0.3, 1) var(--klv-t) both;
+}
+
+@keyframes klv-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+}
+
+@keyframes klv-up-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-18deg);
+  }
+}
+
+@keyframes klv-up-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes klv-up-spark {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--klv-a)) translateY(0) scale(0.2);
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(var(--klv-a)) translateY(calc(var(--klv-d) * -1)) scale(1);
+  }
+}
+
+/* 开了性能优先：不转、不弹、没有碎光，卡片直接出现 */
+.klv-up.is-still,
+.klv-up.is-still .klv-up-big,
+.klv-up.is-still .klv-up-rays {
+  animation: none;
+}
+
+.klv-up.is-still .klv-up-spark {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .klv-pop,
+  .klv-up,
+  .klv-up-big,
+  .klv-up-rays {
+    animation: none;
+  }
+
+  .klv-up-spark {
+    display: none;
+  }
+}
+
+/* ───────── 通知中心里的升级通知 ───────── */
+
+/* 升级通知没有触发人，左边放一块暖色的圆牌，中间是这次换出来的图标 */
+.klv-notice-icon {
+  --klv-s: 20px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, #ffb400 16%, var(--kc-panel));
+}
+
+.klv-notice-icon.is-large {
+  --klv-s: 28px;
+  width: 48px;
+  height: 48px;
+}
+
+/* 联系人页的好友资料：夹在账号和简介之间的一条 */
+.klv-user--profile {
+  margin-top: 10px;
+}

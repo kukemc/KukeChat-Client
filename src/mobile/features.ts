@@ -1,6 +1,6 @@
 import type { IconName } from '@/components/ui/Icon';
 
-export type MobileSortableFeatureId = 'contacts' | 'posts' | 'announcement' | 'teamup' | 'tasks' | 'bots' | 'home' | 'favorites';
+export type MobileSortableFeatureId = 'contacts' | 'posts' | 'announcement' | 'teamup' | 'tasks' | 'bots' | 'home' | 'favorites' | 'shop';
 export type MobileFeatureId = MobileSortableFeatureId | 'space';
 
 export interface MobileFeatureDefinition {
@@ -20,7 +20,8 @@ export const MOBILE_FEATURES: Array<MobileFeatureDefinition & { id: MobileSortab
   { id: 'tasks', label: '任务系统', detail: '任务看板、分组和动态', icon: 'checkSquare' },
   { id: 'bots', label: '机器人', detail: '查看机器人和我的机器人', icon: 'bot' },
   { id: 'home', label: '主页', detail: '社区数据、热门群聊与大佬入住', icon: 'home' },
-  { id: 'favorites', label: '收藏', detail: '收藏消息、图片和转发记录', icon: 'star' }
+  { id: 'favorites', label: '收藏', detail: '收藏消息、图片和转发记录', icon: 'star' },
+  { id: 'shop', label: '商店', detail: '用 CCW 金币换气泡皮肤', icon: 'store' }
 ];
 
 export const DEFAULT_MOBILE_FEATURE_ORDER: MobileSortableFeatureId[] = MOBILE_FEATURES.map((item) => item.id);
@@ -55,12 +56,19 @@ export function normalizeMobileFeatureOrder(value: unknown): MobileSortableFeatu
   return deduped;
 }
 
-export function getMobileBottomFeatureIds(order: MobileFeatureId[]): MobileSortableFeatureId[] {
-  return normalizeMobileFeatureOrder(order).slice(0, 2);
+/**
+ * hidden：现在不该出现的功能（比如当前连接的服务端没有商店）。它们仍然留在用户存下来的顺序里，
+ * 只是这一刻不占位置：不进底栏，也不进空间页的入口。
+ */
+export function getVisibleMobileFeatureIds(order: MobileFeatureId[], hidden?: ReadonlySet<MobileSortableFeatureId>): MobileSortableFeatureId[] {
+  const normalized = normalizeMobileFeatureOrder(order);
+  return hidden && hidden.size > 0 ? normalized.filter((item) => !hidden.has(item)) : normalized;
 }
 
-export function getMobileSpaceFeatureIds(order: MobileFeatureId[]): MobileSortableFeatureId[] {
-  const normalized = normalizeMobileFeatureOrder(order);
-  const bottom = new Set(getMobileBottomFeatureIds(normalized));
-  return normalized.filter((item) => !bottom.has(item));
+export function getMobileBottomFeatureIds(order: MobileFeatureId[], hidden?: ReadonlySet<MobileSortableFeatureId>): MobileSortableFeatureId[] {
+  return getVisibleMobileFeatureIds(order, hidden).slice(0, 2);
+}
+
+export function getMobileSpaceFeatureIds(order: MobileFeatureId[], hidden?: ReadonlySet<MobileSortableFeatureId>): MobileSortableFeatureId[] {
+  return getVisibleMobileFeatureIds(order, hidden).slice(2);
 }

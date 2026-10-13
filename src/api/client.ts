@@ -47,20 +47,52 @@ interface RequestOptions {
   cache?: RequestCache;
 }
 
+/**
+ * 参数校验失败（422）时 detail 是一个数组：[{ loc: ['body', 'content'], msg: '…' }, …]。
+ * 拼成一句能看的话；数组里没有可读的内容时返回 null，让调用方退回「请求失败：422」。
+ */
+function readValidationMessage(items: unknown[]): string | null {
+  const lines: string[] = [];
+  for (const item of items) {
+    if (typeof item === 'string') {
+      lines.push(item);
+    } else if (isRecord(item)) {
+      const text = typeof item.msg === 'string' ? item.msg : typeof item.message === 'string' ? item.message : '';
+      // loc 的第一段是 body / query / path，后面才是字段名
+      const field = Array.isArray(item.loc) ? item.loc.slice(1).filter((part) => typeof part === 'string' || typeof part === 'number').join('.') : '';
+      if (text) {
+        lines.push(field ? `${field}：${text}` : text);
+      }
+    }
+  }
+  return lines.length > 0 ? `提交的内容不符合要求（${lines.slice(0, 3).join('；')}）` : null;
+}
+
+/**
+ * 服务端错误里的 detail 有三种形状，都要读得出一句话：
+ * 新接口是 { code, message }，老接口是字符串，参数校验失败（422）是数组。
+ */
 function readErrorMessage(detail: unknown, status: number): string {
   if (typeof detail === 'string') {
-    return detail;
+    // 不是 JSON 的响应体（网关的报错页之类）不拿来当提示
+    return detail.trim() && !detail.trimStart().startsWith('<') ? detail : `请求失败：${status}`;
   }
 
   if (isRecord(detail)) {
-    if (isRecord(detail.detail) && typeof detail.detail.message === 'string') {
+    if (isRecord(detail.detail) && typeof detail.detail.message === 'string' && detail.detail.message) {
       return detail.detail.message;
     }
-    if (typeof detail.detail === 'string') {
+    if (typeof detail.detail === 'string' && detail.detail) {
       return detail.detail;
     }
+    if (Array.isArray(detail.detail)) {
+      const text = readValidationMessage(detail.detail);
+      if (text) {
+        return text;
+      }
+    }
 
-    if (typeof detail.message === 'string') {
+    if (typeof detail.message === 'string' && detail.message) {
       return detail.message;
     }
   }
@@ -81,7 +113,8 @@ export function accountSuspensionFromError(error: unknown): AccountSuspension | 
     code: 'account_suspended',
     reason: typeof detail.reason === 'string' ? detail.reason : null,
     banned_until: typeof detail.banned_until === 'string' ? detail.banned_until : null,
-    permanent: detail.permanent === true || detail.banned_until === null
+    permanent: detail.permanent === true || detail.banned_until === null,
+    appeal_token: typeof detail.appeal_token === 'string' ? detail.appeal_token : null
   };
 }
 

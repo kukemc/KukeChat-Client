@@ -14,6 +14,9 @@ import { Icon } from '@/components/ui/Icon';
 import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { MobilePostDetailPage } from '@/components/posts/MobilePostDetailPage';
 import { MobileProfileSummaryCard } from '@/components/profile/MobileProfileSummaryCard';
+import { UserLevelCard } from '@/components/level/UserLevelCard';
+import { MyLikesEntry } from '@/components/likes/MyLikesEntry';
+import { ProfileLikeButton } from '@/components/likes/ProfileLikeButton';
 import { registerNativeBackHandler } from '@/native/back';
 import { runNativeRouteTransition } from '@/native/transition';
 import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
@@ -876,10 +879,22 @@ export function MobileUserProfilePage({ user, label, fallbackUserId, currentUser
         ) : <span className="h-10 w-10 shrink-0" />}
       </header>
       <main className="kc-mobile-profile-scroll scroll-soft min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(var(--kc-native-safe-bottom,env(safe-area-inset-bottom))+32px)] pt-[clamp(120px,25vh,190px)]" onScroll={(event) => setProfileScrollTop(event.currentTarget.scrollTop)}>
-        <MobileProfileSummaryCard user={displayUser} name={name} label={name} handle={displayUser ? userHandle(displayUser, fallbackId) : undefined} userId={displayUser?.id ?? fallbackId} bio={profileBio || (isBot ? '这个机器人还没有写介绍' : '这个人还没有写简介')} statusLabel={statusLabel} online={isBotOnline || (!isBot && Boolean(onlineQuery.data?.online))} stats={stats} profileCardStyle={profileCardStyle} isBot={isBot} profileTagline={profileTagline} profileStatus={showProfileStatusTag ? profileStatus : undefined} email={!isBot ? displayUser?.email : null} />
+        <MobileProfileSummaryCard user={displayUser} name={name} label={name} handle={displayUser ? userHandle(displayUser, fallbackId) : undefined} userId={displayUser?.id ?? fallbackId} bio={profileBio || (isBot ? '这个机器人还没有写介绍' : '这个人还没有写简介')} statusLabel={statusLabel} online={isBotOnline || (!isBot && Boolean(onlineQuery.data?.online))} stats={stats} profileCardStyle={profileCardStyle} isBot={isBot} profileTagline={profileTagline} profileStatus={showProfileStatusTag ? profileStatus : undefined} email={!isBot ? displayUser?.email : null}
+          // 资料点赞（docs/chat-features.md 第 6 节）：别人的是点赞按钮；自己的是总赞数 + 今天的 +N，点了看「谁赞了我」（手机上没有自己的资料卡，入口就在这里）
+          aside={isSelf
+            ? <MyLikesEntry user={displayUser} onOpenUser={(target) => openProfile(target, target.id)} />
+            : <ProfileLikeButton user={displayUser} />}
+        />
 
         <div className="mt-3 grid gap-3">
           {profileEditor}
+          {/* 账号等级（docs/account-level.md）：服务端没有等级、对方是机器人时整块不出现；自己的点了进等级页 */}
+          <UserLevelCard user={displayUser} variant="block" frame={(card) => (
+            <section className="kc-qq-card kui p-4" data-level="space-card">
+              <h3 className="mb-3 text-[15px] font-black [color:var(--kc-mobile-strong,#111827)]">账号等级</h3>
+              {card}
+            </section>
+          )} />
           {friendRequestError || directMessageError ? <p className="rounded-[18px] bg-red-50 px-4 py-3 text-[13px] font-bold text-red-500">{friendRequestError || directMessageError}</p> : null}
           {(profileLocation || interests.length > 0) ? (
             <section className="kc-mobile-profile-info-card kc-qq-card grid gap-3 p-4">

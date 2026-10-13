@@ -1,0 +1,691 @@
+/* 桌面端：主页（src/components/home/desktop，前缀 khm-）与收藏（src/components/chat/message/desktop，前缀 kfv-）。基础样式见 kui.css。 */
+
+/* ───────── 两个页面共用的骨架 ───────── */
+
+.khm,
+.kfv {
+  /* 贴着画布的面：发丝边 + 按钮底边那一线阴影。背景用 --kc-chat-surface，整窗背景下会跟着变半透明 */
+  --khm-edge: 0 0 0 1px var(--kc-border), var(--kui-shadow-key);
+  height: 100%;
+  min-height: 0;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+.khm-main,
+.kfv {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.khm-main {
+  height: 100%;
+  min-height: 0;
+}
+
+.khm-bar,
+.kfv-bar {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 0 22px;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+:is(.khm-bar, .kfv-bar) h2 {
+  flex: none;
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.khm-body,
+.kfv-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.khm-panel,
+.kfv-list {
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--khm-edge);
+}
+
+/* ───────── 主页 ───────── */
+
+/* 容器查询的基准单独放一层：带 container-type 的元素会把 position: fixed 的对话框圈在自己里面，
+   加群申请框要挂在它外面（.khm 的直接子元素）才能盖住整个窗口 */
+.khm-shell {
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.khm-bar img {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  margin-right: -2px;
+  border-radius: 6px;
+}
+
+.khm-bar h2 {
+  margin-right: 8px;
+}
+
+.khm-status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.khm-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--kui-ok);
+}
+
+.khm-page {
+  display: flex;
+  max-width: 1180px;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  padding: 26px 22px 18px;
+}
+
+.khm-hello {
+  padding: 0 2px 4px;
+}
+
+.khm-hello h1 {
+  font-size: calc(22px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.khm-hello p {
+  margin-top: 4px;
+  color: var(--kc-muted);
+  line-height: 1.6;
+}
+
+.khm-state {
+  padding: 64px 16px;
+}
+
+.khm-state .kui-btn {
+  margin-top: 8px;
+}
+
+.khm-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 社区概况：两排数字，格子之间只隔发丝线 */
+.khm-wall {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.khm-wall > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 20px 15px;
+}
+
+.khm-wall > div + div {
+  box-shadow: -1px 0 0 var(--kc-border);
+}
+
+:is(.khm-wall, .khm-pulse) span {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+:is(.khm-wall, .khm-pulse) strong {
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.khm-wall strong {
+  font-size: calc(30px * var(--kui-fs));
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.khm-pulse {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 2%, transparent);
+}
+
+.khm-pulse > div {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 7px 8px;
+  padding: 13px 20px 14px;
+}
+
+.khm-pulse > div + div {
+  box-shadow: -1px 0 0 var(--kc-border);
+}
+
+.khm-pulse strong {
+  font-size: calc(15px * var(--kui-fs));
+  letter-spacing: -0.02em;
+}
+
+.khm-pulse-week strong {
+  color: var(--kc-accent);
+}
+
+.khm-pulse small {
+  overflow: hidden;
+  grid-column: 1 / -1;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.khm-meter {
+  height: 3px;
+  overflow: hidden;
+  grid-column: 1 / -1;
+  border-radius: 1.5px;
+  background: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+.khm-meter b {
+  display: block;
+  min-width: 3px;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--kc-text) 38%, transparent);
+}
+
+.khm-pulse-week .khm-meter b {
+  background: var(--kc-accent);
+}
+
+.khm-footnote {
+  margin-top: -6px;
+  padding: 0 2px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.khm-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 328px;
+  align-items: start;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.khm-section {
+  min-width: 0;
+  padding-bottom: 6px;
+  scroll-margin-top: 14px;
+}
+
+.khm-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 8px 18px;
+}
+
+.khm-section-head > div {
+  min-width: 0;
+}
+
+.khm-section-head h3 {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.khm-section-head p {
+  margin-top: 1px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.55;
+}
+
+.khm-more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding-top: 2px;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .khm-more {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 人气群聊：一行一个群，名次、头像、名称和简介、三个数字、操作 */
+.khm-groups {
+  padding: 0 10px;
+}
+
+.khm-group {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 22px auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 10px 8px;
+}
+
+.khm-group + .khm-group {
+  border-top: 1px solid var(--kc-border);
+}
+
+.khm-group-rank {
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.khm-group-rank.is-top {
+  color: var(--kc-accent);
+}
+
+.khm-group-text {
+  min-width: 0;
+}
+
+.khm-group-text h4 {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.khm-group-text h4 span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.khm-group-text h4 em {
+  font-style: normal;
+}
+
+.khm-group-text p {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.khm-group-text .khm-group-error {
+  color: var(--kui-danger);
+  white-space: normal;
+}
+
+.khm-group-figures {
+  display: flex;
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.khm-group-figures span {
+  display: flex;
+  width: 66px;
+  flex-direction: column;
+  align-items: flex-end;
+  white-space: nowrap;
+}
+
+.khm-group-figures strong {
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.khm-group > .kui-btn {
+  min-width: 76px;
+  margin-left: 6px;
+}
+
+/* 入驻的创作者 */
+.khm-creators {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  padding: 0 10px;
+}
+
+.khm-creator {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  padding: 8px;
+  border-radius: var(--kui-r-md);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.khm-creator:hover {
+  background: var(--kc-hover);
+}
+
+.khm-creator:active {
+  background: var(--kc-active);
+}
+
+.khm-creator-avatar {
+  position: relative;
+  flex: none;
+}
+
+/* 头像右下角的认证标记 */
+.khm-creator-avatar i {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  display: grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kui-fill);
+  box-shadow: 0 0 0 2px var(--kc-chat-surface);
+  color: var(--kui-on-fill);
+}
+
+.khm-creator-avatar svg {
+  width: 9px;
+  height: 9px;
+  stroke-width: 3;
+}
+
+.khm-creator-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.khm-creator-text strong,
+.khm-creator-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.khm-creator-text strong {
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.khm-creator-text span {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.khm-creator-figures {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.khm-creator-figures b {
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.khm-foot {
+  padding: 10px 0 4px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  text-align: center;
+}
+
+/* 加群申请 */
+.khm-join {
+  max-width: 440px;
+}
+
+.khm-join-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.khm-join-question {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.khm-join-hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+@container (max-width: 980px) {
+  .khm-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (max-width: 760px) {
+  .khm-wall {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .khm-wall > div:nth-child(3) {
+    box-shadow: none;
+  }
+
+  .khm-wall > div:nth-child(n + 3) {
+    border-top: 1px solid var(--kc-border);
+  }
+
+  .khm-pulse {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .khm-pulse-week {
+    grid-column: 1 / -1;
+  }
+
+  .khm-pulse > div:nth-child(n + 2) {
+    border-top: 1px solid var(--kc-border);
+  }
+
+  .khm-pulse > div:nth-child(2n) {
+    box-shadow: none;
+  }
+
+  /* 三个数字挪到简介下面排成一行 */
+  .khm-group {
+    grid-template-columns: 22px auto minmax(0, 1fr) auto;
+  }
+
+  .khm-group-figures {
+    gap: 14px;
+    grid-column: 3 / -1;
+    grid-row: 2;
+  }
+
+  .khm-group-figures span {
+    width: auto;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .khm-page {
+    padding: 18px 12px 12px;
+  }
+}
+
+/* ───────── 收藏 ───────── */
+
+.kfv-bar p {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 筛选项后面的条数 */
+.kfv-bar .kui-segment span {
+  margin-left: 5px;
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kfv-page {
+  display: flex;
+  max-width: 820px;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+  padding: 18px 22px 24px;
+}
+
+.kfv-state {
+  padding: 72px 16px;
+}
+
+.kfv-item {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px 13px;
+}
+
+.kfv-item + .kfv-item {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kfv-item-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.kfv-item-head {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.kfv-item-head strong {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kfv-item-head time {
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* 消息内容由聊天里的预览渲染函数给出，这里只管它外面的间距和选字 */
+.kfv-item-content {
+  min-width: 0;
+  max-width: 560px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* 这条消息来自哪个会话：会话头像缩成一个小标记 */
+.kfv-item-from {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kfv-item-from > :first-child {
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+}
+
+.kfv-item-from span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kfv-item-from span:last-child {
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+.kfv-item-from span:last-child::before {
+  margin-right: 6px;
+  content: '·';
+}

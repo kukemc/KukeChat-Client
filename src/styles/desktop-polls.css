@@ -1,0 +1,310 @@
+/* 桌面端：投票（基础样式见 kui.css）。 */
+
+/* ───────── 投票卡 ───────── */
+
+.kcp-card {
+  display: flex;
+  width: 340px;
+  max-width: 100%;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kui-r-md);
+  background: var(--kc-panel);
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+  text-align: left;
+}
+
+/* 多选消息时整行都是「勾选这条消息」，卡片里的按钮不该再响应 */
+.kcd-row.is-selecting .kcp-card {
+  pointer-events: none;
+}
+
+.kcp-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.kcp-head-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 3px;
+  color: var(--kc-accent);
+}
+
+.kcp-title {
+  min-width: 0;
+  flex: 1;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* 和标题文字左对齐（图标 16px + 间距 8px） */
+.kcp-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: -6px;
+  padding-left: 24px;
+}
+
+.kcp-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 一个选项是一整条：左边是投票的按钮，右边是票数；进度铺在条的内部、文字的下面 */
+.kcp-option {
+  position: relative;
+  display: flex;
+  min-height: 36px;
+  overflow: hidden;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm);
+  isolation: isolate;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.kcp-card:not(.is-closed) .kcp-option:hover {
+  border-color: color-mix(in srgb, var(--kc-accent) 50%, transparent);
+  background: var(--kc-hover);
+}
+
+.kcp-option.is-selected,
+.kcp-card:not(.is-closed) .kcp-option.is-selected:hover {
+  border-color: var(--kc-accent);
+}
+
+.kcp-option-fill {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--kui-tint);
+  transition: width 240ms ease;
+}
+
+.kcp-option.is-selected .kcp-option-fill {
+  background: color-mix(in srgb, var(--kc-accent) 24%, transparent);
+}
+
+.kcp-option-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  text-align: left;
+}
+
+/* 把按钮的点击范围撑满整条，票数那一侧的空白也能点 */
+.kcp-option-main::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+}
+
+.kcp-option-main:disabled {
+  cursor: default;
+}
+
+.kcp-mark {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  place-items: center;
+  border: 1.5px solid var(--kc-border-strong);
+  border-radius: 50%;
+  /* 垫一层底色：进度铺到勾选框下面时，空框还是看得清 */
+  background: var(--kc-panel);
+  color: var(--kc-accent-contrast, #ffffff);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.kcp-mark--multi {
+  border-radius: 4px;
+}
+
+.kcp-option.is-selected .kcp-mark {
+  border-color: var(--kc-accent);
+  background: var(--kc-accent);
+}
+
+/* 结束后不能再选：没投过就不留勾选位；投过的只留自己选的那几项，其余占位保持文字对齐 */
+.kcp-card.is-closed .kcp-mark {
+  display: none;
+}
+
+.kcp-card.is-closed.is-voted .kcp-mark {
+  display: grid;
+}
+
+.kcp-card.is-closed .kcp-option:not(.is-selected) .kcp-mark {
+  visibility: hidden;
+}
+
+.kcp-option-text {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.kcp-option.is-leading .kcp-option-text {
+  font-weight: 600;
+}
+
+.kcp-option-count {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 2px;
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .kcp-option-count {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+button.kcp-option-count:hover {
+  color: var(--kc-accent);
+}
+
+.kcp-option-percent {
+  min-width: 4ch;
+  color: var(--kc-text);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* 高度按小号按钮留足：按钮出现和消失时卡片不变高，消息列表不会跟着跳 */
+.kcp-foot {
+  display: flex;
+  min-height: 26px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.kcp-foot-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kcp-foot-number {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── 对话框：发起投票、投票人 ───────── */
+
+.kcp-dialog {
+  max-width: 420px;
+}
+
+.kcp-dialog-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcp-field {
+  display: block;
+}
+
+.kcp-field + .kcp-field {
+  margin-top: 14px;
+}
+
+.kcp-field-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kcp-field-count {
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kcp-option-edits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kcp-option-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kcp-add-option {
+  margin-top: 6px;
+}
+
+.kcp-settings {
+  margin-top: 12px;
+  border-top: 1px solid var(--kc-border);
+}
+
+/* 放在底栏左侧：选项多到内容区滚动时，报错也一直看得见 */
+.kcp-form-error {
+  min-width: 0;
+  flex: 1;
+  color: var(--kui-danger);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.kcp-voters-total {
+  margin-bottom: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kcp-voter {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.kcp-voter + .kcp-voter {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kcp-voter-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcp-voters-more {
+  margin-top: 10px;
+}

@@ -3,10 +3,10 @@ import type { TaskGroup, TaskPriority, User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { PRIORITY_META, PRIORITY_ORDER, formatDueLabel } from './taskConstants';
+import { useDuePicker } from './taskPanelHooks';
+import { REMIND_OPTIONS, WEEKDAYS, filterMembers, isSameDay } from './taskPanelModel';
 
-function pad(value: number): string {
-  return value < 10 ? `0${value}` : String(value);
-}
+// 移动端用的任务表单控件。桌面版的在 desktop/pickers.tsx，状态和筛选逻辑两边共用。
 
 // Transparent full-screen layer that closes the popover when clicking outside it.
 // Reliable inside nested modals/drawers (no document listener / contains() ambiguity).
@@ -27,13 +27,7 @@ export function MemberSelect({ members, selectedIds, onChange, placeholder, disa
   const [query, setQuery] = useState('');
 
   const selected = useMemo(() => members.filter((user) => selectedIds.includes(user.id)), [members, selectedIds]);
-  const filtered = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) {
-      return members;
-    }
-    return members.filter((user) => getDisplayName(user).toLowerCase().includes(keyword) || (user.username ?? '').toLowerCase().includes(keyword));
-  }, [members, query]);
+  const filtered = useMemo(() => filterMembers(members, query), [members, query]);
 
   function toggle(id: number): void {
     onChange(selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]);
@@ -230,16 +224,6 @@ export function PrioritySelect({ value, onChange }: { value: TaskPriority; onCha
   );
 }
 
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
-
-export const REMIND_OPTIONS: { label: string; value: number | null }[] = [
-  { label: '不提醒', value: null },
-  { label: '截止时', value: 0 },
-  { label: '提前 30 分钟', value: 30 },
-  { label: '提前 1 小时', value: 60 },
-  { label: '提前 1 天', value: 1440 }
-];
-
 interface DueDatePickerProps {
   dueAt: Date | null;
   remindOffset: number | null;
@@ -248,50 +232,8 @@ interface DueDatePickerProps {
 
 export function DueDatePicker({ dueAt, remindOffset, onChange }: DueDatePickerProps): JSX.Element {
   const [open, setOpen] = useState(false);
-  const [viewMonth, setViewMonth] = useState(() => {
-    const base = dueAt ?? new Date();
-    return new Date(base.getFullYear(), base.getMonth(), 1);
-  });
-  const [hasTime, setHasTime] = useState(() => (dueAt ? !(dueAt.getHours() === 0 && dueAt.getMinutes() === 0) : true));
-  const [timeStr, setTimeStr] = useState(() => (dueAt ? `${pad(dueAt.getHours())}:${pad(dueAt.getMinutes())}` : '18:00'));
+  const { viewMonth, shiftMonth, cells, hasTime, setHasTime, time: timeStr, setTime, pickDate, pickQuick: quick, setRemind } = useDuePicker(dueAt, remindOffset, onChange);
 
-  const cells = useMemo(() => {
-    const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
-    const gridStart = new Date(first);
-    gridStart.setDate(1 - first.getDay());
-    return Array.from({ length: 42 }, (_, index) => {
-      const date = new Date(gridStart);
-      date.setDate(gridStart.getDate() + index);
-      return date;
-    });
-  }, [viewMonth]);
-
-  function emit(date: Date | null, nextHasTime: boolean, nextTime: string, nextRemind: number | null): void {
-    if (!date) {
-      onChange(null, null);
-      return;
-    }
-    const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    if (nextHasTime) {
-      const [h, m] = nextTime.split(':').map((value) => Number(value));
-      result.setHours(Number.isFinite(h) ? h : 18, Number.isFinite(m) ? m : 0, 0, 0);
-    } else {
-      result.setHours(0, 0, 0, 0);
-    }
-    onChange(result, nextRemind);
-  }
-
-  function quick(kind: 'today' | 'tomorrow'): void {
-    const date = new Date();
-    if (kind === 'tomorrow') {
-      date.setDate(date.getDate() + 1);
-    }
-    setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
-    emit(date, hasTime, timeStr, remindOffset);
-  }
-
-  const isSameDay = (a: Date, b: Date | null): boolean =>
-    Boolean(b) && a.getFullYear() === b!.getFullYear() && a.getMonth() === b!.getMonth() && a.getDate() === b!.getDate();
   const today = new Date();
   const label = dueAt ? formatDueLabel(dueAt.toISOString()) : '';
 
@@ -322,8 +264,8 @@ export function DueDatePicker({ dueAt, remindOffset, onChange }: DueDatePickerPr
             <div className="mb-1 flex items-center justify-between">
               <span className="text-sm font-medium [color:var(--kc-text)]">{viewMonth.getFullYear()}年 {viewMonth.getMonth() + 1}月</span>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} className="grid h-6 w-6 place-items-center rounded-md hover:[background:var(--kc-hover)]"><Icon name="chevronLeft" className="h-4 w-4 [color:var(--kc-muted)]" /></button>
-                <button type="button" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))} className="grid h-6 w-6 place-items-center rounded-md hover:[background:var(--kc-hover)]"><Icon name="chevron" className="h-4 w-4 [color:var(--kc-muted)]" /></button>
+                <button type="button" onClick={() => shiftMonth(-1)} className="grid h-6 w-6 place-items-center rounded-md hover:[background:var(--kc-hover)]"><Icon name="chevronLeft" className="h-4 w-4 [color:var(--kc-muted)]" /></button>
+                <button type="button" onClick={() => shiftMonth(1)} className="grid h-6 w-6 place-items-center rounded-md hover:[background:var(--kc-hover)]"><Icon name="chevron" className="h-4 w-4 [color:var(--kc-muted)]" /></button>
               </div>
             </div>
 
@@ -339,7 +281,7 @@ export function DueDatePicker({ dueAt, remindOffset, onChange }: DueDatePickerPr
                   <button
                     key={index}
                     type="button"
-                    onClick={() => emit(date, hasTime, timeStr, remindOffset)}
+                    onClick={() => pickDate(date)}
                     className={`grid h-8 place-items-center rounded-lg text-xs transition ${selected ? 'text-white [background:var(--kc-accent)]' : isToday ? '[color:var(--kc-accent)] [background:var(--kc-accent-soft)]' : inMonth ? '[color:var(--kc-text)] hover:[background:var(--kc-hover)]' : '[color:var(--kc-muted)] opacity-50 hover:[background:var(--kc-hover)]'}`}
                   >
                     {date.getDate()}
@@ -352,24 +294,14 @@ export function DueDatePicker({ dueAt, remindOffset, onChange }: DueDatePickerPr
               <input
                 type="checkbox"
                 checked={hasTime}
-                onChange={(event) => {
-                  setHasTime(event.target.checked);
-                  if (dueAt) {
-                    emit(dueAt, event.target.checked, timeStr, remindOffset);
-                  }
-                }}
+                onChange={(event) => setHasTime(event.target.checked)}
               />
               具体时间
               {hasTime ? (
                 <input
                   type="time"
                   value={timeStr}
-                  onChange={(event) => {
-                    setTimeStr(event.target.value);
-                    if (dueAt) {
-                      emit(dueAt, true, event.target.value, remindOffset);
-                    }
-                  }}
+                  onChange={(event) => setTime(event.target.value)}
                   className="ml-auto rounded-md border px-2 py-0.5 text-xs [background:var(--kc-panel)] [border-color:var(--kc-border)] [color:var(--kc-text)]"
                 />
               ) : null}
@@ -380,10 +312,7 @@ export function DueDatePicker({ dueAt, remindOffset, onChange }: DueDatePickerPr
               <span className="[color:var(--kc-muted)]">提醒</span>
               <select
                 value={remindOffset === null ? '' : String(remindOffset)}
-                onChange={(event) => {
-                  const next = event.target.value === '' ? null : Number(event.target.value);
-                  emit(dueAt, hasTime, timeStr, next);
-                }}
+                onChange={(event) => setRemind(event.target.value === '' ? null : Number(event.target.value))}
                 className="ml-auto rounded-md border px-2 py-0.5 text-xs [background:var(--kc-panel)] [border-color:var(--kc-border)] [color:var(--kc-text)]"
               >
                 {REMIND_OPTIONS.map((option) => (

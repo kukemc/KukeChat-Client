@@ -1,0 +1,740 @@
+/* 桌面端：风纪 · 议事厅（src/components/jury/hall）。由 desktop-jury-senior.css 引入；基础样式见 kui.css 和 desktop-jury.css。
+ *
+ * 议事厅是实名的公开讨论区：这里有圆头像和昵称，和案件里方形的匿名代号标记刻意不同。类名前缀 kjr-hall-。
+ * 评论区的骨架（.kjr-thread / .kjr-op-head / .kjr-op-body / .kjr-op-actions / .kjr-composer）直接用观点区的，这里只补头像那一列。
+ * 文件顺序：版式 → 人 → 列表 → 帖子 → 表决 → 评论 → 发帖 → 窄窗口。
+ */
+
+/* ───────── 版式 ───────── */
+
+.kjr-hall-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: 14px;
+}
+
+.kjr-hall-main,
+.kjr-hall-side {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kjr-hall-layout .kui-note .kui-link {
+  margin-left: 6px;
+}
+
+/* 「这里是实名的」：一条贴着画布的面，左边压一道强调色，和质控题反馈是同一种做法 */
+.kjr-hall-realname {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 14px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kc-accent);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.7;
+}
+
+.kjr-hall-realname > svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--kc-accent);
+}
+
+.kjr-hall-realname b {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+/* 侧栏：我能做什么、守则、提案怎么算 */
+.kjr-hall-guide {
+  padding-top: 4px;
+  padding-bottom: 6px;
+}
+
+.kjr-hall-guide-block {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0;
+}
+
+.kjr-hall-guide-block + .kjr-hall-guide-block {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-hall-guide-block .kjr-h {
+  margin-bottom: 0;
+}
+
+.kjr-hall-guide-block .kui-btn {
+  justify-self: start;
+}
+
+.kjr-hall-can {
+  display: grid;
+  gap: 4px;
+}
+
+.kjr-hall-can li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kjr-hall-can li svg {
+  flex: none;
+}
+
+.kjr-hall-can li.is-ok svg {
+  color: var(--kui-ok);
+}
+
+.kjr-hall-can li.is-no {
+  color: var(--kc-subtle);
+}
+
+/* ───────── 人：圆头像 + 昵称 ───────── */
+
+.kjr-hall-person {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.kjr-hall-person b {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.kjr-hall-person:hover:not(:disabled) b {
+  color: var(--kc-accent);
+}
+
+button.kjr-hall-person:disabled {
+  cursor: default;
+}
+
+.kjr-hall-face {
+  display: block;
+  flex: none;
+}
+
+/* Avatar 组件只有 32 / 40 两档小尺寸；回复和列表里要更小的。选择器加一层是为了压过它自己的工具类 */
+.kjr .kjr-hall-person.is-xs .kjr-hall-face > * {
+  width: 22px;
+  height: 22px;
+  font-size: calc(10.5px * var(--kui-fs));
+}
+
+.kjr-hall-person.is-xs {
+  gap: 6px;
+}
+
+/* 「回复 某某」里的名字：只是一段可以点的文字 */
+.kjr-hall-person.is-name {
+  display: inline;
+}
+
+/* ───────── 列表 ───────── */
+
+.kjr-hall-sort {
+  margin-left: auto;
+}
+
+.kjr-hall-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 -8px;
+}
+
+.kjr-hall-list > li + li {
+  box-shadow: 0 -1px 0 var(--kc-border);
+}
+
+/* 悬停的那一行盖住自己上下的发丝线，圆角底才完整 */
+.kjr-hall-list > li:has(> .kjr-hall-row:hover),
+.kjr-hall-list > li:has(> .kjr-hall-row:hover) + li {
+  box-shadow: none;
+}
+
+.kjr-hall-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.kjr-hall-row:hover {
+  background: var(--kc-hover);
+}
+
+.kjr-hall-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kjr-hall-row-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.kjr-hall-row-title {
+  min-width: 0;
+  margin-left: 2px;
+  overflow: hidden;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kjr-hall-row-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.kjr-hall-row-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  margin-top: 3px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-hall-row-meta .kjr-hall-person b {
+  max-width: 14em;
+  color: var(--kc-muted);
+}
+
+.kjr-hall-row-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#kukechat-root [data-font-scale] .kjr-hall-row {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* 提案行右侧的表决缩略 */
+.kjr-hall-mini {
+  display: grid;
+  width: 176px;
+  flex: none;
+  gap: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-hall-mini-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kjr-hall-mini-top b {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+.kjr-hall-mini-top em {
+  margin-left: auto;
+  color: var(--kc-accent);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-style: normal;
+}
+
+.kjr-hall-mini-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.kjr-hall-mini-foot .is-short {
+  color: var(--kui-warn);
+}
+
+/* ───────── 帖子 ───────── */
+
+.kjr-hall-post {
+  padding: 20px 22px 12px;
+}
+
+.kjr-hall-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kjr-hall-post-title {
+  margin-top: 8px;
+  font-size: calc(20px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.kjr-hall-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 12px;
+}
+
+.kjr-hall-byline-time {
+  margin-left: auto;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-hall-post-body {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--kc-border);
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kjr-hall-post > .kui-note {
+  margin-top: 14px;
+}
+
+.kjr-hall-post-foot {
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-hall-post-foot .kjr-meta {
+  margin: 0 8px;
+}
+
+/* ───────── 表决 ───────── */
+
+/* 比例条：赞成 / 反对两段，上面压一条竖线是通过线 */
+.kjr-hall-bar {
+  position: relative;
+  display: block;
+  padding: 3px 0;
+}
+
+.kjr-hall-bar-track {
+  display: flex;
+  height: 10px;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+.kjr-hall-bar.is-mini .kjr-hall-bar-track {
+  height: 6px;
+  border-radius: 2px;
+}
+
+.kjr-hall-bar-track i {
+  min-width: 3px;
+  border-radius: 2px;
+}
+
+.kjr-hall-bar-track i.is-yes,
+.kjr-hall-legend i.is-yes {
+  background: var(--kui-ok);
+}
+
+.kjr-hall-bar-track i.is-no,
+.kjr-hall-legend i.is-no {
+  background: var(--kui-danger);
+}
+
+.kjr-hall-bar-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--kc-text);
+  box-shadow: 0 0 0 1.5px var(--kc-chat-surface);
+}
+
+.kjr-hall-vote {
+  padding-bottom: 6px;
+}
+
+/* 三步：委员表决 → 表决结果 → 管理员采纳。圆点之间的连线在走到那一步时变成强调色 */
+.kjr-hall-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-bottom: 14px;
+}
+
+.kjr-hall-steps li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-align: center;
+}
+
+.kjr-hall-steps li + li::before {
+  position: absolute;
+  top: 10px;
+  right: calc(50% + 16px);
+  left: calc(-50% + 16px);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--kc-border-strong);
+  content: '';
+}
+
+.kjr-hall-steps li:is(.is-done, .is-current, .is-fail)::before {
+  background: var(--kui-fill);
+}
+
+.kjr-hall-steps i {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--kc-border-strong);
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-hall-steps li.is-done i {
+  background: var(--kui-ok);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.kjr-hall-steps li.is-current i {
+  background: var(--kui-fill);
+  box-shadow: none;
+  color: var(--kui-on-fill);
+}
+
+.kjr-hall-steps li.is-fail i {
+  background: color-mix(in srgb, var(--kui-danger) 13%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--kui-danger);
+  color: var(--kui-danger);
+}
+
+.kjr-hall-steps li.is-off {
+  opacity: 0.5;
+}
+
+.kjr-hall-steps li:is(.is-done, .is-current, .is-fail) > span {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+.kjr-hall-steps small {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.kjr-hall-vote-block {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-hall-vote-block .kjr-h {
+  margin-bottom: 0;
+}
+
+.kjr-hall-ratio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kjr-hall-ratio strong {
+  font-size: calc(30px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.kjr-hall-ratio span {
+  display: grid;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.4;
+}
+
+.kjr-hall-ratio small {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-hall-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kjr-hall-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.kjr-hall-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.kjr-hall-legend b {
+  color: var(--kc-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kjr-hall-legend-line {
+  margin-left: auto;
+}
+
+.kjr-hall-legend-line i {
+  width: 2px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--kc-text);
+}
+
+.kjr-hall-vote-summary {
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.7;
+}
+
+.kjr-hall-vote-error {
+  margin-bottom: 10px;
+}
+
+.kjr-hall-ballots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kjr-hall-ballot {
+  display: flex;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--kui-r-md);
+  box-shadow: inset 0 0 0 1px var(--kc-border-strong);
+  font-weight: 600;
+  transition: background-color 80ms ease, box-shadow 80ms ease;
+}
+
+.kjr-hall-ballot:hover:not(:disabled) {
+  background: var(--kc-hover);
+}
+
+.kjr-hall-ballot:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.kjr-hall-ballot.is-yes svg {
+  color: var(--kui-ok);
+}
+
+.kjr-hall-ballot.is-no svg {
+  color: var(--kui-danger);
+}
+
+.kjr-hall-ballot.is-yes.is-selected {
+  background: color-mix(in srgb, var(--kui-ok) 12%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--kui-ok);
+  color: var(--kui-ok);
+}
+
+.kjr-hall-ballot.is-no.is-selected {
+  background: color-mix(in srgb, var(--kui-danger) 10%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--kui-danger);
+  color: var(--kui-danger);
+}
+
+#kukechat-root [data-font-scale] .kjr-hall-ballot {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* ───────── 评论 ───────── */
+
+/* 头像和昵称在同一行，正文和操作缩进到昵称下面 */
+.kjr-hall-cm-main {
+  padding-left: 40px;
+}
+
+.kjr-hall-cm.is-reply {
+  margin: 12px 0 0 40px;
+}
+
+.kjr-hall-cm.is-reply .kjr-hall-cm-main {
+  padding-left: 28px;
+}
+
+.kjr-hall-cm .kjr-op-body {
+  margin-top: 0;
+}
+
+.kjr-hall-comments .kjr-thread-reply {
+  margin-left: 40px;
+}
+
+.kjr-hall-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+/* ───────── 发帖 ───────── */
+
+.kjr-hall-form {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.kjr-hall-kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kjr-hall-kinds .kjr-opt {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.kjr-hall-field {
+  display: grid;
+}
+
+.kjr-hall-field .kjr-h {
+  margin-bottom: 6px;
+}
+
+#kukechat-root [data-font-scale] .kjr-hall-field .kui-input {
+  height: 36px;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 600;
+}
+
+#kukechat-root [data-font-scale] .kjr-hall-textarea {
+  min-height: 300px;
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1.8;
+}
+
+.kjr-hall-leave {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+/* ───────── 窄窗口 ───────── */
+
+@container kjr (max-width: 1060px) {
+  .kjr-hall-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 单栏时两栏里的每一块各自参与排序，读的顺序是：正文 → 表决 → 评论 → 说明。
+     发帖页反过来，守则要在动笔之前看到。 */
+  .kjr-hall-main,
+  .kjr-hall-side {
+    display: contents;
+  }
+
+  .kjr-hall-vote {
+    order: 1;
+  }
+
+  .kjr-hall-comments {
+    order: 2;
+  }
+
+  .kjr-hall-guide {
+    order: 3;
+  }
+
+  .kjr-hall-layout.is-editor .kjr-hall-side > * {
+    order: -1;
+  }
+
+  .kjr-hall-leave {
+    order: -2;
+  }
+
+  .kjr-hall-mini {
+    width: 152px;
+  }
+}
+
+@container kjr (max-width: 860px) {
+  .kjr-hall-row {
+    gap: 14px;
+  }
+
+  .kjr-hall-kinds {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

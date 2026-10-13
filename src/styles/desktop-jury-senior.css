@@ -1,0 +1,468 @@
+/* 桌面端：风纪 · 资深工作台、判例、议事厅（基础样式见 kui.css 和 desktop-jury.css）。 */
+/* 文件顺序：资深工作台（合议、申诉复审）→ 判例 → 散在别处的小件（来源标记、申诉进度、举报复议）。
+ * 颜色只用主题令牌；贴着画布的面用 --kc-chat-surface，和 desktop-jury.css 里的卡片是同一种面。 */
+
+/* ───────── 资深工作台 ───────── */
+
+/* 合议 / 复审的键盘范围：外框的标题栏在它外面，所以要自己撑满剩下的高度 */
+.kjr-senior-scope {
+  flex: 1;
+}
+
+/* 页签上的件数：和导航角标同一个红，但小一号 */
+.kjr-senior-count {
+  display: inline-grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--kui-unread);
+  color: #ffffff;
+  font-size: calc(10.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 不带语气的提示条（.kjr-flash 默认是「成功」的淡绿底） */
+.kjr-flash--plain {
+  background: var(--kc-chat-surface);
+  color: var(--kc-muted);
+}
+
+/* 投完之后顶上的一条：结果一句话 + 下一件 */
+.kjr-senior-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 18px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kui-ok);
+}
+
+.kjr-senior-done p {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 320px;
+  gap: 1px;
+}
+
+.kjr-senior-done b {
+  font-weight: 700;
+}
+
+.kjr-senior-done span {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-senior-short {
+  margin: 10px 0 6px;
+  text-align: left;
+}
+
+/* 「为什么来到合议」：这一块是合议委员最先要读的，左边压一道强调色，和质控题反馈是同一种做法 */
+.kjr-panel-why {
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kc-accent);
+}
+
+.kjr-panel-why .kjr-text {
+  margin-bottom: 12px;
+}
+
+.kjr-panel-why .kjr-seats {
+  margin-right: 0;
+}
+
+.kjr-panel-rule {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-panel-anon {
+  margin: -4px 0 8px;
+}
+
+/* 原审观点按票分组：每组一个小标题，组与组之间一条发丝线 */
+.kjr-origin-group + .kjr-origin-group {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-origin-group h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-origin-group .kjr-thread {
+  padding: 10px 0;
+}
+
+.kjr-origin-group .kjr-thread:last-child {
+  padding-bottom: 0;
+}
+
+/* 只读的观点：赞同数留着当参考，但不是按钮的样子 */
+.kjr-origin-group .kjr-op-btn:disabled {
+  opacity: 1;
+  color: var(--kc-subtle);
+}
+
+/* 复审：原处罚 / 原结论的几项事实，两列排开 */
+.kjr-review-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px;
+}
+
+.kjr-review-facts dt {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kjr-review-facts dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 当事人自己写的话：复审的起点，放在最前面，字比说明文字大一号 */
+.kjr-review-statement {
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kc-accent);
+}
+
+.kjr-review-statement .kjr-quote {
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1.8;
+}
+
+.kjr-review-statement .kjr-quiet,
+.kjr-review-nocase {
+  margin-top: 8px;
+}
+
+.kjr-review-sub {
+  margin-top: 10px;
+}
+
+/* 没有键帽的选项（改判的等级）：少一列 */
+.kjr-opt--plain {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.kjr-table--reviews .kjr-tr {
+  grid-template-columns: 96px minmax(120px, 1.4fr) 104px 112px 64px 132px;
+}
+
+/* 编号后面跟的小标记（公示栏的「判例」、我的评审里的「合议」） */
+.kjr-td-id > .kui-tag {
+  margin-left: 5px;
+  vertical-align: 1px;
+}
+
+/* ───────── 机器来源的案件 ───────── */
+
+.kjr-origin-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kjr-origin-machine {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.kjr-origin-machine svg {
+  flex: none;
+  color: var(--kc-accent);
+}
+
+/* ───────── 判例 ───────── */
+
+.kjr-prec-total {
+  margin-left: auto;
+}
+
+.kjr-prec-list {
+  display: grid;
+  margin: 0 -8px;
+}
+
+.kjr-prec-list > li + li {
+  box-shadow: 0 -1px 0 var(--kc-border);
+}
+
+/* 悬停的那一行盖住自己上下的发丝线，圆角底才完整 */
+.kjr-prec-list > li:has(> .kjr-prec-row:hover),
+.kjr-prec-list > li:has(> .kjr-prec-row:hover) + li {
+  box-shadow: none;
+}
+
+.kjr-prec-row {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 4px;
+  padding: 12px 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.kjr-prec-row:hover {
+  background: var(--kc-hover);
+}
+
+.kjr-prec-title {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.kjr-prec-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.kjr-prec-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 3px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-prec-meta > span:last-child {
+  margin-left: 4px;
+}
+
+#kukechat-root [data-font-scale] .kjr-prec-row {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* 判例正文：像一页文书 —— 小字眉题、大标题、宽行距的正文 */
+.kjr-prec-doc {
+  padding: 22px 24px 24px;
+}
+
+.kjr-prec-kicker {
+  color: var(--kc-accent);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.kjr-prec-headline {
+  margin-top: 6px;
+  font-size: calc(20px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.kjr-prec-summary {
+  max-width: 720px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--kc-border);
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kjr-prec-link {
+  max-width: 100%;
+  justify-self: start;
+}
+
+.kjr-prec-link span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 写裁判要旨的对话框（挂在页面外面，所以字号变量自己带） */
+.kjr-prec-editor {
+  --kui-fs: var(--kc-font-multiplier, 1);
+  display: grid;
+  gap: 14px;
+}
+
+.kjr-prec-field {
+  display: grid;
+  gap: 6px;
+}
+
+.kjr-prec-field > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kjr-prec-field small {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kjr-prec-editor .kui-textarea {
+  line-height: 1.75;
+}
+
+/* ───────── 申诉进度（设置 · 处罚与申诉，src/components/moderation/AppealProgress.tsx） ───────── */
+
+.kcm-appeal {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--kui-r-md, 9px);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+/* 三步：圆点 + 文字，中间用线连起来。走过的是实心，正在走的是强调色的环 */
+.kcm-appeal-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 0;
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kcm-appeal-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--kc-subtle);
+}
+
+.kcm-appeal-steps li + li::before {
+  width: 28px;
+  height: 1px;
+  margin: 0 8px;
+  background: var(--kc-border-strong);
+  content: '';
+}
+
+.kcm-appeal-steps i {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--kc-border-strong);
+}
+
+.kcm-appeal-steps li.is-done {
+  color: var(--kc-text);
+}
+
+.kcm-appeal-steps li.is-done i {
+  background: var(--kc-accent);
+  box-shadow: none;
+}
+
+.kcm-appeal-steps li.is-done + li::before {
+  background: var(--kc-accent);
+}
+
+.kcm-appeal-steps li.is-current {
+  color: var(--kc-accent);
+}
+
+.kcm-appeal-steps li.is-current i {
+  box-shadow: inset 0 0 0 2.5px var(--kc-accent);
+}
+
+/* ───────── 举报复议（设置 · 举报记录，src/components/settings/desktop/ReportReconsider.tsx） ───────── */
+
+.kst-reconsider {
+  --kui-fs: var(--kc-font-multiplier, 1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 12px;
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kst-reconsider > p {
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+p.kst-reconsider {
+  display: block;
+}
+
+p.kst-reconsider .kui-tag {
+  margin-right: 8px;
+}
+
+.kst-reconsider.is-writing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.kst-reconsider-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.kst-reconsider-btns {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ───────── 窄窗口 ───────── */
+
+@container kjr (max-width: 1060px) {
+  .kjr-table--reviews .kjr-tr > :nth-child(5) {
+    display: none;
+  }
+
+  .kjr-table--reviews .kjr-tr {
+    grid-template-columns: 88px minmax(104px, 1.4fr) 100px 108px 124px;
+  }
+
+  .kjr-prec-doc {
+    padding: 18px 18px 20px;
+  }
+}

@@ -1,10 +1,12 @@
+import type { UserCosmetics } from './shop';
+
 export type ConversationType = 'direct' | 'group';
 export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type GroupJoinRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type JoinMode = 'approval' | 'question' | 'invite_only' | 'open';
 export type MemberRole = 'owner' | 'admin' | 'member';
 export type MessageSetting = 'notify' | 'silent' | 'ignore';
-export type MessageType = 'text' | 'image' | 'sticker' | 'voice' | 'forward_bundle' | 'system';
+export type MessageType = 'text' | 'image' | 'sticker' | 'voice' | 'forward_bundle' | 'system' | 'poll';
 export type MessageSearchCategory = 'all' | 'text' | 'image' | 'sticker' | 'voice' | 'link' | 'forward_bundle' | 'system';
 export type MessageSearchMatchType = Exclude<MessageSearchCategory, 'all'>;
 export type ReportTargetType = 'message' | 'user' | 'conversation' | 'post';
@@ -60,8 +62,29 @@ export interface User {
   status?: 'active' | 'disabled';
   banned_until?: string | null;
   ban_reason?: string | null;
+  /** 是否向他人显示「我正在输入」，缺省视为 true */
+  share_typing?: boolean;
+  /** 别人戳我时用的动作（预设里的一个字），缺省视为「戳」 */
+  poke_action?: string;
+  /** 戳一戳时接在我名字后面的文案，缺省为空 */
+  poke_suffix?: string;
+  /** 公开展示的风纪委员层级：只有在任、且本人选择公开时才有值（docs/jury-v2.md 2.9） */
+  jury_badge?: 'trainee' | 'regular' | 'senior' | null;
+  /** 装备着的装扮（docs/shop.md 2.3）：没装备时是 {}，旧后端没有这个字段。里面的 style 要先校验再用 */
+  cosmetics?: UserCosmetics | null;
+  /** 账号等级（docs/account-level.md），0–256。旧后端没有这个字段，按没有等级处理；画图标前先过 readAccountLevel */
+  account_level?: number | null;
+  /** 资料累计收到的赞（docs/chat-features.md 第 6 节）。旧后端没有这个字段，按没有资料点赞处理 */
+  profile_like_count?: number | null;
   created_at?: string;
   updated_at?: string;
+}
+
+/** GET /users/poke-options：戳一戳的预设动作和后缀长度上限。 */
+export interface PokeOptions {
+  actions: string[];
+  default_action: string;
+  suffix_max_length: number;
 }
 
 export interface AuthToken {
@@ -138,6 +161,10 @@ export interface ProfileUpdatePayload {
   profile_card_style?: 'soft' | 'glass' | 'solid' | '';
   profile_accent_color?: string;
   profile_cover_url?: string;
+  share_typing?: boolean;
+  /** 传 null 或空串恢复默认 */
+  poke_action?: string | null;
+  poke_suffix?: string | null;
 }
 
 export interface OnlineCountRead {
@@ -392,6 +419,7 @@ export interface MessageMetadata {
   task_event?: TaskEventCardMetadata;
   ccw_creations?: CcwCreationPreview[];
   voice?: VoiceMessageMetadata;
+  poll?: import('./polls').Poll;
   [key: string]: unknown;
 }
 
@@ -706,11 +734,25 @@ export interface AccountSuspension {
   reason?: string | null;
   banned_until?: string | null;
   permanent: boolean;
+  /** 密码登录被拒时才有：30 分钟内可用它查看处罚并申诉 */
+  appeal_token?: string | null;
 }
 
 export interface TeamupSkillStat {
   skill: TeamupSkill;
   count: number;
+}
+
+/** 组队广场的统计，有没有进行中的赛季都返回。 */
+export interface TeamupStats {
+  /** 广场当前在展示的那一批（有赛季是本赛季的名片，没赛季是不属于任何赛季的），和广场列表、技能统计同一个范围 */
+  profile_count: number;
+  recruiting_count: number;
+  /** 以下是全部赛季合计，只算未删除、已通过审核的 */
+  total_profile_count: number;
+  total_recruiting_count: number;
+  total_view_count: number;
+  total_comment_count: number;
 }
 
 export interface TeamupCommentToggleRead {
@@ -748,10 +790,14 @@ export interface CreateReportPayload {
   target_id: number;
   reason: string;
   description?: string;
+  /** 与 description 同义，新接口用这个名字 */
+  details?: string;
   conversation_id?: number;
   message_id?: number;
   reported_user_id?: number;
   attachments?: string[];
+  /** 举报用户时选中的证据消息 */
+  evidence_message_ids?: number[];
 }
 
 export interface ReportRead {
@@ -772,6 +818,14 @@ export interface ReportRead {
   action?: string | null;
   reviewed_at?: string | null;
   created_at?: string;
+  case_id?: number | null;
+  /** 结案后给举报人看的结果，未结案时为 null */
+  result_title?: string | null;
+  result_text?: string | null;
+  /** 风纪 v2 三期（docs/jury-v2.md 3.7）：现在能不能对「不违规」的结论申请复议；后端没有复议能力时没有这两个字段 */
+  can_reconsider?: boolean;
+  /** none / pending 复议中 / upheld 维持原结论 / overturned 改判为违规 */
+  reconsider_status?: 'none' | 'pending' | 'upheld' | 'overturned' | (string & {}) | null;
 }
 
 export interface ConversationMember {
@@ -976,6 +1030,27 @@ export interface UpdateTaskPayload {
   clear_list?: boolean;
 }
 
+/** 公告下面的一种回应。只有数量，不展示是谁回应的。 */
+export interface AnnouncementReaction {
+  emoji: string;
+  count: number;
+  reacted_by_me: boolean;
+}
+
+/** 回应 / 取消回应之后服务端给的最新状态。 */
+export interface AnnouncementReactionState {
+  id: number;
+  reactions: AnnouncementReaction[];
+}
+
+/** `GET /announcements/reaction-options`：快捷回应和各项上限。 */
+export interface AnnouncementReactionOptions {
+  quick: string[];
+  per_user: number;
+  per_announcement: number;
+  per_minute: number;
+}
+
 export interface Announcement {
   id: number;
   title: string;
@@ -984,8 +1059,15 @@ export interface Announcement {
   is_active?: boolean;
   pinned?: boolean;
   author?: User | null;
+  /** 按数量从多到少。还没上这个功能的服务端不带这个字段，按空数组处理 */
+  reactions?: AnnouncementReaction[];
   created_at: string;
   updated_at: string;
+}
+
+export interface LevelTitleTier {
+  min_level: number;
+  title: string;
 }
 
 export interface Conversation {
@@ -1026,6 +1108,10 @@ export interface Conversation {
   my_do_not_disturb?: boolean;
   my_message_setting?: MessageSetting | null;
   pending_join_request_count?: number;
+  /** 是否在昵称旁显示等级头衔。由群主/管理员开启 */
+  level_titles_enabled?: boolean;
+  /** 生效的等级头衔分档，按 min_level 升序；群没自定义时是服务端的默认分档 */
+  level_titles?: LevelTitleTier[];
   joined?: boolean;
 }
 
@@ -1254,6 +1340,9 @@ export interface UpdateGroupSettingsPayload {
   join_question?: string | null;
   tasks_enabled?: boolean;
   task_creation_permission?: TaskCreationPermission;
+  level_titles_enabled?: boolean;
+  /** 整体替换；传空数组恢复默认分档 */
+  level_titles?: LevelTitleTier[];
 }
 
 export interface UpdateMyConversationSettingsPayload {

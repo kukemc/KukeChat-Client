@@ -1,0 +1,1465 @@
+/*
+ * 桌面端：动态（src/components/posts/desktop）。基础样式见 kui.css。
+ *
+ * 一页分三层：顶上一条栏（--kc-chat-surface），下面是画布（--kc-chat），画布上一列白色的帖子面；
+ * 帖子流右边另有一栏侧面（--kc-list），放自己的概况和热门话题。个人空间、大佬入住是盖在同一块
+ * 区域上的整页，骨架相同。面一律用 --kc-chat-surface：整窗背景图下它会变半透明，不会糊成实心白块。
+ */
+
+.kpo {
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kpo {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  /* 画布色（--kc-chat）由外层的 <main> 铺。这里不再铺一遍：整窗背景图下它是半透明的，叠两层会把图盖暗 */
+  /* 侧栏、两栏布局按这块区域自己的宽度收放，而不是按窗口 */
+  container-type: inline-size;
+}
+
+.kpo-page {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.kpo-page[hidden] {
+  display: none;
+}
+
+.kpo-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kpo-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 头像组件只有几档固定尺寸，这里补两档小的：引用里的 20px、回复里的 28px */
+:is(.kpo, .kpo-layer) .kpo-avatar-xs > * {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+:is(.kpo, .kpo-layer) .kpo-avatar-s > * {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+.kpo-avatar-btn {
+  display: block;
+  flex: none;
+  border-radius: 50%;
+}
+
+/* ───────── 顶栏 ───────── */
+
+.kpo-bar {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 0 22px;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+.kpo-bar.has-back {
+  padding-left: 10px;
+}
+
+.kpo-bar-title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpo-bar-note {
+  flex: none;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kpo-bar-space {
+  min-width: 8px;
+  flex: 1;
+}
+
+/* 分区页签：文字页签，当前项压一条实底的强调色线在栏的底边上 */
+.kpo-tabs {
+  display: flex;
+  min-width: 0;
+  align-self: stretch;
+  gap: 24px;
+}
+
+.kpo-tab {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  color: var(--kc-muted);
+  white-space: nowrap;
+  transition: color 100ms ease;
+}
+
+.kpo-tab:hover {
+  color: var(--kc-text);
+}
+
+.kpo-tab.is-active {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.kpo-tab.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2.5px;
+  border-radius: 2px 2px 0 0;
+  background: var(--kui-fill);
+  content: '';
+}
+
+.kpo-tab svg {
+  width: 14px;
+  height: 14px;
+}
+
+#kukechat-root [data-font-scale] .kpo-tab {
+  font-size: calc(14px * var(--kui-fs));
+}
+
+/* 互动按钮右上角的未读数：外面留一圈栏的底色，把它和图标分开 */
+.kpo-bell {
+  position: relative;
+}
+
+.kpo-bell .kui-badge {
+  position: absolute;
+  top: -4px;
+  left: 17px;
+  box-shadow: 0 0 0 2px var(--kc-panel);
+}
+
+/* ───────── 画布与帖子列 ───────── */
+
+.kpo-scroll {
+  min-height: 0;
+  flex: 1;
+}
+
+.kpo-column {
+  display: flex;
+  width: 100%;
+  max-width: 696px;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 auto;
+  padding: 14px 24px 44px;
+}
+
+/* 画布上的一张面 */
+.kpo-block {
+  min-width: 0;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kui-shadow-card);
+}
+
+.kpo-state {
+  padding: 40px 16px;
+}
+
+.kpo-more {
+  align-self: center;
+  margin-top: 4px;
+}
+
+/* 当前按话题筛选时，列顶上的一行说明 */
+.kpo-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kpo-filter strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--kc-text);
+  font-size: calc(14px * var(--kui-fs));
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpo-filter .kui-btn {
+  margin-left: auto;
+}
+
+/* 列顶上的发布入口：看着是输入框，点了才打开发布框 */
+.kpo-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 16px;
+  color: var(--kc-muted);
+  text-align: left;
+}
+
+.kpo-entry-field {
+  display: flex;
+  height: 34px;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-subtle);
+  transition: background-color 100ms ease;
+}
+
+.kpo-entry:hover .kpo-entry-field {
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kpo-entry:hover > svg {
+  color: var(--kc-accent);
+}
+
+/* ───────── 一条帖子 ───────── */
+
+.kpo-post {
+  position: relative;
+  padding: 14px 16px 4px;
+  scroll-margin: 16px;
+  transition: box-shadow 200ms ease;
+}
+
+/* 从通知或聊天里跳过来时，目标帖子描一圈强调色，过两秒自己消掉 */
+.kpo-post.is-focused {
+  box-shadow: 0 0 0 2px var(--kc-accent);
+}
+
+.kpo-post-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kpo-post-who {
+  min-width: 0;
+  flex: 1;
+}
+
+.kpo-name {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpo-name:hover {
+  color: var(--kc-accent);
+}
+
+#kukechat-root [data-font-scale] .kpo-name {
+  font-size: calc(14px * var(--kui-fs));
+}
+
+.kpo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.kpo-meta > span + span:not(.kui-tag)::before {
+  margin-right: 6px;
+  color: var(--kc-subtle);
+  content: '·';
+}
+
+.kpo-meta .kui-tag svg {
+  width: 10px;
+  height: 10px;
+}
+
+.kpo-post-menu {
+  position: relative;
+  flex: none;
+  align-self: flex-start;
+  margin: -4px -6px 0 0;
+}
+
+.kpo-post-menu .kui-menu {
+  position: absolute;
+  z-index: 20;
+  top: 32px;
+  right: 0;
+  min-width: 148px;
+}
+
+/* 正文、图片、操作都缩进到和名字对齐，左边留出头像那一列 */
+.kpo-post-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 6px;
+  padding-left: 52px;
+}
+
+.kpo-text {
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.kpo-text :is(a, button) {
+  color: var(--kc-accent);
+  text-align: inherit;
+}
+
+.kpo-text :is(a, button:not(:disabled)):hover {
+  text-decoration: underline;
+}
+
+.kpo-text button:disabled {
+  cursor: text;
+}
+
+/* 图片宫格：一张按 4:3，其余都是方格；两张、四张排成两列 */
+.kpo-images {
+  display: grid;
+  width: 100%;
+  max-width: 402px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.kpo-images[data-count='1'] {
+  max-width: 300px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.kpo-images:is([data-count='2'], [data-count='4']) {
+  max-width: 266px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.kpo-image {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--kc-panel-muted);
+  aspect-ratio: 1;
+  cursor: zoom-in;
+}
+
+.kpo-images[data-count='1'] .kpo-image {
+  aspect-ratio: 4 / 3;
+}
+
+.kpo-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 120ms ease;
+}
+
+/* 发丝边画在图片上面，浅色图贴着白面也有边界 */
+.kpo-image::after {
+  position: absolute;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+}
+
+.kpo-image:hover img {
+  filter: brightness(0.93);
+}
+
+/* 被转发的原动态：垫一层极浅的底，和自己写的话分开 */
+.kpo-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px 11px;
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kc-text) 4%, transparent);
+  text-align: left;
+}
+
+.kpo-quote[role='button'] {
+  cursor: pointer;
+  transition: background-color 100ms ease;
+}
+
+.kpo-quote[role='button']:hover {
+  background: color-mix(in srgb, var(--kc-text) 6.5%, transparent);
+}
+
+.kpo-quote.is-gone {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kpo-quote-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kpo-quote-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpo-quote-head time {
+  flex: none;
+}
+
+.kpo-quote .kpo-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kpo-quote .kpo-images {
+  max-width: 300px;
+}
+
+.kpo-quote .kpo-images[data-count='1'] {
+  max-width: 220px;
+}
+
+/* 作品卡片是全站共用的组件，这里只把它收成和帖子同一套圆角，去掉悬停上浮 */
+.kpo .kpo-ccw {
+  display: grid;
+  gap: 8px;
+}
+
+:is(.kpo, .kpo-layer) .kpo-ccw > a,
+:is(.kpo, .kpo-layer) .kpo-ccw > a:hover {
+  margin-top: 0;
+  border-color: var(--kc-border);
+  border-radius: var(--kui-r-md);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+  box-shadow: none;
+  transform: none;
+}
+
+:is(.kpo, .kpo-layer) .kpo-ccw > a > div > div:first-child {
+  border-radius: 6px;
+}
+
+.kpo-likes {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--kc-muted);
+  line-height: 1.6;
+  text-align: left;
+}
+
+.kpo-likes svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  margin-top: 3.5px;
+  color: var(--kc-accent);
+}
+
+.kpo-likes:hover {
+  color: var(--kc-text);
+}
+
+#kukechat-root [data-font-scale] .kpo-likes {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kpo-actions {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 6px -8px;
+}
+
+.kpo-action {
+  display: inline-flex;
+  min-width: 58px;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: var(--kui-r-sm);
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.kpo-action svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.kpo-action:hover:not(:disabled) {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+/* 已点赞、评论区展开着 */
+.kpo-action.is-on,
+.kpo-action.is-on:hover:not(:disabled) {
+  color: var(--kc-accent);
+}
+
+.kpo-action.is-liked svg {
+  fill: color-mix(in srgb, var(--kc-accent) 22%, transparent);
+}
+
+.kpo-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+#kukechat-root [data-font-scale] .kpo-action {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* ───────── 评论 ───────── */
+
+.kpo-comments {
+  margin-bottom: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kpo-reply-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kpo-mention {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+}
+
+.kpo-comments-empty {
+  padding: 14px 0 4px;
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+  text-align: center;
+}
+
+.kpo-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.kpo-comment-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.kpo-comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+#kukechat-root [data-font-scale] .kpo-comment-head .kpo-name {
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kpo-comment-head em {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--kc-accent);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpo-comment .kpo-text {
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kpo-comment-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 2px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kpo-comment-foot button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--kc-muted);
+}
+
+.kpo-comment-foot button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.kpo-comment-foot button:hover:not(:disabled),
+.kpo-comment-foot button.is-on {
+  color: var(--kc-accent);
+}
+
+.kpo-comment-foot button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.kpo-comment .kpo-reply-form {
+  margin-top: 8px;
+}
+
+/* 楼中楼：左边一条线，不再垫底色 */
+.kpo-replies {
+  margin-top: 4px;
+  padding-left: 12px;
+  border-left: 2px solid var(--kc-border);
+}
+
+.kpo-replies .kpo-comment {
+  padding-top: 10px;
+}
+
+.kpo-replies-toggle {
+  margin-top: 8px;
+  color: var(--kc-muted);
+}
+
+.kpo-replies-toggle:hover {
+  color: var(--kc-accent);
+}
+
+#kukechat-root [data-font-scale] .kpo-replies-toggle {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* @ 和 # 的候选。行内输入框时挂在输入框下面；对话框里挂到对话框的遮罩层上，免得被滚动区裁掉 */
+.kpo-suggest {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 240px;
+  max-width: 100%;
+  max-height: 220px;
+}
+
+.kpo-suggest.is-layered {
+  /* 压在同一层里的遮罩和对话框之上 */
+  z-index: 2147483001;
+  top: auto;
+  max-width: none;
+}
+
+.kpo-suggest-note {
+  padding: 5px 9px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* ───────── 帖子流右边的侧栏 ───────── */
+
+.kpo-aside {
+  display: flex;
+  width: 264px;
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-left: 1px solid var(--kc-border);
+  background: var(--kc-list);
+}
+
+@container (max-width: 720px) {
+  .kpo-aside {
+    display: none;
+  }
+}
+
+.kpo-card {
+  flex: none;
+  padding: 14px;
+}
+
+.kpo-card-title {
+  padding-bottom: 6px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.kpo-me {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kpo-me-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.kpo-me-text strong {
+  display: block;
+  overflow: hidden;
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpo-me-text span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.55;
+}
+
+/* 一排数字：数字在上、标签在下，之间只隔发丝线 */
+.kpo-stats {
+  display: flex;
+}
+
+.kpo-stats > * {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+.kpo-stats > * + * {
+  padding-left: 14px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.kpo-stats strong {
+  color: var(--kc-text);
+  font-size: calc(19px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.kpo-me + .kpo-stats {
+  margin: 14px 0;
+}
+
+.kpo-topic {
+  display: flex;
+  width: calc(100% + 16px);
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.kpo-topic:hover {
+  background: var(--kc-hover);
+}
+
+.kpo-topic.is-active {
+  background: var(--kui-tint);
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+.kpo-topic-rank {
+  width: 14px;
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+}
+
+.kpo-topic.is-top .kpo-topic-rank {
+  color: var(--kc-accent);
+}
+
+.kpo-topic-count {
+  flex: none;
+  margin-left: auto;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kpo-tips {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.8;
+}
+
+/* ───────── 个人空间 ───────── */
+
+.kpo-space {
+  display: flex;
+  width: 100%;
+  max-width: 980px;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 auto;
+  padding: 14px 24px 44px;
+}
+
+/* 主页的强调色是用户自己选的，只在这张面里用：封面的底、标签 */
+.kpo-hero {
+  --kpo-accent: var(--kc-accent);
+  overflow: hidden;
+}
+
+.kpo-hero-cover {
+  position: relative;
+  height: 148px;
+  background: color-mix(in srgb, var(--kpo-accent) 22%, var(--kc-panel-muted)) center / cover no-repeat;
+}
+
+.kpo-hero[data-layout='banner'] .kpo-hero-cover {
+  height: 228px;
+}
+
+.kpo-hero[data-layout='compact'] .kpo-hero-cover {
+  height: 84px;
+}
+
+/* 压在封面右下角的三格数字。样式跟用户选的「卡片风格」走：柔和 / 玻璃 / 纯色 */
+.kpo-hero-stats {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  display: flex;
+  overflow: hidden;
+  border-radius: var(--kui-r-md);
+  background: color-mix(in srgb, var(--kc-panel) 84%, transparent);
+  color: var(--kc-text);
+}
+
+.kpo-hero[data-card='glass'] .kpo-hero-stats {
+  background: rgba(14, 16, 24, 0.4);
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+}
+
+.kpo-hero[data-card='solid'] .kpo-hero-stats {
+  background: var(--kc-panel);
+  box-shadow: var(--kui-shadow-raised);
+}
+
+.kpo-hero-stats div {
+  display: flex;
+  min-width: 68px;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 12px 7px;
+  font-size: calc(11px * var(--kui-fs));
+}
+
+.kpo-hero-stats div + div {
+  border-left: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.kpo-hero-stats strong {
+  font-size: calc(16px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.kpo-hero-stats span {
+  opacity: 0.72;
+}
+
+.kpo-hero-info {
+  display: flex;
+  gap: 16px;
+  padding: 0 20px 18px;
+}
+
+/* 头像压住封面的下沿，外面留一圈面的颜色 */
+.kpo-hero-avatar {
+  position: relative;
+  height: fit-content;
+  flex: none;
+  margin-top: -26px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--kc-panel);
+}
+
+.kpo-hero-text {
+  min-width: 0;
+  flex: 1;
+  padding-top: 10px;
+}
+
+.kpo-hero-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.kpo-hero-name h1 {
+  min-width: 0;
+  font-size: calc(20px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.kpo-hero-handle {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  overflow-wrap: anywhere;
+}
+
+.kpo-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.kpo-chip {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--kpo-accent, var(--kc-accent)) 12%, transparent);
+  color: color-mix(in srgb, var(--kpo-accent, var(--kc-accent)) 76%, var(--kc-text));
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 500;
+  line-height: 21px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpo-chip.is-quiet {
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-muted);
+}
+
+/* 深色下用户选的颜色可能很暗，字往白里提，底掺进面板色 */
+[data-theme='dark'] .kpo-chip:not(.is-quiet) {
+  background: color-mix(in srgb, var(--kpo-accent, var(--kc-accent)) 34%, var(--kc-panel));
+  color: color-mix(in srgb, var(--kpo-accent, var(--kc-accent)) 40%, #ffffff);
+}
+
+.kpo-hero-bio {
+  display: -webkit-box;
+  max-width: 640px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin-top: 8px;
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.kpo-hero-bio.is-empty {
+  color: var(--kc-subtle);
+}
+
+.kpo-hero-text .kui-note {
+  margin-top: 8px;
+}
+
+.kpo-space-grid {
+  display: grid;
+  align-items: start;
+  grid-template-columns: 272px minmax(0, 1fr);
+  gap: 10px;
+}
+
+@container (max-width: 840px) {
+  .kpo-space-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.kpo-space-side,
+.kpo-space-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpo-section-head {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.kpo-section-head h2 {
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kpo-section-head span {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kpo-section-head .kui-segment {
+  margin-left: auto;
+}
+
+/* 资料：左边一列标签，右边是值 */
+.kpo-facts > div {
+  display: flex;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kpo-facts dt {
+  width: 42px;
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.kpo-facts dd {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 5px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.kpo-ccw-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kpo-ccw-head img,
+.kpo-ccw-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--kui-r-md);
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-muted);
+  object-fit: cover;
+}
+
+.kpo-ccw-head strong {
+  display: block;
+  overflow: hidden;
+  font-size: calc(14px * var(--kui-fs));
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpo-ccw-bio {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin: 10px 0 12px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kpo-ccw-more {
+  margin: 10px 0 12px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kpo-ccw-more b {
+  margin: 0 10px 0 3px;
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+/* ───────── 主页自定义 ───────── */
+
+.kpo-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 12px 16px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kpo-editor-head > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.kpo-editor-head h2 {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kpo-editor-head p,
+.kpo-hint {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kpo-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  padding: 16px;
+}
+
+.kpo-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.kpo-form > .is-wide {
+  grid-column: 1 / -1;
+}
+
+.kpo-field-label {
+  display: flex;
+  justify-content: space-between;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kpo-field-label span {
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kpo-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.kpo-swatch {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+  color: #ffffff;
+}
+
+.kpo-swatch.is-active {
+  outline: 2px solid var(--kc-text);
+  outline-offset: 2px;
+}
+
+.kpo-swatch svg {
+  width: 12px;
+  height: 12px;
+}
+
+.kpo-color {
+  width: 34px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: 6px;
+  background: var(--kui-control);
+  cursor: pointer;
+}
+
+/* ───────── 对话框 ───────── */
+
+/* 对话框外壳是通用的 Modal（ui/desktop/Modal.tsx）。外面这一层盖住整个窗口，输入框的候选列表挂在它上面 */
+.kpo-layer {
+  position: fixed;
+  z-index: 2147483000;
+  inset: 0;
+}
+
+.kpo-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 整块是列表的对话框：行自己带左右留白 */
+.kpo-dialog-body.is-list {
+  gap: 1px;
+  padding: 6px;
+}
+
+.kpo-footer-split {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.kpo-footer-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#kukechat-root [data-font-scale] .kpo-composer-text {
+  min-height: 132px;
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1.7;
+}
+
+.kpo-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 84px);
+  gap: 6px;
+}
+
+.kpo-thumb {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--kc-panel-muted);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  aspect-ratio: 1;
+}
+
+.kpo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kpo-thumb button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(14, 16, 24, 0.6);
+  color: #ffffff;
+}
+
+.kpo-thumb button:hover {
+  background: rgba(14, 16, 24, 0.82);
+}
+
+.kpo-thumb button svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* 列表行：会话、点赞的人、互动通知共用 */
+.kpo-pick-list {
+  display: grid;
+  max-height: 212px;
+  gap: 1px;
+  margin-top: 6px;
+}
+
+.kpo-line {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+}
+
+button.kpo-line:hover,
+.kpo-line.is-action:hover {
+  background: var(--kc-hover);
+}
+
+.kpo-line.is-active,
+.kpo-line.is-active:hover {
+  background: var(--kui-tint);
+}
+
+.kpo-line > svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--kc-accent);
+}
+
+.kpo-line-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kpo-line-text strong {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .kpo-line-text strong {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.kpo-line-text small {
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 互动通知：摘要最多两行，未读的标题加重并在右边点一个点 */
+.kpo-line.is-notice {
+  align-items: flex-start;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.kpo-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.kpo-line.is-notice.is-unread .kpo-line-text strong {
+  font-weight: 700;
+}
+
+.kpo-line.is-notice .kui-dot {
+  margin-top: 7px;
+}
+
+.kpo-dialog-body > .kui-segment,
+.kpo-field > .kui-segment {
+  align-self: flex-start;
+}
+
+.kpo-share-target {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--kc-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kpo-share-target b {
+  color: var(--kc-accent);
+  font-weight: 600;
+}

@@ -1,48 +1,11 @@
-import type { TeamupProfile, User } from '@/types/api';
+import type { TeamupProfile } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
-import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
-import { CCW_CREATION_URL_PATTERN } from '@/utils/ccwLinks';
+import { resolveThumbnailUrl } from '@/utils/assetUrl';
 import { SKILL_LEVEL_LABEL, skillMeta } from './teamupConstants';
+import { buildShowcase, compactCount, introPlainText, profileUser, type ShowcaseItem } from './teamupModel';
 
-function profileUser(profile: TeamupProfile): User {
-  return profile.author ?? { id: profile.user_id, username: `用户 ${profile.user_id}`, nickname: `用户 ${profile.user_id}` };
-}
-
-function cleanIntro(intro: string): string {
-  return intro
-    .replace(CCW_CREATION_URL_PATTERN, ' ')
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/[#>*_`~|-]/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-function compactCount(value: number): string {
-  return value >= 10000 ? `${(value / 10000).toFixed(1)}w` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : `${value}`;
-}
-
-type ShowcaseItem =
-  | { kind: 'work'; key: string; cover: string; title: string; likeCount: number; viewCount: number }
-  | { kind: 'image'; key: string; cover: string };
-
-function buildShowcase(profile: TeamupProfile): ShowcaseItem[] {
-  const items: ShowcaseItem[] = [];
-  for (const creation of profile.ccw_creations ?? []) {
-    const cover = resolveAssetUrl(creation.cover_url ?? undefined);
-    if (cover) {
-      items.push({ kind: 'work', key: `w-${creation.oid}`, cover, title: creation.title, likeCount: creation.like_count ?? 0, viewCount: creation.view_count ?? 0 });
-    }
-  }
-  for (const url of profile.image_urls) {
-    const cover = resolveThumbnailUrl(url) ?? url;
-    if (cover) {
-      items.push({ kind: 'image', key: `i-${url}`, cover });
-    }
-  }
-  return items;
-}
+/* 移动端广场里的名片卡片。桌面端用 desktop/TeamupProfileCard。 */
 
 function ShowcaseTile({ item, extra }: { item: ShowcaseItem; extra?: number }): JSX.Element {
   return (
@@ -83,7 +46,7 @@ function ShowcaseStrip({ items }: { items: ShowcaseItem[] }): JSX.Element | null
 
 export function TeamupCard({ profile, onOpen }: { profile: TeamupProfile; onOpen: (profile: TeamupProfile) => void }): JSX.Element {
   const user = profileUser(profile);
-  const intro = cleanIntro(profile.intro);
+  const intro = introPlainText(profile.intro);
   const creations = profile.ccw_creations ?? [];
   const showcase = buildShowcase(profile);
   const isClosed = profile.status === 'closed';

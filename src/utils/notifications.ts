@@ -1,15 +1,16 @@
 import { useKukeStore } from '@/store/kukeStore';
+import { SOUND_KINDS, useSoundStore, type SoundKind } from '@/store/soundStore';
 import type { Conversation, Message, MessageMentionMetadata } from '@/types/api';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { showDesktopMessageNotification } from '@/native/desktopNotifications';
 import { isNativeMobileApp, isTauriDesktopApp } from '@/utils/appMode';
+import { customSoundUrl, loadCustomSounds } from '@/utils/customSounds';
+import { pokeInfoOf, pokeText } from '@/utils/poke';
 import startSoundUrl from '@/sounds/开始提示音.mp3';
 import leaveSoundUrl from '@/sounds/离开服务器.mp3';
 import joinSoundUrl from '@/sounds/进入服务器.mp3';
 import mentionSoundUrl from '@/sounds/@提示.mp3';
 import messageSoundUrl from '@/sounds/消息提示.mp3';
-
-type SoundKind = 'start' | 'leave' | 'join' | 'mention' | 'message';
 
 const soundUrls: Record<SoundKind, string> = {
   start: startSoundUrl,
@@ -19,8 +20,23 @@ const soundUrls: Record<SoundKind, string> = {
   message: messageSoundUrl
 };
 
-const audioCache = new Map<SoundKind, HTMLAudioElement>();
+/** 每种提示音留一个播放器，记着它装的是哪个地址：设置换了声音，地址对不上就重建。 */
+const audioCache = new Map<SoundKind, { url: string; audio: HTMLAudioElement }>();
 let playedConnectionReadySound = false;
+
+function dropCachedAudio(kind: SoundKind): void {
+  audioCache.get(kind)?.audio.pause();
+  audioCache.delete(kind);
+}
+
+// 某一种的设置变了（换了音频、关掉、恢复默认）就丢掉它的播放器，旧音频的地址随后会被回收
+useSoundStore.subscribe((state, previous) => {
+  for (const kind of SOUND_KINDS) {
+    if (state.slots[kind] !== previous.slots[kind]) {
+      dropCachedAudio(kind);
+    }
+  }
+});
 
 async function showNativeNotification(title: string, body: string, iconUrl: string | undefined, conversationId: number): Promise<boolean> {
   if (!isNativeMobileApp()) {
@@ -63,21 +79,52 @@ async function showNativeNotification(title: string, body: string, iconUrl: stri
   }
 }
 
-function audioFor(kind: SoundKind): HTMLAudioElement | null {
-  if (typeof Audio === 'undefined') {
-    return null;
-  }
-
+function audioFor(kind: SoundKind, url: string): HTMLAudioElement {
   const cached = audioCache.get(kind);
-  if (cached) {
-    return cached;
+  if (cached?.url === url) {
+    return cached.audio;
   }
 
-  const audio = new Audio(soundUrls[kind]);
+  cached?.audio.pause();
+  const audio = new Audio(url);
   audio.preload = 'auto';
-  audio.volume = 0.72;
-  audioCache.set(kind, audio);
+  audioCache.set(kind, { url, audio });
   return audio;
+}
+
+/** 从头放一遍。返回 false 表示这个音频本身坏了（读不到、解不了码），调用方该换一个放。 */
+function start(kind: SoundKind, url: string, volume: number): Promise<boolean> {
+  const audio = audioFor(kind, url);
+  audio.volume = volume / 100;
+  audio.pause();
+  audio.currentTime = 0;
+  // 被浏览器拦下（页面还没有过用户操作）、被下一次播放打断都会让 play() 失败，但那不是音频的问题
+  return audio.play().then(() => true, () => audio.error === null);
+}
+
+/** 按设置放某一种提示音。走默认声音时到 play() 为止都是同步的，和加设置之前一样。 */
+async function playSound(kind: SoundKind): Promise<void> {
+  if (typeof Audio === 'undefined') {
+    return;
+  }
+
+  // 第一次要出声时把自定义音频读出来备着（通常是刚连上服务器那一声），之后的调用什么也不做
+  void loadCustomSounds();
+  const { slots, volume } = useSoundStore.getState();
+  const slot = slots[kind];
+  if (slot.mode === 'off') {
+    return;
+  }
+
+  const customUrl = slot.mode === 'custom' && slot.custom ? await customSoundUrl(slot.custom.id) : null;
+  if (customUrl) {
+    if (await start(kind, customUrl, volume)) {
+      return;
+    }
+    // 自定义的放不出来：退回默认声音
+    dropCachedAudio(kind);
+  }
+  await start(kind, soundUrls[kind], volume);
 }
 
 export function playNotificationSound(kind: SoundKind): void {
@@ -85,14 +132,12 @@ export function playNotificationSound(kind: SoundKind): void {
     return;
   }
 
-  const audio = audioFor(kind);
-  if (!audio) {
-    return;
-  }
+  void playSound(kind);
+}
 
-  audio.pause();
-  audio.currentTime = 0;
-  void audio.play().catch(() => undefined);
+/** 设置页的试听：不看总开关，音量和各自的设置照常生效。 */
+export function previewNotificationSound(kind: SoundKind): void {
+  void playSound(kind);
 }
 
 function messagePreview(message: Message): string {
@@ -158,11 +203,18 @@ export function notifyIncomingMessage(message: Message, conversation: Conversati
     return;
   }
 
+  // 戳一戳只提醒被戳的人：群里别人互相戳照常计未读，但不响、不弹通知
+  const poke = pokeInfoOf(message);
+  if (poke && poke.userId !== state.currentUser.id) {
+    return;
+  }
+
   const isMention = mentionsCurrentUser(message, state.currentUser.id);
   playNotificationSound(isMention ? 'mention' : 'message');
 
   const title = conversationTitle(conversation, message);
-  const body = conversation?.type === 'group' ? `${senderName(message)}：${messagePreview(message)}` : messagePreview(message);
+  // 戳一戳的文案里已经有发起人，不再加「某某：」前缀
+  const body = poke ? pokeText(poke, state.currentUser.id) : conversation?.type === 'group' ? `${senderName(message)}：${messagePreview(message)}` : messagePreview(message);
   const iconUrl = resolveAssetUrl(conversation?.avatar_url || message.sender?.avatar_url) || undefined;
 
   if (isNativeMobileApp()) {

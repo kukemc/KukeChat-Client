@@ -3,10 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getOnlineUsers } from '@/api/users';
 import { useKukeStore, type Point, type Size } from '@/store/kukeStore';
+import logoUrl from '@/assets/logo.png';
 import { Icon } from '@/components/ui/Icon';
-import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { isTauriDesktopApp } from '@/utils/appMode';
 import { useResolvedThemeMode } from '@/utils/theme';
+import { ThemeEffects } from '@/theme/ThemeEffects';
+import { useThemeRootProps } from '@/theme/useTheme';
+import { OnlineUsersCard } from './OnlineUsersCard';
+import { SelfCardTrigger } from './SelfCardTrigger';
 
 type DragMode = 'move' | 'resize';
 
@@ -110,6 +114,7 @@ export function WindowFrame({ children }: PropsWithChildren): JSX.Element {
   const toggleFullscreen = useKukeStore((state) => state.toggleFullscreen);
   const themeMode = useKukeStore((state) => state.themeMode);
   const resolvedThemeMode = useResolvedThemeMode(themeMode);
+  const themeRoot = useThemeRootProps(resolvedThemeMode);
   const uiFontScale = useKukeStore((state) => state.uiFontScale);
   const layoutMode = useKukeStore((state) => state.layoutMode);
   const toggleLayoutMode = useKukeStore((state) => state.toggleLayoutMode);
@@ -354,7 +359,7 @@ export function WindowFrame({ children }: PropsWithChildren): JSX.Element {
 
   const title = currentUser?.username || 'KukeChat';
   const unreadBadge = unreadCount > 99 ? '99+' : String(unreadCount);
-  const onlineUsers = onlineUsersQuery.data?.users ?? [];
+  const onlineTotal = onlineUsersQuery.data?.online_count ?? onlineCount;
   const viewportSize = getViewportSize();
   const mobileScale = getMobileScale(viewportSize);
   const mobileVisualSize = { width: MOBILE_SIZE.width * mobileScale, height: MOBILE_SIZE.height * mobileScale };
@@ -386,37 +391,34 @@ export function WindowFrame({ children }: PropsWithChildren): JSX.Element {
           transformOrigin: 'top left'
         };
 
+  // 自定义主题目前只作用于桌面布局；手机布局有自己的一套配色
+  const themed = layoutMode === 'desktop';
+  // 手机布局的外框沿用原来那套类名；桌面布局的外框和最小化后的悬浮球是 kwf-（desktop-settings.css）
+  const frameLook = isMinimized
+    ? 'kc-window-minimized kwf-bubble-frame'
+    : layoutMode === 'mobile'
+      ? `kc-window-mobile liquid-shell shadow-float overflow-hidden [background:var(--kc-window)] ${isFullscreen ? 'kc-window-fullscreen rounded-2xl' : 'rounded-[28px]'}`
+      : `kwf-frame ${isFullscreen ? 'kc-window-fullscreen' : ''}`;
+
   return (
     <section
       ref={frameRef}
       data-theme={resolvedThemeMode}
       data-layout={layoutMode}
       data-font-scale={uiFontScale}
-      style={{ ...frameStyle, '--kc-ui-font-scale': uiFontScale } as React.CSSProperties & { '--kc-ui-font-scale': number }}
-      className={`kc-window-frame liquid-shell pointer-events-auto fixed select-none shadow-float [background:var(--kc-window)] ${isMinimized ? 'border [border-color:var(--kc-border-strong)]' : ''} ${isDesktopApp ? 'kc-window-desktop-app' : ''} ${layoutMode === 'mobile' && !isMinimized ? 'kc-window-mobile rounded-[28px]' : ''} ${isMinimized ? 'kc-window-minimized overflow-visible' : 'overflow-hidden'} ${isDraggingWindow ? 'kc-window-dragging' : ''} ${bubbleSnapSide ? `kc-window-bubble-snap-${bubbleSnapSide}` : ''} ${isFullscreen ? 'kc-window-fullscreen rounded-2xl' : isMinimized ? 'rounded-full' : layoutMode === 'mobile' ? 'rounded-[28px]' : 'rounded-md'}`}
+      data-kc-wallpaper={themed && !isMinimized ? themeRoot['data-kc-wallpaper'] : 'none'}
+      style={{ ...(themed ? themeRoot.style : undefined), ...frameStyle, '--kc-ui-font-scale': uiFontScale } as React.CSSProperties & { '--kc-ui-font-scale': number }}
+      className={`kc-window-frame pointer-events-auto fixed select-none ${frameLook} ${isDesktopApp ? 'kc-window-desktop-app' : ''} ${isDraggingWindow ? 'kc-window-dragging' : ''} ${bubbleSnapSide ? `kc-window-bubble-snap-${bubbleSnapSide}` : ''}`}
       aria-label="KukeChat floating window"
     >
       {isMinimized ? (
-        <button
-          data-window-action
-          type="button"
-          onPointerDown={startBubbleMove}
-          onClick={handleBubbleClick}
-          className="group relative flex h-full w-full items-center justify-center rounded-full border border-white/65 bg-gradient-to-br from-[#f8fbff] via-[#e7f4ff] to-[#d9ecfb] text-[#1f5f8f] shadow-[0_18px_42px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.9)] transition duration-300 ease-out hover:-translate-y-1 hover:scale-105 hover:shadow-[0_24px_52px_rgba(15,23,42,0.30),inset_0_1px_0_rgba(255,255,255,0.95)] active:translate-y-0 active:scale-95"
-          aria-label="展开 KukeChat"
-        >
-          <span className="absolute inset-1 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.92),rgba(255,255,255,0)_44%)] opacity-90" aria-hidden="true" />
-          <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.75)] transition duration-300 group-hover:rotate-[-4deg] group-hover:scale-105">
-            <Icon name="message" className="h-6 w-6" />
-          </span>
-          {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 grid min-w-[24px] place-items-center rounded-full border-2 border-white bg-red-500 px-1.5 py-0.5 text-[10px] font-extrabold leading-none text-white shadow-[0_8px_18px_rgba(239,68,68,0.42)]">
-              {unreadBadge}
-            </span>
-          ) : null}
+        <button data-window-action type="button" onPointerDown={startBubbleMove} onClick={handleBubbleClick} className="kui kwf-bubble" aria-label="展开 KukeChat">
+          <span className="kwf-bubble-logo"><img src={logoUrl} alt="" draggable={false} /></span>
+          {unreadCount > 0 ? <span className="kui-badge">{unreadBadge}</span> : null}
         </button>
       ) : (
         <>
+          {themed ? <ThemeEffects scheme={resolvedThemeMode} /> : null}
           {layoutMode === 'mobile' ? (
             <div className="kc-mobile-floating-actions">
               <button data-window-action type="button" onClick={minimizeWindow} className="kc-mobile-floating-action" aria-label="最小化为圆圈" title="最小化">
@@ -427,73 +429,38 @@ export function WindowFrame({ children }: PropsWithChildren): JSX.Element {
               </button>
             </div>
           ) : null}
-          {layoutMode !== 'mobile' && !isDesktopApp ? <header onPointerDown={startMove} className="relative z-[100] flex h-10 touch-none items-center justify-between border-b px-2 [background:var(--kc-titlebar)] [border-color:var(--kc-border)] [color:var(--kc-text)] cursor-grab active:cursor-grabbing">
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar user={currentUser} label={title} size="sm" />
-          <div className="flex min-w-0 items-center gap-2">
-            <h1 className="truncate text-sm font-semibold">{title}</h1>
-            <span className="truncate text-xs [color:var(--kc-muted)]">{currentUser?.bio?.trim() || '咕咕咕~'}</span>
-            <div data-window-action className="group/online relative shrink-0" onMouseEnter={() => void onlineUsersQuery.refetch()}>
-              <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold [background:var(--kc-panel)] [border-color:var(--kc-border)] [color:var(--kc-muted)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]" />
-                在线 {onlineUsersQuery.data?.online_count ?? onlineCount}
-              </span>
-              <div className="pointer-events-none absolute left-1/2 top-full z-[120] w-72 -translate-x-1/2 translate-y-1 pt-2 opacity-0 transition duration-150 group-hover/online:pointer-events-auto group-hover/online:translate-y-0 group-hover/online:opacity-100">
-                <div className="overflow-hidden rounded-[22px] border shadow-float backdrop-blur-xl [background:color-mix(in_srgb,var(--kc-panel)_92%,transparent)] [border-color:var(--kc-border)]">
-                  <div className="flex items-center justify-between border-b px-3 py-2.5 [border-color:var(--kc-border)]">
-                    <span className="text-sm font-semibold [color:var(--kc-text)]">当前在线</span>
-                    <span className="rounded-full px-2 py-0.5 text-[11px] font-bold [background:var(--kc-accent-soft)] [color:var(--kc-accent)]">{onlineUsersQuery.data?.online_count ?? onlineCount} 人</span>
+          {layoutMode !== 'mobile' && !isDesktopApp ? (
+            <header onPointerDown={startMove} className="kwf-titlebar kwf-titlebar--floating">
+              <div className="kwf-identity">
+                {currentUser ? <SelfCardTrigger user={currentUser} label={title} /> : <h1 className="kwf-title">{title}</h1>}
+                {currentUser ? <span className="kwf-bio">{currentUser.bio?.trim() || '咕咕咕~'}</span> : null}
+                {currentUser ? (
+                  <div data-window-action className="kwf-online" onMouseEnter={() => void onlineUsersQuery.refetch()}>
+                    <span className="kwf-online-count">在线 {onlineTotal}</span>
+                    <div className="kwf-popover"><OnlineUsersCard count={onlineTotal} users={onlineUsersQuery.data?.users ?? []} loading={onlineUsersQuery.isLoading} /></div>
                   </div>
-                  <div className="scroll-soft max-h-72 overflow-y-auto p-2">
-                    {onlineUsersQuery.isLoading ? <p className="px-2 py-3 text-xs [color:var(--kc-muted)]">正在加载在线用户...</p> : null}
-                    {!onlineUsersQuery.isLoading && onlineUsers.length === 0 ? <p className="px-2 py-3 text-xs [color:var(--kc-muted)]">暂时没有在线用户</p> : null}
-                    {onlineUsers.map((user) => {
-                      const name = getDisplayName(user, `用户 ${user.id}`);
-                      return (
-                        <div key={user.id} className="flex items-center gap-2.5 rounded-2xl px-2 py-2 transition hover:[background:var(--kc-hover)]">
-                          <div className="relative shrink-0">
-                            <Avatar user={user} label={name} size="sm" />
-                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold [color:var(--kc-text)]">{name}</p>
-                            <p className="truncate text-[11px] [color:var(--kc-muted)]">@{user.username} · ID {user.id}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                ) : null}
+                {unreadCount > 0 ? <span className="kui-badge">{unreadBadge}</span> : null}
               </div>
-            </div>
-            {unreadCount > 0 ? <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{unreadCount}</span> : null}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <button data-window-action type="button" onClick={toggleLayoutMode} className="kc-icon-button h-8 w-10" aria-label="切换为手机模式" title="手机模式">
-            <Icon name="mobileMode" className="h-4 w-4" />
-          </button>
-          {isMinimized ? (
-            <button data-window-action type="button" onClick={restoreWindow} className="kc-icon-button h-8 w-10" aria-label="还原窗口">
-              <Icon name="maximize" className="h-4 w-4" />
-            </button>
-          ) : (
-            <button data-window-action type="button" onClick={minimizeWindow} className="kc-icon-button h-8 w-10" aria-label="最小化窗口">
-              <Icon name="minus" className="h-4 w-4" />
-            </button>
-          )}
-          <button data-window-action type="button" onClick={toggleFullscreen} className="kc-icon-button h-8 w-10 disabled:cursor-not-allowed disabled:opacity-40" aria-label={isFullscreen ? '退出全屏' : '全屏窗口'}>
-            <Icon name={isFullscreen ? 'shrink' : 'maximize'} className="h-4 w-4" />
-          </button>
-          <button data-window-action type="button" onClick={closeWindow} className="kc-icon-button h-8 w-10 hover:bg-red-500 hover:text-white" aria-label="关闭窗口">
-            <Icon name="close" className="h-4 w-4" />
-          </button>
-        </div>
-           </header> : null}
+              <div className="kwf-controls">
+                <button data-window-action type="button" onClick={toggleLayoutMode} className="kwf-control" aria-label="切换为手机模式" title="手机模式">
+                  <Icon name="mobileMode" className="h-4 w-4" />
+                </button>
+                <button data-window-action type="button" onClick={minimizeWindow} className="kwf-control" aria-label="最小化窗口" title="最小化">
+                  <Icon name="minus" className="h-4 w-4" />
+                </button>
+                <button data-window-action type="button" onClick={toggleFullscreen} className="kwf-control" aria-label={isFullscreen ? '退出全屏' : '全屏窗口'} title={isFullscreen ? '退出全屏' : '全屏'}>
+                  <Icon name={isFullscreen ? 'shrink' : 'maximize'} className="h-4 w-4" />
+                </button>
+                <button data-window-action type="button" onClick={closeWindow} className="kwf-control kwf-control--close" aria-label="关闭窗口" title="关闭">
+                  <Icon name="close" className="h-4 w-4" />
+                </button>
+              </div>
+            </header>
+          ) : null}
 
           <div className={layoutMode === 'mobile' || isDesktopApp ? 'h-full overflow-hidden' : 'relative z-0 h-[calc(100%-40px)] overflow-hidden'}>{children}</div>
-          {!isDesktopApp && !isFullscreen && layoutMode !== 'mobile' ? <div onPointerDown={startResize} className="absolute bottom-0 right-0 h-7 w-7 cursor-nwse-resize rounded-tl-2xl border-b border-r border-white/20 bg-white/5" aria-hidden="true" /> : null}
+          {!isDesktopApp && !isFullscreen && layoutMode !== 'mobile' ? <div onPointerDown={startResize} className="kwf-resize" aria-hidden="true" /> : null}
         </>
       )}
     </section>

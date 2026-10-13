@@ -77,9 +77,9 @@ export function useVirtualMessageRows(
       const index = idIndexRef.current.get(id) ?? -1;
       // Keep the first visible message still when media above it grows or shrinks.
       const listTop = listRef.current?.offsetTop ?? 0;
-      if (element && stickToBottomRef.current) {
-        requestAnimationFrame(() => { if (stickToBottomRef.current) { setInstantMessageScrollTop(element, element.scrollHeight - element.clientHeight); syncScroll(); } });
-      } else if (element && index >= 0 && listTop + offsetsRef.current[index] + old + gap < element.scrollTop) {
+      // When pinned to the bottom, re-pin after the new offsets commit (see the measureVersion effect):
+      // scrollHeight is stale until then, so pinning here would land on the old bottom.
+      if (element && !stickToBottomRef.current && index >= 0 && listTop + offsetsRef.current[index] + old + gap < element.scrollTop) {
         setInstantMessageScrollTop(element, element.scrollTop + next - old);
       }
       if (pendingFrameRef.current === null) {
@@ -93,6 +93,11 @@ export function useVirtualMessageRows(
     observer.observe(node);
     observedRef.current.set(node, observer);
   }, [estimate, gap, scrollRef, listRef, stickToBottomRef, syncScroll]);
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (measureVersion && element && stickToBottomRef.current) setInstantMessageScrollTop(element, element.scrollHeight - element.clientHeight);
+  }, [measureVersion, scrollRef, stickToBottomRef]);
 
   useLayoutEffect(() => {
     // Disconnect unmounted rows, including when React removes an entire conversation.

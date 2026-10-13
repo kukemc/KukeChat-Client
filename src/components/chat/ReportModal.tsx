@@ -1,118 +1,23 @@
-import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { uploadMessageImage } from '@/api/messages';
-import type { CreateReportPayload, ReportTargetType } from '@/types/api';
 import { Icon } from '@/components/ui/Icon';
+import { getDesktopPortalRoot, useIsDesktopLayout } from '@/components/ui/desktop/Modal';
 import { resolveAssetUrl } from '@/utils/assetUrl';
+import { formatMessageDateTime } from '@/utils/dateTime';
+import { ReportDialog } from './desktop/dialogs/ReportDialog';
+import { MAX_DESCRIPTION_LENGTH, evidencePreview, useReportForm, type ReportForm, type ReportModalProps } from './reportForm';
 
-interface ReportModalProps {
-  targetType: ReportTargetType;
-  targetId: number;
-  targetLabel: string;
-  conversationId?: number;
-  messageId?: number;
-  reportedUserId?: number;
-  isPending?: boolean;
-  error?: unknown;
-  onSubmit: (payload: CreateReportPayload) => void;
-  onClose: () => void;
+/** 举报消息 / 用户 / 群聊 / 动态。表单逻辑在 reportForm.ts，这里按布局选界面。 */
+export function ReportModal(props: ReportModalProps): JSX.Element {
+  const form = useReportForm(props);
+  const desktop = useIsDesktopLayout();
+  return createPortal(desktop ? <ReportDialog form={form} /> : <MobileReportModal form={form} />, getDesktopPortalRoot());
 }
 
-const REPORT_REASONS = [
-  '垃圾广告',
-  '辱骂骚扰',
-  '色情低俗',
-  '违法违规',
-  '诈骗或钓鱼',
-  '其他'
-] as const;
+/** 手机布局下的举报弹窗。 */
+function MobileReportModal({ form }: { form: ReportForm }): JSX.Element {
+  const { title, targetLabel, quota, options, MAX_ATTACHMENTS, reason, setPickedReason, description, setDescription, cleanDescription, detailsRequired, candidates, evidenceIds, setEvidenceIds, attachments, setAttachments, uploading, uploadError, chooseAttachments, blocker, error, canSubmit, isPending, submit, onClose } = form;
 
-const MAX_DESCRIPTION_LENGTH = 300;
-const MAX_ATTACHMENTS = 6;
-const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024;
-const MAX_COMPRESSIBLE_ATTACHMENT_ORIGINAL_BYTES = 12 * 1024 * 1024;
-
-function getKukePortalRoot(): Element {
-  const host = document.getElementById('kukechat-shadow-host');
-  return host?.shadowRoot?.querySelector('.kc-window-frame:not(.kc-window-minimized)')
-    ?? document.querySelector('.kc-window-frame:not(.kc-window-minimized)')
-    ?? document.querySelector('.kc-desktop-app')
-    ?? host?.shadowRoot?.getElementById('kukechat-root')
-    ?? document.getElementById('kukechat-root')
-    ?? document.body;
-}
-
-export function ReportModal({ targetType, targetId, targetLabel, conversationId, messageId, reportedUserId, isPending = false, error, onSubmit, onClose }: ReportModalProps): JSX.Element {
-  const [reason, setReason] = useState<(typeof REPORT_REASONS)[number]>('垃圾广告');
-  const [description, setDescription] = useState('');
-  const [attachments, setAttachments] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const cleanDescription = description.trim();
-  const canSubmit = reason.length > 0 && cleanDescription.length <= MAX_DESCRIPTION_LENGTH && !isPending && !uploading;
-  const title = targetType === 'message' ? '举报消息' : targetType === 'conversation' ? '举报群聊' : targetType === 'post' ? '举报动态' : '举报用户';
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape' && !isPending && !uploading) {
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPending, onClose, uploading]);
-
-  function submit(event: React.FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    if (!canSubmit) {
-      return;
-    }
-
-    onSubmit({
-      target_type: targetType,
-      target_id: targetId,
-      reason,
-      description: cleanDescription || undefined,
-      attachments,
-      conversation_id: conversationId,
-      message_id: messageId,
-      reported_user_id: reportedUserId
-    });
-  }
-
-  async function chooseAttachments(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
-    const files = Array.from(event.target.files ?? []).slice(0, MAX_ATTACHMENTS - attachments.length);
-    event.target.value = '';
-    if (files.length === 0) {
-      return;
-    }
-    const oversized = files.filter((file) => file.size > (
-      /^(image\/jpeg|image\/png|image\/webp)$/i.test(file.type)
-        ? MAX_COMPRESSIBLE_ATTACHMENT_ORIGINAL_BYTES
-        : MAX_ATTACHMENT_BYTES
-    ));
-    const validFiles = files.filter((file) => !oversized.includes(file));
-    if (oversized.length > 0) {
-      setUploadError('JPEG/PNG/WEBP 原图不能超过 12MB，GIF 及其他图片原图不能超过 3MB；压缩后不能超过 3MB。过大的图片已忽略。');
-    }
-    if (validFiles.length === 0) {
-      return;
-    }
-    setUploading(true);
-    if (oversized.length === 0) {
-      setUploadError(null);
-    }
-    try {
-      const uploaded = await Promise.all(validFiles.map((file) => uploadMessageImage(file)));
-      setAttachments((current) => [...current, ...uploaded.map((item) => item.url)].slice(0, MAX_ATTACHMENTS));
-    } catch {
-      setUploadError('凭证图片上传失败，请稍后重试。');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  const modal = (
+  return (
     <div className="pointer-events-auto fixed inset-0 z-[2147483647] grid place-items-center overflow-hidden p-4 backdrop-blur-sm [background:rgba(15,23,42,0.32)]" onMouseDown={() => !isPending && !uploading && onClose()}>
       <form onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} className="flex max-h-[calc(100%-32px)] w-full max-w-[520px] min-h-0 flex-col overflow-hidden rounded-[24px] border shadow-float [background:var(--kc-window)] [border-color:var(--kc-border-strong)] [color:var(--kc-text)]">
         <header className="flex h-12 shrink-0 items-center justify-between border-b px-4 [background:var(--kc-titlebar)] [border-color:var(--kc-border)]">
@@ -129,22 +34,22 @@ export function ReportModal({ targetType, targetId, targetLabel, conversationId,
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold">{targetLabel}</p>
-              <p className="mt-1 text-xs leading-5 [color:var(--kc-muted)]">请选择举报原因。提交后管理员会结合举报时保存的内容证据进行处理。</p>
+              <p className="mt-1 text-xs leading-5 [color:var(--kc-muted)]">请选择举报原因。提交后会结合举报时保存的内容证据进行处理，处理结果会通知你。{quota ? ` 今天还可以举报 ${Math.max(0, quota.remaining_today)} 次。` : ''}</p>
             </div>
           </div>
 
           <fieldset className="grid grid-cols-2 gap-2">
             <legend className="sr-only">举报原因</legend>
-            {REPORT_REASONS.map((item) => (
+            {options.reasons.map(({ reason: item }) => (
               <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${reason === item ? '[background:var(--kc-accent-soft)] [border-color:var(--kc-accent)] [color:var(--kc-accent)]' : '[background:var(--kc-panel)] [border-color:var(--kc-border)] hover:[background:var(--kc-hover)]'}`}>
-                <input type="radio" name="report-reason" checked={reason === item} onChange={() => setReason(item)} className="h-3.5 w-3.5 accent-[var(--kc-accent)]" />
+                <input type="radio" name="report-reason" checked={reason === item} onChange={() => setPickedReason(item)} className="h-3.5 w-3.5 accent-[var(--kc-accent)]" />
                 <span>{item}</span>
               </label>
             ))}
           </fieldset>
 
           <div>
-            <label htmlFor="report-description" className="mb-2 block text-xs font-medium [color:var(--kc-muted)]">补充说明（选填）</label>
+            <label htmlFor="report-description" className="mb-2 block text-xs font-medium [color:var(--kc-muted)]">{detailsRequired ? `具体说明（必填，至少 ${options.details_min_length} 个字）` : '补充说明（选填）'}</label>
             <textarea
               id="report-description"
               value={description}
@@ -158,6 +63,30 @@ export function ReportModal({ targetType, targetId, targetLabel, conversationId,
               <span>{cleanDescription.length}/{MAX_DESCRIPTION_LENGTH}</span>
             </div>
           </div>
+
+          {candidates.length > 0 ? (
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3 text-xs [color:var(--kc-muted)]">
+                <span className="font-medium">证据消息（勾选对方发过的违规消息）</span>
+                <span>{evidenceIds.length}/{options.max_evidence_messages}</span>
+              </div>
+              <div className="scroll-soft grid max-h-44 gap-1 overflow-y-auto rounded-[18px] border p-1.5 [background:var(--kc-panel-muted)] [border-color:var(--kc-border)]">
+                {candidates.map((message) => {
+                  const checked = evidenceIds.includes(message.id);
+                  const full = !checked && evidenceIds.length >= options.max_evidence_messages;
+                  return (
+                    <label key={message.id} className={`flex cursor-pointer items-start gap-2 rounded-xl px-2.5 py-1.5 text-[13px] transition ${checked ? '[background:var(--kc-accent-soft)]' : 'hover:[background:var(--kc-hover)]'} ${full ? 'cursor-not-allowed opacity-45' : ''}`}>
+                      <input type="checkbox" checked={checked} disabled={full} onChange={() => setEvidenceIds((current) => (checked ? current.filter((id) => id !== message.id) : [...current, message.id]))} className="mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--kc-accent)]" />
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 break-words [overflow-wrap:anywhere] [color:var(--kc-text)]">{evidencePreview(message)}</span>
+                        <span className="text-[11px] [color:var(--kc-muted)]">{formatMessageDateTime(message.created_at)}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -187,7 +116,8 @@ export function ReportModal({ targetType, targetId, targetLabel, conversationId,
             {uploadError ? <p className="mt-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">{uploadError}</p> : null}
           </div>
 
-          {error ? <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">举报提交失败，请稍后重试。</p> : null}
+          {blocker ? <p className="rounded-xl border px-3 py-2 text-xs [background:var(--kc-panel-muted)] [border-color:var(--kc-border)] [color:var(--kc-muted)]">{blocker}</p> : null}
+          {error ? <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">{error instanceof Error && error.message ? error.message : '举报提交失败，请稍后重试。'}</p> : null}
         </div>
 
         <div className="flex shrink-0 justify-end gap-3 border-t px-5 py-4 [background:var(--kc-panel)] [border-color:var(--kc-border)]">
@@ -199,5 +129,4 @@ export function ReportModal({ targetType, targetId, targetLabel, conversationId,
       </form>
     </div>
   );
-  return createPortal(modal, getKukePortalRoot());
 }

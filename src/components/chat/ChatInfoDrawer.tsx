@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { parseApiDate } from '@/utils/dateTime';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGameModeSettings, updateGameModeSettings } from '@/api/game';
 import { getConversationBots, removeBotInstallation, updateBotInstallation } from '@/api/bots';
@@ -18,9 +19,9 @@ import { registerNativeBackHandler } from '@/native/back';
 import { updateNativeBackgroundRealtimeConversations } from '@/native/backgroundRealtime';
 import { runNativeRouteTransition } from '@/native/transition';
 import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
-import { parseApiDate } from '@/utils/dateTime';
 import { hasPendingOutgoingFriendRequest, isFriendUserId } from '@/utils/friendship';
 import { AnnouncementModal } from './AnnouncementModal';
+import { conversationPlainTitle as conversationDisplayTitle, copyText, groupCategoryOptions, joinModeOptions, leaderboardPeriodOptions, leaderboardTypeOptions, memberMuted, memberRoleRank, normalizeCreationOid, roleLabel, slowModeOptions, userShareMetadata, type SelectOption } from './info/shared';
 
 interface ChatInfoDrawerProps {
   conversation: Conversation;
@@ -72,50 +73,6 @@ interface ConversationMembersPageData {
 type DrawerModal = 'profile' | 'invite' | 'remove' | 'joinRequests' | 'shareActions' | 'shareForward' | 'leaderboard' | null;
 type ShareForwardKind = 'group' | 'user';
 
-interface SelectOption<T extends string = string> {
-  value: T;
-  label: string;
-}
-
-const slowModeOptions: SelectOption[] = [
-  { value: '0', label: '未开启' },
-  { value: '10', label: '每分钟10条' },
-  { value: '5', label: '每分钟5条' }
-];
-
-const joinModeOptions: Array<SelectOption<JoinMode>> = [
-  { value: 'approval', label: '需要审核' },
-  { value: 'question', label: '回答问题' },
-  { value: 'invite_only', label: '仅邀请' },
-  { value: 'open', label: '自由加入' }
-];
-
-const groupCategoryOptions: SelectOption[] = [
-  { value: '', label: '未设置' },
-  { value: '同学', label: '同学' },
-  { value: '同事', label: '同事' },
-  { value: '亲友', label: '亲友' },
-  { value: '家校', label: '家校' },
-  { value: '游戏', label: '游戏' },
-  { value: '二次元', label: '二次元' },
-  { value: '更多兴趣', label: '更多兴趣' }
-];
-
-const leaderboardTypeOptions: Array<SelectOption<GroupLeaderboardType>> = [
-  { value: 'activity', label: '活跃榜' },
-  { value: 'level', label: '等级榜' },
-  { value: 'checkin_streak', label: '连签榜' },
-  { value: 'checkin_total', label: '累签榜' },
-  { value: 'message', label: '发言榜' }
-];
-
-const leaderboardPeriodOptions: Array<SelectOption<GroupLeaderboardPeriod>> = [
-  { value: 'today', label: '今日' },
-  { value: 'week', label: '近7天' },
-  { value: 'month', label: '近30天' },
-  { value: 'all', label: '全部' }
-];
-
 const MEMBER_MENU_WIDTH = 160;
 const MEMBER_MENU_HEIGHT = 132;
 
@@ -146,16 +103,6 @@ function memberUserId(member: ConversationMember): number | null {
   return member.user_id ?? member.user?.id ?? null;
 }
 
-function roleLabel(role: MemberRole): string {
-  if (role === 'owner') {
-    return '群主';
-  }
-  if (role === 'admin') {
-    return '管理员';
-  }
-  return '成员';
-}
-
 function fieldText(value?: string | null): string {
   return value?.trim().toLowerCase() ?? '';
 }
@@ -177,35 +124,6 @@ function matchesMember(member: ConversationMember, keyword: string): boolean {
 
 function friendUser(friendship: Friendship): User | null | undefined {
   return friendship.friend ?? friendship.user;
-}
-
-function fallbackCopyText(value: string): boolean {
-  const textarea = document.createElement('textarea');
-  textarea.value = value;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.append(textarea);
-  textarea.select();
-  let copied = false;
-  try {
-    copied = document.execCommand('copy');
-  } finally {
-    textarea.remove();
-  }
-  return copied;
-}
-
-async function copyText(value: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value);
-      return true;
-    }
-  } catch {
-    return fallbackCopyText(value);
-  }
-
-  return fallbackCopyText(value);
 }
 
 function ToggleRow({ label, checked, disabled = false, onChange }: { label: string; checked: boolean; disabled?: boolean; onChange: (value: boolean) => void }): JSX.Element {
@@ -284,18 +202,6 @@ function DrawerCard({ children, className = '', allowOverflow = false }: { child
   return <section className={`${allowOverflow ? '' : 'overflow-hidden'} rounded-[22px] border [background:var(--kc-panel)] [border-color:var(--kc-border)] ${className}`}>{children}</section>;
 }
 
-function conversationDisplayTitle(conversation: Conversation, currentUser: User): string {
-  const displayTitle = conversation.display_title?.trim();
-  if (conversation.type === 'group') {
-    return displayTitle || conversation.title || '未命名群聊';
-  }
-  if (displayTitle) {
-    return displayTitle;
-  }
-  const directMember = conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
-  return getDisplayName(conversation.direct_user ?? directMember, conversation.title || '私聊');
-}
-
 function ConversationTargetAvatar({ conversation, currentUser }: { conversation: Conversation; currentUser: User }): JSX.Element {
   const title = conversationDisplayTitle(conversation, currentUser);
   if (conversation.type === 'group') {
@@ -308,36 +214,10 @@ function ConversationTargetAvatar({ conversation, currentUser }: { conversation:
   return <Avatar user={conversation.direct_user} label={title} />;
 }
 
-function userShareMetadata(user: User): MessageMetadata {
-  const name = getDisplayName(user, `用户 ${user.id}`);
-  return {
-    share_card: {
-      type: 'user',
-      user_id: user.id,
-      name,
-      username: user.username,
-      avatar_url: user.avatar_url,
-      bio: user.bio,
-      profile_title: user.profile_title,
-      profile_tagline: user.profile_tagline,
-      profile_status: user.profile_status,
-      ccw_name: user.ccw_name,
-      ccw_avatar_url: user.ccw_avatar_url,
-      ccw_student_oid: user.ccw_student_oid
-    }
-  };
-}
-
 function roleBadgeClass(role: MemberRole): string {
   return role === 'owner' || role === 'admin'
     ? '[background:var(--kc-accent-soft)] [color:var(--kc-accent)]'
     : '[background:var(--kc-panel-muted)] [color:var(--kc-muted)]';
-}
-
-function memberRoleRank(role: MemberRole): number {
-  if (role === 'owner') return 0;
-  if (role === 'admin') return 1;
-  return 2;
 }
 
 export function ChatInfoDrawer({ conversation, currentUser, members, friends = [], membersLoading = false, currentRole = 'member', conversations = [], isMobile = false, onReportConversation, onClose }: ChatInfoDrawerProps): JSX.Element {
@@ -656,13 +536,6 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
   });
 
   const gameModeEnabled = Boolean(gameModeQuery.data?.enabled);
-
-  function normalizeCreationOid(value: string): string {
-    const trimmed = value.trim();
-    // 支持直接粘贴作品链接，自动抽出其中的 24 位十六进制 ID
-    const fromUrl = trimmed.match(/[0-9a-fA-F]{24}/);
-    return (fromUrl ? fromUrl[0] : trimmed).toLowerCase();
-  }
 
   function toggleGameMode(next: boolean): void {
     if (!next) {
@@ -1095,14 +968,6 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
   function canSetMemberTitle(member: ConversationMember): boolean {
     const userId = memberUserId(member);
     return Boolean(isGroup && currentRole === 'owner' && userId);
-  }
-
-  function memberMuted(member: ConversationMember): boolean {
-    if (!member.muted) {
-      return false;
-    }
-    const until = parseApiDate(member.muted_until);
-    return !member.muted_until || !until || until.getTime() > Date.now();
   }
 
   function canRemoveMember(member: ConversationMember): boolean {
@@ -1989,7 +1854,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
                         <Avatar user={request.requester} label={name} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold">{name}</p>
-                          <p className="truncate text-xs [color:var(--kc-muted)]">{pending ? '等待审核' : request.status === 'accepted' ? '已通过' : '已拒绝'}{request.created_at ? ` · ${new Date(request.created_at).toLocaleString('zh-CN')}` : ''}</p>
+                          <p className="truncate text-xs [color:var(--kc-muted)]">{pending ? '等待审核' : request.status === 'accepted' ? '已通过' : '已拒绝'}{request.created_at ? ` · ${parseApiDate(request.created_at)?.toLocaleString('zh-CN') ?? ''}` : ''}</p>
                           {request.message?.trim() ? <p className="mt-1 text-xs leading-5 [color:var(--kc-muted)]">附言：{request.message}</p> : null}
                           {request.answer?.trim() ? <p className="mt-1 rounded-xl border px-3 py-2 text-xs leading-5 [background:var(--kc-panel-muted)] [border-color:var(--kc-border)]"><span className="font-semibold [color:var(--kc-accent)]">回答：</span>{request.answer}</p> : null}
                         </div>

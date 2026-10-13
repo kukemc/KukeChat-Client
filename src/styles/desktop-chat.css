@@ -1,0 +1,1983 @@
+/*
+ * 桌面端聊天面板（src/components/chat/desktop）。
+ *
+ * 颜色一律取全局主题令牌（--kc-*），这里不写死色值，换主题时整块跟着变。
+ * 字号乘上 --kc-font-multiplier，跟随设置里的界面字号。
+ * 消息行之间的间距用 padding 而不是 margin：虚拟列表按元素盒测高，margin 折叠会让它量错。
+ */
+
+.kcd {
+  --kcd-fs: var(--kc-font-multiplier, 1);
+  --kcd-radius: var(--kc-radius, 10px);
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--kc-chat);
+  color: var(--kc-text);
+  font-size: calc(14px * var(--kcd-fs));
+  line-height: 1.5;
+}
+
+/* 主界面里外层容器已经铺了一层画布色，这里不再铺：整窗背景下画布色是半透明的遮罩，叠两层浓度就不是设置里的那个数了 */
+.kc-pc-view > .kcd {
+  background: none;
+}
+
+.kcd--empty {
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.kcd-empty h3 {
+  margin-top: 14px;
+  font-size: calc(16px * var(--kcd-fs));
+  font-weight: 600;
+}
+
+.kcd-empty p {
+  margin-top: 6px;
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kcd-fs));
+}
+
+.kcd-empty-icon {
+  display: inline-grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kc-panel-muted);
+  color: var(--kc-muted);
+}
+
+.kcd-column {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+/* ───────── 头部 ───────── */
+
+/* 头部压在消息画布上面：一条发丝线，再往下落一层很淡的影子，分界清楚但不是一道硬杠。
+   z-index 让影子盖在消息列表上；背景用 --kc-header-surface，有背景图时按「材质」里的设置变成半透明或毛玻璃。 */
+.kcd-header {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  height: 56px;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* 左边 22px 和消息行的头像左缘对齐 */
+  padding: 0 10px 0 22px;
+  background: var(--kc-header-surface);
+  box-shadow: 0 1px 0 var(--kc-border), 0 6px 12px -10px color-mix(in srgb, var(--kui-scrim) 55%, transparent);
+  /* 面很透的时候主题引擎给字垫一圈同色的晕 */
+  text-shadow: var(--kc-halo-header, none);
+}
+
+/* 头像 + 名称 + 状态是一整块按钮，点开聊天资料。悬停的底向左右各探出一点，不贴着头像 */
+.kcd-header-id {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-left: -6px;
+  padding: 5px 10px 5px 6px;
+  border-radius: var(--kui-r-md);
+  text-align: left;
+  transition: background-color 100ms ease;
+}
+
+.kcd-header-id:hover {
+  background: var(--kc-hover);
+}
+
+.kcd-header-id:active {
+  background: var(--kc-active);
+}
+
+.kcd-header-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kcd-header-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.kcd-header-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(15px * var(--kcd-fs));
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 第二行：成员数 / 对方的状态，后面跟几个带小图标的状态。
+   允许换行但只露一行高：窄窗口里放不下的状态整个掉到第二行被裁掉，而不是从中间切开 */
+.kcd-header-sub {
+  display: flex;
+  min-width: 0;
+  max-height: 1.4em;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 10px;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.kcd-header-sub > * {
+  flex: none;
+}
+
+.kcd-header-sub > .kcd-header-clip {
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kcd-header-sub.is-typing {
+  color: var(--kc-accent);
+}
+
+.kcd-header-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.kcd-header-flag svg {
+  color: var(--kc-subtle);
+}
+
+.kcd-header-flag.is-warn,
+.kcd-header-flag.is-warn svg {
+  color: var(--kui-warn);
+}
+
+.kcd-header-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.kcd-header-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+/* 组间的短分隔线画在后一组的左边：某一组整个不渲染时不会多出一条 */
+.kcd-header-group + .kcd-header-group::before {
+  width: 1px;
+  height: 16px;
+  margin: 0 7px;
+  background: var(--kc-border-strong);
+  content: '';
+}
+
+/* ───────── 通用控件 ───────── */
+
+/* 按钮、图标按钮、链接的外观和 kui 的共用一份，定义在 kui.css（.kui-btn / .kui-icon-btn / .kui-link 那几组）。
+   这里只写聊天面板里不一样的尺寸。 */
+.kcd-icon-button {
+  width: 32px;
+  height: 32px;
+}
+
+.kcd-chip {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 6px;
+}
+
+/* 全局有一条 #kukechat-root [data-font-scale] :is(button, …) { font-size: inherit }，
+   按钮自己的字号要用更高的优先级才写得进去。 */
+#kukechat-root .kcd .kcd-button,
+#kukechat-root .kcd .kcd-send,
+#kukechat-root .kcd .kcd-link-button {
+  font-size: calc(13px * var(--kcd-fs));
+}
+
+#kukechat-root .kcd .kcd-chip,
+#kukechat-root .kcd .kcd-reaction,
+#kukechat-root .kcd .kcd-jump-latest,
+#kukechat-root .kcd .kcd-plus-one {
+  font-size: calc(12px * var(--kcd-fs));
+}
+
+/* 身份标签：都不描边，一块很淡的底 + 同色系的字。普通的是中性灰，群主和管理员才上色 */
+.kcd-tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kc-muted) 14%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(10px * var(--kcd-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.kcd-tag--owner {
+  background: color-mix(in srgb, var(--kui-warn) 14%, transparent);
+  color: var(--kui-warn);
+}
+
+.kcd-tag--admin {
+  background: color-mix(in srgb, var(--kc-accent) 12%, transparent);
+  color: var(--kc-accent);
+}
+
+.kcd-tag--member {
+  display: none;
+}
+
+.kcd-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--kc-border-strong);
+  border-top-color: var(--kc-accent);
+  border-radius: 50%;
+  animation: kcd-spin 700ms linear infinite;
+}
+
+/* ───────── 消息列表 ───────── */
+
+.kcd-list {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* 没有背景图时，消息滚到输入卡片上沿是淡出去的，而不是被卡片的边切掉。
+   右边让出滚动条；有背景图时画布不是纯色，盖一条渐变反而露馅，不做。 */
+[data-kc-wallpaper='none'] .kcd-list::after {
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  left: 0;
+  height: 20px;
+  background: linear-gradient(to top, var(--kc-chat), transparent);
+  content: '';
+  pointer-events: none;
+}
+
+/* 聊天背景（只铺聊天区的那种；铺整窗的画在根节点上，见 kui.css「背景与材质」）：
+   图片一层伪元素、遮罩一层伪元素，垫在整列下面——头部、消息列表、输入卡片都浮在图上，各自按材质透出多少。
+   它们是静态图层，滚动消息时不会重绘。图片的模糊是预先算好的另一张图，不是 filter: blur。 */
+[data-kc-wallpaper='chat'] .kcd-column {
+  isolation: isolate;
+}
+
+[data-kc-wallpaper='chat'] .kcd-column::before,
+[data-kc-wallpaper='chat'] .kcd-column::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+}
+
+[data-kc-wallpaper='chat'] .kcd-column::before {
+  z-index: -2;
+  background: var(--kc-wallpaper-soft-bg, var(--kc-wallpaper-bg));
+  filter: var(--kc-wallpaper-filter, none);
+}
+
+/* 两层遮罩合在一个伪元素里：上面是画布色（浓度可调），下面是压暗 / 提亮 */
+[data-kc-wallpaper='chat'] .kcd-column::after {
+  z-index: -1;
+  background:
+    linear-gradient(var(--kc-wallpaper-veil, transparent), var(--kc-wallpaper-veil, transparent)),
+    linear-gradient(var(--kc-wallpaper-shade, transparent), var(--kc-wallpaper-shade, transparent));
+}
+
+/* 不能套全局的 .scroll-soft：它在桌面端带 scroll-behavior: smooth，
+   虚拟列表每次校正 scrollTop 都会被做成动画，表现出来就是滚动回弹。 */
+.kcd-scroller {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* 位置保持靠浏览器原生的滚动锚定，见 MessageList.tsx 顶部的说明 */
+  overflow-anchor: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+  user-select: text;
+}
+
+.kcd-list-state {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kcd-fs));
+}
+
+.kcd-list-edge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+}
+
+/* 顶部和底部的提示条不参与滚动锚定，锚点永远落在消息上 */
+.kcd-list-edge {
+  overflow-anchor: none;
+}
+
+.kcd-list-edge[hidden] {
+  display: none;
+}
+
+.kcd-list-edge--top {
+  height: 36px;
+  justify-content: center;
+}
+
+.kcd-list-edge--bottom {
+  min-height: 20px;
+  padding: 8px 0 12px;
+}
+
+.kcd-item {
+  padding: var(--kc-space-item, 14px) 22px 0;
+}
+
+.kcd-item--grouped {
+  padding-top: var(--kc-space-grouped, 3px);
+}
+
+.kcd-time-divider,
+.kcd-unread-divider,
+.kcd-notice {
+  display: flex;
+  justify-content: center;
+  /* 有背景图时主题引擎给一个更重的字色（--kc-notice-text），灰字直接压在图上读不清 */
+  color: var(--kc-notice-text, var(--kc-muted));
+  font-size: calc(12px * var(--kcd-fs));
+  user-select: none;
+}
+
+.kcd-time-divider {
+  padding-bottom: 12px;
+  color: var(--kc-notice-text, var(--kc-subtle));
+  font-size: calc(11px * var(--kcd-fs));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+}
+
+/* 时间和系统提示（入群、撤回、戳一戳……）都只是一行灰色小字：不垫底色、不描边、不做胶囊。
+   压在背景图上时也不加框，只拿主题引擎给的 --kc-notice-bg 在字的四周晕一圈，保证读得清 */
+.kcd-time-divider span,
+.kcd-notice span {
+  max-width: 76%;
+  padding: 1px 8px;
+  border-radius: 5px;
+  overflow-wrap: anywhere;
+  text-align: center;
+  text-shadow: 0 0 1px var(--kc-notice-bg, transparent), 0 0 3px var(--kc-notice-bg, transparent), 0 0 7px var(--kc-notice-bg, transparent);
+  white-space: pre-wrap;
+}
+
+.kcd-notice span {
+  user-select: text;
+}
+
+/* 戳一戳里别人的名字：比周围的字深一级，点开名片 */
+.kcd-notice-name {
+  color: color-mix(in srgb, var(--kc-text) 60%, var(--kc-muted));
+  text-shadow: inherit;
+  user-select: text;
+}
+
+.kcd-notice-name:hover {
+  color: var(--kc-accent);
+}
+
+.kcd-notice.is-highlighted span {
+  background: var(--kui-tint);
+  color: var(--kc-accent);
+}
+
+.kcd-unread-divider {
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  color: var(--kc-accent);
+  font-size: calc(11.5px * var(--kcd-fs));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.kcd-unread-divider::before,
+.kcd-unread-divider::after {
+  height: 1px;
+  flex: 1;
+  background: color-mix(in srgb, var(--kc-accent) 36%, transparent);
+  content: '';
+}
+
+/* ───────── 消息行 ───────── */
+
+.kcd-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  isolation: isolate;
+}
+
+.kcd-row.is-mine {
+  flex-direction: row-reverse;
+}
+
+.kcd-row.is-fresh {
+  animation: kcd-rise 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 高亮和选中用一层伪元素铺底，不改动行本身的尺寸 */
+.kcd-row::before {
+  position: absolute;
+  z-index: -1;
+  inset: -4px -12px;
+  border-radius: 8px;
+  background: transparent;
+  content: '';
+  pointer-events: none;
+  transition: background-color 160ms ease;
+}
+
+.kcd-row.is-selecting {
+  cursor: pointer;
+}
+
+.kcd-row.is-selecting:hover::before {
+  background: var(--kc-hover);
+}
+
+.kcd-row.is-selected::before {
+  background: var(--kui-tint);
+}
+
+.kcd-row.is-highlighted::before {
+  animation: kcd-flash 1600ms ease-out both;
+}
+
+.kcd-check {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  margin-top: 9px;
+  border: 1.5px solid var(--kc-border-strong);
+  border-radius: 5px;
+  background: var(--kui-control);
+  color: var(--kui-on-fill);
+}
+
+/* 自己的消息行是反向排列的，勾选框仍然统一放在最左边 */
+.kcd-row.is-mine .kcd-check {
+  order: 9;
+}
+
+.kcd-row.is-selected .kcd-check {
+  border-color: var(--kui-fill);
+  background: var(--kui-fill);
+}
+
+.kcd-avatar-slot {
+  display: flex;
+  width: 36px;
+  flex: none;
+  justify-content: center;
+}
+
+.kcd-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--kc-avatar-radius, 50%);
+  transition: filter 120ms ease;
+}
+
+.kcd-avatar > * {
+  width: 100%;
+  height: 100%;
+}
+
+.kcd-avatar:hover {
+  filter: brightness(0.94);
+}
+
+/* 连发的消息不显示头像，悬停时在头像位置显示这条的时间 */
+.kcd-gutter-time {
+  padding-top: 11px;
+  color: var(--kc-subtle);
+  font-size: calc(10px * var(--kcd-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  user-select: none;
+}
+
+.kcd-row:hover .kcd-gutter-time {
+  opacity: 1;
+}
+
+.kcd-main {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.kcd-row.is-mine .kcd-main {
+  align-items: flex-end;
+}
+
+.kcd-meta {
+  display: flex;
+  max-width: 100%;
+  min-height: 16px;
+  align-items: center;
+  gap: 6px;
+  color: var(--kc-notice-text, var(--kc-muted));
+  font-size: calc(12px * var(--kcd-fs));
+  line-height: 16px;
+  user-select: none;
+}
+
+/* 昵称直接压在背景图上，和时间、系统提示一样垫一圈晕。标签有自己的底，不需要 */
+.kcd-meta-name,
+.kcd-meta-time,
+.kcd-gutter-time {
+  text-shadow: var(--kc-notice-halo, none);
+}
+
+/* 自己的消息靠右，但标签仍然在昵称左边；时间挪到最左 */
+.kcd-row.is-mine .kcd-meta {
+  justify-content: flex-end;
+}
+
+.kcd-row.is-mine .kcd-meta-time {
+  order: -1;
+}
+
+.kcd-meta-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcd-meta-time {
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kcd-fs));
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.kcd-row:hover .kcd-meta-time {
+  opacity: 1;
+}
+
+.kcd-line {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  /* 外侧留出悬浮工具条的位置，气泡再长也不会被它盖住 */
+  max-width: calc(100% - 132px);
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.kcd-row.is-mine .kcd-line {
+  flex-direction: row-reverse;
+}
+
+.kcd-content {
+  position: relative;
+  min-width: 0;
+  max-width: 560px;
+  flex: 0 1 auto;
+}
+
+.kcd-content--bare {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.kcd-row.is-mine .kcd-content--bare {
+  align-items: flex-end;
+}
+
+/* 朝头像的那个角收小（外观设置里可以关掉）；别人的是白面，自己的默认是强调色实底（可以换成柔和的浅色或自选颜色）。
+   都不描边，靠 --kc-bubble-shadow 那层贴身的柔和投影从画布上立起来。
+   backdrop-filter 只有用户在材质的高级选项里给气泡选了「毛玻璃」才会有值——气泡在滚动的列表里，实时模糊是有代价的，默认没有。 */
+.kcd-bubble {
+  --kcd-tail: var(--kc-bubble-tail, 3px);
+  padding: var(--kc-bubble-padding, 7px 12px);
+  border-radius: var(--kcd-radius);
+  border-top-left-radius: var(--kcd-tail);
+  background: var(--kc-bubble-in);
+  -webkit-backdrop-filter: var(--kc-bubble-in-filter, none);
+  backdrop-filter: var(--kc-bubble-in-filter, none);
+  box-shadow: var(--kc-bubble-shadow);
+  color: var(--kc-bubble-in-text, var(--kc-text));
+  font-size: calc(14px * var(--kcd-fs));
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+  user-select: text;
+  word-break: break-word;
+}
+
+/* 气泡里的 @、链接、引用等共享渲染器读的是全局令牌。
+   在气泡作用域内把它们重定向到「气泡前景色」，深色或纯色气泡上也能看清。 */
+.kcd-bubble {
+  --kc-text: var(--kc-bubble-in-text, inherit);
+  --kc-accent: var(--kc-bubble-in-accent, inherit);
+  --kc-muted: var(--kc-bubble-in-muted, inherit);
+}
+
+.kcd-row.is-mine .kcd-bubble {
+  --kc-text: var(--kc-bubble-out-text, inherit);
+  --kc-accent: var(--kc-bubble-out-accent, inherit);
+  --kc-muted: var(--kc-bubble-out-muted, inherit);
+  border-top-left-radius: var(--kcd-radius);
+  border-top-right-radius: var(--kcd-tail);
+  background: var(--kc-bubble-out);
+  -webkit-backdrop-filter: var(--kc-bubble-out-filter, none);
+  backdrop-filter: var(--kc-bubble-out-filter, none);
+  /* 投影和别人的气泡用同一层：柔和气泡颜色很浅，没有它在画布和背景图上会化掉 */
+  box-shadow: var(--kc-bubble-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: var(--kc-bubble-out-text, var(--kc-text));
+}
+
+/* 纯色气泡上的链接和字同色，靠下划线认出来 */
+.kcd-row.is-mine .kcd-bubble a {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  text-underline-offset: 2px;
+}
+
+/* 连发时只有第一条带「尖角」，后面的四角一致 */
+.kcd-row.is-grouped .kcd-bubble {
+  border-radius: var(--kcd-radius);
+}
+
+.kcd-text--pre {
+  white-space: pre-wrap;
+}
+
+.kcd-flags {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  gap: 2px;
+}
+
+.kcd-row.is-mine .kcd-flags {
+  right: auto;
+  left: -6px;
+}
+
+.kcd-flag {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kui-raised);
+  box-shadow: var(--kc-bubble-shadow);
+}
+
+.kcd-flag--featured {
+  color: var(--kui-warn);
+}
+
+.kcd-flag--bookmark {
+  color: var(--kc-accent);
+}
+
+.kcd-quote {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  margin-bottom: 6px;
+  padding: 4px 9px;
+  border-left: 2px solid var(--kc-accent);
+  border-radius: 3px 5px 5px 3px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  line-height: 1.45;
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+
+.kcd-quote:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.kcd-content--bare .kcd-quote {
+  width: auto;
+  max-width: 100%;
+  margin-bottom: 0;
+  background: var(--kc-panel-muted);
+}
+
+.kcd-quote-name {
+  overflow: hidden;
+  color: var(--kc-accent);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcd-quote-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  opacity: 0.72;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+#kukechat-root .kcd .kcd-quote {
+  font-size: calc(12.5px * var(--kcd-fs));
+}
+
+.kcd-media {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--kc-panel-muted);
+  box-shadow: var(--kc-bubble-shadow);
+  cursor: zoom-in;
+}
+
+/* 投票卡和气泡同处一列，边框跟着气泡换成同一层投影 */
+.kcd-content--bare > .kcp-card {
+  border-color: transparent;
+  box-shadow: var(--kc-bubble-shadow);
+}
+
+.kcd-media--sticker {
+  background: transparent;
+  box-shadow: none;
+}
+
+.kcd-image {
+  display: block;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.kcd-image--single {
+  max-width: min(320px, 100%);
+  max-height: 320px;
+}
+
+.kcd-image--sticker {
+  max-width: 132px;
+  max-height: 132px;
+}
+
+.kcd-image--grid {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+}
+
+.kcd-image.is-loading {
+  min-width: 120px;
+  min-height: 90px;
+}
+
+.kcd-image--sticker.is-loading {
+  min-width: 96px;
+  min-height: 96px;
+}
+
+.kcd-image-grid {
+  display: grid;
+  max-width: 360px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.kcd-image-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.kcd-image-missing {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+}
+
+.kcd-side {
+  display: flex;
+  min-height: 38px;
+  flex: none;
+  align-items: center;
+}
+
+.kcd-side:empty {
+  display: none;
+}
+
+.kcd-plus-one {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid var(--kc-accent);
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-control);
+  color: var(--kc-accent);
+  font-weight: 600;
+  line-height: 1;
+  transition: background-color 120ms ease;
+  user-select: none;
+}
+
+.kcd-plus-one:hover {
+  background: color-mix(in srgb, var(--kc-accent) 10%, var(--kui-control));
+}
+
+.kcd-plus-one:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* 悬浮工具条：贴在气泡外侧，绝对定位，不参与布局，所以出现和消失都不会让列表抖动 */
+.kcd-toolbar {
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  left: calc(100% + 6px);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease;
+}
+
+.kcd-row.is-mine .kcd-toolbar {
+  right: calc(100% + 6px);
+  left: auto;
+}
+
+.kcd-row:hover .kcd-toolbar,
+.kcd-toolbar:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kcd-toolbar button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--kc-muted);
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.kcd-toolbar button:hover {
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  color: var(--kc-text);
+}
+
+.kcd-reactions {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.kcd-row.is-mine .kcd-reactions {
+  justify-content: flex-end;
+}
+
+.kcd-reaction {
+  display: inline-flex;
+  height: 22px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 6px;
+  /* 和气泡是同一种面：不描边，同一层投影 */
+  background: var(--kc-bubble-in);
+  box-shadow: var(--kc-bubble-shadow);
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  transition: background-color 120ms ease;
+}
+
+.kcd-reaction:hover {
+  background: color-mix(in srgb, var(--kc-text) 5%, var(--kc-bubble-in));
+}
+
+.kcd-reaction.is-mine {
+  background: color-mix(in srgb, var(--kc-accent) 16%, var(--kc-bubble-in));
+  color: var(--kc-accent);
+}
+
+.kcd-reaction-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.kcd-reaction--add {
+  width: 22px;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+}
+
+.kcd-row:hover .kcd-reaction--add,
+.kcd-reaction--add:focus-visible {
+  opacity: 1;
+}
+
+.kcd-jump-latest {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  z-index: 5;
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 10px;
+  border-radius: 8px;
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 160ms ease, transform 160ms ease, background-color 120ms ease;
+}
+
+.kcd-jump-latest.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* 有新消息时按钮本身不变色，新消息的条数是里面一个和别处一样的红色未读数 */
+.kcd-jump-latest.has-new {
+  padding-right: 13px;
+}
+
+.kcd-jump-latest-arrow {
+  width: 7px;
+  height: 7px;
+  margin-top: -3px;
+  border-right: 1.8px solid currentColor;
+  border-bottom: 1.8px solid currentColor;
+  transform: rotate(45deg);
+}
+
+/* ───────── 输入区 ───────── */
+
+.kcd-error {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 16px 6px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--kui-danger) 28%, transparent);
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kui-danger) 10%, transparent);
+  color: var(--kui-danger);
+  font-size: calc(12px * var(--kcd-fs));
+}
+
+.kcd-error button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.kcd-error button:hover {
+  background: color-mix(in srgb, var(--kui-danger) 16%, transparent);
+}
+
+/* 输入区是浮在画布上的一张卡片：四周留出画布，而不是贴底的一条通栏 */
+.kcd-composer-slot {
+  flex: none;
+  padding: 0 16px 14px;
+}
+
+.kcd-composer-slot[hidden] {
+  display: none;
+}
+
+.kcd-composer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-composer-surface);
+  box-shadow: var(--kui-shadow-raised);
+  transition: box-shadow 160ms ease;
+}
+
+/* 聚焦：卡片照旧浮着，只把那圈发丝边换成掺了强调色的一条。打开会话时输入框几乎一直有焦点，
+   所以这里只做到「能察觉」，不加粗、不发光 */
+.kcd-composer:focus-within {
+  box-shadow: 0 0 0 1px var(--kui-focus), var(--kui-shadow-raised);
+}
+
+/* 禁言期间输入区整体换成一块锁定提示，工具栏和编辑器都收起来；卡片也不再浮着 */
+.kcd-composer.is-muted {
+  background: color-mix(in srgb, var(--kc-text) 3%, transparent);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+/* 卡片是毛玻璃时底色由 --kc-frost-tint 叠上去（kui.css），禁言状态要把它一起换掉 */
+#kukechat-root .kcd-composer.is-muted[data-kc-frost] {
+  --kc-frost-tint: color-mix(in srgb, var(--kc-text) 3%, transparent);
+}
+
+.kcd-composer.is-muted > :not(.kcd-composer-muted):not(.kcd-composer-resize) {
+  display: none;
+}
+
+.kcd-composer-muted {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 20px;
+  color: var(--kc-muted);
+  text-align: center;
+}
+
+.kcd-composer-muted-title {
+  margin-top: 4px;
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+.kcd-composer-muted-text {
+  max-width: 460px;
+  font-size: calc(12.5px * var(--kcd-fs));
+  line-height: 1.6;
+}
+
+.kcd-composer-resize {
+  position: absolute;
+  z-index: 3;
+  top: -4px;
+  right: 0;
+  left: 0;
+  height: 8px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.kcd-composer-resize::after {
+  position: absolute;
+  top: 3px;
+  right: 14px;
+  left: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--kc-accent);
+  content: '';
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.kcd-composer-resize:hover::after,
+.kcd-composer-resize:active::after {
+  opacity: 0.7;
+}
+
+.kcd-composer-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  padding: 7px 9px 0;
+}
+
+.kcd-tool.is-recording {
+  background: color-mix(in srgb, var(--kui-danger) 12%, transparent);
+  color: var(--kui-danger);
+}
+
+.kcd-composer-toolbar .kcd-chip {
+  margin-left: 6px;
+}
+
+.kcd-recording {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 2px 4px 2px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--kui-danger) 10%, transparent);
+  color: var(--kui-danger);
+  font-size: calc(12px * var(--kcd-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kcd-recording button {
+  padding: 1px 8px;
+  border-radius: 4px;
+}
+
+.kcd-recording button:hover {
+  background: color-mix(in srgb, var(--kui-danger) 14%, transparent);
+}
+
+.kcd-recording-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--kui-danger);
+  animation: kcd-pulse 1100ms ease-in-out infinite;
+}
+
+.kcd-composer-status {
+  margin-left: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+}
+
+.kcd-composer-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px 16px 4px;
+  cursor: text;
+}
+
+.kcd-composer-quote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 5px 6px 5px 10px;
+  border-left: 2px solid var(--kc-accent);
+  border-radius: 3px 6px 6px 3px;
+  background: var(--kc-panel-muted);
+  cursor: default;
+  font-size: calc(12.5px * var(--kcd-fs));
+}
+
+.kcd-composer-quote-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kcd-composer-quote button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--kc-muted);
+}
+
+.kcd-composer-quote button:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kcd-staged-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+  cursor: default;
+}
+
+.kcd-staged-image {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border: 1px solid var(--kc-border);
+  border-radius: 8px;
+  background: var(--kc-panel-muted);
+}
+
+.kcd-staged-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kcd-staged-image button {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.56);
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.kcd-staged-image:hover button,
+.kcd-staged-image button:focus-visible {
+  opacity: 1;
+}
+
+.kcd-editor-wrap {
+  position: relative;
+}
+
+.kcd-editor-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--kc-subtle);
+  line-height: 1.6;
+  pointer-events: none;
+  user-select: none;
+}
+
+.kcd-editor {
+  min-height: 44px;
+  outline: none;
+  color: var(--kc-text);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.kcd-mention-token {
+  display: inline-block;
+  max-width: 180px;
+  margin: 0 1px;
+  padding: 0 6px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--kui-tint);
+  color: var(--kc-accent);
+  font-size: 0.92em;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  user-select: none;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.kcd-composer-footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 4px 10px 10px 16px;
+}
+
+.kcd-composer-hint,
+.kcd-composer-count {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kcd-fs));
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.kcd-composer-count.is-over {
+  color: var(--kui-danger);
+}
+
+.kcd-send {
+  min-width: 72px;
+  padding: 0 16px;
+}
+
+/* 多选时顶替输入卡片的操作条，和卡片是同一种面 */
+.kcd-selection-bar {
+  display: flex;
+  height: 60px;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 16px 14px;
+  padding: 0 14px 0 18px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-composer-surface);
+  box-shadow: var(--kui-shadow-raised);
+  font-weight: 600;
+}
+
+.kcd-selection-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.kcd-drop-overlay {
+  position: absolute;
+  z-index: 20;
+  inset: 8px;
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--kc-accent);
+  border-radius: var(--kui-r-lg);
+  background: color-mix(in srgb, var(--kc-chat) 84%, var(--kc-accent));
+  color: var(--kc-accent);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.kcd-drop-overlay > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ───────── 浮层 ───────── */
+
+.kcd-popover {
+  position: absolute;
+  z-index: 30;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-overlay-surface, var(--kui-raised));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+}
+
+.kcd-popover-empty {
+  padding: 18px 12px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+  line-height: 1.7;
+  text-align: center;
+}
+
+/* 输入卡片上方的浮层都和卡片左边对齐 */
+
+.kcd-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 2px;
+}
+
+.kcd-emoji-grid button {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background-color 100ms ease, transform 100ms ease;
+}
+
+.kcd-emoji-grid button:hover {
+  background: var(--kc-hover);
+  transform: scale(1.14);
+}
+
+#kukechat-root .kcd .kcd-emoji-grid button,
+#kukechat-root .kcd .kcd-reaction-picker-quick button {
+  font-size: 20px;
+}
+
+.kcd-mention-picker {
+  bottom: calc(100% + 6px);
+  left: 0;
+  width: 264px;
+  max-width: 100%;
+  max-height: 288px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.kcd-mention-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.kcd-mention-option.is-active {
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kcd-mention-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcd-mention-hint {
+  flex: none;
+  color: var(--kc-muted);
+  font-size: calc(11px * var(--kcd-fs));
+}
+
+.kcd-mention-all-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kui-tint);
+  color: var(--kc-accent);
+}
+
+.kcd-reaction-picker {
+  width: 320px;
+  max-height: min(320px, calc(100% - 16px));
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.kcd-reaction-picker-quick {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kcd-reaction-picker-quick button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.kcd-reaction-picker-quick button:hover {
+  background: var(--kc-hover);
+}
+
+.kcd-dialog-backdrop {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--kui-scrim);
+}
+
+.kcd-dialog {
+  width: 100%;
+  max-width: 320px;
+  padding: 18px 20px 16px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow-dialog);
+  color: var(--kc-text);
+}
+
+.kcd-dialog h3 {
+  font-size: calc(15px * var(--kcd-fs));
+  font-weight: 700;
+}
+
+.kcd-dialog p {
+  margin-top: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+}
+
+.kcd-dialog-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.kcd-dialog-row input,
+.kcd-dialog-row select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-control);
+  color: var(--kc-text);
+  outline: none;
+}
+
+.kcd-dialog-row input {
+  min-width: 0;
+  flex: 1;
+}
+
+.kcd-dialog-row select:focus {
+  border-color: var(--kui-focus);
+}
+
+/* input 的聚焦边要带 !important：tailwind.css 的旧规则同样用 !important 把它压成了 --kc-border，见 kui.css 表单一节 */
+#kukechat-root .kcd .kcd-dialog-row input:focus {
+  border-color: var(--kui-focus) !important;
+}
+
+.kcd-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.kcd-menu-reactions {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 2px 3px;
+}
+
+.kcd-menu-reactions button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--kc-muted);
+  line-height: 1;
+  transition: background-color 80ms ease, transform 80ms ease;
+}
+
+.kcd-menu-reactions button:hover {
+  background: var(--kc-hover);
+  transform: scale(1.12);
+}
+
+#kukechat-root .kcd .kcd-menu-reactions button {
+  font-size: 17px;
+}
+
+/* 成员菜单的「互动」子菜单：对方设置的动作单独一行排在最前，其余动作排成三列 */
+.kcd-poke-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+}
+
+.kcd-poke-grid .kui-menu-item {
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* ───────── 右侧栏 ───────── */
+
+/* 整栏是一个贴着聊天区右边、从顶到底的面，和顶栏同一层白（整窗背景图下按「材质」里的设置半透明或毛玻璃），左边一条发丝线
+   和消息画布分开：列表灰 → 画布 → 白色侧栏。里面不再套卡片，公告和成员两段直接铺在这个面上。 */
+.kcd-sidebar {
+  display: flex;
+  width: 220px;
+  min-height: 0;
+  flex: none;
+  flex-direction: column;
+  border-left: 1px solid var(--kc-border);
+  background: var(--kc-side-surface);
+  text-shadow: var(--kc-halo-side, none);
+}
+
+/* 顶上那一段（群公告 / 私聊对方的资料）整块可点 */
+.kcd-sidebar-notice {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px 14px;
+  text-align: left;
+}
+
+.kcd-sidebar-peer {
+  flex: none;
+  padding: 10px 8px;
+}
+
+.kcd-sidebar-profile {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--kui-r-md);
+  text-align: left;
+  transition: background-color 100ms ease;
+}
+
+.kcd-sidebar-profile:hover {
+  background: var(--kc-hover);
+}
+
+.kcd-sidebar-profile:active {
+  background: var(--kc-active);
+}
+
+.kcd-sidebar-profile .kcd-sidebar-arrow {
+  flex: none;
+  margin-left: auto;
+  color: var(--kc-subtle);
+}
+
+.kcd-sidebar-profile-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.kcd-sidebar-profile-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcd-sidebar-profile-bio {
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 每段的标题行：小图标 + 标题 +（人数）+ 右端的箭头或按钮。右端那个靠 margin-left: auto 推过去 */
+.kcd-sidebar-title {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 6px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.kcd-sidebar-title > svg {
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+.kcd-sidebar-title > :last-child {
+  margin-left: auto;
+}
+
+.kcd-sidebar-title .kcd-icon-button {
+  width: 24px;
+  height: 24px;
+}
+
+.kcd-sidebar-count {
+  color: var(--kc-subtle);
+  font-weight: 500;
+}
+
+.kcd-sidebar-arrow {
+  transition: transform 120ms ease;
+}
+
+:is(.kcd-sidebar-notice, .kcd-sidebar-profile):hover .kcd-sidebar-arrow {
+  color: var(--kc-muted);
+  transform: translateX(2px);
+}
+
+/* 公告正文垫在一块很淡的内嵌底上，栏里的节奏靠它，不靠浮起来的卡片。
+   底用正文色调出来的半透明灰而不是 --kc-panel-muted：整窗背景图下侧栏是半透明的，实心的底块会糊在图上 */
+.kcd-sidebar-quote {
+  display: block;
+  min-width: 0;
+  padding: 8px 10px 9px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--kc-text) 4.5%, transparent);
+  font-size: calc(12.5px * var(--kcd-fs));
+  transition: background-color 100ms ease;
+}
+
+.kcd-sidebar-notice:hover .kcd-sidebar-quote {
+  background: color-mix(in srgb, var(--kc-text) 7.5%, transparent);
+}
+
+.kcd-sidebar-notice:active .kcd-sidebar-quote {
+  background: color-mix(in srgb, var(--kc-text) 10%, transparent);
+}
+
+/* 公告只露前几行，全文点开看。限行数的这一层不能有上下内边距（内边距在外面的底块上），
+   否则被截掉的下一行会从内边距里露出半截 */
+.kcd-sidebar-announcement {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  color: var(--kc-text);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* 没有公告：一句话 + 一句小字说明下一步，不留一块空白 */
+.kcd-sidebar-blank {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--kc-muted);
+  line-height: 1.6;
+}
+
+.kcd-sidebar-blank small {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kcd-fs));
+}
+
+/* 成员直接铺在侧栏的面上：这一段占满剩下的高度只是为了让名单自己滚，它没有底色，人少时下面就是侧栏的白 */
+.kcd-sidebar-members {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* 和上面那一段之间一条两端内缩的发丝线 */
+.kcd-sidebar-members::before {
+  height: 1px;
+  flex: none;
+  margin: 0 16px 8px;
+  background: var(--kc-border);
+  content: '';
+}
+
+.kcd-sidebar-members > .kcd-sidebar-title {
+  flex: none;
+  padding: 0 10px 4px 16px;
+}
+
+/* 搜索框是白面里的一块浅灰底，聚焦时才亮出边 */
+.kcd-sidebar-search {
+  display: flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 16px 6px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  color: var(--kc-subtle);
+  transition: border-color 100ms ease, background-color 100ms ease;
+}
+
+.kcd-sidebar-search:focus-within {
+  border-color: var(--kui-focus);
+  background: var(--kui-control);
+  color: var(--kc-muted);
+}
+
+.kcd-sidebar-search input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  color: var(--kc-text);
+  outline: none;
+}
+
+#kukechat-root .kcd .kcd-sidebar-search input {
+  font-size: calc(12px * var(--kcd-fs));
+}
+
+/* 行的悬停底左右各留 8px，头像正好和标题行的图标对齐在 16px */
+.kcd-sidebar-list {
+  min-height: 0;
+  flex: 1;
+  padding: 0 8px 10px;
+}
+
+.kcd-sidebar-empty {
+  padding: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs));
+}
+
+.kcd-member {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: var(--kc-member-padding, 5px) 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 100ms ease;
+}
+
+.kcd-member:hover {
+  background: var(--kc-hover);
+}
+
+.kcd-member:active {
+  background: var(--kc-active);
+}
+
+.kcd-member > :first-child {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  font-size: 11px;
+}
+
+.kcd-member-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#kukechat-root .kcd .kcd-member {
+  font-size: calc(12.5px * var(--kcd-fs));
+}
+
+.kcd-sidebar-more {
+  display: block;
+  width: 100%;
+  padding: 8px 0 2px;
+  text-align: center;
+}
+
+/* 面板太窄时让出侧栏，保证消息区够宽 */
+@container (max-width: 640px) {
+  .kcd-sidebar,
+  .kcd-sidebar-toggle {
+    display: none;
+  }
+
+  .kcd-composer-hint {
+    display: none;
+  }
+}
+
+/* 再窄就连悬浮工具条的位置也让给气泡，操作改走右键菜单 */
+@container (max-width: 460px) {
+  .kcd-line {
+    max-width: 100%;
+  }
+
+  .kcd-toolbar {
+    display: none;
+  }
+
+  .kcd-item {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}
+
+@keyframes kcd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes kcd-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes kcd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes kcd-flash {
+  0%,
+  45% {
+    background: color-mix(in srgb, var(--kc-accent) 18%, transparent);
+  }
+
+  100% {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kcd-row.is-fresh {
+    animation: none;
+  }
+}

@@ -1,0 +1,1229 @@
+/*
+ * 桌面端：大佬入住（src/components/posts/desktop/creators）。
+ *
+ * 这一页是名人堂，是给人看的展示页，不按 kui 里「不用渐变、不发光、克制」那几条来——
+ * 但图形语言只有三样：发丝线和圆环、金属质感（金 / 银 / 铜）、从题图里取出来的环境光。
+ *
+ * 动效的规矩：只动 transform 和 opacity；没有常驻的循环（骨架屏的流光除外，它只在加载时存在）；
+ * 进场用关键帧，悬停用过渡，跟随滚动的变化用滚动时间线（不支持的浏览器就是静止的）。
+ */
+
+.kcr,
+.kcr-fly {
+  --kcr-gold: linear-gradient(135deg, #fff4c9 0%, #f3c552 30%, #b07c14 58%, #ffe7a1 100%);
+  --kcr-gold-edge: #f0c14f;
+  --kcr-silver: linear-gradient(135deg, #ffffff 0%, #cfd6e0 32%, #7b8594 60%, #eef1f6 100%);
+  --kcr-silver-edge: #c9d0db;
+  --kcr-bronze: linear-gradient(135deg, #ffe0c6 0%, #d99560 32%, #86491f 60%, #f2c3a0 100%);
+  --kcr-bronze-edge: #d6905c;
+  --kcr-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kcr {
+  /* 第一名题图的主色，取到之前先用强调色。头部的环境光和片头的舞台都用它 */
+  --kcr-lead: var(--kc-accent);
+  --kcr-surface: var(--kc-chat-surface);
+  --kcr-gutter: max(28px, calc((100% - 1120px) / 2));
+  position: relative;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--kc-text);
+  container: kcr / inline-size;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kcr-scroll {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  scroll-timeline: --kcr-page block;
+}
+
+.kcr-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ───────── 顶栏 ───────── */
+
+/* 贴在滚动区顶上。一开始是透明的，只有返回按钮；头部滚走以后才垫上底、露出标题 */
+.kcr-bar {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+  display: flex;
+  height: 52px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px 0 10px;
+}
+
+.kcr-bar::before {
+  position: absolute;
+  z-index: -1;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+  content: '';
+  inset: 0;
+}
+
+.kcr-bar-title {
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.kcr-bar-note {
+  margin-left: auto;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── 头部 ───────── */
+
+.kcr-hero {
+  position: relative;
+  margin-top: -52px;
+  padding: 92px var(--kcr-gutter) 26px;
+}
+
+.kcr-hero-bg {
+  position: absolute;
+  overflow: hidden;
+  inset: 0 0 -120px;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+  pointer-events: none;
+}
+
+/* 环境光：两团很淡的径向渐变，一团跟强调色，一团跟第一名的题图 */
+.kcr-hero-glow {
+  position: absolute;
+  background:
+    radial-gradient(44% 64% at 80% 18%, color-mix(in srgb, var(--kcr-lead) 30%, transparent), transparent 72%),
+    radial-gradient(38% 58% at 8% 0%, color-mix(in srgb, var(--kc-accent) 20%, transparent), transparent 70%);
+  inset: -10% -6% 0;
+}
+
+.kcr-hero-rings {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  inset: 0;
+  stroke: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  stroke-width: 1;
+}
+
+/* 水印式的大字：只有描边 */
+.kcr-hero-mark {
+  position: absolute;
+  top: 84px;
+  right: -10px;
+  color: transparent;
+  font-size: clamp(52px, 8.2cqw, 112px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kcr-eyebrow {
+  position: relative;
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 10px;
+  color: var(--kc-accent);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.kcr-eyebrow::before {
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.kcr-title {
+  position: relative;
+  width: fit-content;
+  margin-top: 8px;
+  font-size: clamp(38px, 5.4cqw, 62px);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.12;
+  white-space: nowrap;
+}
+
+.kcr-count {
+  position: relative;
+  width: fit-content;
+  margin-top: 12px;
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.kcr-count .kcr-num {
+  margin-right: 2px;
+  color: var(--kc-text);
+  font-size: calc(24px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  vertical-align: -2px;
+}
+
+/* 没有名单可数的时候（失败、空）这一行不显示，但位置留着，片头要拿它落位 */
+.kcr-count[data-empty] {
+  visibility: hidden;
+}
+
+.kcr-hero-foot {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 28px;
+  margin-top: 16px;
+}
+
+.kcr-lede {
+  max-width: 500px;
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.75;
+}
+
+.kcr-sort {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 头部跟着滚动的变化：文字上浮淡出，光和水印走得比内容慢。片头播完才接管，免得盖掉片头期间的隐藏 */
+@supports (animation-timeline: scroll()) {
+  .kcr[data-intro='done'] .kcr-bar::before,
+  .kcr[data-intro='done'] :is(.kcr-bar-title, .kcr-bar-note) {
+    animation: kcr-fade-in linear both;
+    animation-range: 110px 230px;
+    animation-timeline: --kcr-page;
+  }
+
+  .kcr[data-intro='done'] .kcr-hero > :not(.kcr-hero-bg) {
+    animation: kcr-hero-out linear both;
+    animation-range: 30px 300px;
+    animation-timeline: --kcr-page;
+  }
+
+  .kcr[data-intro='done'] .kcr-hero-glow {
+    animation: kcr-glow-lag linear both;
+    animation-range: 0 480px;
+    animation-timeline: --kcr-page;
+  }
+
+  .kcr[data-intro='done'] .kcr-hero-mark {
+    animation: kcr-mark-drift linear both;
+    animation-range: 0 480px;
+    animation-timeline: --kcr-page;
+  }
+}
+
+@keyframes kcr-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes kcr-hero-out {
+  to {
+    opacity: 0;
+    transform: translate3d(0, -26px, 0) scale(0.97);
+  }
+}
+
+@keyframes kcr-glow-lag {
+  to {
+    transform: translate3d(0, 150px, 0) scale(1.12);
+  }
+}
+
+@keyframes kcr-mark-drift {
+  to {
+    transform: translate3d(-110px, 70px, 0);
+  }
+}
+
+/* ───────── 舞台：领奖台 + 榜单 ───────── */
+
+.kcr-stage,
+.kcr-skeleton {
+  position: relative;
+  padding: 10px var(--kcr-gutter) 60px;
+}
+
+.kcr-podium {
+  display: grid;
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+/* 领奖台的站法：亚军在左，冠军居中，季军在右 */
+.kcr-podium > [data-rank='1'] {
+  order: 2;
+}
+
+.kcr-podium > [data-rank='2'] {
+  order: 1;
+}
+
+.kcr-podium > [data-rank='3'] {
+  order: 3;
+}
+
+.kcr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+@container kcr (max-width: 780px) {
+  .kcr-podium {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kcr-podium > [data-rank='1'] {
+    order: 0;
+    grid-column: 1 / -1;
+  }
+
+  .kcr-grid {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  }
+}
+
+/* 一个格子。入场和换位置的位移做在格子上，倾斜做在里面的卡片上，两者互不打架 */
+.kcr-cell {
+  position: relative;
+  min-width: 0;
+  isolation: isolate;
+  opacity: 0;
+}
+
+.kcr-cell.is-staged {
+  opacity: 1;
+}
+
+.kcr-cell.is-in {
+  animation: kcr-rise 760ms var(--kcr-ease) var(--kcr-delay, 0ms) both;
+}
+
+/* 片头被打断那一刻露面的：直接就位 */
+.kcr-cell.is-quiet {
+  opacity: 1;
+}
+
+@keyframes kcr-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 30px, 0) scale(0.965);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* 悬停时卡片脚下的一片环境光：平时不画（opacity 0），只淡入淡出 */
+.kcr-cell::after {
+  position: absolute;
+  z-index: -1;
+  border-radius: 16px;
+  box-shadow: 0 26px 50px -8px color-mix(in srgb, var(--kcr-tone, var(--kc-accent)) 56%, transparent);
+  content: '';
+  inset: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease;
+}
+
+.kcr-cell:hover::after {
+  opacity: 1;
+}
+
+/* ───────── 卡片共用的部件 ───────── */
+
+:is(.kcr-top, .kcr-card) {
+  position: relative;
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+  flex-direction: column;
+  transform: perspective(1000px) rotateX(var(--kcr-rx, 0deg)) rotateY(var(--kcr-ry, 0deg)) scale(var(--kcr-press, 1));
+  transition: transform 520ms var(--kcr-ease);
+}
+
+/* 跟着指针倾斜的那一刻不要过渡，否则会拖泥带水；will-change 也只在这时加 */
+:is(.kcr-top, .kcr-card).is-tilting {
+  transition: none;
+  will-change: transform;
+}
+
+:is(.kcr-top, .kcr-card):active {
+  --kcr-press: 0.982;
+}
+
+.kcr-cover {
+  display: block;
+  overflow: hidden;
+}
+
+/* 题图比框大一圈，跟着指针往反方向挪一点点，做出前后层的视差 */
+.kcr-cover-shift {
+  position: absolute;
+  inset: -12px;
+  transform: translate3d(calc(var(--kcr-px, 0) * -9px), calc(var(--kcr-py, 0) * -9px), 0);
+  transition: transform 520ms var(--kcr-ease);
+}
+
+.is-tilting .kcr-cover-shift {
+  transition: none;
+}
+
+.kcr-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 500ms ease, transform 1800ms var(--kcr-ease);
+}
+
+.kcr-cover img.is-ready {
+  opacity: 1;
+}
+
+:is(.kcr-top, .kcr-card):hover .kcr-cover img {
+  transform: scale(1.09);
+}
+
+.kcr-name {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcr-handle {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kcr-verified {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.kcr-verified svg {
+  width: 13px;
+  height: 13px;
+  padding: 2.5px;
+  border-radius: 50%;
+  background: var(--kui-fill);
+  color: var(--kui-on-fill);
+  stroke-width: 3;
+}
+
+.kcr-sign {
+  display: -webkit-box;
+  min-height: 3.2em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin-top: 8px;
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.kcr-stats {
+  display: flex;
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--kcr-rule, var(--kc-border));
+}
+
+.kcr-stats > span {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kcr-stats > span + span {
+  padding-left: 12px;
+  border-left: 1px solid var(--kcr-rule, var(--kc-border));
+}
+
+.kcr-stats small {
+  font-size: calc(11.5px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+/* 滚动的数字：底下垫一份看不见的终值占住宽度，上面那份怎么变都不会挤动旁边 */
+.kcr-num {
+  display: inline-grid;
+  font-variant-numeric: tabular-nums;
+}
+
+.kcr-num > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.kcr-num-ghost {
+  visibility: hidden;
+}
+
+.kcr-stats .kcr-num {
+  font-size: calc(17px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+/* 悬停时右上角滑出来的「进入主页」 */
+.kcr-enter {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px 5px 3px 11px;
+  border-radius: 999px;
+  background: rgba(12, 14, 20, 0.58);
+  color: #ffffff;
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+  opacity: 0;
+  transform: translate3d(10px, 0, 0);
+  transition: opacity 200ms ease, transform 360ms var(--kcr-ease);
+}
+
+.kcr-enter svg {
+  width: 14px;
+  height: 14px;
+}
+
+:is(.kcr-top, .kcr-card):is(:hover, :focus-visible) .kcr-enter {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* 跟着指针走的一块光斑：固定大小，只改 transform */
+.kcr-spot {
+  position: absolute;
+  top: -170px;
+  left: -170px;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.2), transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(var(--kcr-sx, 0px), var(--kcr-sy, 0px), 0);
+  transition: opacity 260ms ease;
+}
+
+.is-tilting > .kcr-spot {
+  opacity: 1;
+}
+
+/* ───────── 领奖台上的卡片 ───────── */
+
+.kcr-top {
+  --kcr-metal: var(--kcr-silver);
+  --kcr-edge: var(--kcr-silver-edge);
+  --kcr-rule: rgba(255, 255, 255, 0.16);
+  min-height: 344px;
+  justify-content: flex-end;
+  border-radius: 18px;
+  color: #ffffff;
+  text-align: center;
+}
+
+.kcr-top[data-rank='1'] {
+  --kcr-metal: var(--kcr-gold);
+  --kcr-edge: var(--kcr-gold-edge);
+  min-height: 408px;
+}
+
+.kcr-top[data-rank='3'] {
+  --kcr-metal: var(--kcr-bronze);
+  --kcr-edge: var(--kcr-bronze-edge);
+}
+
+/* 题图铺满整张卡；没图、没加载出来时是主色压暗后的底 */
+.kcr-top > .kcr-cover {
+  position: absolute;
+  background: color-mix(in srgb, var(--kcr-tone, var(--kc-accent)) 46%, #14161d);
+  inset: 0;
+}
+
+/* 压在题图上的一层暗角，保证下半截的字读得清；底部透出一点主色的光 */
+.kcr-top-shade {
+  position: absolute;
+  background:
+    radial-gradient(96% 58% at 50% 108%, color-mix(in srgb, var(--kcr-tone, var(--kc-accent)) 46%, transparent), transparent 72%),
+    linear-gradient(180deg, rgba(9, 10, 15, 0.16) 0%, rgba(9, 10, 15, 0.32) 36%, rgba(9, 10, 15, 0.9) 100%);
+  inset: 0;
+}
+
+/* 名次：一枚斜体的金属大字 */
+.kcr-top-rank {
+  position: absolute;
+  top: 6px;
+  left: 18px;
+  padding-right: 0.12em;
+  background: var(--kcr-metal);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
+  font-size: 76px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.kcr-top[data-rank='1'] .kcr-top-rank {
+  font-size: 104px;
+}
+
+.kcr-top-main {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px 20px;
+}
+
+.kcr-top .kcr-name {
+  margin-top: 14px;
+  font-size: calc(18px * var(--kui-fs));
+  letter-spacing: 0.01em;
+}
+
+.kcr-top[data-rank='1'] .kcr-name {
+  font-size: calc(22px * var(--kui-fs));
+}
+
+.kcr-top .kcr-handle {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.kcr-top .kcr-sign {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.kcr-top .kcr-stats > span {
+  align-items: center;
+}
+
+.kcr-top .kcr-stats small {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* 当前排行依据的那一项用名次的金属色点出来 */
+.kcr-top .kcr-stats .is-key .kcr-num {
+  color: var(--kcr-edge);
+}
+
+/* 金属描边：整张卡外圈一条渐变的细边 */
+.kcr-frame {
+  position: absolute;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: var(--kcr-metal);
+  inset: 0;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* 一道扫过卡面的光：露面时扫一次（关键帧，播完回到原位），悬停时再扫一次（过渡，移开时瞬间归位） */
+.kcr-sheen {
+  position: absolute;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.2) 50%, transparent 60%);
+  inset: 0;
+  pointer-events: none;
+  transform: translate3d(-110%, 0, 0);
+}
+
+.kcr-cell.is-seen .kcr-sheen {
+  animation: kcr-sheen 1100ms ease-out 560ms;
+}
+
+.kcr-top:hover .kcr-sheen {
+  transform: translate3d(110%, 0, 0);
+  transition: transform 900ms ease-out;
+}
+
+@keyframes kcr-sheen {
+  to {
+    transform: translate3d(110%, 0, 0);
+  }
+}
+
+/* 头像外面的金属环。尺寸写在它自己身上，片头和转场里单独拿出来用时也是对的 */
+.kcr-medal {
+  --kcr-metal: var(--kcr-silver);
+  --kcr-edge: var(--kcr-silver-edge);
+  position: relative;
+  display: block;
+  width: 76px;
+  height: 76px;
+  flex: none;
+  border-radius: 50%;
+  transition: transform 420ms var(--kcr-ease);
+}
+
+.kcr-medal[data-rank='1'] {
+  --kcr-metal: var(--kcr-gold);
+  --kcr-edge: var(--kcr-gold-edge);
+  width: 96px;
+  height: 96px;
+}
+
+.kcr-medal[data-rank='3'] {
+  --kcr-metal: var(--kcr-bronze);
+  --kcr-edge: var(--kcr-bronze-edge);
+}
+
+.kcr-medal > :first-child {
+  width: 100%;
+  height: 100%;
+  font-size: 30px;
+}
+
+.kcr-medal::before {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--kcr-edge) 62%, transparent), transparent);
+  content: '';
+  inset: -16px;
+  opacity: 0.55;
+}
+
+.kcr-medal-ring {
+  position: absolute;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--kcr-metal);
+  inset: -6px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  transition: transform 1200ms var(--kcr-ease);
+}
+
+.kcr-top:hover .kcr-medal {
+  transform: scale(1.05);
+}
+
+/* 悬停时环转半圈，金属的高光跟着走 */
+.kcr-top:hover .kcr-medal-ring {
+  transform: rotate(150deg);
+}
+
+.kcr-crown {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  width: 34px;
+  height: 26px;
+  fill: var(--kcr-gold-edge);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+  stroke: var(--kcr-gold-edge);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  transform: translateX(-50%) rotate(-5deg);
+}
+
+/* ───────── 第四名往后的卡片 ───────── */
+
+.kcr-card {
+  height: 100%;
+  border-radius: 14px;
+  background: var(--kcr-surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--kcr-tone, var(--kc-text)) 12%, var(--kc-border)), 0 1px 2px rgba(18, 22, 38, 0.05);
+  text-align: left;
+}
+
+/* 题图条。没图时是主色压暗的底加一层斜纹——两种主题下都是深的，压在上面的白色名次才看得清 */
+.kcr-card > .kcr-cover {
+  position: relative;
+  height: 108px;
+  flex: none;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 13px, rgba(255, 255, 255, 0.05) 13px 14px),
+    color-mix(in srgb, var(--kcr-tone, var(--kc-accent)) 40%, #1a1d26);
+}
+
+/* 名次：压在题图右下的描边大字，悬停时填实 */
+.kcr-card-rank {
+  position: absolute;
+  top: 34px;
+  right: 14px;
+  color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+  font-size: 62px;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.88);
+}
+
+.kcr-card-rank::after {
+  position: absolute;
+  color: #ffffff;
+  content: attr(data-n);
+  inset: 0;
+  opacity: 0;
+  transition: opacity 260ms ease;
+  -webkit-text-stroke: 0;
+}
+
+.kcr-card:hover .kcr-card-rank::after {
+  opacity: 1;
+}
+
+.kcr-card-main {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 0 16px 16px;
+}
+
+.kcr-card-avatar {
+  display: block;
+  width: 60px;
+  height: 60px;
+  flex: none;
+  margin-top: -30px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--kc-panel);
+  transition: transform 420ms var(--kcr-ease);
+}
+
+.kcr-card-avatar > :first-child {
+  width: 100%;
+  height: 100%;
+}
+
+.kcr-card:hover .kcr-card-avatar {
+  transform: scale(1.07) translate3d(0, -2px, 0);
+}
+
+.kcr-card .kcr-name {
+  margin-top: 10px;
+  font-size: calc(15px * var(--kui-fs));
+}
+
+.kcr-card .kcr-handle,
+.kcr-card .kcr-stats small {
+  color: var(--kc-muted);
+}
+
+.kcr-card .kcr-sign {
+  color: color-mix(in srgb, var(--kc-text) 78%, transparent);
+}
+
+.kcr-card .kcr-stats .is-key .kcr-num {
+  color: var(--kc-accent);
+}
+
+/* 卡片是主题色的面，白色光斑在浅色下看不见，换成主色的 */
+.kcr-card > .kcr-spot {
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--kcr-tone, var(--kc-accent)) 20%, transparent), transparent);
+}
+
+.kcr-more {
+  display: flex;
+  margin: 26px auto 0;
+}
+
+.kcr-footnote {
+  margin-top: 22px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  text-align: center;
+}
+
+/* ───────── 加载、空、失败 ───────── */
+
+.kcr-state {
+  display: grid;
+  max-width: 440px;
+  justify-items: center;
+  gap: 4px;
+  margin: 12px auto 60px;
+  padding: 44px 28px;
+  border-radius: 18px;
+  background: var(--kcr-surface);
+  box-shadow: var(--kui-shadow-card);
+  color: var(--kc-muted);
+  text-align: center;
+}
+
+.kcr-state > svg {
+  margin-bottom: 8px;
+  color: var(--kc-accent);
+}
+
+.kcr-state strong {
+  color: var(--kc-text);
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kcr-state .kui-btn {
+  margin-top: 14px;
+}
+
+/* 骨架屏：和真卡片同样的格子，一道带一点强调色的流光挨个扫过去 */
+.kcr-bone {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+/* 骨架里用几层渐变画出头像和几行字的位置，不另加节点 */
+.kcr-bone--top {
+  --kcr-b: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  height: 344px;
+  background:
+    radial-gradient(circle 40px at 50% calc(100% - 196px), var(--kcr-b) 97%, transparent) no-repeat,
+    linear-gradient(var(--kcr-b), var(--kcr-b)) 50% calc(100% - 122px) / 42% 16px no-repeat,
+    linear-gradient(var(--kcr-b), var(--kcr-b)) 50% calc(100% - 94px) / 58% 10px no-repeat,
+    linear-gradient(var(--kcr-b), var(--kcr-b)) 50% calc(100% - 28px) / 82% 26px no-repeat,
+    color-mix(in srgb, var(--kc-text) 5%, transparent);
+}
+
+.kcr-bone--top[data-rank='1'] {
+  height: 408px;
+}
+
+.kcr-bone--card {
+  --kcr-b: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  height: 276px;
+  background:
+    radial-gradient(circle 31px at 46px 108px, var(--kc-chat) 97%, transparent) no-repeat,
+    linear-gradient(var(--kcr-b), var(--kcr-b)) 0 0 / 100% 108px no-repeat,
+    linear-gradient(var(--kcr-b), var(--kcr-b)) 16px 154px / 44% 14px no-repeat,
+    linear-gradient(var(--kcr-b), var(--kcr-b)) 16px 180px / 62% 10px no-repeat,
+    linear-gradient(var(--kcr-b), var(--kcr-b)) 16px 236px / calc(100% - 32px) 24px no-repeat,
+    color-mix(in srgb, var(--kc-text) 4%, transparent);
+}
+
+.kcr-bone::after {
+  position: absolute;
+  background: linear-gradient(100deg, transparent 28%, color-mix(in srgb, var(--kc-text) 8%, transparent) 44%, color-mix(in srgb, var(--kc-accent) 20%, transparent) 50%, color-mix(in srgb, var(--kc-text) 8%, transparent) 56%, transparent 72%);
+  content: '';
+  inset: 0;
+  transform: translate3d(-100%, 0, 0);
+  animation: kcr-shimmer 1600ms ease-in-out var(--kcr-delay, 0ms) infinite;
+}
+
+@keyframes kcr-shimmer {
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+/* ───────── 片头 ───────── */
+
+.kcr-intro {
+  position: absolute;
+  z-index: 20;
+  overflow: hidden;
+  inset: 0;
+  pointer-events: none;
+}
+
+.kcr-intro-stage,
+.kcr-intro-bg,
+.kcr-intro-flash,
+.kcr-intro-ghosts {
+  position: absolute;
+  inset: 0;
+}
+
+/* 舞台固定用深色：浅色主题下片头也是暗场，播完再淡回主题 */
+.kcr-intro-bg {
+  background: radial-gradient(72% 56% at 50% 38%, color-mix(in srgb, var(--kcr-lead) 24%, #0b0c12), #07080c 74%);
+  opacity: 0;
+}
+
+.kcr-intro-lines {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  inset: 0;
+  stroke: rgba(255, 255, 255, 0.17);
+  stroke-width: 1;
+}
+
+.kcr-intro-lines [pathLength] {
+  opacity: 0;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.kcr-intro-lines circle {
+  stroke: rgba(255, 255, 255, 0.1);
+}
+
+.kcr-intro-lines polyline {
+  stroke: rgba(255, 255, 255, 0.34);
+  stroke-width: 1.5;
+}
+
+.kcr-intro-lines .is-br {
+  transform: translate(100%, 100%);
+}
+
+.kcr-intro-flash {
+  background: #ffffff;
+  opacity: 0;
+}
+
+.kcr-intro-shock {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border: 2px solid var(--kcr-gold-edge);
+  border-radius: 50%;
+  box-shadow: 0 0 26px color-mix(in srgb, var(--kcr-gold-edge) 70%, transparent), inset 0 0 26px color-mix(in srgb, var(--kcr-gold-edge) 40%, transparent);
+  opacity: 0;
+}
+
+.kcr-intro-sparks {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+}
+
+/* 替身：摆在页面上真元素的位置，靠 transform 挪到舞台上 */
+.kcr-intro-box {
+  position: absolute;
+  will-change: transform, opacity;
+}
+
+.kcr-intro-box > :is(h1, p) {
+  margin: 0;
+}
+
+.kcr-intro .kcr-title {
+  color: #c9cfdc;
+}
+
+.kcr-intro .kcr-eyebrow {
+  color: color-mix(in srgb, var(--kcr-lead) 50%, #ffffff);
+}
+
+.kcr-intro .kcr-count {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.kcr-intro .kcr-count .kcr-num {
+  color: #ffffff;
+}
+
+/* 标题逐字从一条看不见的线下面升起来 */
+.kcr-intro-char {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.kcr-intro-char > i {
+  display: inline-block;
+  font-style: normal;
+  transform: translateY(108%);
+}
+
+/* 扫过标题的光：一个往右滑的窄窗，窗里是一份纯白的标题。窗往右走多少，里面的字就往左退多少，所以字不动、只是被照亮 */
+.kcr-intro-sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 42%, #000 58%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 42%, #000 58%, transparent);
+  transform: translateX(-110%);
+}
+
+.kcr-intro .kcr-intro-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% / 0.34);
+  margin: 0;
+  color: #ffffff;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.85);
+  transform: translateX(37.4%);
+}
+
+.kcr-intro-streak {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 460px;
+  height: 2px;
+  margin: -1px 0 0 -230px;
+  background: linear-gradient(90deg, transparent, var(--kcr-silver-edge), transparent);
+  opacity: 0;
+}
+
+.kcr-intro-streak[data-rank='3'] {
+  background: linear-gradient(90deg, transparent, var(--kcr-bronze-edge), transparent);
+}
+
+/* 片头期间页面上各样东西的去留（阶段的含义见 CreatorsView.tsx） */
+.kcr[data-intro='play'] :is(.kcr-bar, .kcr-hero-bg, .kcr-lede, .kcr-sort, .kcr-state, .kcr-more, .kcr-footnote),
+.kcr[data-intro='play'] .kcr-top > :not(.kcr-top-main),
+.kcr[data-intro='play'] .kcr-top-main > :not(.kcr-medal) {
+  opacity: 0;
+}
+
+.kcr:is([data-intro='land'], [data-intro='settle']) :is(.kcr-bar, .kcr-hero-bg, .kcr-lede, .kcr-sort, .kcr-state, .kcr-more, .kcr-footnote, .kcr-top > .kcr-cover, .kcr-top-shade, .kcr-top-rank, .kcr-frame),
+.kcr:is([data-intro='land'], [data-intro='settle']) .kcr-top-main > :not(.kcr-medal) {
+  transition: opacity 620ms ease-out 80ms;
+}
+
+/* 顶栏的底和标题要等头部滚走才出现，片头期间一直藏着（片头播完由滚动时间线接管） */
+.kcr:not([data-intro='done']) .kcr-bar::before,
+.kcr:not([data-intro='done']) :is(.kcr-bar-title, .kcr-bar-note) {
+  opacity: 0;
+}
+
+/* 这四样有替身在演：替身撤走之前真的不露面 */
+.kcr:is([data-intro='play'], [data-intro='land']) :is(.kcr-hero .kcr-title, .kcr-hero .kcr-eyebrow, .kcr-hero .kcr-count, .kcr-podium .kcr-medal) {
+  opacity: 0;
+}
+
+.kcr[data-intro='settle'] :is(.kcr-hero .kcr-title, .kcr-hero .kcr-eyebrow, .kcr-hero .kcr-count, .kcr-podium .kcr-medal) {
+  transition: opacity 180ms linear;
+}
+
+/* ───────── 进出个人主页的转场 ───────── */
+
+/* 转场期间主页叠在名单页上面，两页同时在场 */
+.kpo-page.is-over {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+}
+
+.kcr-fly {
+  position: absolute;
+  z-index: 30;
+  overflow: hidden;
+  inset: 0;
+  pointer-events: none;
+}
+
+.kcr-fly-cover {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 12px;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.kcr-fly-cover > div {
+  position: absolute;
+  background: center / cover no-repeat;
+  inset: 0;
+}
+
+.kcr-fly-avatar {
+  position: absolute;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.kcr-fly-avatar > * {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+/* ───────── 减少动态效果 ───────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .kcr-cell,
+  .kcr-cell.is-in {
+    animation: none;
+    opacity: 1;
+  }
+
+  :is(.kcr-top, .kcr-card),
+  :is(.kcr-top, .kcr-card):hover :is(.kcr-cover img, .kcr-medal, .kcr-medal-ring, .kcr-card-avatar) {
+    transform: none;
+  }
+
+  .kcr-sheen,
+  .kcr-bone::after,
+  .kcr .kcr-hero *,
+  .kcr .kcr-hero > *,
+  .kcr-bar::before,
+  .kcr-bar > * {
+    animation: none !important;
+  }
+}

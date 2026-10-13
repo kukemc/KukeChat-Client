@@ -1,4 +1,5 @@
-import type { Conversation, ConversationMember, CreateDirectPayload, CreateGroupAnnouncementPayload, CreateGroupJoinRequestPayload, CreateGroupPayload, GroupAnnouncement, GroupCheckin, GroupCheckinStatus, GroupJoinRequest, GroupJoinRequestDecisionPayload, GroupLeaderboard, GroupLeaderboardPeriod, GroupLeaderboardType, MemberRole, UpdateConversationProfilePayload, UpdateGroupAnnouncementPayload, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload, UploadResponse } from '@/types/api';
+import type { Conversation, ConversationMember, CreateDirectPayload, CreateGroupAnnouncementPayload, CreateGroupJoinRequestPayload, CreateGroupPayload, GroupAnnouncement, GroupCheckin, GroupCheckinStatus, GroupJoinRequest, GroupJoinRequestDecisionPayload, GroupLeaderboard, GroupLeaderboardPeriod, GroupLeaderboardType, MemberRole, Message, UpdateConversationProfilePayload, UpdateGroupAnnouncementPayload, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload, UploadResponse } from '@/types/api';
+import { applyLocalReadMarks } from '@/store/readMarks';
 import { apiRequest, uploadFile } from './client';
 import { asList, isRecord, pickNumber } from './normalizers';
 
@@ -10,13 +11,14 @@ export interface ConversationMembersPage {
   has_more: boolean;
 }
 
-export async function pokeMember(conversationId: number, userId: number): Promise<void> {
-  await apiRequest<unknown>(`/conversations/${conversationId}/members/${userId}/poke`, { method: 'POST' });
+/** 戳一戳。不传 action 就用对方自己设置的动作；返回落进聊天记录的那条系统消息。 */
+export async function pokeMember(conversationId: number, userId: number, action?: string): Promise<Message> {
+  return apiRequest<Message>(`/conversations/${conversationId}/members/${userId}/poke`, { method: 'POST', body: action ? { action } : undefined });
 }
 
 export async function getConversations(): Promise<Conversation[]> {
   const response = await apiRequest<unknown>('/conversations');
-  return asList<Conversation>(response);
+  return applyLocalReadMarks(asList<Conversation>(response));
 }
 
 export async function createDirectConversation(payload: CreateDirectPayload): Promise<Conversation> {

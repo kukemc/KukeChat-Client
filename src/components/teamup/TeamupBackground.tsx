@@ -1,9 +1,5 @@
 import { useMemo } from 'react';
 
-interface TeamupBackgroundProps {
-  variant?: 'full' | 'soft';
-}
-
 interface Particle {
   left: number;
   size: number;
@@ -34,12 +30,11 @@ function buildParticles(count: number, seed: number): Particle[] {
 }
 
 /**
- * Animated ambient background for the teamup center.
- * Drifting aurora blobs + floating particles + slow wireframe shapes.
- * Decorative only; fully disabled under reduced-motion via CSS.
+ * 移动端名片详情页的装饰背景（名片主人没有上传背景图时用）：缓慢漂移的光斑和上浮的粒子。
+ * 纯装饰；开了「减少动态效果」时由样式表整个关掉。桌面端不用它。
  */
-export function TeamupBackground({ variant = 'full' }: TeamupBackgroundProps): JSX.Element {
-  const particles = useMemo(() => buildParticles(variant === 'full' ? 26 : 14, 1337), [variant]);
+export function TeamupBackground(): JSX.Element {
+  const particles = useMemo(() => buildParticles(14, 1337), []);
 
   return (
     <div className="kc-teamup-bg" aria-hidden="true">
@@ -47,16 +42,6 @@ export function TeamupBackground({ variant = 'full' }: TeamupBackgroundProps): J
       <div className="kc-teamup-aurora kc-teamup-aurora-1" />
       <div className="kc-teamup-aurora kc-teamup-aurora-2" />
       <div className="kc-teamup-aurora kc-teamup-aurora-3" />
-
-      {variant === 'full' ? (
-        <>
-          <div className="kc-teamup-shape kc-teamup-shape-tri" style={{ left: '8%', top: '24%' }} />
-          <div className="kc-teamup-shape kc-teamup-shape-ring" style={{ left: '82%', top: '18%' }} />
-          <div className="kc-teamup-shape kc-teamup-shape-square" style={{ left: '70%', top: '62%' }} />
-          <div className="kc-teamup-shape kc-teamup-shape-plus" style={{ left: '20%', top: '70%' }} />
-          <div className="kc-teamup-shape kc-teamup-shape-ring kc-teamup-shape-sm" style={{ left: '46%', top: '14%' }} />
-        </>
-      ) : null}
 
       <div className="kc-teamup-particles">
         {particles.map((particle, index) => (

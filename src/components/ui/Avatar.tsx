@@ -6,6 +6,11 @@ interface AvatarProps {
   label?: string | null;
   avatarUrl?: string | null;
   size?: 'sm' | 'message' | 'md' | 'lg' | 'xl';
+  /**
+   * 没有图片时按什么取占位色。用户不用传（按 user.id）；群聊请传群 id，
+   * 否则只能按显示的名字取色，而列表里的群名带着成员数，人数一变颜色就跟着变。
+   */
+  toneKey?: number | string | null;
 }
 
 const sizeClass = {
@@ -22,7 +27,26 @@ export function getDisplayName(user?: User | null, fallback = 'KukeChat'): strin
 
 const TASK_ASSISTANT_USERNAME = 'task_assistant';
 
-export function Avatar({ user, label, avatarUrl, size = 'md' }: AvatarProps): JSX.Element {
+/** 头像占位的色相。底色和字色由样式表（.kc-avatar-tone）从它调出浅色、深色各一套。 */
+const PLACEHOLDER_TONES = ['#3b6fe0', '#7a55d6', '#16907c', '#c57a12', '#d1456b', '#1b8fb5', '#4c9a2a', '#b34fc0'];
+
+/**
+ * 按人固定取色：同一个人在会话列表、消息、成员名单里都是同一种颜色。
+ * 数字（用户 id、群 id）直接取模，改昵称、群名片都不换色；实在没有 id 的才按名字算。
+ */
+function placeholderTone(key: number | string): string {
+  let seed = 0;
+  if (typeof key === 'number') {
+    seed = Math.abs(Math.trunc(key));
+  } else {
+    for (const char of key) {
+      seed = (seed * 31 + (char.codePointAt(0) ?? 0)) % 9973;
+    }
+  }
+  return PLACEHOLDER_TONES[seed % PLACEHOLDER_TONES.length];
+}
+
+export function Avatar({ user, label, avatarUrl, size = 'md', toneKey }: AvatarProps): JSX.Element {
   const name = label || getDisplayName(user);
   const initial = name.trim().slice(0, 1).toUpperCase() || 'K';
   const imageUrl = resolveThumbnailUrl(avatarUrl || user?.avatar_url);
@@ -31,7 +55,7 @@ export function Avatar({ user, label, avatarUrl, size = 'md' }: AvatarProps): JS
   if (!imageUrl && user?.is_bot && user.username === TASK_ASSISTANT_USERNAME) {
     return (
       <div
-        className={`${sizeClass[size]} grid shrink-0 place-items-center rounded-full shadow-none`}
+        className={`${sizeClass[size]} kc-avatar grid shrink-0 place-items-center rounded-full shadow-none`}
         style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}
         aria-label={name}
       >
@@ -44,11 +68,11 @@ export function Avatar({ user, label, avatarUrl, size = 'md' }: AvatarProps): JS
   }
 
   if (imageUrl) {
-    return <img src={imageUrl} alt={name} className={`${sizeClass[size]} shrink-0 rounded-full border object-cover shadow-none [border-color:var(--kc-border)]`} />;
+    return <img src={imageUrl} alt={name} className={`${sizeClass[size]} kc-avatar shrink-0 rounded-full object-cover [background:var(--kc-active)]`} draggable={false} />;
   }
 
   return (
-    <div className={`${sizeClass[size]} grid shrink-0 place-items-center rounded-full border font-semibold shadow-none [background:var(--kc-panel-muted)] [border-color:var(--kc-border)] [color:var(--kc-text)]`}>
+    <div className={`${sizeClass[size]} kc-avatar kc-avatar-tone grid shrink-0 select-none place-items-center rounded-full font-semibold`} style={{ '--kc-avatar-tone': placeholderTone(toneKey ?? (user?.id && user.id > 0 ? user.id : name)) } as React.CSSProperties} aria-label={name}>
       {initial}
     </div>
   );

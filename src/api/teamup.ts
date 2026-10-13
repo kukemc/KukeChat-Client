@@ -10,6 +10,7 @@ import type {
   TeamupProfileStatus,
   TeamupSkill,
   TeamupSkillStat,
+  TeamupStats,
   UploadResponse,
   UpsertTeamupEventPayload,
 } from '@/types/api';
@@ -60,6 +61,10 @@ export async function getCurrentTeamupEvent(): Promise<TeamupEvent | null> {
 export async function getTeamupSkillStats(): Promise<TeamupSkillStat[]> {
   const response = await apiRequest<unknown>('/teamup/skills');
   return asList<TeamupSkillStat>(response);
+}
+
+export async function getTeamupStats(): Promise<TeamupStats> {
+  return apiRequest<TeamupStats>('/teamup/stats');
 }
 
 export async function getTeamupProfiles(options: GetTeamupProfilesOptions = {}): Promise<TeamupProfile[]> {

@@ -242,7 +242,7 @@ npm run dev
 | `VITE_EXTENSION_ASSET_URL` | | 已发布的扩展文件地址，用于机器人接入说明，留空则隐藏 |
 | `VITE_BOT_API_DOCS_URL` | | 机器人 API 文档地址，用于积木面板文档入口，留空则隐藏 |
 
-桌面端的「检查更新」由 Rust 侧在**编译期**读取环境变量 `KUKECHAT_UPDATE_METADATA_URL`（不带 `VITE_` 前缀），不设置则跳过更新检查。
+桌面端的自动更新默认读取 `<VITE_API_BASE_URL>/desktop-update.json`（后台「下载配置」里的 PC 版本号和安装包地址），可用 `VITE_DESKTOP_UPDATE_URL` 改成别的地址。环境变量 `KUKECHAT_UPDATE_METADATA_URL`（编译期或运行期）仍可覆盖它，方便本地测试。
 
 三个配置文件分工明确：
 

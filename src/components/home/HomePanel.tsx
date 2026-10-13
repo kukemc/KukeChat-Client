@@ -1,16 +1,16 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createGroupJoinRequest, joinGroup } from '@/api/conversations';
-import { getHome } from '@/api/home';
-import { ApiError } from '@/api/client';
-import type { Conversation, CcwCreator, HomeGroup, HomeStats, User } from '@/types/api';
+import type { Conversation, HomeGroup, User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
 import { CcwCreatorsPage } from '@/components/posts/CcwCreatorsPage';
 import { resolveThumbnailUrl } from '@/utils/assetUrl';
 import logoUrl from '@/assets/logo.png';
+import { HomeDesktop } from './desktop/HomeDesktop';
+import { MINI_STATS, WALL_STATS, compactNumber, creatorAsUser, greeting, groupActionLabel, groupSummary, groupTitle, miniStatMax, prefersReducedMotion, weeklyMessageShare } from './homeModel';
+import { useHome, useJoinRequestForm } from './useHome';
+
 
 interface HomePanelProps {
   currentUser: User;
@@ -19,49 +19,6 @@ interface HomePanelProps {
   onMobileBack?: () => void;
   onOpenConversation: (conversationId: number, conversation?: Conversation) => void;
   onOpenUserProfile: (user: User | null | undefined, fallbackId: number) => void;
-}
-
-interface StatDefinition {
-  key: keyof HomeStats;
-  label: string;
-}
-
-const WALL_STATS: StatDefinition[] = [
-  { key: 'registered_users', label: '注册用户' },
-  { key: 'messages', label: '累计消息' },
-  { key: 'messages_last_7_days', label: '近七天消息' },
-  { key: 'groups', label: '群聊总数' }
-];
-
-const MINI_STATS: StatDefinition[] = [
-  { key: 'public_groups', label: '公开群聊' },
-  { key: 'public_posts', label: '公开动态' },
-  { key: 'friendships', label: '好友关系' },
-  { key: 'post_likes', label: '动态获赞' }
-];
-
-function compactNumber(value: number): string {
-  if (value >= 100000000) return `${(value / 100000000).toFixed(value >= 1000000000 ? 0 : 1)}亿`;
-  if (value >= 10000) return `${(value / 10000).toFixed(value >= 100000 ? 0 : 1)}万`;
-  if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`;
-  return new Intl.NumberFormat('zh-CN').format(value);
-}
-
-function creatorAsUser(creator: CcwCreator): User {
-  return creator as User;
-}
-
-function groupTitle(group: Conversation): string {
-  return group.display_title?.trim() || group.title?.trim() || `群聊 ${group.id}`;
-}
-
-function greeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 5) return '夜深了';
-  if (hour < 12) return '早上好';
-  if (hour < 14) return '中午好';
-  if (hour < 18) return '下午好';
-  return '晚上好';
 }
 
 function getPortalRoot(): Element {
@@ -76,17 +33,6 @@ function getPortalRoot(): Element {
     ?? host?.shadowRoot?.getElementById('kukechat-root')
     ?? document.getElementById('kukechat-root')
     ?? document.body;
-}
-
-function groupActionLabel(group: HomeGroup): string {
-  if (group.joined) return '进入群聊';
-  if (group.join_request_status === 'pending') return '等待审核';
-  if ((group.join_mode === 'approval' || group.join_mode === 'question') && !group.auto_approve) return '申请加入';
-  return '加入群聊';
-}
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 /** 数字滚动：元素进入视口后从 0 缓动递增到目标值。 */
@@ -132,18 +78,8 @@ function CountUp({ value, format = compactNumber }: { value: number; format?: (v
 }
 
 function JoinRequestDialog({ group, pending, error, onSubmit, onClose }: { group: HomeGroup; pending: boolean; error: string; onSubmit: (answer: string) => void; onClose: () => void }): JSX.Element {
-  const [answer, setAnswer] = useState('');
+  const { answer, setAnswer, inputRef, needsAnswer } = useJoinRequestForm(group, pending, onClose);
   const titleId = useId();
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const needsAnswer = group.join_mode === 'question' && !group.auto_approve;
-  useEffect(() => {
-    inputRef.current?.focus();
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape' && !pending) onClose();
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, pending]);
   const modal = (
     <div className="pointer-events-auto fixed inset-0 z-[2147483647] grid place-items-center bg-slate-950/35 p-4 backdrop-blur-sm" onMouseDown={() => !pending && onClose()}>
       <section role="dialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-[460px] overflow-hidden rounded-[28px] border shadow-float [background:var(--kc-panel)] [border-color:var(--kc-border)] [color:var(--kc-text)]">
@@ -186,18 +122,16 @@ function NeonBubble(): JSX.Element {
   );
 }
 
-export function HomePanel({ currentUser, conversations, isMobile, onMobileBack, onOpenConversation, onOpenUserProfile }: HomePanelProps): JSX.Element {
-  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 2_147_483_647));
-  const [joinTarget, setJoinTarget] = useState<HomeGroup | null>(null);
-  const [joinError, setJoinError] = useState('');
-  const [joinErrorGroupId, setJoinErrorGroupId] = useState<number | null>(null);
-  const [creatorsOpen, setCreatorsOpen] = useState(false);
+/** 主页的入口：桌面布局和移动布局是两套界面，数据都来自 useHome。 */
+export function HomePanel(props: HomePanelProps): JSX.Element {
+  return props.isMobile ? <HomeMobile {...props} /> : <HomeDesktop {...props} />;
+}
+
+function HomeMobile({ currentUser, conversations, onMobileBack, onOpenConversation, onOpenUserProfile }: HomePanelProps): JSX.Element {
+  const { query, data, reshuffle, creatorsOpen, setCreatorsOpen, joinTarget, joinError, joinErrorGroupId, joinMutation, requestMutation, openGroup, closeJoinDialog } = useHome(conversations, onOpenConversation);
   const scrollRef = useRef<HTMLDivElement>(null);
   const groupsRef = useRef<HTMLElement>(null);
   const creatorsRef = useRef<HTMLElement>(null);
-  const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ['home', seed], queryFn: () => getHome(seed), placeholderData: keepPreviousData, staleTime: 60_000 });
-  const data = query.data;
 
   useEffect(() => {
     const root = scrollRef.current;
@@ -215,63 +149,21 @@ export function HomePanel({ currentUser, conversations, isMobile, onMobileBack, 
     return () => observer.disconnect();
   }, [data?.recommendation_seed, creatorsOpen]);
 
-  const joinMutation = useMutation({
-    mutationFn: (group: HomeGroup) => joinGroup(group.id),
-    onSuccess: (conversation) => {
-      setJoinError('');
-      setJoinErrorGroupId(null);
-      queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current?.some((item) => item.id === conversation.id) ? current : [...(current ?? []), conversation]);
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      void queryClient.invalidateQueries({ queryKey: ['home'] });
-      onOpenConversation(conversation.id, conversation);
-    },
-    onError: (error, group) => {
-      setJoinErrorGroupId(group.id);
-      setJoinError(error instanceof ApiError ? error.message : '加入群聊失败，请稍后重试。');
-    }
-  });
-  const requestMutation = useMutation({
-    mutationFn: ({ group, answer }: { group: HomeGroup; answer: string }) => createGroupJoinRequest(group.id, { message: group.join_mode === 'question' ? undefined : answer || undefined, answer: group.join_mode === 'question' ? answer : undefined }),
-    onSuccess: () => {
-      setJoinTarget(null);
-      setJoinError('');
-      void queryClient.invalidateQueries({ queryKey: ['home'] });
-      void queryClient.invalidateQueries({ queryKey: ['group-join-requests'] });
-    },
-    onError: (error) => setJoinError(error instanceof ApiError ? error.message : '加群申请提交失败，请稍后重试。')
-  });
-
-  function openGroup(group: HomeGroup): void {
-    setJoinError('');
-    setJoinErrorGroupId(null);
-    if (group.joined) {
-      const known = conversations.find((item) => item.id === group.id) ?? group;
-      onOpenConversation(group.id, known);
-      return;
-    }
-    if (group.join_request_status === 'pending') return;
-    if ((group.join_mode === 'approval' || group.join_mode === 'question') && !group.auto_approve) {
-      setJoinTarget(group);
-      return;
-    }
-    joinMutation.mutate(group);
-  }
-
   function scrollTo(ref: React.RefObject<HTMLElement | null>): void {
     ref.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 
   if (creatorsOpen) {
-    return <CcwCreatorsPage isMobile={isMobile} onBack={() => setCreatorsOpen(false)} onOpenUserSpace={onOpenUserProfile} />;
+    return <CcwCreatorsPage isMobile onBack={() => setCreatorsOpen(false)} onOpenUserSpace={onOpenUserProfile} />;
   }
 
   const stats = data?.stats;
-  const weeklyShare = stats?.messages ? Math.min(100, Math.round((stats.messages_last_7_days / stats.messages) * 100)) : 0;
-  const miniMax = stats ? Math.max(stats.public_groups, stats.public_posts, stats.friendships, stats.post_likes, 1) : 1;
+  const weeklyShare = stats ? weeklyMessageShare(stats) : 0;
+  const miniMax = stats ? miniStatMax(stats) : 1;
 
   return (
-    <section className={`kc-neon-home h-full min-h-0 overflow-hidden ${isMobile ? 'kc-neon-mobile' : ''}`}>
-      {isMobile ? <MobileStatusBar /> : null}
+    <section className="kc-neon-home kc-neon-mobile h-full min-h-0 overflow-hidden">
+      <MobileStatusBar />
       <div ref={scrollRef} className="kc-neon-scroll scroll-soft h-full overflow-y-auto">
         <div className="kc-neon-sky" aria-hidden="true">
           <span className="kc-neon-stars stars-a" /><span className="kc-neon-stars stars-b" />
@@ -280,7 +172,7 @@ export function HomePanel({ currentUser, conversations, isMobile, onMobileBack, 
 
         <nav className="kc-neon-nav">
           <div className="kc-neon-brand">
-            {isMobile && onMobileBack ? <button type="button" onClick={onMobileBack} className="kc-neon-back" aria-label="返回空间"><Icon name="chevronLeft" className="h-5 w-5" /></button> : null}
+            {onMobileBack ? <button type="button" onClick={onMobileBack} className="kc-neon-back" aria-label="返回空间"><Icon name="chevronLeft" className="h-5 w-5" /></button> : null}
             <img src={logoUrl} alt="KukeChat" className="kc-neon-logo" />
             <strong>KukeChat</strong>
           </div>
@@ -361,7 +253,7 @@ export function HomePanel({ currentUser, conversations, isMobile, onMobileBack, 
             <div className="kc-neon-section-head">
               <h2>人气群聊</h2>
               <p>按成员规模、近期活跃与更新热度加权推荐。</p>
-              <button type="button" disabled={query.isFetching} onClick={() => setSeed(Math.floor(Math.random() * 2_147_483_647))} className="kc-neon-btn-refresh"><Icon name="recall" className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />换一批</button>
+              <button type="button" disabled={query.isFetching} onClick={reshuffle} className="kc-neon-btn-refresh"><Icon name="recall" className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />换一批</button>
             </div>
 
             <ol key={data?.recommendation_seed} className="kc-neon-rank">
@@ -375,7 +267,7 @@ export function HomePanel({ currentUser, conversations, isMobile, onMobileBack, 
                     <span className="kc-neon-rank-avatar">{avatar ? <img src={avatar} alt={title} /> : <Avatar label={title} size="lg" />}</span>
                     <div className="kc-neon-rank-copy">
                       <h3>{title}<em>{group.category?.trim() || '开放社区'}</em></h3>
-                      <p>{group.description?.trim() || group.announcement?.trim() || '欢迎加入这个公开群聊，与社区成员一起交流。'}</p>
+                      <p>{groupSummary(group)}</p>
                       {joinErrorGroupId === group.id && joinError ? <span className="kc-neon-rank-error" role="alert">{joinError}</span> : null}
                     </div>
                     <div className="kc-neon-rank-figures">
@@ -423,7 +315,7 @@ export function HomePanel({ currentUser, conversations, isMobile, onMobileBack, 
           </footer>
         </main>
       </div>
-      {joinTarget ? <JoinRequestDialog group={joinTarget} pending={requestMutation.isPending} error={joinError} onSubmit={(answer) => requestMutation.mutate({ group: joinTarget, answer })} onClose={() => { setJoinTarget(null); setJoinError(''); setJoinErrorGroupId(null); }} /> : null}
+      {joinTarget ? <JoinRequestDialog group={joinTarget} pending={requestMutation.isPending} error={joinError} onSubmit={(answer) => requestMutation.mutate({ group: joinTarget, answer })} onClose={closeJoinDialog} /> : null}
     </section>
   );
 }

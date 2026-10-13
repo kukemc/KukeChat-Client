@@ -54,7 +54,7 @@ export function CcwCreationCard({ oid, accessKey = '', preview, compact = false 
 
   if (compact) {
     return (
-      <a href={href} target="_blank" rel="noreferrer" onClick={openCard} className="group mt-2 block w-full min-w-0 overflow-hidden rounded-[20px] border text-left shadow-[0_8px_22px_rgba(15,23,42,0.08)] transition duration-200 [background:color-mix(in_srgb,var(--kc-panel)_96%,white_4%)] [border-color:color-mix(in_srgb,var(--kc-border)_70%,transparent)]">
+      <a href={href} target="_blank" rel="noreferrer" onClick={openCard} className="kc-ccw-card group mt-2 block w-full min-w-0 overflow-hidden rounded-[20px] border text-left shadow-[0_8px_22px_rgba(15,23,42,0.08)] transition duration-200 [background:color-mix(in_srgb,var(--kc-panel)_96%,white_4%)] [border-color:color-mix(in_srgb,var(--kc-border)_70%,transparent)]">
         <div className="relative aspect-video w-full overflow-hidden rounded-t-[19px] bg-slate-950">
           {coverUrl ? <img src={coverUrl} alt={preview.title} className="h-full w-full object-contain" loading="lazy" /> : <div className="grid h-full w-full place-items-center [color:var(--kc-muted)]"><Icon name="image" className="h-6 w-6" /></div>}
           <span className="absolute left-2.5 top-2.5 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm">CCW</span>
@@ -81,7 +81,7 @@ export function CcwCreationCard({ oid, accessKey = '', preview, compact = false 
   }
 
   return (
-    <a href={href} target="_blank" rel="noreferrer" onClick={openCard} className={`group mt-2 block overflow-hidden rounded-[22px] border text-left shadow-[0_8px_24px_rgba(15,23,42,0.07)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.12)] [background:color-mix(in_srgb,var(--kc-panel)_94%,white_6%)] [border-color:color-mix(in_srgb,var(--kc-border)_70%,transparent)] ${compact ? 'w-full max-w-[520px]' : 'max-w-[520px]'}`}>
+    <a href={href} target="_blank" rel="noreferrer" onClick={openCard} className={`kc-ccw-card group mt-2 block overflow-hidden rounded-[22px] border text-left shadow-[0_8px_24px_rgba(15,23,42,0.07)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.12)] [background:color-mix(in_srgb,var(--kc-panel)_94%,white_6%)] [border-color:color-mix(in_srgb,var(--kc-border)_70%,transparent)] ${compact ? 'w-full max-w-[520px]' : 'max-w-[520px]'}`}>
       <div className="flex min-w-0 gap-3 p-3.5">
         <div className="relative aspect-video w-[156px] shrink-0 overflow-hidden rounded-[18px] bg-slate-950 sm:w-[176px]">
           {coverUrl ? <img src={coverUrl} alt={preview.title} className="h-full w-full object-contain" loading="lazy" /> : <div className="grid h-full w-full place-items-center [color:var(--kc-muted)]"><Icon name="image" className="h-6 w-6" /></div>}

@@ -1,0 +1,2024 @@
+/* 桌面端：机器人指令面板与机器人编辑（基础样式见 kui.css）。 */
+
+.kcb-command-name,
+.kcb-hint-signature,
+.kcb-cmd-name,
+.kcb-detail-command > code,
+.kcb-key {
+  /* 指令名常带中文：等宽字体里没有的字先落到雅黑 / 苹方，别掉进系统默认的宋体 */
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', 'PingFang SC', monospace;
+}
+
+/* ───────── 输入框上方的指令面板 ───────── */
+
+.kcb-panel {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  width: 440px;
+  max-width: 100%;
+  max-height: 280px;
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  user-select: none;
+}
+
+/* 左边一列机器人垫一层极浅的底色，和右边的指令列表分成两个面 */
+.kcb-panel-bots {
+  display: flex;
+  width: 54px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 0;
+  border-right: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 3%, transparent);
+}
+
+/* 选中态只描一圈边，留 2px 空隙，不给头像垫底色 */
+.kcb-panel-bot {
+  display: grid;
+  flex: none;
+  padding: 2px;
+  border: 1.5px solid transparent;
+  border-radius: 50%;
+  transition: border-color 120ms ease;
+}
+
+.kcb-panel-bot:hover {
+  border-color: var(--kc-border-strong);
+}
+
+.kcb-panel-bot.is-active {
+  border-color: var(--kc-accent);
+}
+
+.kcb-panel-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kcb-panel-title {
+  flex: none;
+  padding: 12px 14px 6px;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-panel-list {
+  min-height: 0;
+  flex: 1;
+  padding: 0 5px 5px;
+}
+
+/* 一条指令：左边指令名，右边靠右的说明。面板、编辑页预览共用 */
+.kcb-command {
+  display: flex;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  gap: 16px;
+  padding: 0 9px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.kcb-command.is-active {
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+}
+
+.kcb-command-name {
+  max-width: 55%;
+  flex: none;
+  overflow: hidden;
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-command.is-active .kcb-command-name {
+  color: var(--kc-accent);
+}
+
+.kcb-command-desc {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 签名里的参数用次要色，把指令名让出来；提示条里正在输入的那个换成强调色 */
+.kcb-param {
+  color: var(--kc-muted);
+  font-weight: 400;
+}
+
+.kcb-param.is-active {
+  color: var(--kc-accent);
+}
+
+/* ───────── 输入框上方的参数提示条 ───────── */
+
+/* 和指令面板同一个位置，只有一行；不接鼠标事件，免得挡住底下那条消息 */
+.kcb-hint {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  max-width: 100%;
+  height: 28px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 放不下时先截说明，签名尽量留全 */
+.kcb-hint-signature {
+  max-width: 100%;
+  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kcb-hint-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ───────── 机器人编辑页 ───────── */
+
+.kcb-editor {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  container-type: inline-size;
+  background: var(--kc-panel);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kcb-editor-header {
+  display: flex;
+  height: 48px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 0 8px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kcb-editor-title {
+  min-width: 0;
+  flex: 1;
+  font-size: calc(14px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kcb-editor-error {
+  flex: none;
+  margin: 10px 16px 0;
+}
+
+/* 左边表单、右边预览，各滚各的 */
+.kcb-editor-body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 720px) minmax(280px, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.kcb-editor-form .kui-group {
+  padding-bottom: 12px;
+}
+
+.kcb-editor-preview {
+  padding: 0 16px 16px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.kcb-editor-preview > * {
+  max-width: 400px;
+}
+
+/* 窄窗口放不下两栏：预览挪到表单下面，整页一起滚 */
+@container (max-width: 760px) {
+  .kcb-editor-body {
+    display: block;
+  }
+
+  .kcb-editor-body > .kui-scroll {
+    overflow: visible;
+  }
+
+  .kcb-editor-preview {
+    border-top: 1px solid var(--kc-border);
+    border-left: 0;
+  }
+}
+
+.kcb-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 10px;
+}
+
+.kcb-field {
+  display: block;
+  padding: 4px 0 10px;
+}
+
+.kcb-field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.kcb-count {
+  flex: none;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kcb-count.is-over {
+  color: var(--kui-danger);
+}
+
+.kcb-editor .kui-textarea {
+  display: block;
+  min-height: 72px;
+  resize: vertical;
+}
+
+.kcb-cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.kcb-cmd-row .kcb-cmd-name {
+  width: 168px;
+  flex: none;
+}
+
+/* 图标集里只有左右方向的箭头，上移 / 下移用向右的那个转 90° */
+.kcb-cmd-up svg {
+  transform: rotate(-90deg);
+}
+
+.kcb-cmd-down svg {
+  transform: rotate(90deg);
+}
+
+/* 参数行缩进一级，用一条竖线挂在所属的指令下面 */
+.kcb-cmd-params {
+  margin: 0 0 6px 8px;
+  padding-left: 10px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.kcb-cmd-params .kcb-cmd-name {
+  width: 132px;
+}
+
+.kcb-cmd-row .kui-segment {
+  flex: none;
+}
+
+.kcb-cmd-add {
+  margin-top: 6px;
+}
+
+.kcb-legacy {
+  margin: 6px 0 8px;
+  white-space: pre-wrap;
+}
+
+.kcb-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+
+.kcb-preview-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-preview-text {
+  color: var(--kc-muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kcb-preview-list {
+  padding-left: 18px;
+  color: var(--kc-muted);
+  line-height: 1.7;
+  list-style: disc;
+  overflow-wrap: anywhere;
+}
+
+/* 预览里的指令列表套一圈细边，对应聊天里弹出来的那块面板 */
+.kcb-preview-commands {
+  margin-top: 6px;
+  padding: 4px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-md);
+}
+
+.kcb-key {
+  display: block;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* ───────── 机器人详情页的指令列表 ───────── */
+
+.kcb-detail-command {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 7px 0;
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kcb-detail-command + .kcb-detail-command {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kcb-detail-command > code {
+  max-width: 45%;
+  flex: none;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.kcb-detail-command > span {
+  min-width: 0;
+  flex: 1;
+  color: var(--kc-muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* ═════════ 机器人中心（src/components/bots/desktop） ═════════ */
+
+/* ───────── 骨架：左边列表栏，右边内容 ───────── */
+
+.kcb-center {
+  /* 评分的星星。主题令牌里没有这个语义，所以在这里定一个，深色下换成提亮的 */
+  --kcb-star: #e9a112;
+  position: relative;
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 268px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+}
+
+[data-theme='dark'] .kcb-center {
+  --kcb-star: #f0b03f;
+}
+
+/* 编辑页盖住整块区域；底下的列表和详情只藏不卸，回来时滚动位置还在 */
+.kcb-center > .kcb-editor {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  height: auto;
+}
+
+.kcb-center.is-editing > :not(.kcb-editor) {
+  visibility: hidden;
+}
+
+.kcb-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-inline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ───────── 左栏：搜索、分栏、机器人列表 ───────── */
+
+.kcb-side {
+  position: relative;
+  /* 右键菜单会探出这一栏，要压在右边的内容上面 */
+  z-index: 3;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--kc-border);
+  background: var(--kc-list);
+}
+
+.kcb-side-header {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 14px;
+}
+
+.kcb-side-search {
+  flex: 1;
+}
+
+.kcb-side-clear {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  margin-right: -3px;
+  border-radius: 50%;
+  color: var(--kc-subtle);
+}
+
+.kcb-side-clear:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kcb-side-tabs {
+  flex: none;
+  padding: 0 14px 8px;
+}
+
+.kcb-side-tabs .kui-segment {
+  display: flex;
+}
+
+.kcb-side-tabs .kui-segment button {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.kcb-side-list {
+  min-height: 0;
+  flex: 1;
+  padding-bottom: 6px;
+}
+
+.kcb-side-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 18px 4px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.kcb-side-label > span + span {
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.kcb-side .kui-empty {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.kcb-side .kui-empty .kui-btn {
+  margin-top: 6px;
+}
+
+.kcb-side-foot {
+  padding: 10px 0 6px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  text-align: center;
+}
+
+.kcb-side-docs {
+  display: flex;
+  height: 40px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 18px;
+  border-top: 1px solid var(--kc-border);
+  color: var(--kc-muted);
+  text-align: left;
+  transition: background-color 80ms ease, color 80ms ease;
+}
+
+.kcb-side-docs span {
+  flex: 1;
+}
+
+.kcb-side-docs:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kcb-menu {
+  position: absolute;
+  z-index: 30;
+}
+
+/* 列表里的一行，尺寸和选中的样子跟会话列表一致：底色画在缩进的圆角伪元素上 */
+.kcb-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 62px;
+  align-items: center;
+  gap: 11px;
+  padding: 0 18px;
+  isolation: isolate;
+  text-align: left;
+}
+
+.kcb-row::before {
+  position: absolute;
+  z-index: -1;
+  inset: 2px 8px;
+  border-radius: var(--kui-r-md);
+  content: '';
+  transition: background-color 80ms ease;
+}
+
+.kcb-row:hover::before {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+.kcb-row.is-active::before,
+.kcb-row.is-active:hover::before {
+  background: var(--kui-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px color-mix(in srgb, var(--kui-fill) 40%, transparent);
+}
+
+.kcb-row-avatar {
+  position: relative;
+  display: grid;
+  flex: none;
+}
+
+/* 在线：头像右下角一个小圆点，外面一圈和底色同色的描边把它从头像上切出来 */
+.kcb-online {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--kc-list);
+  border-radius: 50%;
+  background: var(--kui-ok);
+}
+
+.kcb-row.is-active .kcb-online {
+  border-color: var(--kui-fill);
+}
+
+/* 整窗背景下栏底是半透明的，描边对不上头像后面的颜色，干脆不描 */
+[data-kc-wallpaper='window'] .kcb-row:not(.is-active) .kcb-online {
+  border-color: transparent;
+  background-clip: padding-box;
+}
+
+/* 「广场概览」没有头像，用一个和头像一样大的中性圆托着图标 */
+.kcb-row-glyph {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  color: var(--kc-muted);
+}
+
+.kcb-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kcb-row-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.kcb-row-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kui-fs));
+  letter-spacing: 0.005em;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-row-rating {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kcb-row-rating svg {
+  fill: var(--kcb-star);
+  stroke: var(--kcb-star);
+}
+
+.kcb-row-desc {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-row-count {
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* 选中的行：里面的字和标记全部反白 */
+.kcb-row.is-active .kcb-row-name {
+  color: var(--kui-on-fill);
+  font-weight: 600;
+}
+
+.kcb-row.is-active :is(.kcb-row-desc, .kcb-row-rating, .kcb-row-count) {
+  color: color-mix(in srgb, var(--kui-on-fill) 80%, transparent);
+}
+
+.kcb-row.is-active .kcb-row-rating svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.kcb-row.is-active .kui-tag {
+  background: color-mix(in srgb, var(--kui-on-fill) 22%, transparent);
+  color: var(--kui-on-fill);
+}
+
+.kcb-row.is-active .kcb-row-glyph {
+  background: color-mix(in srgb, var(--kui-on-fill) 20%, transparent);
+  color: var(--kui-on-fill);
+}
+
+.kcb-row.is-active .kc-avatar-tone {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--kui-on-fill) 50%, transparent);
+}
+
+/* ───────── 右侧：头部 + 画布 ───────── */
+
+.kcb-pane {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--kc-chat);
+  container: kcb-pane / inline-size;
+}
+
+.kcb-notice {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px 8px 18px;
+  border-bottom: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kui-danger) 9%, var(--kc-chat-surface));
+  color: var(--kui-danger);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kcb-notice span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.kcb-notice button {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  border-radius: 4px;
+}
+
+.kcb-notice button:hover {
+  background: color-mix(in srgb, var(--kui-danger) 12%, transparent);
+}
+
+/* 头部和聊天头部是同一个面：白底压在画布上，下面一条发丝线带一点落影。放不下时操作按钮折到第二行 */
+.kcb-head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 64px;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px 10px 18px;
+  background: var(--kc-chat-surface);
+  box-shadow: 0 1px 0 var(--kc-border), 0 6px 12px -10px color-mix(in srgb, var(--kui-scrim) 55%, transparent);
+}
+
+.kcb-head > .kui-icon-btn:first-child {
+  margin: 0 -4px 0 -8px;
+}
+
+.kcb-head > .rounded-full {
+  width: 44px;
+  height: 44px;
+  font-size: calc(16px * var(--kui-fs));
+}
+
+.kcb-head-main {
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.kcb-head-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.kcb-head-title h2 {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(16px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+
+.kcb-head-meta > b {
+  margin-left: 5px;
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.kcb-head-meta > :not(.kcb-stars) + span::before {
+  margin: 0 6px;
+  color: var(--kc-subtle);
+  content: '·';
+}
+
+.kcb-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.kcb-more {
+  position: relative;
+}
+
+.kcb-more-menu {
+  position: absolute;
+  z-index: 20;
+  top: 34px;
+  right: 0;
+  width: 164px;
+}
+
+.kcb-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.kcb-body-note {
+  margin: 14px 20px 0;
+}
+
+.kcb-page {
+  display: flex;
+  max-width: 1080px;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+  padding: 18px 20px 28px;
+}
+
+/* 主栏 + 旁边一栏基本信息；内容区窄了旁栏落到主栏下面 */
+.kcb-page--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 272px;
+  align-items: start;
+  gap: 12px;
+}
+
+.kcb-page-main,
+.kcb-page-aside {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kcb-state {
+  display: grid;
+  flex: 1;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 32px;
+  color: var(--kc-muted);
+  text-align: center;
+}
+
+.kcb-state svg {
+  margin-bottom: 4px;
+  color: var(--kc-subtle);
+}
+
+.kcb-state strong {
+  color: var(--kc-text);
+  font-size: calc(14px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kcb-state p {
+  max-width: 360px;
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.kcb-state .kui-btn {
+  margin-top: 8px;
+}
+
+/* ───────── 画布上的块 ───────── */
+
+/* 白色的面贴在画布上：发丝边加一线很紧的硬阴影，和聊天里别人的气泡是同一层 */
+.kcb-card {
+  min-width: 0;
+  padding: 0 18px 14px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kc-bubble-shadow);
+}
+
+.kcb-card > .kui-group-title {
+  padding: 14px 0 8px;
+}
+
+/* 整块都是数字格子或表格时不留内边距，内容自己贴边 */
+.kcb-card--flush {
+  overflow: hidden;
+  padding: 0;
+}
+
+.kcb-card-empty {
+  padding: 4px 0 2px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kcb-card-empty .kui-btn {
+  margin-top: 10px;
+}
+
+.kcb-card-foot {
+  margin-top: 10px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kcb-row-arrow {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  margin-right: -2px;
+  color: var(--kc-subtle);
+}
+
+.kcb-card .kui-row-value .rounded-full {
+  width: 20px;
+  height: 20px;
+  font-size: calc(10px * var(--kui-fs));
+}
+
+/* 一排数字。每格往左、往上各画一条发丝线，最外圈的被 overflow 裁掉，折行之后线也是对的 */
+.kcb-stats {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: repeat(var(--kcb-stat-cols, 4), minmax(0, 1fr));
+}
+
+.kcb-stats > div {
+  min-width: 0;
+  padding: 14px 18px 15px;
+  box-shadow: -1px 0 0 var(--kc-border), 0 -1px 0 var(--kc-border);
+}
+
+.kcb-stats dt {
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-stats dd {
+  overflow: hidden;
+  margin-top: 6px;
+  font-size: calc(24px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-stats dd.kcb-stats-detail {
+  margin-top: 6px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.kcb-prose {
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.kcb-prose.is-empty {
+  color: var(--kc-muted);
+}
+
+.kcb-features {
+  margin-top: 12px;
+  padding: 10px 0 0 18px;
+  border-top: 1px solid var(--kc-border);
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.75;
+  list-style: disc;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.kcb-features li::marker {
+  color: var(--kc-subtle);
+}
+
+/* 详情页的指令是一张两列的表：签名那一列按最长的定宽（最多占一半），说明从同一条竖线起头。
+   行本身摊平成格子（display: contents），内边距和行间的发丝线画在格子上 */
+.kcb-commands {
+  display: grid;
+  grid-template-columns: fit-content(50%) minmax(0, 1fr);
+  user-select: text;
+}
+
+.kcb-commands .kcb-detail-command {
+  display: contents;
+}
+
+.kcb-commands .kcb-detail-command > * {
+  max-width: none;
+  padding: 8px 0;
+}
+
+.kcb-commands .kcb-detail-command > code {
+  padding-right: 24px;
+}
+
+.kcb-commands .kcb-detail-command + .kcb-detail-command > * {
+  border-top: 1px solid var(--kc-border);
+}
+
+/* ───────── 评分的星星 ───────── */
+
+/* 两排星叠在一起：底下一排是灰的，上面着色的那排按分数裁掉右边 */
+.kcb-stars {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1;
+}
+
+.kcb-stars-row {
+  display: inline-flex;
+  flex: none;
+}
+
+.kcb-stars-row svg {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  fill: color-mix(in srgb, var(--kc-text) 16%, transparent);
+}
+
+.kcb-stars-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.kcb-stars-fill svg {
+  fill: var(--kcb-star);
+}
+
+.kcb-stars-input {
+  position: relative;
+  display: inline-flex;
+}
+
+.kcb-stars-input .kcb-stars {
+  font-size: calc(22px * var(--kui-fs));
+}
+
+.kcb-stars-hit {
+  position: absolute;
+  inset: -4px 0;
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+}
+
+.kcb-stars-hit button {
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+/* ───────── 评价 ───────── */
+
+.kcb-myreview {
+  display: grid;
+  gap: 10px;
+  padding: 2px 0 14px;
+}
+
+.kcb-myreview-rate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kcb-myreview-rate > span:first-child {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kcb-myreview-rate b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kcb-myreview .kui-textarea {
+  display: block;
+  min-height: 64px;
+  resize: vertical;
+}
+
+.kcb-myreview-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kcb-myreview-foot span {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kcb-review-note {
+  margin: 2px 0 12px;
+}
+
+.kcb-reviews {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kcb-thread {
+  padding: 13px 0;
+}
+
+.kcb-thread + .kcb-thread {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kcb-thread:last-child {
+  padding-bottom: 2px;
+}
+
+.kcb-review {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.kcb-review-avatar {
+  flex: none;
+  border-radius: 50%;
+}
+
+.kcb-review.is-reply .kcb-review-avatar > * {
+  width: 24px;
+  height: 24px;
+  font-size: calc(10.5px * var(--kui-fs));
+}
+
+.kcb-review-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.kcb-review-head {
+  display: flex;
+  min-height: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.kcb-review-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-review-name:hover {
+  color: var(--kc-accent);
+}
+
+.kcb-review-to {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-review-head time {
+  margin-left: auto;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kcb-review-text {
+  margin-top: 3px;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.kcb-review-text.is-empty {
+  color: var(--kc-muted);
+}
+
+.kcb-review-actions {
+  display: flex;
+  gap: 2px;
+  margin: 3px 0 0 -6px;
+}
+
+.kcb-review-actions button {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 5px;
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.kcb-review-actions button:hover:not(:disabled) {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kcb-review-actions button.is-on {
+  color: var(--kc-accent);
+}
+
+.kcb-review-actions button.is-on svg {
+  stroke-width: 2.25;
+}
+
+.kcb-reply-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.kcb-reply-form .kui-input {
+  height: 30px;
+  flex: 1 1 200px;
+}
+
+.kcb-reply-form .kui-note {
+  flex-basis: 100%;
+}
+
+/* 回复缩进到评价正文的位置，用一条竖线挂在所属的评价下面 */
+.kcb-replies {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0 42px;
+  padding-left: 12px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.kcb-replies-more {
+  justify-self: start;
+}
+
+#kukechat-root [data-font-scale] :is(.kcb-review-actions button, .kcb-replies-more) {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* ───────── 对话框 ───────── */
+
+.kcb-dialog-body {
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kcb-dialog-body > * + * {
+  margin-top: 10px;
+}
+
+.kcb-dialog-hint {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kui-dialog.kcb-dialog--narrow {
+  max-width: 400px;
+}
+
+/* 单选列表。建议并入 kui：和 desktop-info.css 的 .kci-item 是同一个东西 */
+.kcb-pick-list {
+  display: flex;
+  max-height: 320px;
+  flex-direction: column;
+  gap: 1px;
+  margin-right: -8px;
+  margin-left: -8px;
+}
+
+.kcb-pick {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 100ms ease;
+}
+
+.kcb-pick:hover {
+  background: var(--kc-hover);
+}
+
+.kcb-pick.is-selected,
+.kcb-pick.is-selected:hover {
+  background: var(--kui-tint);
+}
+
+.kcb-pick-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kcb-pick-text > span {
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-pick-text > span + span {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kcb-pick-check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--kc-accent);
+}
+
+/* ───────── 仪表盘 ───────── */
+
+/* 图表只有两个序列：发送用强调色，接收用中性灰。强调色跟着主题走，第二个序列用任何固定色相都可能和某个主题撞色 */
+.kcb-pane :is(.kcb-legend, .kcb-chart) .is-sent {
+  background: var(--kc-accent);
+}
+
+.kcb-pane :is(.kcb-legend, .kcb-chart) .is-received {
+  background: color-mix(in srgb, var(--kc-text) 46%, var(--kc-panel));
+}
+
+.kcb-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.kcb-legend i,
+.kcb-chart-tip i {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 2px;
+}
+
+.kcb-legend i:not(:first-child) {
+  margin-left: 8px;
+}
+
+.kcb-chart {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 10px;
+  padding-top: 8px;
+}
+
+/* 刻度文字的行高压成 0，文字就正好骑在对应的网格线上 */
+.kcb-chart-axis {
+  display: flex;
+  height: 176px;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.kcb-chart-axis span {
+  height: 0;
+  line-height: 0;
+}
+
+/* 下面留出日期那一行的位置 */
+.kcb-chart-plot {
+  position: relative;
+  display: flex;
+  height: 176px;
+  margin-bottom: 24px;
+}
+
+.kcb-chart-grid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.kcb-chart-grid i {
+  height: 1px;
+  background: var(--kc-border);
+}
+
+.kcb-chart-grid i:last-child {
+  background: var(--kc-border-strong);
+}
+
+/* 一天是一整列，悬停和聚焦的范围比柱子大得多 */
+.kcb-chart-day {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  justify-content: center;
+  border-radius: 4px 4px 0 0;
+  outline-offset: -2px;
+}
+
+.kcb-chart-day:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--kc-text) 4.5%, transparent);
+}
+
+.kcb-chart-bars {
+  display: flex;
+  height: 100%;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+/* 柱子顶端圆角、底边贴着基线；值为 0 时留 2px，表示这天有数据但是零 */
+.kcb-chart-bars i {
+  width: clamp(6px, 1.5cqw, 14px);
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+}
+
+.kcb-chart-date {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.kcb-chart-tip {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  display: none;
+  min-width: 108px;
+  gap: 3px;
+  padding: 7px 10px 8px;
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  font-size: calc(12px * var(--kui-fs));
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.kcb-chart-day:is(:hover, :focus-visible) .kcb-chart-tip {
+  display: grid;
+}
+
+.kcb-chart-tip strong {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kcb-chart-tip span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kcb-chart-tip b {
+  margin-left: auto;
+  padding-left: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kcb-health {
+  margin-bottom: 10px;
+  font-size: calc(22px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.kcb-meter {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--kc-text) 10%, transparent);
+}
+
+.kcb-meter i {
+  display: block;
+  min-width: 4px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--kc-accent);
+}
+
+.kcb-bars {
+  display: grid;
+  gap: 7px;
+}
+
+.kcb-bars > div {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kcb-bars > div.is-zero {
+  opacity: 0.5;
+}
+
+.kcb-bars-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kcb-bars-track i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--kcb-star);
+}
+
+.kcb-bars b {
+  color: var(--kc-text);
+  font-weight: 600;
+  text-align: right;
+}
+
+.kcb-advice {
+  display: grid;
+  gap: 10px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kcb-advice b {
+  display: block;
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+/* 表格贴着卡片的左右和下边；实在放不下时自己横向滚（.kui-scroll 默认只让纵向滚，这里反过来） */
+.kcb-table-wrap.kui-scroll {
+  margin: 0 -18px -14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.kcb-table {
+  width: 100%;
+  min-width: 450px;
+  border-collapse: collapse;
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kcb-table th {
+  padding: 4px 10px 7px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.kcb-table td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--kc-border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 第一列吃掉剩下的宽度，群名太长就截断 */
+.kcb-table :is(th, td):first-child {
+  width: 100%;
+  max-width: 0;
+  padding-left: 18px;
+  text-align: left;
+}
+
+.kcb-table :is(th, td):nth-child(2) {
+  text-align: center;
+}
+
+.kcb-table :is(th, td):last-child {
+  padding-right: 18px;
+}
+
+.kcb-table tbody tr:hover {
+  background: var(--kc-hover);
+}
+
+.kcb-table-group {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.kcb-table-group > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.kcb-table-group small {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+/* ───────── 接入方式与接入文档 ───────── */
+
+.kcb-ways code,
+.kcb-doc code,
+.kcb-doc pre {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', 'PingFang SC', monospace;
+}
+
+.kcb-ways {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  user-select: text;
+}
+
+.kcb-ways > div {
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.kcb-ways > div + div {
+  margin-left: 22px;
+  padding-left: 22px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.kcb-ways h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kcb-ways h4 svg {
+  color: var(--kc-muted);
+}
+
+.kcb-ways p {
+  margin-top: 5px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kcb-ways-url {
+  display: block;
+  overflow: hidden;
+  margin-top: 7px;
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-ways p code,
+.kcb-doc :not(pre) > code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kc-text) 6.5%, transparent);
+  font-size: 0.92em;
+}
+
+.kui-dialog.kcb-docs {
+  max-width: 960px;
+  height: min(800px, calc(100% - 32px));
+}
+
+.kcb-docs-body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: 196px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* 目录垫一层极浅的底色，和正文分成两个面 */
+.kcb-docs-toc {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 3%, transparent);
+}
+
+.kcb-docs-toc button {
+  height: 30px;
+  flex: none;
+  overflow: hidden;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--kc-muted);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcb-docs-toc button:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+#kukechat-root [data-font-scale] .kcb-docs-toc button {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kcb-docs-main {
+  min-width: 0;
+  padding: 20px 24px 32px;
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.kcb-doc {
+  margin-top: 20px;
+  border-top: 1px solid var(--kc-border);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.kcb-doc > * + * {
+  margin-top: 12px;
+}
+
+.kcb-doc h1 {
+  margin-top: 22px;
+  font-size: calc(20px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+/* 二级标题是一章的开头：上面一条发丝线，留足空 */
+.kcb-doc h2 {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--kc-border);
+  font-size: calc(16px * var(--kui-fs));
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.kcb-doc h3 {
+  margin-top: 22px;
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kcb-doc ul,
+.kcb-doc ol {
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.kcb-doc ol {
+  list-style: decimal;
+}
+
+.kcb-doc li + li {
+  margin-top: 3px;
+}
+
+.kcb-doc li::marker {
+  color: var(--kc-subtle);
+}
+
+.kcb-doc pre {
+  max-height: 420px;
+  overflow: auto;
+  padding: 11px 14px;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kui-r-md);
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.65;
+  overflow-wrap: normal;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.kcb-doc pre::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 语言名浮在代码块右上角 */
+.kcb-doc pre[data-language]::before {
+  float: right;
+  margin-left: 12px;
+  color: var(--kc-subtle);
+  content: attr(data-language);
+  font-size: calc(10.5px * var(--kui-fs));
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.kcb-doc pre .is-comment {
+  color: var(--kc-subtle);
+}
+
+.kcb-doc pre .is-string {
+  color: var(--kui-ok);
+}
+
+.kcb-doc pre .is-keyword {
+  color: var(--kc-accent);
+}
+
+.kcb-doc .kcb-doc-table {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.kcb-doc table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: normal;
+}
+
+.kcb-doc th {
+  padding: 6px 16px 6px 0;
+  border-bottom: 1px solid var(--kc-border-strong);
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.kcb-doc td {
+  padding: 7px 16px 7px 0;
+  border-bottom: 1px solid var(--kc-border);
+  vertical-align: top;
+}
+
+.kcb-doc img {
+  max-width: 100%;
+  max-height: 256px;
+  border-radius: var(--kui-r-sm);
+}
+
+.kcb-doc hr {
+  border: 0;
+  border-top: 1px solid var(--kc-border);
+}
+
+/* ───────── 内容区变窄 ───────── */
+
+@container kcb-pane (max-width: 800px) {
+  .kcb-page--split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 只剩一栏时主栏摊平，旁栏的基本信息插到评价前面：评价可能很长，信息不能被挤到最底下 */
+  .kcb-page--split > .kcb-page-main {
+    display: contents;
+  }
+
+  .kcb-page--split > .kcb-page-aside {
+    order: 1;
+  }
+
+  .kcb-page--split .kcb-card--tail {
+    order: 2;
+  }
+
+  /* 六个数字折成两行三列 */
+  .kcb-stats--wrap {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container kcb-pane (max-width: 560px) {
+  .kcb-ways {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kcb-ways > div + div {
+    margin: 12px 0 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--kc-border);
+    border-left: 0;
+  }
+}

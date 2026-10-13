@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { MobileAppRoot } from '@/app/MobileAppRoot';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useKukeStore } from '@/store/kukeStore';
 import '@/styles/tailwind.css';
 
@@ -20,6 +21,8 @@ useKukeStore.setState({
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <MobileAppRoot />
+    <ErrorBoundary allowReload>
+      <MobileAppRoot />
+    </ErrorBoundary>
   </React.StrictMode>
 );

@@ -1,56 +1,27 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { completeTask, getTask } from '@/api/tasks';
 import type { TaskShareCardMetadata } from '@/types/api';
 import { useKukeStore } from '@/store/kukeStore';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
-import { STATUS_META, formatDueLabel, isOverdue } from './taskConstants';
+import { STATUS_META, formatDueLabel } from './taskConstants';
+import { useIsDesktopLayout } from './taskHooks';
+import { useTaskCard } from './taskPanelHooks';
 import { PriorityBadge } from './taskWidgets';
+import { TaskShareCardDesktop } from './desktop/TaskCards';
 
 interface TaskShareCardProps {
   card: TaskShareCardMetadata;
 }
 
-interface CapsuleUser {
-  id: number;
-  name: string;
-  avatar_url?: string | null;
+/** 聊天消息里的任务卡片。桌面布局走 desktop/ 下的卡片；下面的旧界面留给移动端。 */
+export function TaskShareCard({ card }: TaskShareCardProps): JSX.Element {
+  const desktop = useIsDesktopLayout();
+  return desktop ? <TaskShareCardDesktop card={card} /> : <TaskShareCardMobile card={card} />;
 }
 
-export function TaskShareCard({ card }: TaskShareCardProps): JSX.Element {
-  const queryClient = useQueryClient();
+function TaskShareCardMobile({ card }: TaskShareCardProps): JSX.Element {
   const openChatTaskDetail = useKukeStore((state) => state.openChatTaskDetail);
   const openTaskCenter = useKukeStore((state) => state.openTaskCenter);
-  const [optimistic, setOptimistic] = useState<boolean | null>(null);
-
-  const taskQuery = useQuery({
-    queryKey: ['tasks', 'detail', card.task_id],
-    queryFn: () => getTask(card.task_id),
-    retry: false,
-    staleTime: 15_000
-  });
-  const task = taskQuery.data ?? null;
-
-  const status = task?.status ?? card.status ?? 'pending';
-  const completed = optimistic ?? status === 'completed';
-  const title = task?.title ?? card.title;
-  const priority = task?.priority ?? card.priority ?? 'normal';
-  const dueAt = task?.due_at ?? card.due_at ?? null;
-  const overdue = isOverdue(dueAt, completed ? 'completed' : status);
-  const assignees: CapsuleUser[] = task
-    ? task.assignees.map((user) => ({ id: user.id, name: user.nickname ?? user.username ?? '', avatar_url: user.avatar_url }))
-    : (card.assignees ?? []);
-
-  const toggleMutation = useMutation({
-    mutationFn: () => completeTask(card.task_id, !completed),
-    onMutate: () => setOptimistic(!completed),
-    onSuccess: () => {
-      setOptimistic(null);
-      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    },
-    onError: () => setOptimistic(null)
-  });
+  const { title, status, priority, dueAt, completed, overdue, assignees, toggle } = useTaskCard(card);
 
   return (
     <div className="w-[320px] max-w-full rounded-2xl border p-4 [background:var(--kc-panel)] [border-color:var(--kc-border)]">
@@ -62,7 +33,7 @@ export function TaskShareCard({ card }: TaskShareCardProps): JSX.Element {
       <div className="flex items-start gap-2.5">
         <button
           type="button"
-          onClick={() => toggleMutation.mutate()}
+          onClick={toggle}
           className={`mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border transition ${completed ? 'border-transparent [background:#22c55e]' : '[border-color:var(--kc-border)] hover:[border-color:var(--kc-accent)]'}`}
         >
           {completed ? <Icon name="check" className="h-3 w-3 text-white" /> : null}

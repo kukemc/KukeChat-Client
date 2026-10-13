@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { PostStats, User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
@@ -19,6 +20,8 @@ interface MobileProfileSummaryCardProps {
   profileTagline?: string;
   profileStatus?: string;
   email?: string | null;
+  /** 简介那一行右边的操作位（个人主页放资料点赞）。不传、或者传进来的东西什么都没画时，简介照旧占满一行 */
+  aside?: ReactNode;
   className?: string;
 }
 
@@ -36,7 +39,7 @@ function displayHandle(user: User | null | undefined, handle: string | undefined
   return userId ? `用户 ${userId}` : '用户';
 }
 
-export function MobileProfileSummaryCard({ user, name, label, handle, userId, bio, statusLabel, online = false, stats, profileCardStyle, isBot = false, profileTagline, profileStatus, email, className = '' }: MobileProfileSummaryCardProps): JSX.Element {
+export function MobileProfileSummaryCard({ user, name, label, handle, userId, bio, statusLabel, online = false, stats, profileCardStyle, isBot = false, profileTagline, profileStatus, email, aside, className = '' }: MobileProfileSummaryCardProps): JSX.Element {
   const cardStyle = normalizeProfileCardStyle(profileCardStyle ?? '');
   const resolvedName = name || getDisplayName(user, label || '用户');
   const resolvedUserId = userId ?? user?.id;
@@ -59,7 +62,10 @@ export function MobileProfileSummaryCard({ user, name, label, handle, userId, bi
               <span className={`kc-online-dot ${online ? 'kc-online-dot-on' : 'kc-online-dot-off'}`} />{statusLabel}
             </span>
           </div>
-          <p className="kc-mobile-profile-summary-bio mt-1 line-clamp-1 select-text text-[12px] font-medium leading-5">{resolvedBio}</p>
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            <p className="kc-mobile-profile-summary-bio line-clamp-1 min-w-0 flex-1 select-text text-[12px] font-medium leading-5">{resolvedBio}</p>
+            {aside}
+          </div>
         </div>
       </div>
       {(isBot || profileTagline || profileStatus) ? (

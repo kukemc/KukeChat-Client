@@ -1,0 +1,663 @@
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getConversationBots } from '@/api/bots';
+import { searchConversationMembers } from '@/api/conversations';
+import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { Icon } from '@/components/ui/Icon';
+import type { ConversationMember, MemberRole, MessageMetadata, MessageQuoteMetadata, MessageType } from '@/types/api';
+import { MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES, MAX_IMAGE_UPLOAD_BYTES, MAX_MESSAGE_CONTENT_LENGTH, MENTION_ALL_REMAINING } from '../message/constants';
+import { formatBytes, formatVoiceDuration, matchesMember, memberUserId } from '../message/messageMeta';
+import type { SendMessageVariables, StagedImage, StagedVoice } from '../message/types';
+import { StagedVoicePreview } from '../message/VoiceMessage';
+import { BotCommandHint } from './BotCommandHint';
+import { BotCommandPanel, botCommandOptions } from './BotCommandPanel';
+import { activeMentionQuery, composerText, focusAtEnd, insertMentionToken, insertText, readMentions, removeLeadingCommand, removeTokenBeforeCaret, selectionRange, type MentionQuery } from './composerDom';
+import { EmojiPanel } from './emojis/EmojiPanel';
+import { formatMuteEnd, useMuteStatus } from '@/store/moderationStore';
+import { matchBotCommandInput } from '@/utils/botCommands';
+import { PollComposerButton } from './polls/PollComposerButton';
+import { cx, readNumberPreference, writePreference, type ShowToast } from './runtime';
+import { reportTyping, resetTyping } from './typing/reportTyping';
+import { useVoiceRecorder } from './useVoiceRecorder';
+
+export interface ComposerHandle {
+  insertQuote: (quote: MessageQuoteMetadata, mentionTarget?: { userId: number; name: string }) => void;
+  insertMention: (member: ConversationMember) => void;
+  insertTextAtStart: (text: string) => void;
+  stageFiles: (files: File[]) => void;
+  focus: () => void;
+}
+
+interface ComposerProps {
+  conversationId: number;
+  isGroup: boolean;
+  currentRole: MemberRole;
+  members: ConversationMember[];
+  sending: boolean;
+  canCreateTask: boolean;
+  isTaskAssistantChat: boolean;
+  onSend: (variables: SendMessageVariables) => void;
+  /** 不经过 onSend 发出去的消息（比如投票）发成功后调用，让列表回到最新。 */
+  onOwnMessageSent?: () => void;
+  onMembersNeeded?: () => void;
+  onCreateTask: () => void;
+  onOpenTaskCenter: () => void;
+  onOpenPenalties: () => void;
+  setError: (message: string) => void;
+  showToast: ShowToast;
+}
+
+const HEIGHT_PREFERENCE_KEY = 'kukechat.desktop.composerHeight';
+const DEFAULT_HEIGHT = 168;
+const MIN_HEIGHT = 132;
+const MAX_HEIGHT = 420;
+/** 没发出去的文字按会话暂存，切回来还在。只存纯文本，不落盘。 */
+const drafts = new Map<number, string>();
+
+function memberName(member: ConversationMember): string {
+  const userId = memberUserId(member);
+  return member.nickname?.trim() || getDisplayName(member.user, userId ? `用户 ${userId}` : '成员');
+}
+
+const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Composer({ conversationId, isGroup, currentRole, members, sending, canCreateTask, isTaskAssistantChat, onSend, onOwnMessageSent, onMembersNeeded, onCreateTask, onOpenTaskCenter, onOpenPenalties, setError, showToast }, ref) {
+  const mute = useMuteStatus();
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const [text, setText] = useState('');
+  // 参数提示看的是已经上屏的文字：组词期间编辑器里是带空格的拼音，按它数参数个数会让提示条来回跳
+  const [committedText, setCommittedText] = useState('');
+  const [quote, setQuote] = useState<MessageQuoteMetadata | null>(null);
+  const [stagedImages, setStagedImages] = useState<StagedImage[]>([]);
+  const [stagedVoice, setStagedVoice] = useState<StagedVoice | null>(null);
+  const [mention, setMention] = useState<MentionQuery | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  // query 为 null 是从工具栏按钮打开、浏览全部指令；否则是输入框里正在敲的「/前缀」，按它过滤
+  const [botPanel, setBotPanel] = useState<{ query: string | null; index: number } | null>(null);
+  const [height, setHeight] = useState(() => Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, readNumberPreference(HEIGHT_PREFERENCE_KEY, DEFAULT_HEIGHT))));
+  const canMentionAll = isGroup && (currentRole === 'owner' || currentRole === 'admin');
+
+  const voice = useVoiceRecorder({
+    onRecorded: (recorded) => {
+      setError('');
+      setStagedVoice(recorded);
+    },
+    onError: setError
+  });
+
+  const mentionKeyword = mention?.query.trim() ?? '';
+  const mentionMembersQuery = useQuery({
+    queryKey: ['conversation-members', conversationId, 'mention-search', mentionKeyword],
+    queryFn: () => searchConversationMembers(conversationId, mentionKeyword, 8),
+    enabled: Boolean(isGroup && mention),
+    staleTime: 15_000
+  });
+  const fallbackMentionMembers = members.filter((member) => !mentionKeyword || matchesMember(member, mentionKeyword.toLowerCase())).slice(0, 8);
+  const mentionMembers = mention ? mentionMembersQuery.data ?? fallbackMentionMembers : [];
+  const mentionOptionCount = mentionMembers.length + (canMentionAll ? 1 : 0);
+
+  const botsQuery = useQuery({
+    queryKey: ['conversation-bots', conversationId],
+    queryFn: () => getConversationBots(conversationId),
+    enabled: isGroup,
+    // 群里装了哪些机器人很少变，进会话取一次就够；装卸机器人的地方会让这份缓存失效
+    staleTime: 60_000
+  });
+  const botCommands = useMemo(() => botCommandOptions(botsQuery.data), [botsQuery.data]);
+  const botPrefix = botPanel?.query?.toLowerCase();
+  const botOptions = useMemo(() => (botPrefix ? botCommands.filter((option) => option.command.toLowerCase().startsWith(botPrefix)) : botCommands), [botCommands, botPrefix]);
+  // @ 成员面板占着同一块位置，它开着的时候让给它；过滤后一条不剩也不显示，回车照常发送
+  const openBotPanel = botPanel && !mention && botOptions.length > 0 ? botPanel : null;
+  const botIndex = Math.min(openBotPanel?.index ?? 0, botOptions.length - 1);
+  const closeBotPanel = useCallback(() => setBotPanel(null), []);
+  const paramHint = useMemo(() => matchBotCommandInput(committedText, botCommands), [committedText, botCommands]);
+
+  // 待发送的图片和语音各自持有 object URL，离开时要释放
+  const stagedRef = useRef({ stagedImages, stagedVoice });
+  stagedRef.current = { stagedImages, stagedVoice };
+  useEffect(() => () => {
+    stagedRef.current.stagedImages.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    if (stagedRef.current.stagedVoice) {
+      URL.revokeObjectURL(stagedRef.current.stagedVoice.previewUrl);
+    }
+  }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+    const draft = drafts.get(conversationId);
+    if (draft) {
+      editor.textContent = draft;
+      setText(draft);
+      setCommittedText(draft);
+    }
+    focusAtEnd(editor);
+    return () => {
+      const pending = composerText(editor);
+      if (pending.trim()) {
+        drafts.set(conversationId, pending);
+      } else {
+        drafts.delete(conversationId);
+      }
+    };
+  }, [conversationId]);
+
+  function syncText(composing = false): void {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+    const next = composerText(editor);
+    if (!next.trim() && editor.innerHTML === '<br>') {
+      editor.innerHTML = '';
+    }
+    setText(next);
+    if (!composing) {
+      setCommittedText(next);
+    }
+    reportTyping(conversationId, next);
+  }
+
+  function refreshMention(): void {
+    const editor = editorRef.current;
+    const next = isGroup && editor ? activeMentionQuery(editor) : null;
+    if (next && !mention) {
+      onMembersNeeded?.();
+    }
+    setMention(next);
+    setMentionIndex(0);
+  }
+
+  /** 整个输入框只有一个「/前缀」时按它过滤机器人指令，删掉「/」或敲了空格就收起。从按钮打开的面板不受打字影响。 */
+  function refreshSlashCommand(): void {
+    const editor = editorRef.current;
+    if (!editor || botCommands.length === 0) {
+      return;
+    }
+    const value = composerText(editor);
+    const query = /^\/\S*$/.test(value) ? value : null;
+    setBotPanel((current) => {
+      if (query !== null) {
+        return current?.query === query ? current : { query, index: 0 };
+      }
+      return current && current.query !== null ? null : current;
+    });
+  }
+
+  function pickBotCommand(command: string): void {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+    removeLeadingCommand(editor);
+    insertText(editor, `${command} `, 'start');
+    setBotPanel(null);
+    syncText();
+  }
+
+  function clearStagedVoice(): void {
+    setStagedVoice((current) => {
+      if (current) {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return null;
+    });
+  }
+
+  function stageFiles(files: File[]): void {
+    if (stagedVoice || voice.recording) {
+      setError('语音消息不能和图片一起发送。');
+      return;
+    }
+    const images = files.filter((file) => file.type.startsWith('image/'));
+    if (images.length === 0) {
+      return;
+    }
+    const oversized = images.filter((file) => file.size > (/^(image\/jpeg|image\/png|image\/webp)$/i.test(file.type) ? MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES : MAX_IMAGE_UPLOAD_BYTES));
+    const valid = images.filter((file) => !oversized.includes(file));
+    setError(oversized.length > 0
+      ? `JPEG/PNG/WEBP 原图不能超过 12MB，GIF 及其他图片原图不能超过 3MB；压缩后不能超过 3MB。已忽略：${oversized.map((file) => `${file.name} (${formatBytes(file.size)})`).join('、')}`
+      : '');
+    if (valid.length === 0) {
+      return;
+    }
+    setStagedImages((current) => [
+      ...current,
+      ...valid.map((file, index) => ({ id: `${Date.now()}-${current.length + index}-${file.name}`, file, previewUrl: URL.createObjectURL(file) }))
+    ]);
+    editorRef.current?.focus({ preventScroll: true });
+  }
+
+  function removeStagedImage(id: string): void {
+    setStagedImages((current) => {
+      const target = current.find((item) => item.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return current.filter((item) => item.id !== id);
+    });
+  }
+
+  function pickMention(index: number): void {
+    const editor = editorRef.current;
+    if (!editor || !mention) {
+      return;
+    }
+    if (canMentionAll && index === 0) {
+      insertMentionToken(editor, '全体成员', { mentionAll: true, range: mention.range });
+    } else {
+      const member = mentionMembers[index - (canMentionAll ? 1 : 0)];
+      const userId = member ? memberUserId(member) : null;
+      if (!member || !userId) {
+        return;
+      }
+      insertMentionToken(editor, memberName(member), { userId, range: mention.range });
+    }
+    setMention(null);
+    syncText();
+  }
+
+  function submit(): void {
+    const editor = editorRef.current;
+    if (!editor || sending || mute.muted) {
+      return;
+    }
+    const raw = composerText(editor);
+    const content = raw.trim();
+    const files = stagedImages.map((item) => item.file);
+    if (!content && files.length === 0 && !stagedVoice) {
+      return;
+    }
+    if (stagedVoice && (content || files.length > 0)) {
+      setError('语音消息不能和文字或图片一起发送。');
+      return;
+    }
+    if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
+      setError(`消息内容不能超过 ${MAX_MESSAGE_CONTENT_LENGTH} 字。`);
+      return;
+    }
+    const mentionData = readMentions(editor);
+    const metadata: MessageMetadata = {};
+    if (quote) metadata.quote = quote;
+    if (mentionData.mentions.length > 0) metadata.mentions = mentionData.mentions;
+    if (mentionData.mentionAll) metadata.mention_all = true;
+    const nextMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
+    const type: MessageType = stagedVoice ? 'voice' : files.length === 1 && !content ? 'image' : 'text';
+    const variables: SendMessageVariables = stagedVoice
+      ? { content: '', type: 'voice', metadata: nextMetadata, voiceFile: stagedVoice.file, voiceDurationMs: stagedVoice.durationMs, voiceWaveform: stagedVoice.waveform }
+      : { content: content ? raw.trimEnd() : '', type, metadata: nextMetadata, files };
+
+    editor.innerHTML = '';
+    drafts.delete(conversationId);
+    resetTyping(conversationId);
+    setText('');
+    setCommittedText('');
+    setQuote(null);
+    setMention(null);
+    setBotPanel(null);
+    setStagedImages((current) => {
+      current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      return [];
+    });
+    clearStagedVoice();
+    setError('');
+    onSend(variables);
+    editor.focus({ preventScroll: true });
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    // 输入法组词期间的回车是「上屏」，不能当成发送
+    if (event.nativeEvent.isComposing || event.keyCode === 229) {
+      return;
+    }
+    if (mention && mentionOptionCount > 0) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        setMentionIndex((current) => (current + (event.key === 'ArrowDown' ? 1 : mentionOptionCount - 1)) % mentionOptionCount);
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault();
+        pickMention(mentionIndex);
+        return;
+      }
+    }
+    if (openBotPanel) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        setBotPanel({ ...openBotPanel, index: (botIndex + (event.key === 'ArrowDown' ? 1 : botOptions.length - 1)) % botOptions.length });
+        return;
+      }
+      // 已经完整敲出这条指令时，回车就是发送，不再多按一次
+      const typedInFull = event.key === 'Enter' && openBotPanel.query?.toLowerCase() === botOptions[botIndex].command.toLowerCase();
+      if ((event.key === 'Enter' || event.key === 'Tab') && !typedInFull) {
+        event.preventDefault();
+        pickBotCommand(botOptions[botIndex].command);
+        return;
+      }
+    }
+    if (event.key === 'Escape') {
+      if (mention) {
+        event.preventDefault();
+        setMention(null);
+      } else if (openBotPanel) {
+        event.preventDefault();
+        setBotPanel(null);
+      } else if (emojiOpen) {
+        event.preventDefault();
+        setEmojiOpen(false);
+      } else if (quote) {
+        event.preventDefault();
+        setQuote(null);
+      }
+      return;
+    }
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      insertText(event.currentTarget, '\n');
+      syncText();
+      return;
+    }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      submit();
+      return;
+    }
+    if (event.key === 'Backspace' && removeTokenBeforeCaret(event.currentTarget)) {
+      event.preventDefault();
+      syncText();
+    }
+  }
+
+  function handlePaste(event: React.ClipboardEvent<HTMLFormElement>): void {
+    const images = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith('image/'));
+    if (images.length > 0) {
+      event.preventDefault();
+      stageFiles(images);
+      return;
+    }
+    const pasted = event.clipboardData.getData('text/plain');
+    const editor = editorRef.current;
+    if (pasted && editor) {
+      event.preventDefault();
+      insertText(editor, pasted);
+      syncText();
+      refreshMention();
+      refreshSlashCommand();
+    }
+  }
+
+  function startResize(event: React.PointerEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = height;
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+    let latest = startHeight;
+    const move = (moveEvent: PointerEvent): void => {
+      latest = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, startHeight + startY - moveEvent.clientY));
+      setHeight(latest);
+    };
+    const end = (): void => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      writePreference(HEIGHT_PREFERENCE_KEY, String(Math.round(latest)));
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  }
+
+  useImperativeHandle(ref, () => ({
+    insertQuote: (quoteData, mentionTarget) => {
+      const editor = editorRef.current;
+      setQuote(quoteData);
+      if (!editor) {
+        return;
+      }
+      focusAtEnd(editor);
+      if (mentionTarget && !readMentions(editor).mentions.some((item) => item.user_id === mentionTarget.userId)) {
+        insertMentionToken(editor, mentionTarget.name, { userId: mentionTarget.userId });
+        syncText();
+      }
+    },
+    insertMention: (member) => {
+      const editor = editorRef.current;
+      const userId = memberUserId(member);
+      if (!editor || !userId) {
+        return;
+      }
+      focusAtEnd(editor);
+      insertMentionToken(editor, memberName(member), { userId });
+      syncText();
+    },
+    insertTextAtStart: (value) => {
+      const editor = editorRef.current;
+      if (editor) {
+        insertText(editor, value, 'start');
+        syncText();
+      }
+    },
+    stageFiles,
+    focus: () => {
+      if (editorRef.current) {
+        focusAtEnd(editorRef.current);
+      }
+    }
+  }));
+
+  const overLimit = text.length > MAX_MESSAGE_CONTENT_LENGTH;
+  const sendDisabled = (!text.trim() && stagedImages.length === 0 && !stagedVoice) || voice.recording || overLimit || sending;
+
+  return (
+    <form
+      className={cx('kcd-composer', mute.muted && 'is-muted')}
+      style={{ height }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit();
+      }}
+      onPaste={handlePaste}
+    >
+      <div className="kcd-composer-resize" onPointerDown={startResize} role="separator" aria-orientation="horizontal" aria-label="拖动调整输入框高度" />
+      <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(event) => {
+        if (event.target.files) {
+          stageFiles(Array.from(event.target.files));
+        }
+        event.target.value = '';
+      }} />
+
+      <EmojiPanel
+        open={emojiOpen}
+        conversationId={conversationId}
+        isGroup={isGroup}
+        currentRole={currentRole}
+        sending={sending}
+        showToast={showToast}
+        onInsert={(emoji) => {
+          const editor = editorRef.current;
+          if (editor) {
+            // 焦点在面板的搜索框里时输入框里已经没有光标了，接到末尾；不然会被插到最前面
+            if (!selectionRange(editor)) {
+              focusAtEnd(editor);
+            }
+            insertText(editor, emoji);
+            syncText();
+          }
+        }}
+        onSend={(variables) => {
+          setEmojiOpen(false);
+          setError('');
+          onSend(variables);
+        }}
+        onClose={(refocus) => {
+          setEmojiOpen(false);
+          if (refocus) {
+            editorRef.current?.focus({ preventScroll: true });
+          }
+        }}
+      />
+
+      {mention ? (
+        <div className="kcd-popover kcd-mention-picker scroll-soft" role="listbox" aria-label="选择要 @ 的成员">
+          {canMentionAll ? (
+            <button type="button" role="option" aria-selected={mentionIndex === 0} className={cx('kcd-mention-option', mentionIndex === 0 && 'is-active')} onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setMentionIndex(0)} onClick={() => pickMention(0)}>
+              <span className="kcd-mention-all-icon"><Icon name="users" className="h-4 w-4" /></span>
+              <span className="kcd-mention-name">全体成员</span>
+              <span className="kcd-mention-hint">剩余 {MENTION_ALL_REMAINING} 次</span>
+            </button>
+          ) : null}
+          {mentionMembers.map((member, memberIndex) => {
+            const index = memberIndex + (canMentionAll ? 1 : 0);
+            return (
+              <button key={member.id} type="button" role="option" aria-selected={mentionIndex === index} className={cx('kcd-mention-option', mentionIndex === index && 'is-active')} onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setMentionIndex(index)} onClick={() => pickMention(index)}>
+                <Avatar user={member.user} label={memberName(member)} size="sm" />
+                <span className="kcd-mention-name">{memberName(member)}</span>
+              </button>
+            );
+          })}
+          {mentionMembers.length === 0 ? <p className="kcd-popover-empty">{mentionMembersQuery.isFetching ? '正在搜索成员…' : '没有匹配的成员'}</p> : null}
+        </div>
+      ) : null}
+
+      {openBotPanel ? (
+        <BotCommandPanel options={botOptions} activeIndex={botIndex} onActiveChange={(index) => setBotPanel({ ...openBotPanel, index })} onPick={(option) => pickBotCommand(option.command)} onClose={closeBotPanel} />
+      ) : paramHint && !mention && !emojiOpen ? (
+        // 和几个浮层占同一块位置，它们开着的时候不出现
+        <BotCommandHint command={paramHint.command} paramIndex={paramHint.paramIndex} />
+      ) : null}
+
+      {mute.muted && mute.until ? (
+        <div className="kcd-composer-muted" role="status">
+          <Icon name="lock" className="h-5 w-5" />
+          <p className="kcd-composer-muted-title">禁言中，{formatMuteEnd(mute.until)} 解除</p>
+          <p className="kcd-composer-muted-text">{mute.reason ? `原因：${mute.reason}。` : ''}期间可以正常查看消息，但不能发言。</p>
+          <button type="button" className="kcd-link-button" onClick={onOpenPenalties}>查看处罚详情 / 申诉</button>
+        </div>
+      ) : null}
+
+      <div className="kcd-composer-toolbar">
+        <button type="button" className={cx('kcd-tool', emojiOpen && 'is-active')} title="表情" aria-label="选择表情" aria-expanded={emojiOpen} onMouseDown={(event) => event.stopPropagation()} onClick={() => {
+          setBotPanel(null);
+          setEmojiOpen((current) => !current);
+        }}><Icon name="emoji" className="h-[18px] w-[18px]" /></button>
+        <button type="button" className="kcd-tool" title="图片（也可以直接粘贴或拖进来）" aria-label="发送图片" disabled={sending} onClick={() => imageInputRef.current?.click()}><Icon name="image" className="h-[18px] w-[18px]" /></button>
+        <button type="button" className={cx('kcd-tool', voice.recording && 'is-recording')} title={voice.recording ? '结束录音' : '语音消息'} aria-label={voice.recording ? '结束录音' : '录制语音'} disabled={sending || stagedImages.length > 0} onClick={() => {
+          if (voice.recording) {
+            voice.stop();
+          } else {
+            clearStagedVoice();
+            void voice.start();
+          }
+        }}><Icon name="mic" className="h-[18px] w-[18px]" /></button>
+        {isGroup ? <button type="button" className="kcd-tool" title="@ 群成员" aria-label="@ 群成员" onMouseDown={(event) => event.preventDefault()} onClick={() => {
+          const editor = editorRef.current;
+          if (editor) {
+            // 「@」前面得是空白才会触发成员选择
+            insertText(editor, /(^|\s)$/.test(composerText(editor)) ? '@' : ' @');
+            syncText();
+            refreshMention();
+          }
+        }}><Icon name="atSign" className="h-[18px] w-[18px]" /></button> : null}
+        <PollComposerButton conversationId={conversationId} onCreated={onOwnMessageSent} />
+        {botCommands.length > 0 ? <button type="button" className={cx('kcd-tool', openBotPanel && 'is-active')} title="机器人指令" aria-label="机器人指令" aria-expanded={Boolean(openBotPanel)} onMouseDown={(event) => {
+          // 面板的上下键和回车是输入框接的，焦点不能被按钮拿走；也不让这次按下被面板当成「点了外面」
+          event.preventDefault();
+          event.stopPropagation();
+        }} onClick={() => {
+          setEmojiOpen(false);
+          setMention(null);
+          setBotPanel(openBotPanel ? null : { query: null, index: 0 });
+          editorRef.current?.focus({ preventScroll: true });
+        }}><Icon name="bot" className="h-[18px] w-[18px]" /></button> : null}
+        {canCreateTask ? <button type="button" className="kcd-tool" title="创建任务" aria-label="创建任务" onClick={onCreateTask}><Icon name="checkSquare" className="h-[18px] w-[18px]" /></button> : null}
+        {isTaskAssistantChat ? (
+          <>
+            <button type="button" className="kcd-chip" onClick={onOpenTaskCenter}><Icon name="checkSquare" className="h-3.5 w-3.5" />创建任务</button>
+            <button type="button" className="kcd-chip" onClick={onOpenTaskCenter}><Icon name="list" className="h-3.5 w-3.5" />我的任务</button>
+          </>
+        ) : null}
+        {voice.recording ? (
+          <span className="kcd-recording">
+            <span className="kcd-recording-dot" />
+            录音中 {formatVoiceDuration(voice.elapsedMs)}
+            <button type="button" onClick={voice.cancel}>取消</button>
+          </span>
+        ) : null}
+        {sending && (stagedImages.length > 0 || stagedVoice) ? <span className="kcd-composer-status">上传中…</span> : null}
+      </div>
+
+      <div className="kcd-composer-body scroll-soft" onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          editorRef.current?.focus();
+        }
+      }}>
+        {quote ? (
+          <div className="kcd-composer-quote">
+            <div className="kcd-composer-quote-text">
+              <span className="kcd-quote-name">回复 {quote.sender_name}</span>
+              <span className="kcd-quote-text">{quote.preview}</span>
+            </div>
+            <button type="button" aria-label="取消引用" onMouseDown={(event) => event.preventDefault()} onClick={() => setQuote(null)}><Icon name="close" className="h-3 w-3" /></button>
+          </div>
+        ) : null}
+        {stagedImages.length > 0 ? (
+          <div className="kcd-staged-images">
+            {stagedImages.map((image) => (
+              <div key={image.id} className="kcd-staged-image">
+                <img src={image.previewUrl} alt={image.file.name || '待发送图片'} />
+                <button type="button" aria-label="移除图片" onClick={() => removeStagedImage(image.id)}><Icon name="close" className="h-3 w-3" /></button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {stagedVoice ? <StagedVoicePreview voice={stagedVoice} onRemove={clearStagedVoice} /> : null}
+        <div className="kcd-editor-wrap">
+          {!text && !quote ? <span className="kcd-editor-placeholder">{isGroup ? '发消息，@ 可以提醒群成员' : '发消息'}</span> : null}
+          <div
+            ref={editorRef}
+            className="kcd-editor"
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-label="输入消息"
+            aria-multiline="true"
+            spellCheck={false}
+            onInput={(event) => {
+              // 输入法组词期间编辑器里是还没上屏的拼音，等 compositionend 再看
+              const composing = (event.nativeEvent as InputEvent).isComposing;
+              syncText(composing);
+              refreshMention();
+              if (!composing) {
+                refreshSlashCommand();
+              }
+            }}
+            onCompositionEnd={() => {
+              syncText();
+              refreshSlashCommand();
+            }}
+            onClick={refreshMention}
+            onKeyUp={(event) => {
+              if (!['ArrowUp', 'ArrowDown', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
+                refreshMention();
+              }
+            }}
+            onBlur={() => setMention(null)}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
+      </div>
+
+      <div className="kcd-composer-footer">
+        <span className="kcd-composer-hint">Enter 发送 · Shift+Enter 换行</span>
+        {text.length > MAX_MESSAGE_CONTENT_LENGTH * 0.8 ? <span className={cx('kcd-composer-count', overLimit && 'is-over')}>{text.length}/{MAX_MESSAGE_CONTENT_LENGTH}</span> : null}
+        <button type="submit" className="kcd-send" disabled={sendDisabled}>{sending ? '发送中' : '发送'}</button>
+      </div>
+    </form>
+  );
+});
+
+export const Composer = memo(ComposerInner);

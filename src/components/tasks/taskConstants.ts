@@ -1,4 +1,5 @@
 import type { TaskPriority, TaskStatus } from '@/types/api';
+import { parseApiDate } from '@/utils/dateTime';
 import type { IconName } from '@/components/ui/Icon';
 
 export const STATUS_META: Record<TaskStatus, { label: string; color: string }> = {
@@ -50,8 +51,9 @@ export function formatTaskDate(value?: string | null, withTime = true): string {
   if (!value) {
     return '';
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  // 任务接口的时间不带时区、内容是 UTC：必须用 parseApiDate，直接 new Date 会当成本地时间，早 8 小时
+  const date = parseApiDate(value);
+  if (!date) {
     return '';
   }
   const now = new Date();
@@ -67,16 +69,17 @@ export function dueHasTime(value?: string | null): boolean {
   if (!value) {
     return false;
   }
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime()) && !(date.getHours() === 0 && date.getMinutes() === 0);
+  const date = parseApiDate(value);
+  return date !== null && !(date.getHours() === 0 && date.getMinutes() === 0);
 }
 
 export function formatDueLabel(value?: string | null): string {
   if (!value) {
     return '';
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  // 任务接口的时间不带时区、内容是 UTC：必须用 parseApiDate，直接 new Date 会当成本地时间，早 8 小时
+  const date = parseApiDate(value);
+  if (!date) {
     return '';
   }
   const now = new Date();
@@ -101,8 +104,8 @@ export function isOverdue(dueAt?: string | null, status?: TaskStatus): boolean {
   if (!dueAt || status === 'completed' || status === 'cancelled') {
     return false;
   }
-  const date = new Date(dueAt);
-  return !Number.isNaN(date.getTime()) && date.getTime() < Date.now();
+  const date = parseApiDate(dueAt);
+  return date !== null && date.getTime() < Date.now();
 }
 
 export function taskIdLabel(id: number): string {

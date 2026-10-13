@@ -1,0 +1,1941 @@
+/* 桌面端：任务（基础样式见 kui.css）。
+   任务中心（src/components/tasks/desktop/TaskCenterDesktop.tsx）、任务详情、新建对话框、群任务侧栏、聊天里的任务卡片。 */
+
+/* ───────── 零件 ───────── */
+
+.ktk-spacer {
+  flex: 1;
+}
+
+.ktk-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktk-none {
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* 小箭头：默认朝右（收起），展开或用在下拉按钮上时朝下 */
+.ktk-caret {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--kc-subtle);
+  transition: transform 120ms ease;
+}
+
+.ktk-caret.is-open,
+:is(.ktk-value, .ktk-menu-btn) > .ktk-caret {
+  transform: rotate(90deg);
+}
+
+.kui-icon-btn.ktk-icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.kui-btn.ktk-menu-btn {
+  gap: 5px;
+  padding: 0 7px;
+}
+
+.ktk-menu-btn.is-open,
+.ktk-icon-btn.is-open {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+/* 勾选圈。完成用绿色实底：它是这套界面里除强调色之外唯一会成片出现的颜色 */
+.ktk-check {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  place-items: center;
+  border: 1.5px solid color-mix(in srgb, var(--kc-text) 30%, transparent);
+  border-radius: 50%;
+  background: var(--kc-panel);
+  color: #ffffff;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 60ms ease;
+}
+
+.ktk-check:hover:not(:disabled) {
+  border-color: var(--kui-ok);
+}
+
+.ktk-check:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.ktk-check.is-checked {
+  border-color: var(--kui-ok);
+  background: var(--kui-ok);
+}
+
+[data-theme='dark'] .ktk-check.is-checked {
+  color: #0b0c0f;
+}
+
+/* 叠放的小头像。Avatar 组件自带的尺寸类和这里同优先级且排在后面，所以选择器多带一截 */
+.ktk-avatars {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.ktk-avatars > :is(img, div) {
+  width: 20px;
+  height: 20px;
+  box-shadow: 0 0 0 1.5px var(--kc-panel);
+  font-size: 10px;
+}
+
+.ktk-avatars > :is(img, div) + :is(img, div) {
+  margin-left: -4px;
+}
+
+.ktk-avatars-more {
+  margin-left: 4px;
+  color: var(--kc-muted);
+  font-size: calc(11px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktk-progress {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktk-progress-track,
+.ktk-meter {
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-text) 10%, transparent);
+}
+
+.ktk-progress-track {
+  width: 36px;
+  height: 4px;
+}
+
+.ktk-progress--wide .ktk-progress-track {
+  width: 64px;
+}
+
+.ktk-meter {
+  height: 5px;
+}
+
+:is(.ktk-progress-track, .ktk-meter) > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--kui-fill);
+  transition: width 240ms ease;
+}
+
+.ktk-due {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ktk-due.is-overdue {
+  color: var(--kui-danger);
+}
+
+/* ───────── 浮层与选择器 ───────── */
+
+/* 位置由 Floating 组件算好写进 style；算出来之前先藏着，免得在左上角闪一下 */
+.ktk-pop {
+  position: fixed;
+  z-index: 70;
+  border-radius: var(--kui-r-md);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  visibility: hidden;
+}
+
+.ktk-pop.kui-menu {
+  max-width: 260px;
+}
+
+.ktk-pop-empty {
+  padding: 14px 8px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  text-align: center;
+}
+
+.ktk-member-pop {
+  width: 236px;
+  padding: 8px;
+}
+
+.ktk-member-list {
+  max-height: 224px;
+  margin-top: 6px;
+}
+
+.kui-menu-item.ktk-member {
+  height: 32px;
+}
+
+.ktk-member > :is(img, div):first-child {
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+
+.ktk-member > .ktk-clip {
+  flex: 1;
+}
+
+.ktk-people {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.ktk-person {
+  display: inline-flex;
+  max-width: 168px;
+  height: 24px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px 0 2px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktk-person > :is(img, div):first-child {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+/* 只读时没有移除按钮，右边补上它占的那点留白 */
+.ktk-person > .ktk-clip:last-child {
+  padding-right: 4px;
+}
+
+.ktk-person > button {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--kc-subtle);
+}
+
+.ktk-person > button:hover {
+  background: color-mix(in srgb, var(--kc-text) 12%, transparent);
+  color: var(--kc-text);
+}
+
+.ktk-add {
+  display: inline-flex;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 0 6px;
+  border: 1px dashed var(--kc-border-strong);
+  border-radius: 6px;
+  color: var(--kc-muted);
+  transition: border-color 100ms ease, color 100ms ease;
+}
+
+.ktk-add:hover,
+.ktk-add.is-open {
+  border-color: var(--kc-accent);
+  color: var(--kc-accent);
+}
+
+#kukechat-root [data-font-scale] .ktk-add {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 一个「当前值」：平时像一段文字，悬停才露出它是个按钮。左边往外探 7px，让文字和别的行左对齐 */
+.ktk-value-group {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.ktk-value {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  height: 26px;
+  align-items: center;
+  gap: 6px;
+  margin-left: -7px;
+  padding: 0 7px;
+  border-radius: 6px;
+  color: var(--kc-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: background-color 80ms ease;
+}
+
+.ktk-value:hover,
+.ktk-value.is-open {
+  background: var(--kc-hover);
+}
+
+.ktk-value > svg:first-child {
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.ktk-value.is-empty {
+  color: var(--kc-muted);
+}
+
+.ktk-value.is-overdue,
+.ktk-value.is-overdue > svg:first-child {
+  color: var(--kui-danger);
+}
+
+#kukechat-root [data-font-scale] .ktk-value {
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.ktk-group-menu {
+  width: 188px;
+}
+
+.kui-input.ktk-inline-input {
+  width: 168px;
+  height: 26px;
+  padding: 0 8px;
+}
+
+.kui-input.ktk-menu-input {
+  width: 100%;
+  height: 28px;
+}
+
+.ktk-cal {
+  width: 280px;
+  padding: 10px 12px 12px;
+}
+
+.ktk-cal-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.ktk-cal-head strong {
+  flex: 1;
+  font-size: calc(13px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.ktk-cal-head .kui-btn {
+  height: 24px;
+  padding: 0 8px;
+}
+
+.ktk-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  text-align: center;
+}
+
+.ktk-cal-week {
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+  line-height: 24px;
+}
+
+.ktk-day {
+  height: 30px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ktk-day:hover {
+  background: var(--kc-hover);
+}
+
+.ktk-day.is-out {
+  color: var(--kc-subtle);
+}
+
+.ktk-day.is-today {
+  color: var(--kc-accent);
+  font-weight: 700;
+}
+
+.ktk-day.is-selected,
+.ktk-day.is-selected:hover {
+  background: var(--kui-fill);
+  color: var(--kui-on-fill);
+  font-weight: 600;
+}
+
+#kukechat-root [data-font-scale] .ktk-day {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktk-cal-options {
+  margin-top: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ktk-cal-options .kui-row {
+  min-height: 34px;
+  padding: 3px 0;
+}
+
+:is(.kui-input, .kui-select).ktk-cal-control {
+  width: 118px;
+  height: 26px;
+  flex: none;
+}
+
+.ktk-cal-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+/* ───────── 任务中心：骨架 ───────── */
+
+.ktk {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.ktk-nav {
+  display: flex;
+  width: 196px;
+  flex: none;
+  flex-direction: column;
+  padding: 0 8px 12px;
+  border-right: 1px solid var(--kc-border);
+  background: var(--kc-list);
+}
+
+.ktk-nav-title {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  padding: 0 10px;
+  font-size: calc(15.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.ktk-nav .kui-group-title {
+  padding: 18px 10px 6px;
+}
+
+.ktk-nav-item {
+  display: flex;
+  width: 100%;
+  height: 34px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+  padding: 0 10px;
+  border-radius: var(--kui-r-sm);
+  color: var(--kc-text);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.ktk-nav-item > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.ktk-nav-item:hover {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+/* 当前范围：和会话列表的选中项一样，强调色实底、字反白 */
+.ktk-nav-item.is-active,
+.ktk-nav-item.is-active:hover {
+  background: var(--kui-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px color-mix(in srgb, var(--kui-fill) 40%, transparent);
+  color: var(--kui-on-fill);
+  font-weight: 600;
+}
+
+.ktk-nav-item.is-active > svg {
+  color: inherit;
+}
+
+#kukechat-root [data-font-scale] .ktk-nav-item {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.ktk-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.ktk-bar {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px 0 22px;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+.ktk-bar h2 {
+  flex: none;
+  font-size: calc(15.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.ktk-bar .kui-btn svg {
+  margin-left: -3px;
+}
+
+/* 详情栏按这一层的宽度决定是并排还是盖上来 */
+.ktk-body {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  container: ktk-body / inline-size;
+}
+
+/* 列表的列按这一层的宽度逐步收起。容器查询不挂在滚动区上：
+   它可能让元素变成 fixed 浮层的定位基准，滚动区再一裁，分组菜单就被切掉了 */
+.ktk-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  container: ktk-content / inline-size;
+}
+
+.ktk-tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 12px 22px 0;
+}
+
+.ktk-tools .kui-segment {
+  margin-right: 6px;
+}
+
+.ktk-content {
+  min-height: 0;
+  flex: 1;
+  padding: 12px 22px 28px;
+}
+
+.ktk-side {
+  display: flex;
+  width: 408px;
+  flex: none;
+  flex-direction: column;
+  border-left: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+.ktk-side-scrim {
+  display: none;
+}
+
+/* 放不下并排的两栏时，详情改成从右侧盖上来的抽屉。盖在列表上，所以底色要用实的 */
+@container ktk-body (max-width: 900px) {
+  .ktk-side {
+    position: absolute;
+    z-index: 6;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(408px, 100%);
+    border-left: 0;
+    background: var(--kc-panel);
+    box-shadow: -1px 0 0 var(--kc-border-strong), -14px 0 30px -16px color-mix(in srgb, var(--kui-scrim) 80%, transparent);
+  }
+
+  .ktk-side-scrim {
+    position: absolute;
+    z-index: 5;
+    inset: 0;
+    display: block;
+    background: color-mix(in srgb, var(--kui-scrim) 45%, transparent);
+  }
+}
+
+/* ───────── 任务中心：列表 ───────── */
+
+/* 一张白色的面，里面是一行行任务。分组标题留在画布上 */
+.ktk-sheet {
+  overflow: hidden;
+  border-radius: var(--kui-r-md);
+  background: var(--kc-chat-surface);
+  box-shadow: 0 0 0 1px var(--kc-border), 0 1px 1px rgba(18, 22, 38, 0.03);
+}
+
+.ktk-group + .ktk-group {
+  margin-top: 14px;
+}
+
+.ktk-group-head {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 2px;
+}
+
+.ktk-group-toggle {
+  display: inline-flex;
+  min-width: 0;
+  height: 26px;
+  align-items: center;
+  gap: 6px;
+  margin-left: -4px;
+  padding: 0 8px 0 4px;
+  border-radius: 6px;
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+button.ktk-group-toggle:hover {
+  background: var(--kc-hover);
+}
+
+#kukechat-root [data-font-scale] .ktk-group-toggle,
+.ktk-group-toggle {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktk-count {
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+/* 分组的「更多」平时不显示，悬停分组标题或菜单开着时才出来 */
+.ktk-group-head > .ktk-icon-btn {
+  opacity: 0;
+}
+
+.ktk-group-head:hover > .ktk-icon-btn,
+.ktk-group-head > .ktk-icon-btn:is(.is-open, :focus-visible) {
+  opacity: 1;
+}
+
+.ktk-row {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px 0 6px;
+  cursor: pointer;
+  transition: background-color 80ms ease;
+}
+
+.ktk-sheet > .ktk-row + :is(.ktk-row, .ktk-sheet-add, .ktk-sheet-empty) {
+  border-top: 1px solid var(--kc-border);
+}
+
+.ktk-row:hover {
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+}
+
+.ktk-row.is-selected,
+.ktk-row.is-selected:hover {
+  background: var(--kui-tint);
+}
+
+.ktk-row:focus-visible {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: -2px;
+}
+
+/* 表头：和行同一套列宽，只有字 */
+.ktk-row--head {
+  min-height: 26px;
+  margin-bottom: 2px;
+  color: var(--kc-subtle);
+  cursor: default;
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.ktk-row--head:hover {
+  background: transparent;
+}
+
+.ktk-row--head .ktk-cell {
+  color: inherit;
+  font-size: inherit;
+}
+
+.ktk-cell-title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  /* 子任务每深一层缩进一档 */
+  padding-left: calc(var(--ktk-depth, 0) * 22px);
+}
+
+.ktk-row--head .ktk-cell-title {
+  padding-left: 48px;
+}
+
+.ktk-expander {
+  display: grid;
+  width: 16px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border-radius: 4px;
+}
+
+button.ktk-expander:hover {
+  background: var(--kc-hover);
+}
+
+.ktk-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktk-row.is-selected .ktk-row-title {
+  font-weight: 600;
+}
+
+:is(.ktk-row, .ktk-gt-row, .ktk-subtask, .ktk-bcard).is-done :is(.ktk-row-title, .ktk-gt-name, .ktk-subtask-title, .ktk-bcard-title),
+.ktk-card-title.is-done {
+  color: var(--kc-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--kc-muted) 60%, transparent);
+}
+
+.ktk-cell {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ktk-cell > :is(img, div) {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+.ktk-cell--assignees {
+  width: 88px;
+}
+
+/* 叠放的头像靠一圈和底色同色的描边分开，别被这一格的 overflow 裁掉左边那半圈 */
+.ktk-cell--assignees .ktk-avatars {
+  padding-left: 2px;
+}
+
+.ktk-cell--start_at,
+.ktk-cell--due_at {
+  width: 88px;
+}
+
+.ktk-cell--creator {
+  width: 104px;
+}
+
+.ktk-cell--created_at,
+.ktk-cell--updated_at {
+  width: 100px;
+}
+
+.ktk-cell--task_id {
+  width: 56px;
+}
+
+@container ktk-content (max-width: 1040px) {
+  .ktk-cell--created_at,
+  .ktk-cell--updated_at {
+    display: none;
+  }
+}
+
+@container ktk-content (max-width: 820px) {
+  .ktk-cell--task_id,
+  .ktk-cell--start_at {
+    display: none;
+  }
+}
+
+@container ktk-content (max-width: 660px) {
+  .ktk-cell--creator {
+    display: none;
+  }
+
+  /* 工具栏的几个下拉省掉图标，免得「显示字段」被挤到第二行 */
+  .ktk-tools .ktk-menu-btn > svg:first-child {
+    display: none;
+  }
+}
+
+@container ktk-content (max-width: 480px) {
+  .ktk-cell--assignees {
+    display: none;
+  }
+}
+
+.ktk-sheet-empty {
+  padding: 11px 14px 11px 54px;
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktk-sheet-add {
+  display: flex;
+  width: 100%;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 30px;
+  color: var(--kc-muted);
+  text-align: left;
+  transition: background-color 80ms ease, color 80ms ease;
+}
+
+.ktk-sheet-add:hover {
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+  color: var(--kc-accent);
+}
+
+#kukechat-root [data-font-scale] .ktk-sheet-add {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktk-sheet-add > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.ktk-new-group {
+  margin: 12px 0 0 -6px;
+}
+
+/* ───────── 任务中心：看板 ───────── */
+
+.ktk-board {
+  display: flex;
+  min-height: 100%;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+/* 横向滚动条和 .kui-scroll 的竖向那条长得一样（.kui-scroll 自己不许横向滚，这里套不了） */
+.ktk-board::-webkit-scrollbar {
+  height: 8px;
+}
+
+.ktk-board::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-text) 16%, transparent);
+  background-clip: content-box;
+}
+
+.ktk-board::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--kc-text) 32%, transparent);
+  background-clip: content-box;
+}
+
+.ktk-col {
+  width: 272px;
+  flex: none;
+  padding: 2px 8px 8px;
+  border-radius: var(--kui-r-lg);
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+  outline: 1.5px dashed transparent;
+  outline-offset: -1.5px;
+  transition: background-color 100ms ease, outline-color 100ms ease;
+}
+
+.ktk-col.is-over {
+  background: var(--kui-tint);
+  outline-color: color-mix(in srgb, var(--kc-accent) 55%, transparent);
+}
+
+.ktk-col--new {
+  width: auto;
+  padding: 4px 8px;
+  background: transparent;
+}
+
+.ktk-col--new .ktk-new-group {
+  margin: 0;
+}
+
+.ktk-col .ktk-group-head {
+  padding: 0 2px;
+}
+
+.ktk-col-body {
+  display: grid;
+  gap: 8px;
+}
+
+.ktk-bcard {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--kui-r-md);
+  background: var(--kc-panel);
+  box-shadow: 0 0 0 1px var(--kc-border), 0 1px 2px rgba(18, 22, 38, 0.05);
+  cursor: grab;
+  transition: box-shadow 100ms ease;
+}
+
+.ktk-bcard:hover {
+  box-shadow: 0 0 0 1px var(--kc-border-strong), 0 2px 6px -2px rgba(18, 22, 38, 0.14);
+}
+
+.ktk-bcard:active {
+  cursor: grabbing;
+}
+
+.ktk-bcard.is-selected {
+  box-shadow: 0 0 0 1.5px var(--kc-accent);
+}
+
+.ktk-bcard-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ktk-bcard-row {
+  display: flex;
+  min-height: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktk-bcard-row > .ktk-avatars {
+  margin-left: auto;
+}
+
+.ktk-col-empty {
+  padding: 18px 8px;
+  border: 1px dashed var(--kc-border-strong);
+  border-radius: var(--kui-r-md);
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  text-align: center;
+}
+
+.ktk-col .ktk-sheet-add {
+  height: 32px;
+  padding: 0 6px;
+  border-radius: var(--kui-r-sm);
+}
+
+/* ───────── 任务中心：仪表盘 ───────── */
+
+.ktk-overview {
+  display: grid;
+  max-width: 880px;
+  gap: 14px;
+}
+
+.ktk-overview-lead {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 24px 26px;
+}
+
+.ktk-figure {
+  display: grid;
+  flex: none;
+  gap: 8px;
+}
+
+.ktk-figure strong {
+  font-size: calc(32px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.ktk-figure span {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktk-figure--lead strong {
+  font-size: calc(52px * var(--kui-fs));
+}
+
+.ktk-figure.is-danger strong {
+  color: var(--kui-danger);
+}
+
+.ktk-figure.is-warn strong {
+  color: var(--kui-warn);
+}
+
+.ktk-overview-split {
+  min-width: 0;
+  flex: 1;
+  padding: 4px 0 4px 28px;
+  border-left: 1px solid var(--kc-border-strong);
+}
+
+.ktk-overview-split > p {
+  margin-bottom: 10px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktk-overview-split > p b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+/* 三种状态的占比：已完成 / 进行中 / 待处理 */
+.ktk-stack-bar {
+  display: flex;
+  height: 8px;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.ktk-stack-bar > span,
+.ktk-legend i {
+  background: color-mix(in srgb, var(--kc-text) 24%, transparent);
+}
+
+:is(.ktk-stack-bar > span, .ktk-legend i).is-done {
+  background: var(--kui-ok);
+}
+
+:is(.ktk-stack-bar > span, .ktk-legend i).is-doing {
+  background: var(--kui-fill);
+}
+
+.ktk-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin-top: 12px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktk-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ktk-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.ktk-legend b {
+  color: var(--kc-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ktk-figures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.ktk-figures .ktk-figure {
+  padding: 20px 26px;
+}
+
+.ktk-figures .ktk-figure + .ktk-figure {
+  border-left: 1px solid var(--kc-border);
+}
+
+/* ───────── 任务中心：动态 ───────── */
+
+.ktk-feed {
+  display: grid;
+  max-width: 880px;
+  gap: 16px;
+}
+
+.ktk-feed-day {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+/* 日期放大成一个数字，星期缩在下面 */
+.ktk-feed-date {
+  display: grid;
+  width: 40px;
+  flex: none;
+  gap: 2px;
+  padding-top: 8px;
+  text-align: center;
+}
+
+.ktk-feed-date strong {
+  font-size: calc(24px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.ktk-feed-date span {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.ktk-feed-day > .ktk-sheet {
+  min-width: 0;
+  flex: 1;
+}
+
+.ktk-feed-item {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.ktk-feed-item + .ktk-feed-item {
+  border-top: 1px solid var(--kc-border);
+}
+
+.ktk-feed-item:hover {
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+}
+
+.ktk-feed-item > time {
+  width: 36px;
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktk-feed-item > :is(img, div) {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.ktk-feed-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.ktk-feed-task {
+  font-weight: 600;
+}
+
+.ktk-feed-what {
+  color: var(--kc-muted);
+}
+
+.ktk-feed-what b {
+  color: var(--kc-text);
+  font-weight: 500;
+}
+
+#kukechat-root [data-font-scale] .ktk-feed-task {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+#kukechat-root [data-font-scale] .ktk-feed-what {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* ───────── 任务详情 ───────── */
+
+.ktk-detail {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.ktk-detail-bar {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.ktk-detail-bar > .kui-btn > svg {
+  margin-left: -3px;
+}
+
+/* 已完成：按钮本身变成绿色的状态，再点一次是重新打开 */
+.kui-btn.ktk-done {
+  border-color: color-mix(in srgb, var(--kui-ok) 45%, transparent);
+  background: color-mix(in srgb, var(--kui-ok) 10%, var(--kui-control));
+  color: var(--kui-ok);
+  font-weight: 600;
+}
+
+.kui-btn.ktk-done:hover:not(:disabled) {
+  border-color: var(--kui-ok);
+  background: color-mix(in srgb, var(--kui-ok) 15%, var(--kui-control));
+}
+
+.ktk-detail-id {
+  margin-left: 4px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktk-confirm {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  white-space: nowrap;
+}
+
+.ktk-detail-error {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px 8px 18px;
+  border-bottom: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kui-danger) 8%, transparent);
+  color: var(--kui-danger);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.ktk-detail-error > span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.ktk-detail-error > button {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  border-radius: 4px;
+}
+
+.ktk-detail-error > button:hover {
+  background: color-mix(in srgb, var(--kui-danger) 14%, transparent);
+}
+
+.ktk-detail-body {
+  min-height: 0;
+  flex: 1;
+  padding: 16px 18px 22px;
+}
+
+.ktk-detail > .kui-empty {
+  flex: 1;
+}
+
+/* 标题：看起来是一行大字，悬停和聚焦时才露出输入框的样子。两边各探出 8px，文字和下面的内容左对齐 */
+.ktk-title {
+  display: block;
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding: 4px 8px;
+  border-radius: var(--kui-r-sm);
+  background: transparent;
+  color: var(--kc-text);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.45;
+  outline: none;
+  overflow-wrap: anywhere;
+  resize: none;
+  /* 多行标题时输入框跟着内容长高（不支持的内核里退回单行可滚动） */
+  field-sizing: content;
+  transition: background-color 100ms ease, box-shadow 100ms ease;
+}
+
+.ktk-title::placeholder {
+  color: var(--kc-subtle);
+  font-weight: 600;
+}
+
+:is(textarea, input).ktk-title:hover {
+  background: var(--kc-hover);
+}
+
+:is(textarea, input).ktk-title:focus {
+  background: var(--kui-control);
+  box-shadow: inset 0 0 0 1.5px var(--kc-accent);
+}
+
+#kukechat-root [data-font-scale] .ktk-title,
+.ktk-title {
+  font-size: calc(17px * var(--kui-fs));
+}
+
+.ktk-title.is-done {
+  color: var(--kc-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--kc-muted) 60%, transparent);
+}
+
+.ktk-detail-source {
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktk-detail-source b {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+/* 属性表：左边一列标签，右边是值 */
+.ktk-props {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: start;
+  gap: 2px 8px;
+  margin-top: 14px;
+}
+
+.ktk-prop-label {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktk-prop-label > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.ktk-prop-value {
+  display: flex;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
+}
+
+/* 值是输入框、一串子任务这类多行内容时，上下留一点，和标签的第一行对齐 */
+.ktk-prop-value.is-block {
+  display: block;
+  padding: 2px 0 6px;
+}
+
+.ktk-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ktk-section-title {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.ktk-section-title > :not(:first-child) {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.ktk-section-title > .kui-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+
+#kukechat-root [data-font-scale] .ktk-section-title > .kui-link {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktk-desc-text {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.kui-textarea.ktk-desc {
+  display: block;
+  min-height: 62px;
+  max-height: 240px;
+  field-sizing: content;
+}
+
+.ktk-subtask {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 9px;
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: var(--kui-r-sm);
+  transition: background-color 80ms ease;
+}
+
+.ktk-subtask:hover {
+  background: var(--kc-hover);
+}
+
+.ktk-subtask-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .ktk-subtask-title {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.ktk-timeline {
+  display: grid;
+  gap: 12px;
+}
+
+/* 里程碑动态：一个小圆点 + 一行灰字，和评论的头像列对齐（头像 22px + 间距 9px） */
+.ktk-event {
+  position: relative;
+  padding-left: 31px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ktk-event::before {
+  position: absolute;
+  top: calc(0.8em - 2.5px);
+  left: 8.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kc-text) 28%, transparent);
+  content: '';
+}
+
+.ktk-event b,
+.ktk-comment-head b {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+:is(.ktk-event, .ktk-comment-head) time {
+  margin-left: 6px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ktk-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.ktk-comment > :is(img, div):first-child {
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  font-size: 10px;
+}
+
+.ktk-comment-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.ktk-comment-head {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktk-comment-main p {
+  margin-top: 1px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.ktk-comment-box {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+}
+
+.ktk-comment-box .kui-textarea {
+  min-height: 32px;
+  max-height: 132px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  field-sizing: content;
+}
+
+.ktk-comment-box .kui-btn {
+  height: 32px;
+}
+
+/* ───────── 新建任务 ───────── */
+
+.kui-dialog.ktk-editor {
+  max-width: 520px;
+}
+
+.ktk-editor .kui-dialog-header small {
+  margin-left: 10px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.ktk-editor .kui-dialog-header > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktk-editor .kui-dialog-body {
+  padding-top: 14px;
+}
+
+.ktk-subtask-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ktk-subtask-edit .kui-input {
+  height: 28px;
+}
+
+.ktk-subtask-edit.is-done .kui-input {
+  color: var(--kc-muted);
+  text-decoration: line-through;
+}
+
+.ktk-editor-foot > label {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.ktk-form-error {
+  min-width: 0;
+  flex: 1;
+  color: var(--kui-danger);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* ───────── 群任务侧栏 ───────── */
+
+/* 盖住整个聊天面板，遮罩和侧栏以它为定位基准（和群资料侧栏的 .kci 一样） */
+.ktk-layer {
+  position: absolute;
+  z-index: 45;
+  inset: 0;
+}
+
+.kui-drawer.ktk-gt {
+  width: 400px;
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.ktk-gt-bar {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 18px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.ktk-gt-bar > div {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.ktk-gt-bar h2 {
+  flex: none;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.ktk-gt-bar p {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktk-gt-bar .kui-btn > svg {
+  margin-left: -3px;
+}
+
+/* 完成数放大，旁边是进度条和一行小字 */
+.ktk-gt-summary {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 18px 14px;
+}
+
+.ktk-gt-summary > strong {
+  flex: none;
+  font-size: calc(34px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.ktk-gt-summary > strong small {
+  margin-left: 3px;
+  color: var(--kc-muted);
+  font-size: calc(14px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.ktk-gt-summary > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.ktk-gt-summary p {
+  margin-top: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktk-gt-summary p b {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+.ktk-gt-summary p b.is-danger {
+  color: var(--kui-danger);
+}
+
+.ktk-gt-filter {
+  flex: none;
+  padding: 0 18px 12px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.ktk-gt-list {
+  min-height: 0;
+  flex: 1;
+  padding: 6px 10px 14px;
+}
+
+.ktk-gt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--kui-r-sm);
+  cursor: pointer;
+  transition: background-color 80ms ease;
+}
+
+.ktk-gt-row:hover {
+  background: var(--kc-hover);
+}
+
+.ktk-gt-row:focus-visible {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: -2px;
+}
+
+.ktk-gt-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.ktk-gt-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.ktk-gt-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktk-gt-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktk-gt-meta .ktk-due:not(.is-overdue) {
+  color: var(--kc-muted);
+}
+
+.ktk-gt .kui-empty {
+  padding-top: 56px;
+}
+
+.ktk-gt .kui-empty > svg {
+  width: 28px;
+  height: 28px;
+  color: var(--kc-subtle);
+}
+
+.ktk-gt .kui-empty > .kui-btn {
+  margin-top: 8px;
+}
+
+/* ───────── 聊天里的任务卡片 ───────── */
+
+/* 卡片不套气泡，自己是一张白面，所以在别人和自己两侧长得一样（和投票卡 .kcp-card 同一套外框） */
+.ktk-card {
+  display: flex;
+  width: 320px;
+  max-width: 100%;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kui-r-md);
+  background: var(--kc-panel);
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+  text-align: left;
+}
+
+/* 多选消息时整行都是「勾选这条消息」，卡片里的按钮不该再响应 */
+.kcd-row.is-selecting .ktk-card {
+  pointer-events: none;
+}
+
+.ktk-card-kicker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--kc-accent);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.ktk-card-kicker > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.ktk-card-kicker > .kui-tag {
+  margin-left: auto;
+}
+
+.ktk-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.ktk-card-main > .ktk-check {
+  margin-top: 3px;
+}
+
+.ktk-card-title {
+  min-width: 0;
+  flex: 1;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.ktk-card-meta {
+  display: flex;
+  min-height: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktk-card-people {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktk-card-text {
+  color: var(--kc-muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* 通知里提到的那条任务：引用样式，左侧一条强调色的线 */
+.ktk-card-ref {
+  padding: 6px 10px;
+  border-left: 2px solid var(--kc-accent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ktk-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ktk-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--kc-muted);
+}
+
+.ktk-card-link:hover {
+  color: var(--kc-accent);
+}
+
+#kukechat-root [data-font-scale] .ktk-card-link {
+  font-size: calc(12px * var(--kui-fs));
+}

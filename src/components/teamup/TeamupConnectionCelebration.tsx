@@ -3,11 +3,16 @@ import type { User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 
-export function TeamupConnectionCelebration({ me, target, onDone }: { me: User; target: User; onDone: () => void }): JSX.Element {
+/** 提示停留一会儿自己消失。桌面版的提示（desktop/TeamupCelebration）也用它。 */
+export function useCelebrationTimer(onDone: () => void): void {
   useEffect(() => {
     const handle = window.setTimeout(onDone, 2600);
     return () => window.clearTimeout(handle);
   }, [onDone]);
+}
+
+export function TeamupConnectionCelebration({ me, target, onDone }: { me: User; target: User; onDone: () => void }): JSX.Element {
+  useCelebrationTimer(onDone);
 
   return (
     <div className="kc-teamup-celebrate-backdrop fixed inset-0 z-[90] grid place-items-center bg-black/40 p-4 backdrop-blur-sm" onClick={onDone}>

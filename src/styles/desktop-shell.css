@@ -1,0 +1,251 @@
+/* 桌面端：导航栏与会话列表（基础样式见 kui.css）。 */
+
+/* ───────── 导航栏 ───────── */
+
+.ksh-rail {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 9px;
+  border-right: 1px solid var(--kc-border);
+  background: var(--kc-rail);
+}
+
+/* 导航栏、列表栏很透的时候，主题引擎给上面的字和图标垫一圈同色的晕（--kc-halo-*），压在花的背景图上也认得出 */
+.ksh-rail svg {
+  filter: var(--kc-halo-rail-icon, none);
+}
+
+/* 浮窗被拖矮时（最矮 520，内容区 480，而两组图标按原尺寸要 520）：两组一起被压扁，每个按钮跟着变矮，
+   最矮到 26px —— 图标本身 20px，始终完整，不会有哪个被窗口底边裁掉一半。高度够的时候没有任何变化。 */
+.ksh-rail-group {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.ksh-rail-btn {
+  position: relative;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  min-height: 26px;
+  flex-shrink: 1;
+  place-items: center;
+  border-radius: var(--kui-r-md);
+  color: var(--kc-muted);
+  transition: background-color 100ms ease, color 100ms ease, transform 60ms ease;
+}
+
+.ksh-rail-btn:hover {
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-text);
+}
+
+.ksh-rail-btn:active {
+  transform: scale(0.94);
+}
+
+/* 当前所在的工作区：一块浮起来的小键帽，图标换成强调色 */
+.ksh-rail-btn.is-active {
+  background: var(--kui-cap);
+  box-shadow: var(--kui-shadow-raised);
+  color: var(--kc-accent);
+}
+
+.ksh-rail-btn.is-active svg {
+  stroke-width: 2;
+}
+
+.ksh-rail-badge {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  box-shadow: 0 0 0 2px var(--kc-rail);
+  pointer-events: none;
+}
+
+.ksh-rail-badge.kui-dot {
+  top: 6px;
+  right: 6px;
+}
+
+/* ───────── 会话列表栏 ───────── */
+
+.ksh-pane {
+  position: relative;
+  /* 右键菜单会探出这一栏，要压在右边的聊天区上面 */
+  z-index: 3;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--kc-border);
+  background: var(--kc-list);
+  text-shadow: var(--kc-halo-list, none);
+}
+
+.ksh-pane-header {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 14px;
+}
+
+.ksh-pane-search {
+  flex: 1;
+}
+
+.ksh-pane-list {
+  min-height: 0;
+  flex: 1;
+}
+
+/* 每一行的底色画在一块缩进的圆角伪元素上，行本身的尺寸不动。
+   行高跟着界面密度走（标准 62px、紧凑 52px），虚拟列表那边读的是 theme/themes.ts 里同一个数 */
+.ksh-conv {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: var(--kc-conversation-height, 62px);
+  align-items: center;
+  gap: 11px;
+  padding: 0 18px;
+  isolation: isolate;
+  text-align: left;
+}
+
+.ksh-conv::before {
+  position: absolute;
+  z-index: -1;
+  inset: 2px 8px;
+  border-radius: var(--kui-r-md);
+  content: '';
+  transition: background-color 80ms ease;
+}
+
+.ksh-conv:hover::before {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+/* 置顶的会话底色略深一点，和普通会话分出层次 */
+.ksh-conv.is-pinned::before {
+  background: color-mix(in srgb, var(--kc-text) 4.5%, transparent);
+}
+
+.ksh-conv.is-pinned:hover::before {
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+/* 选中：强调色实底，里面的字和标记全部反白 */
+.ksh-conv.is-active::before,
+.ksh-conv.is-active:hover::before {
+  background: var(--kui-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px color-mix(in srgb, var(--kui-fill) 40%, transparent);
+}
+
+.ksh-conv-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ksh-conv-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.ksh-conv-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--kc-text);
+  letter-spacing: 0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksh-conv-time {
+  flex: none;
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.ksh-conv-preview {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--kc-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksh-conv-quiet {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+/* 有未读的会话：标题加粗、时间换强调色，一眼能从列表里挑出来 */
+.ksh-conv:has(.kui-badge:not(.kui-badge--quiet)) .ksh-conv-title {
+  font-weight: 700;
+}
+
+.ksh-conv:not(.is-active):has(.kui-badge:not(.kui-badge--quiet)) .ksh-conv-time {
+  color: var(--kc-accent);
+}
+
+.ksh-conv.is-active {
+  text-shadow: none;
+}
+
+.ksh-conv.is-active .ksh-conv-title {
+  color: var(--kui-on-fill);
+  font-weight: 600;
+}
+
+.ksh-conv.is-active :is(.ksh-conv-time, .ksh-conv-preview, .ksh-conv-quiet) {
+  color: color-mix(in srgb, var(--kui-on-fill) 80%, transparent);
+}
+
+/* 选中行是强调色实底，红底的数字压在上面发脏，反过来用：白底红字 */
+.ksh-conv.is-active .kui-badge {
+  background: #ffffff;
+  color: var(--kui-unread);
+}
+
+.ksh-conv.is-active .kui-tag {
+  background: color-mix(in srgb, var(--kui-on-fill) 22%, transparent);
+  color: var(--kui-on-fill);
+}
+
+.ksh-conv.is-active .kc-avatar-tone {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--kui-on-fill) 50%, transparent);
+}
+
+#kukechat-root [data-font-scale] .ksh-conv-title {
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 20px;
+}
+
+#kukechat-root [data-font-scale] .ksh-conv-time {
+  font-size: calc(11px * var(--kui-fs));
+}
+
+#kukechat-root [data-font-scale] .ksh-conv-preview {
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 18px;
+}

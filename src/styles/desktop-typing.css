@@ -1,0 +1,105 @@
+/* 桌面端：「正在输入」提示（基础样式见 kui.css）。 */
+
+/* 名字放不下时只截名字，「正在输入」始终完整 */
+.kct-names {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kct-tail {
+  flex: none;
+  /* 开头的空格是和名字之间的间隔，不能被折叠掉 */
+  white-space: pre;
+}
+
+/* ───────── 聊天区 ───────── */
+
+/*
+ * 压在消息列表底部，不占布局：出现和消失都不会顶动消息。
+ * 贴底时正好落在列表末尾的留白里；翻上去看历史时会盖在消息上，所以垫一层聊天区底色保证读得清。
+ */
+.kct-bar {
+  position: absolute;
+  bottom: 1px;
+  left: 14px;
+  z-index: 4;
+  display: flex;
+  /* 右边让出「回到最新」按钮（.kcd-jump-latest）的位置 */
+  max-width: calc(100% - 200px);
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--kc-chat);
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kcd-fs, 1));
+  line-height: 18px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+  user-select: none;
+}
+
+.kct-bar.is-visible {
+  opacity: 1;
+}
+
+.kct-dots {
+  display: inline-flex;
+  flex: none;
+  gap: 3px;
+  margin-left: 4px;
+}
+
+.kct-dots > span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.3;
+}
+
+/* 只在显示时跑动画，藏起来的时候不占合成器 */
+.kct-bar.is-visible .kct-dots > span {
+  animation: kct-dot 1.2s ease-in-out infinite;
+}
+
+.kct-bar.is-visible .kct-dots > span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.kct-bar.is-visible .kct-dots > span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes kct-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+
+  30% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kct-bar {
+    transition: none;
+  }
+
+  .kct-bar.is-visible .kct-dots > span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* ───────── 会话列表 ───────── */
+
+.kct-preview {
+  display: flex;
+  min-width: 0;
+  color: var(--kc-accent);
+}

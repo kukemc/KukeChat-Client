@@ -1,20 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { completeTask, getTasks } from '@/api/tasks';
-import { subscribeRealtimeEvents } from '@/realtime/events';
 import type { Task } from '@/types/api';
-import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { PRIORITY_META, formatDueLabel, isOverdue, taskIdLabel } from './taskConstants';
-
-type FilterKey = 'all' | 'open' | 'completed' | 'overdue';
-
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'open', label: '进行中' },
-  { key: 'completed', label: '已完成' },
-  { key: 'overdue', label: '逾期' }
-];
+import { useIsDesktopLayout, useToggleTask } from './taskHooks';
+import { useGroupTasks } from './taskPanelHooks';
+import { GROUP_TASK_FILTERS as FILTERS } from './taskPanelModel';
+import { GroupTasksDesktop } from './desktop/GroupTasksDesktop';
 
 interface GroupTasksPanelProps {
   conversationId: number;
@@ -24,15 +15,17 @@ interface GroupTasksPanelProps {
   onCreateTask?: () => void;
 }
 
+/** 群任务面板。桌面布局走 desktop/ 下的侧栏；下面的旧界面留给移动端。 */
+export function GroupTasksPanel(props: GroupTasksPanelProps): JSX.Element {
+  const desktop = useIsDesktopLayout();
+  return desktop ? <GroupTasksDesktop {...props} /> : <GroupTasksMobile {...props} />;
+}
+
 function TaskRow({ task, onOpenTask }: { task: Task; onOpenTask: (id: number) => void }): JSX.Element {
-  const queryClient = useQueryClient();
+  const toggleTask = useToggleTask();
   const completed = task.status === 'completed';
   const overdue = isOverdue(task.due_at, task.status);
   const priority = PRIORITY_META[task.priority];
-  const toggle = useMutation({
-    mutationFn: () => completeTask(task.id, !completed),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['tasks'] })
-  });
   return (
     <button
       type="button"
@@ -42,7 +35,7 @@ function TaskRow({ task, onOpenTask }: { task: Task; onOpenTask: (id: number) =>
       <span
         role="button"
         tabIndex={0}
-        onClick={(event) => { event.stopPropagation(); toggle.mutate(); }}
+        onClick={(event) => { event.stopPropagation(); toggleTask(task.id, !completed); }}
         className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${completed ? 'border-transparent [background:#22c55e]' : '[border-color:var(--kc-border)] hover:[border-color:var(--kc-accent)]'}`}
       >
         {completed ? <Icon name="check" className="h-3 w-3 text-white" /> : null}
@@ -69,57 +62,8 @@ function TaskRow({ task, onOpenTask }: { task: Task; onOpenTask: (id: number) =>
   );
 }
 
-export function GroupTasksPanel({ conversationId, groupName, onClose, onOpenTask, onCreateTask }: GroupTasksPanelProps): JSX.Element {
-  const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<FilterKey>('all');
-
-  const tasksQuery = useQuery({
-    queryKey: ['tasks', 'group-panel', conversationId],
-    queryFn: () => getTasks({ scope: 'all', conversationId, includeCompleted: true, limit: 200 })
-  });
-
-  useEffect(() => {
-    const unsubscribe = subscribeRealtimeEvents((event) => {
-      if (event.rawType === 'task.changed') {
-        void queryClient.invalidateQueries({ queryKey: ['tasks', 'group-panel', conversationId] });
-      }
-    });
-    return unsubscribe;
-  }, [queryClient, conversationId]);
-
-  const topTasks = useMemo(() => (tasksQuery.data ?? []).filter((task) => !task.parent_id), [tasksQuery.data]);
-
-  const stats = useMemo(() => {
-    let done = 0;
-    let open = 0;
-    let overdue = 0;
-    for (const task of topTasks) {
-      if (task.status === 'completed') {
-        done += 1;
-      } else if (task.status !== 'cancelled') {
-        open += 1;
-        if (isOverdue(task.due_at, task.status)) {
-          overdue += 1;
-        }
-      }
-    }
-    return { total: topTasks.length, done, open, overdue };
-  }, [topTasks]);
-
-  const visible = useMemo(() => {
-    switch (filter) {
-      case 'open':
-        return topTasks.filter((task) => task.status !== 'completed' && task.status !== 'cancelled');
-      case 'completed':
-        return topTasks.filter((task) => task.status === 'completed');
-      case 'overdue':
-        return topTasks.filter((task) => isOverdue(task.due_at, task.status));
-      default:
-        return topTasks;
-    }
-  }, [topTasks, filter]);
-
-  const progress = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
+function GroupTasksMobile({ conversationId, groupName, onClose, onOpenTask, onCreateTask }: GroupTasksPanelProps): JSX.Element {
+  const { filter, setFilter, isLoading, stats, progress, visible } = useGroupTasks(conversationId);
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
@@ -166,7 +110,7 @@ export function GroupTasksPanel({ conversationId, groupName, onClose, onOpenTask
 
         {/* list */}
         <div className="scroll-soft min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {tasksQuery.isLoading ? (
+          {isLoading ? (
             <p className="py-10 text-center text-sm [color:var(--kc-muted)]">加载中…</p>
           ) : visible.length === 0 ? (
             <div className="py-14 text-center">

@@ -1,0 +1,288 @@
+/* 处罚与申诉、风纪委员（src/components/moderation）。基础样式见 kui.css。 */
+
+.kcm {
+  --kui-fs: var(--kc-font-multiplier, 1);
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kcm-section {
+  padding: 22px 0;
+}
+
+.kcm-section + .kcm-section {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kcm-section:first-child {
+  padding-top: 4px;
+}
+
+.kcm-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kcm-heading time,
+.kcm-heading .kcm-aside {
+  margin-left: auto;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kcm-meta {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kcm-meta b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.kcm-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.kcm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* 被处理的原文：引用样式，左侧一条线，垫一层极浅的底 */
+.kcm-quote {
+  padding: 8px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--kc-text) 30%, transparent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kcm-section.is-revoked > :not(.kcm-heading) {
+  opacity: 0.6;
+}
+
+/* 记分总览：数字放到最大，说明文字被一条竖线隔在右边 */
+.kcm-score {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.kcm-score strong {
+  flex: none;
+  font-size: calc(48px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.kcm-score strong small {
+  margin-left: 5px;
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.kcm-score .kcm-meta {
+  min-width: 0;
+  flex: 1;
+  padding: 2px 0 2px 22px;
+  border-left: 1px solid var(--kc-border-strong);
+  line-height: 1.7;
+}
+
+/* 一排统计：数字在上、标签在下，之间只隔发丝线 */
+.kcm-stats {
+  display: flex;
+}
+
+.kcm-stats div {
+  display: flex;
+  flex-direction: column;
+  padding-right: 28px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+.kcm-stats div + div {
+  padding-left: 28px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.kcm-stats strong {
+  color: var(--kc-text);
+  font-size: calc(26px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.kcm-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.kcm-check svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 3px;
+}
+
+.kcm-check.is-ok svg {
+  color: var(--kui-ok);
+}
+
+.kcm-check.is-missing svg {
+  color: var(--kui-danger);
+}
+
+/* 匿名案件的对话记录：按聊天记录的样子逐行排，被举报的那条加重 */
+.kcm-transcript {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.kcm-line {
+  padding: 6px 12px;
+  border-left: 2px solid transparent;
+  border-radius: 0 6px 6px 0;
+  overflow-wrap: anywhere;
+}
+
+.kcm-line.is-target {
+  border-color: var(--kc-accent);
+  background: color-mix(in srgb, var(--kc-accent) 8%, transparent);
+}
+
+.kcm-line-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kcm-line.is-target .kcm-line-who span:first-child {
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+.kcm-line p {
+  white-space: pre-wrap;
+}
+
+.kcm-image {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kui-r-sm);
+}
+
+.kcm-image img {
+  display: block;
+  max-width: 260px;
+  max-height: 220px;
+  object-fit: contain;
+}
+
+/* 投票选项：单选列表 */
+.kcm-options {
+  display: grid;
+  margin-top: 8px;
+}
+
+.kcm-option {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: var(--kui-r-sm);
+  cursor: pointer;
+  transition: background-color 80ms ease, box-shadow 80ms ease;
+}
+
+.kcm-option:hover {
+  background: var(--kc-hover);
+}
+
+.kcm-option:has(input:checked) {
+  background: color-mix(in srgb, var(--kc-accent) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc-accent) 55%, transparent);
+}
+
+.kcm-option input {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  accent-color: var(--kc-accent);
+}
+
+.kcm-option span:last-child {
+  margin-left: auto;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kcm-history {
+  display: grid;
+  margin-top: 6px;
+}
+
+.kcm-history li {
+  display: flex;
+  min-height: 34px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kcm-history li + li {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kcm-history time {
+  margin-left: auto;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kcm-rules {
+  margin-top: 6px;
+  padding-left: 18px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  list-style: disc;
+}
+
+.kcm summary {
+  cursor: pointer;
+  font-weight: 700;
+}

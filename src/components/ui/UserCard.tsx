@@ -1,46 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ccwStudentProfileUrl } from '@/config';
-import { getUserOnlineStatus } from '@/api/users';
 import { useKukeStore } from '@/store/kukeStore';
-import type { CSSProperties, RefObject } from 'react';
-import type { User } from '@/types/api';
-import type { ProfileAction } from './MobileUserProfilePage';
-import { Avatar, getDisplayName } from './Avatar';
+import type { CSSProperties } from 'react';
+import { Avatar } from './Avatar';
 import { Icon } from './Icon';
-import { userPresenceLabel } from '@/utils/presence';
+import { UserLevelCard } from '@/components/level/UserLevelCard';
+import { ProfileLikeButton } from '@/components/likes/ProfileLikeButton';
+import { useIsDesktopLayout } from './desktop/Modal';
+import { UserCardDesktop } from './desktop/UserCardDesktop';
+import { formatCompactCount, useUserCardData, type UserCardProps } from './userCardData';
 import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
 import { openExternalUrl } from '@/utils/openExternalUrl';
 
-interface UserCardProps {
-  user?: User | null;
-  anchor?: { left: number; top: number } | null;
-  containerRef?: RefObject<HTMLElement | null>;
-  label?: string;
-  action?: ProfileAction;
-  onClose: () => void;
+/** 点头像弹出的资料卡。 */
+export function UserCard(props: UserCardProps): JSX.Element | null {
+  const desktop = useIsDesktopLayout();
+  if (!props.user && !props.label) {
+    return null;
+  }
+  return desktop ? <UserCardDesktop {...props} /> : <MobileUserCard {...props} />;
 }
 
-export function UserCard({ user, anchor, containerRef, label, action, onClose }: UserCardProps): JSX.Element | null {
-  const userId = user?.id;
+/** 手机布局下的资料卡（外观由 kc-mobile-user-card 的样式接管）。 */
+function MobileUserCard({ user, anchor, containerRef, label, action, onClose }: UserCardProps): JSX.Element {
   const openUserSpace = useKukeStore((state) => state.openUserSpace);
   const [viewportSize, setViewportSize] = useState(() => ({
     width: typeof window === 'undefined' ? 320 : window.innerWidth,
     height: typeof window === 'undefined' ? 480 : window.innerHeight
   }));
-  const onlineQuery = useQuery({
-    queryKey: ['user-online', userId],
-    queryFn: () => getUserOnlineStatus(userId ?? 0),
-    enabled: Boolean(userId),
-    staleTime: 15_000,
-    retry: false
-  });
-
-  const name = getDisplayName(user, label || '用户');
-  const isBot = Boolean(user?.is_bot);
-  const isBotOnline = Boolean(onlineQuery.data?.online);
-  const statusLabel = isBot ? (isBotOnline ? '机器人在线' : '机器人离线') : userPresenceLabel(user, onlineQuery.data);
-  const ccwProfileUrl = user?.ccw_student_oid ? ccwStudentProfileUrl(user.ccw_student_oid) : null;
+  const { name, isBot, online, statusLabel, ccwProfileUrl } = useUserCardData(user, label);
   const accent = /^#[0-9a-fA-F]{6}$/.test(user?.profile_accent_color ?? '') ? user?.profile_accent_color ?? '#168bff' : '#168bff';
   const coverUrl = user?.profile_cover_url ? resolveAssetUrl(user.profile_cover_url) : null;
   const coverBackground = coverUrl ? `linear-gradient(135deg,rgba(6,10,20,.36),rgba(6,10,20,.08)),url(${coverUrl}) center/cover` : `radial-gradient(circle at 15% 20%,rgba(255,255,255,.34),transparent 30%),radial-gradient(circle at 82% 12%,rgba(255,255,255,.22),transparent 24%),linear-gradient(135deg,${accent} 0%,#7c8cff 48%,#ff7eb3 100%)`;
@@ -82,10 +69,6 @@ export function UserCard({ user, anchor, containerRef, label, action, onClose }:
     return { left, top, width: cardWidth, maxHeight: Math.max(220, height - padding * 2) };
   }, [action, anchor?.left, anchor?.top, containerRef, isBot, user?.ccw_student_oid, viewportSize.height, viewportSize.width]);
 
-  if (!user && !label) {
-    return null;
-  }
-
   return (
     <div className="absolute inset-0 z-50" onMouseDown={onClose}>
       <section onMouseDown={(event) => event.stopPropagation()} style={style} className="kc-mobile-user-card absolute max-w-[calc(100%-24px)] overflow-hidden rounded-[28px] border shadow-float [background:var(--kc-panel)] [border-color:var(--kc-border)] [color:var(--kc-text)]">
@@ -102,11 +85,15 @@ export function UserCard({ user, anchor, containerRef, label, action, onClose }:
               <Avatar user={user} label={name} size="lg" />
             </div>
             <div className="mt-10 flex min-w-0 max-w-[170px] items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm [background:var(--kc-panel)] [color:var(--kc-muted)]">
-              <span className={`kc-online-dot ${isBotOnline || (!isBot && onlineQuery.data?.online) ? 'kc-online-dot-on' : 'kc-online-dot-off'}`} />
+              <span className={`kc-online-dot ${online ? 'kc-online-dot-on' : 'kc-online-dot-off'}`} />
               <span className="truncate">{statusLabel}</span>
             </div>
           </div>
-          <h3 className="mt-3 truncate text-lg font-black leading-tight">{name}</h3>
+          <div className="mt-3 flex items-center gap-2">
+            <h3 className="min-w-0 flex-1 truncate text-lg font-black leading-tight">{name}</h3>
+            {/* 资料点赞：服务端没有这个功能时不出现，名字照旧占满一行 */}
+            <ProfileLikeButton user={user} />
+          </div>
           {user ? (
             <p className="mt-0.5 truncate text-xs [color:var(--kc-muted)]">
               {isBot ? '机器人账号' : user.username ? `@${user.username}` : '未设置用户名'}
@@ -119,10 +106,11 @@ export function UserCard({ user, anchor, containerRef, label, action, onClose }:
             {user?.profile_status ? <p className="inline-flex max-w-full rounded-full px-2.5 py-1 font-semibold [background:var(--kc-panel-muted)] [color:var(--kc-text)]"><span className="truncate">{user.profile_status}</span></p> : null}
             <p className="line-clamp-3 w-full rounded-2xl px-3 py-2 leading-5 [background:var(--kc-panel-muted)]">{user?.bio?.trim() || (isBot ? '这个机器人还没有写介绍' : '这个人还没有写简介')}</p>
           </div>
+          <UserLevelCard user={user} className="klv-user--pill mt-2" onNavigate={onClose} />
           {ccwProfileUrl ? (
             <button type="button" onClick={() => void openExternalUrl(ccwProfileUrl)} className="mt-3 grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border px-3 py-2 text-left transition [background:linear-gradient(135deg,color-mix(in_srgb,var(--kc-accent)_10%,transparent),var(--kc-panel-muted))] [border-color:color-mix(in_srgb,var(--kc-accent)_28%,var(--kc-border))] hover:-translate-y-0.5">
               {resolveThumbnailUrl(user?.ccw_avatar_url) ? <img src={resolveThumbnailUrl(user?.ccw_avatar_url)} alt={user?.ccw_name ?? 'CCW'} className="h-8 w-8 rounded-xl object-cover" /> : <span className="grid h-8 w-8 place-items-center rounded-xl text-white [background:var(--kc-accent)]"><Icon name="ccw" className="h-4 w-4" /></span>}
-              <span className="min-w-0"><span className="block truncate text-xs font-black [color:var(--kc-text)]">{user?.ccw_name || 'CCW 账号'}</span><span className="mt-0.5 block truncate text-[11px] [color:var(--kc-muted)]">粉丝 {formatCompact(user?.ccw_follower_count)} · 获赞 {formatCompact(user?.ccw_like_count)}</span></span>
+              <span className="min-w-0"><span className="block truncate text-xs font-black [color:var(--kc-text)]">{user?.ccw_name || 'CCW 账号'}</span><span className="mt-0.5 block truncate text-[11px] [color:var(--kc-muted)]">粉丝 {formatCompactCount(user?.ccw_follower_count)} · 获赞 {formatCompactCount(user?.ccw_like_count)}</span></span>
               <Icon name="external" className="h-4 w-4 [color:var(--kc-accent)]" />
             </button>
           ) : null}
@@ -140,11 +128,4 @@ export function UserCard({ user, anchor, containerRef, label, action, onClose }:
       </section>
     </div>
   );
-}
-
-function formatCompact(value?: number | null): string {
-  if (typeof value !== 'number') {
-    return '-';
-  }
-  return Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }

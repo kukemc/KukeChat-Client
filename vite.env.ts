@@ -1,4 +1,4 @@
-import { loadEnv } from 'vite';
+import { loadEnv, type ProxyOptions } from 'vite';
 
 /**
  * 三份 Vite 配置共用的环境变量校验。
@@ -28,4 +28,21 @@ export function assertKukeEnv(mode: string): void {
       ].join('\n')
     );
   }
+}
+
+/**
+ * 开发服务器的接口代理。
+ *
+ * 默认转到本机后端（127.0.0.1:8000）。设环境变量 `KUKE_DEV_REMOTE=1` 时改为转到 `.env` 里配置的后端，
+ * 方便用真实数据调界面。此时 Origin 一并改写成后端自己的来源，免得服务端按来源拒绝 WebSocket。
+ */
+export function devBackendProxy(mode: string): Record<string, ProxyOptions> {
+  const remote = process.env.KUKE_DEV_REMOTE === '1' ? loadEnv(mode, process.cwd(), 'VITE_').VITE_API_BASE_URL.replace(/\/+$/, '') : null;
+  const backend = remote ?? 'http://127.0.0.1:8000';
+  const headers = remote ? { origin: remote } : undefined;
+  return {
+    '/api': { target: backend, changeOrigin: true, headers },
+    '/uploads': { target: backend, changeOrigin: true, headers },
+    '/ws': { target: backend.replace(/^http/, 'ws'), ws: true, changeOrigin: true, headers }
+  };
 }

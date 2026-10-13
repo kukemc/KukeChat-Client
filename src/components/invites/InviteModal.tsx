@@ -1,36 +1,18 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { acceptInvite, resolveInvite } from '@/api/invites';
-import { useKukeStore } from '@/store/kukeStore';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { useIsDesktopLayout } from '@/components/ui/desktop/Modal';
+import { InviteDialog } from './desktop/InviteDialog';
+import { useInvite, type InviteModalProps } from './inviteData';
 
-
-interface InviteModalProps {
-  token: string;
-  onClose: () => void;
+/** 打开邀请链接后的确认框：显示对方是哪个群 / 哪个人，确认后加入或加好友。 */
+export function InviteModal(props: InviteModalProps): JSX.Element {
+  return useIsDesktopLayout() ? <InviteDialog {...props} /> : <MobileInviteModal {...props} />;
 }
 
-
-export function InviteModal({ token, onClose }: InviteModalProps): JSX.Element {
-  const queryClient = useQueryClient();
-  const setActiveConversationId = useKukeStore((state) => state.setActiveConversationId);
-  const inviteQuery = useQuery({ queryKey: ['invite', token], queryFn: () => resolveInvite(token) });
-  const acceptMutation = useMutation({
-    mutationFn: () => acceptInvite(token),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      void queryClient.invalidateQueries({ queryKey: ['friends'] });
-      if (result.conversation_id) {
-        setActiveConversationId(result.conversation_id);
-      }
-      onClose();
-    }
-  });
-  const invite = inviteQuery.data;
-  const isGroup = invite?.target_type === 'group';
-  const title = isGroup ? '邀请你加入群聊' : '邀请你添加好友';
-  const group = invite?.group ?? null;
-  const user = invite?.user ?? null;
+/** 手机布局下的版本：外观由 kc-mobile-overlay / kc-mobile-dialog 的样式接管。 */
+function MobileInviteModal(props: InviteModalProps): JSX.Element {
+  const { onClose } = props;
+  const { isLoading, failed, title, group, user, acceptLabel, acceptDisabled, accept } = useInvite(props);
 
   return (
     <div className="kc-mobile-overlay fixed inset-0 z-[70] grid place-items-center bg-black/35 p-4 backdrop-blur-sm">
@@ -42,8 +24,8 @@ export function InviteModal({ token, onClose }: InviteModalProps): JSX.Element {
           </div>
           <button type="button" onClick={onClose} className="kc-icon-button h-9 w-9" aria-label="关闭"><Icon name="close" className="h-4 w-4" /></button>
         </div>
-        {inviteQuery.isLoading ? <p className="mt-5 rounded-2xl p-4 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">正在解析邀请链接...</p> : null}
-        {inviteQuery.error ? <p className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">邀请链接无效或已不可用。</p> : null}
+        {isLoading ? <p className="mt-5 rounded-2xl p-4 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">正在解析邀请链接...</p> : null}
+        {failed ? <p className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">邀请链接无效或已不可用。</p> : null}
         {group ? (
           <div className="mt-5 rounded-[24px] border p-4 [background:var(--kc-panel-muted)] [border-color:var(--kc-border)]">
             <div className="flex items-center gap-3">
@@ -70,8 +52,8 @@ export function InviteModal({ token, onClose }: InviteModalProps): JSX.Element {
         ) : null}
         <div className="kc-mobile-actions mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-2xl border px-4 py-2 text-sm font-bold [border-color:var(--kc-border)] hover:[background:var(--kc-hover)]">稍后再说</button>
-          <button type="button" onClick={() => acceptMutation.mutate()} disabled={!invite || acceptMutation.isPending || invite.already_joined || invite.already_friends} className="liquid-button rounded-2xl px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">
-            {invite?.already_joined ? '已加入' : invite?.already_friends ? '已是好友' : acceptMutation.isPending ? '处理中...' : isGroup ? '加入群聊' : '添加好友'}
+          <button type="button" onClick={accept} disabled={acceptDisabled} className="liquid-button rounded-2xl px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">
+            {acceptLabel}
           </button>
         </div>
       </div>

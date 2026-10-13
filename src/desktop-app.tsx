@@ -2,17 +2,23 @@ import React, { useEffect, useRef, useState, type PointerEvent as ReactPointerEv
 import { createRoot } from 'react-dom/client';
 import { createPortal } from 'react-dom';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ChatShell } from '@/app/ChatShell';
 import { getOnlineUsers } from '@/api/users';
-import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { DesktopJustUpdatedNotice, DesktopUpdateDialog, DesktopUpdatePill } from '@/components/desktop/DesktopUpdateDialog';
+import { OnlineUsersCard } from '@/components/window/OnlineUsersCard';
+import { SelfCardTrigger } from '@/components/window/SelfCardTrigger';
+import { startDesktopUpdateSchedule } from '@/native/desktopUpdate';
 import { useRealtime } from '@/realtime/client';
 import { useKukeStore } from '@/store/kukeStore';
 import { installDesktopExternalLinkHandler } from '@/utils/desktopExternalLinks';
 import { useResolvedThemeMode } from '@/utils/theme';
 import '@/styles/tailwind.css';
+import { ThemeEffects } from '@/theme/ThemeEffects';
+import { useThemeRootProps } from '@/theme/useTheme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,30 +55,9 @@ function DesktopRealtimeConnector(): null {
   return null;
 }
 
-function DesktopAutoUpdater(): null {
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      return;
-    }
-
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      if (cancelled) {
-        return;
-      }
-
-      void invoke('check_and_install_update').catch((error: unknown) => {
-        console.warn('[KukeChat] 自动更新检查失败', error);
-      });
-    }, 2400);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, []);
-
-  return null;
+function DesktopAutoUpdater(): JSX.Element {
+  useEffect(() => startDesktopUpdateSchedule(), []);
+  return <><DesktopUpdateDialog /><DesktopJustUpdatedNotice /></>;
 }
 
 function DesktopTitleBar(): JSX.Element {
@@ -93,7 +78,7 @@ function DesktopTitleBar(): JSX.Element {
     refetchOnWindowFocus: true,
     retry: false
   });
-  const onlineUsers = onlineUsersQuery.data?.users ?? [];
+  const onlineTotal = onlineUsersQuery.data?.online_count ?? onlineCount;
   const title = currentUser ? getDisplayName(currentUser) : 'KukeChat';
   const bio = currentUser?.bio?.trim() || '咕咕咕~';
   const unreadBadge = unreadCount > 99 ? '99+' : String(unreadCount);
@@ -168,67 +153,35 @@ function DesktopTitleBar(): JSX.Element {
       onMouseEnter={clearOnlinePopoverTimer}
       onMouseLeave={scheduleCloseOnlinePopover}
       style={onlinePopoverStyle}
-      className="pointer-events-auto select-none pt-2"
+      className="kwf-popover-fixed"
     >
-      <div className="overflow-hidden rounded-[22px] border shadow-float backdrop-blur-xl [background:color-mix(in_srgb,var(--kc-panel)_92%,transparent)] [border-color:var(--kc-border)]">
-        <div className="flex items-center justify-between border-b px-3 py-2.5 [border-color:var(--kc-border)]">
-          <span className="text-sm font-semibold [color:var(--kc-text)]">当前在线</span>
-          <span className="rounded-full px-2 py-0.5 text-[11px] font-bold [background:var(--kc-accent-soft)] [color:var(--kc-accent)]">{onlineUsersQuery.data?.online_count ?? onlineCount} 人</span>
-        </div>
-        <div className="scroll-soft max-h-72 overflow-y-auto p-2">
-          {onlineUsersQuery.isLoading ? <p className="px-2 py-3 text-xs [color:var(--kc-muted)]">正在加载在线用户...</p> : null}
-          {!onlineUsersQuery.isLoading && onlineUsers.length === 0 ? <p className="px-2 py-3 text-xs [color:var(--kc-muted)]">暂时没有在线用户</p> : null}
-          {onlineUsers.map((user) => {
-            const name = getDisplayName(user, `用户 ${user.id}`);
-            return (
-              <div key={user.id} className="flex items-center gap-2.5 rounded-2xl px-2 py-2 transition hover:[background:var(--kc-hover)]">
-                <div className="relative shrink-0">
-                  <Avatar user={user} label={name} size="sm" />
-                  <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold [color:var(--kc-text)]">{name}</p>
-                  <p className="truncate text-[11px] [color:var(--kc-muted)]">@{user.username} · ID {user.id}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <OnlineUsersCard count={onlineTotal} users={onlineUsersQuery.data?.users ?? []} loading={onlineUsersQuery.isLoading} />
     </div>,
     getKukePortalRoot()
   ) : null;
 
   return (
     <>
-    <header onPointerDown={startWindowDrag} className="kc-desktop-titlebar relative z-[100] flex h-11 shrink-0 touch-none items-center justify-between border-b px-3 [background:var(--kc-titlebar)] [border-color:var(--kc-border)] [color:var(--kc-text)]">
-      <div className="flex h-full min-w-0 items-center gap-3">
-        <div className="relative flex h-full shrink-0 items-center">
-          <Avatar user={currentUser} label={title} size="sm" />
-          {currentUser ? <span className="absolute bottom-1 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]" /> : null}
-        </div>
-        <div className="flex min-w-0 items-center gap-2 leading-none">
-          <h1 className="truncate text-sm font-semibold leading-none">{title}</h1>
-          {currentUser ? <span className="truncate text-xs leading-none [color:var(--kc-muted)]">{bio}</span> : null}
-          {currentUser ? (
-            <div ref={onlineAnchorRef} data-window-action className="relative shrink-0" onMouseEnter={openOnlinePopover} onMouseLeave={scheduleCloseOnlinePopover} onFocus={openOnlinePopover} onBlur={scheduleCloseOnlinePopover}>
-              <span className="inline-flex h-4 items-center gap-1.5 rounded-full px-1.5 text-[11px] font-semibold leading-none [color:var(--kc-muted)]" title={`当前在线 ${onlineUsersQuery.data?.online_count ?? onlineCount} 人`}>
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]" />
-                在线 {onlineUsersQuery.data?.online_count ?? onlineCount}
-              </span>
-            </div>
-          ) : null}
-          {unreadCount > 0 ? <span className="grid h-4 min-w-[22px] place-items-center rounded-full bg-red-500 px-1.5 text-[10px] font-extrabold leading-none text-white shadow-[0_8px_18px_rgba(239,68,68,0.34)]">{unreadBadge}</span> : null}
-        </div>
+    <header onPointerDown={startWindowDrag} className="kwf-titlebar">
+      <div className="kwf-identity">
+        {currentUser ? <SelfCardTrigger user={currentUser} label={title} /> : <h1 className="kwf-title">{title}</h1>}
+        {currentUser ? <span className="kwf-bio">{bio}</span> : null}
+        {currentUser ? (
+          <div ref={onlineAnchorRef} data-window-action className="kwf-online" onMouseEnter={openOnlinePopover} onMouseLeave={scheduleCloseOnlinePopover} onFocus={openOnlinePopover} onBlur={scheduleCloseOnlinePopover}>
+            <span className="kwf-online-count" title={`当前在线 ${onlineTotal} 人`}>在线 {onlineTotal}</span>
+          </div>
+        ) : null}
+        {unreadCount > 0 ? <span className="kui-badge">{unreadBadge}</span> : null}
       </div>
-      <div className="flex h-full items-center gap-1">
-        <button type="button" onClick={() => void appWindow.minimize()} className="kc-desktop-window-button" aria-label="最小化窗口" title="最小化">
+      <div className="kwf-controls">
+        <DesktopUpdatePill />
+        <button type="button" onClick={() => void appWindow.minimize()} className="kwf-control" aria-label="最小化窗口" title="最小化">
           <Icon name="minus" className="h-4 w-4" />
         </button>
-        <button type="button" onClick={() => void appWindow.toggleMaximize()} className="kc-desktop-window-button" aria-label="最大化或还原窗口" title="最大化/还原">
+        <button type="button" onClick={() => void appWindow.toggleMaximize()} className="kwf-control" aria-label="最大化或还原窗口" title="最大化/还原">
           <Icon name="maximize" className="h-4 w-4" />
         </button>
-        <button type="button" onClick={() => void appWindow.close()} className="kc-desktop-window-button kc-desktop-window-button-close" aria-label="隐藏到托盘" title="隐藏到托盘">
+        <button type="button" onClick={() => void appWindow.close()} className="kwf-control kwf-control--close" aria-label="隐藏到托盘" title="隐藏到托盘">
           <Icon name="close" className="h-4 w-4" />
         </button>
       </div>
@@ -241,6 +194,7 @@ function DesktopTitleBar(): JSX.Element {
 function DesktopAppContent(): JSX.Element {
   const themeMode = useKukeStore((state) => state.themeMode);
   const resolvedThemeMode = useResolvedThemeMode(themeMode);
+  const themeRoot = useThemeRootProps(resolvedThemeMode);
   const uiFontScale = useKukeStore((state) => state.uiFontScale);
   const setLayoutMode = useKukeStore((state) => state.setLayoutMode);
 
@@ -269,12 +223,16 @@ function DesktopAppContent(): JSX.Element {
       data-theme={resolvedThemeMode}
       data-layout="desktop"
       data-font-scale={uiFontScale}
+      data-kc-wallpaper={themeRoot['data-kc-wallpaper']}
+      style={themeRoot.style}
       className="kc-desktop-app flex h-full min-h-0 flex-col overflow-hidden [color:var(--kc-text)]"
     >
+      <ThemeEffects scheme={resolvedThemeMode} />
       <DesktopTitleBar />
       <div className="kc-desktop-content relative z-0 min-h-0 flex-1 overflow-hidden [background:var(--kc-window)]">
         <ChatShell />
       </div>
+      <DesktopAutoUpdater />
     </main>
   );
 }
@@ -282,7 +240,6 @@ function DesktopAppContent(): JSX.Element {
 function DesktopAppRoot(): JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
-      <DesktopAutoUpdater />
       <DesktopRealtimeConnector />
       <DesktopAppContent />
     </QueryClientProvider>
@@ -291,6 +248,8 @@ function DesktopAppRoot(): JSX.Element {
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <DesktopAppRoot />
+    <ErrorBoundary allowReload>
+      <DesktopAppRoot />
+    </ErrorBoundary>
   </React.StrictMode>
 );

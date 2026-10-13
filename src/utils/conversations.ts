@@ -1,4 +1,5 @@
 import type { Conversation, Message } from '@/types/api';
+import { parseApiDate } from './dateTime';
 
 /** One pass over the list per committed query update; message patches may replace the list often. */
 export interface ConversationDashboardProjection {
@@ -84,8 +85,8 @@ export function isConversationPinnedForMe(conversation: Conversation): boolean {
 
 export function conversationActivityTime(conversation: Conversation): number {
   const value = conversation.last_message?.created_at ?? conversation.updated_at ?? conversation.created_at ?? '';
-  const time = Date.parse(value);
-  return Number.isNaN(time) ? 0 : time;
+  // 接口里的时间不带时区（UTC），实时推送来的可能带：统一用 parseApiDate，否则两种混在一起排序会差 8 小时
+  return parseApiDate(value)?.getTime() ?? 0;
 }
 
 export function sortConversationsByActivity(conversations: Conversation[]): Conversation[] {

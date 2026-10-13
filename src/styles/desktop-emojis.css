@@ -1,0 +1,539 @@
+/* 桌面端：输入框的表情面板、群表情管理（src/components/chat/desktop/emojis）。基础样式见 kui.css。 */
+
+/* ───────── 表情面板 ───────── */
+
+/* 定位用的壳：贴在输入卡片上方、和它左对齐。悬停预览和右键菜单是它的子元素，可以探到面板外面。
+   --kce-room 是输入卡片到聊天头部之间还剩多高，由面板自己量出来，窗口矮的时候面板跟着缩；
+   连最小高度都放不下时用 --kce-sink 往下沉 */
+.kce-pop {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 6px - var(--kce-sink, 0px));
+  left: 0;
+  width: min(460px, 100%);
+  height: min(420px, var(--kce-room, 420px));
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kce-panel {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+}
+
+/* 滚动条始终占着位置，换分类时网格的列不会左右跳 */
+.kce-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 0 2px 10px 10px;
+  scrollbar-gutter: stable;
+}
+
+.kce-section {
+  flex: none;
+}
+
+/* 分组标题，滚动时吸在顶上 */
+.kce-title {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 7px;
+  padding-top: 2px;
+  background: var(--kui-raised);
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  user-select: none;
+}
+
+.kce-count,
+.kce-title-side {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.kce-title-side {
+  margin-left: auto;
+  padding-right: 2px;
+}
+
+#kukechat-root [data-font-scale] .kce-title-side .kui-link {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kce-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 2px;
+}
+
+.kce-emoji {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: var(--kui-r-sm);
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+  line-height: 1;
+  transition: background-color 80ms ease, transform 80ms ease;
+}
+
+.kce-emoji:hover {
+  background: var(--kc-hover);
+  transform: scale(1.12);
+}
+
+.kce-emoji:active {
+  background: var(--kc-active);
+  transform: scale(0.96);
+}
+
+/* Emoji 本身不跟界面字号走，格子是固定大小的 */
+#kukechat-root [data-font-scale] .kce-emoji {
+  font-size: 24px;
+}
+
+.kce-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+}
+
+.kce-sticker {
+  display: block;
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 3px;
+  border-radius: var(--kui-r-sm);
+  transition: background-color 80ms ease, box-shadow 80ms ease;
+}
+
+.kce-sticker img {
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  object-fit: contain;
+}
+
+/* 图片地址不可用时的占位字 */
+.kce-sticker > span {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--kc-panel-muted);
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+}
+
+button.kce-sticker:hover:not(:disabled) {
+  background: var(--kc-hover);
+  box-shadow: inset 0 0 0 1px var(--kc-border-strong);
+}
+
+button.kce-sticker:active:not(:disabled) {
+  background: var(--kc-active);
+}
+
+button.kce-sticker:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 正在上传的那几张：先用本地预览占着位置 */
+.kce-sticker.is-pending {
+  cursor: progress;
+}
+
+.kce-sticker.is-pending img {
+  animation: kce-pending 900ms ease-in-out infinite alternate;
+  opacity: 0.5;
+}
+
+@keyframes kce-pending {
+  to {
+    opacity: 0.18;
+  }
+}
+
+/* 「＋」和表情排在一起，往里收 3px，和图片实际占的大小对齐 */
+.kce-sticker-grid > .kce-cell--add {
+  width: calc(100% - 6px);
+  margin: 3px;
+}
+
+/* 收藏为空时接在「＋」后面的说明，占掉这一行剩下的列 */
+.kce-hint {
+  align-self: center;
+  padding: 2px 6px 2px 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  grid-column: 2 / -1;
+  line-height: 1.75;
+}
+
+/* 加载中、失败、没有内容：撑满这一页剩下的高度，居中 */
+.kce-status {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 16px 10px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.75;
+  text-align: center;
+}
+
+.kce-search {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  flex: none;
+  padding: 10px 8px 4px 0;
+  background: var(--kui-raised);
+}
+
+/* 搜索框自己也吸顶，结果里的分组标题接在它下面 */
+.kce-search ~ .kce-section .kce-title {
+  top: 46px;
+}
+
+.kce-search-clear {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--kc-muted);
+}
+
+.kce-search-clear:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kce-suggest {
+  flex: none;
+  padding: 10px 8px 0 0;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kce-suggest > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.kce-suggest .kui-tag {
+  padding: 0 9px;
+  color: var(--kc-text);
+  cursor: pointer;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 24px;
+}
+
+.kce-suggest .kui-tag:hover {
+  background: color-mix(in srgb, var(--kc-text) 12%, transparent);
+}
+
+#kukechat-root [data-font-scale] .kce-suggest .kui-tag {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kce-notice {
+  display: flex;
+  max-height: 72px;
+  flex: none;
+  align-items: flex-start;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 7px 8px 7px 12px;
+  border-top: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kui-danger) 7%, transparent);
+  color: var(--kui-danger);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kce-notice > span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.kce-notice > button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  border-radius: 4px;
+}
+
+.kce-notice > button:hover {
+  background: color-mix(in srgb, var(--kui-danger) 14%, transparent);
+}
+
+/* 底部的分类栏：比面板深半级，当前项是浮在上面的一小块 */
+.kce-tabs {
+  display: flex;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 0 8px;
+  border-top: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+}
+
+.kce-tabs .kui-icon-btn {
+  width: 34px;
+}
+
+.kce-tabs .kui-icon-btn.is-active {
+  background: var(--kui-cap);
+  box-shadow: var(--kui-shadow-raised);
+  color: var(--kc-accent);
+}
+
+.kce-tabs-status {
+  margin-left: auto;
+  padding-right: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* 悬停预览。位置由组件给：面板右边放得下就在面板外，否则在面板里离鼠标最远的角 */
+.kce-preview {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  pointer-events: none;
+}
+
+.kce-preview--image {
+  width: 176px;
+}
+
+.kce-preview--image img {
+  width: 160px;
+  height: 160px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.kce-preview--glyph {
+  width: 104px;
+}
+
+.kce-preview-glyph {
+  display: grid;
+  height: 76px;
+  place-items: center;
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: 54px;
+  line-height: 1;
+}
+
+.kce-preview-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 在收藏页里拖着图片经过时盖在面板上 */
+.kce-drop {
+  position: absolute;
+  z-index: 4;
+  inset: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px dashed var(--kc-accent);
+  border-radius: var(--kui-r-md);
+  background: color-mix(in srgb, var(--kui-raised) 90%, var(--kc-accent));
+  color: var(--kc-accent);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* 右键菜单开着时垫在下面，点到别处就关 */
+.kce-menu-layer {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kce-sticker.is-pending img {
+    animation: none;
+  }
+
+  .kce-emoji {
+    transition: none;
+  }
+}
+
+/* ───────── 虚线「＋」格子与管理对话框 ───────── */
+
+.kce-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kce-dialog-body > * {
+  flex: none;
+}
+
+/* 管理对话框里的网格：格子下面带名称 */
+.kce-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 10px 8px;
+}
+
+.kce-cell {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kui-r-sm);
+  background: var(--kc-panel-muted);
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.kce-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 「添加」占一个格子：虚线框加号，和表情排在一起。面板的收藏页和管理对话框都用它 */
+.kce-cell--add {
+  display: grid;
+  place-items: center;
+  border-style: dashed;
+  border-color: var(--kc-subtle);
+  background: transparent;
+  color: var(--kc-muted);
+}
+
+.kce-cell--add:hover:not(:disabled) {
+  border-color: var(--kc-accent);
+  color: var(--kc-accent);
+}
+
+.kce-cell--add:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.kce-item {
+  position: relative;
+  min-width: 0;
+}
+
+.kce-name,
+.kce-name-input {
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.kce-name {
+  overflow: hidden;
+  border-radius: 4px;
+  color: var(--kc-muted);
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.kce-name:hover:not(:disabled) {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kce-name-input {
+  padding: 0 4px;
+}
+
+#kukechat-root [data-font-scale] :is(.kce-name, .kce-name-input) {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 压在图片右上角，悬停或键盘聚焦到这一格才出现 */
+.kce-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.56);
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.kce-item:hover .kce-remove,
+.kce-remove:focus-visible {
+  opacity: 1;
+}
+
+.kce-remove:hover:not(:disabled) {
+  background: var(--kui-danger);
+}
+
+/* 选好图片后的一行：预览、名称、提交 */
+.kce-draft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kce-draft .kce-cell {
+  width: 48px;
+  flex: none;
+}

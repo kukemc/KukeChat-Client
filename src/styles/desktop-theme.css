@@ -1,0 +1,787 @@
+/*
+ * 桌面端：外观设置里的主题定制区（src/components/settings/desktop/ThemeSection.tsx 和 theme/ 目录）。
+ *
+ * 卡片、分段选择、开关沿用 settingsUi.tsx，这里只写这一区自己的东西：预设和缩略图、实时预览、
+ * 背景图库、材质预设、取色、滑杆。颜色全部取主题令牌，所以这一区自己也跟着主题变。
+ */
+
+.kth-label {
+  margin-bottom: 8px;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kth-hint {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kth-inline-link {
+  margin-left: 6px;
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+.kth-inline-link:hover {
+  text-decoration: underline;
+}
+
+.kth-reset {
+  display: inline-flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--kc-muted);
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.kth-reset:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+#kukechat-root [data-font-scale] .kth-reset,
+#kukechat-root [data-font-scale] .kth-inline-link {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* ───────── 选项行、滑杆 ───────── */
+
+.kth-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+
+.kth-option-text {
+  min-width: 0;
+  flex: 1 1 200px;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kth-option-hint {
+  margin-top: 1px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.55;
+}
+
+.kth-option-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.kth-slider {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kth-slider.is-disabled {
+  opacity: 0.45;
+}
+
+.kth-slider-label {
+  width: 64px;
+  flex: none;
+}
+
+.kth-slider input {
+  height: 6px;
+  min-width: 0;
+  flex: 1;
+  accent-color: var(--kc-accent-fill, var(--kc-accent));
+  cursor: pointer;
+}
+
+.kth-slider input:disabled {
+  cursor: not-allowed;
+}
+
+.kth-slider-value {
+  width: 68px;
+  flex: none;
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ───────── 预设与缩略图 ───────── */
+
+.kth-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 12px;
+}
+
+.kth-preset {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--kc-border);
+  border-radius: 12px;
+  transition: border-color 100ms ease, box-shadow 100ms ease;
+}
+
+.kth-preset:hover {
+  border-color: var(--kc-muted);
+}
+
+.kth-preset.is-active {
+  border-color: var(--kc-accent);
+  box-shadow: 0 0 0 3px var(--kc-accent-soft);
+}
+
+.kth-preset-pick {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.kth-preset-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 0 2px;
+  overflow: hidden;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kth-preset-check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-left: auto;
+  color: var(--kc-accent);
+}
+
+.kth-preset-tagline {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  padding: 0 2px;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(11px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 「我的主题」卡片底下那一行：说明在左，改名和删除在右 */
+.kth-preset-tools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.kth-preset-tools button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--kc-subtle);
+}
+
+.kth-preset-tools button:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+#kukechat-root [data-font-scale] .kth-rename {
+  height: 30px;
+  margin-top: 6px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* 缩略图：从左到右是导航栏、会话列表、消息画布，和真界面是同一套明度顺序。每块的颜色读的是这套主题自己的变量 */
+.kth-thumb {
+  position: relative;
+  display: block;
+  height: 68px;
+  overflow: hidden;
+  border: 1px solid var(--kc-border);
+  border-radius: 8px;
+  background: var(--kc-wallpaper-base, var(--kc-chat));
+}
+
+.kth-thumb > span,
+.kth-thumb-chat > span {
+  position: absolute;
+}
+
+.kth-thumb-wall {
+  inset: 0;
+  background: var(--kc-wallpaper-bg);
+}
+
+.kth-thumb[data-mode='chat'] .kth-thumb-wall {
+  left: 28px;
+}
+
+.kth-thumb-rail {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  background: var(--kc-rail);
+}
+
+.kth-thumb-list {
+  top: 0;
+  bottom: 0;
+  left: 8px;
+  width: 20px;
+  background: var(--kc-list);
+}
+
+.kth-thumb-list > i {
+  position: absolute;
+  top: 12px;
+  right: 2px;
+  left: 2px;
+  height: 11px;
+  border-radius: 3px;
+  background: var(--kc-accent-fill);
+}
+
+.kth-thumb-chat {
+  inset: 0 0 0 28px;
+  background: var(--kc-chat);
+}
+
+.kth-thumb[data-mode='chat'] .kth-thumb-chat {
+  background: var(--kc-wallpaper-veil, transparent);
+}
+
+.kth-thumb-head {
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 9px;
+  background: var(--kc-header-surface, var(--kc-panel));
+  box-shadow: 0 1px 0 var(--kc-border);
+}
+
+.kth-thumb-in {
+  top: 16px;
+  left: 7px;
+  width: 44px;
+  height: 11px;
+  border-radius: 5px 5px 5px 2px;
+  background: var(--kc-bubble-in);
+  box-shadow: var(--kc-bubble-shadow);
+}
+
+.kth-thumb-out {
+  top: 31px;
+  right: 7px;
+  width: 38px;
+  height: 11px;
+  border-radius: 5px 5px 2px;
+  background: var(--kc-bubble-out);
+}
+
+.kth-thumb-input {
+  right: 6px;
+  bottom: 5px;
+  left: 6px;
+  height: 15px;
+  border-radius: 4px;
+  background: var(--kc-composer-surface, var(--kc-panel));
+  box-shadow: var(--kui-shadow-card);
+}
+
+.kth-thumb-input > i {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 14px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--kc-accent-fill);
+}
+
+/* ───────── 实时预览 ───────── */
+
+/* 预览跟着页面滚动时停在顶上：往下调背景、材质的时候一直看得到效果。
+   窗口矮的时候不停（is-pinned 由组件按滚动区的高度加），不然它一个就占掉半屏 */
+.kth-preview.is-pinned {
+  position: sticky;
+  z-index: 4;
+  top: 0;
+}
+
+/* 一个缩小的窗口，里面全是真界面的类名（导航栏、会话列表、聊天面板）。只看不点 */
+.kth-stage {
+  position: relative;
+  display: flex;
+  height: 262px;
+  overflow: hidden;
+  border: 1px solid var(--kc-border);
+  border-radius: 10px;
+  background: var(--kc-window);
+  container: kth-stage / inline-size;
+  isolation: isolate;
+  pointer-events: none;
+  user-select: none;
+}
+
+.kth-stage > .ksh-rail {
+  width: 48px;
+  flex: none;
+  justify-content: flex-start;
+  padding: 9px 5px;
+}
+
+.kth-stage > .ksh-pane {
+  width: 196px;
+  flex: none;
+}
+
+.kth-stage-chat {
+  min-width: 0;
+  flex: 1;
+}
+
+.kth-stage .kcd-list {
+  overflow: hidden;
+}
+
+/* 真界面里气泡外侧要给悬浮工具条留位置，预览里没有工具条 */
+.kth-stage .kcd-line {
+  max-width: calc(100% - 46px);
+}
+
+.kth-stage .kcd-header {
+  height: 46px;
+}
+
+/* 聊天面板在窄的时候会自己收起右侧栏；预览里要一直看得到它，除非预览本身太窄 */
+#kukechat-root .kth-stage .kcd-sidebar {
+  display: flex;
+  width: 128px;
+}
+
+.kth-stage .kcd-sidebar-members {
+  padding-top: 4px;
+}
+
+.kth-stage .kcd-composer-slot {
+  padding: 0 12px 10px;
+}
+
+.kth-stage-composer {
+  height: 38px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 0 12px;
+}
+
+.kth-stage-placeholder {
+  color: var(--kc-subtle);
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kth-stage-send {
+  height: 26px;
+  min-width: 52px;
+  padding: 0 12px;
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* 一个浮层的样子：压在消息上面，材质选了玻璃就能看到它透出底下的气泡 */
+.kth-stage-menu {
+  position: absolute;
+  z-index: 5;
+  top: 52px;
+  right: 136px;
+  min-width: 104px;
+  font-size: calc(13px * var(--kui-fs));
+}
+
+@container kth-stage (max-width: 620px) {
+  #kukechat-root .kth-stage .kcd-sidebar {
+    display: none;
+  }
+
+  .kth-stage-menu {
+    right: 8px;
+  }
+
+  .kth-stage > .ksh-pane {
+    width: 164px;
+  }
+}
+
+@container kth-stage (max-width: 460px) {
+  .kth-stage > .ksh-pane {
+    display: none;
+  }
+}
+
+/* ───────── 背景图库 ───────── */
+
+.kth-walls {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+}
+
+.kth-wall {
+  position: relative;
+  display: grid;
+  height: 64px;
+  min-width: 0;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--kc-border);
+  border-radius: 12px;
+  color: var(--kc-muted);
+  font-weight: 600;
+  transition: border-color 100ms ease, box-shadow 100ms ease, color 100ms ease;
+}
+
+#kukechat-root [data-font-scale] .kth-wall {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kth-wall:hover {
+  border-color: var(--kc-muted);
+}
+
+.kth-wall.is-active {
+  border-color: var(--kc-accent);
+  box-shadow: 0 0 0 3px var(--kc-accent-soft);
+}
+
+.kth-wall--none {
+  background: var(--kc-panel-muted);
+}
+
+.kth-wall--image {
+  background-position: center;
+  background-size: cover;
+}
+
+.kth-wall--upload {
+  grid-auto-flow: row;
+  gap: 4px;
+  border-style: dashed;
+  border-color: var(--kc-border-strong);
+}
+
+.kth-wall--upload:hover:not(:disabled) {
+  border-color: var(--kc-accent);
+  color: var(--kc-accent);
+}
+
+.kth-wall--upload:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.kth-wall-name {
+  position: absolute;
+  bottom: 4px;
+  left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--kc-panel);
+  color: var(--kc-text);
+  font-size: calc(11px * var(--kui-fs));
+  line-height: 17px;
+}
+
+.kth-wall-pick {
+  position: absolute;
+  inset: 0;
+}
+
+/* 删除按钮平时不显示，鼠标移上去或键盘聚焦到这张图时才出来 */
+.kth-wall-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.58);
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.kth-wall:hover .kth-wall-remove,
+.kth-wall:focus-within .kth-wall-remove {
+  opacity: 1;
+}
+
+/* ───────── 材质 ───────── */
+
+.kth-materials {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+}
+
+.kth-material {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--kc-border);
+  border-radius: 12px;
+  text-align: left;
+  transition: border-color 100ms ease, box-shadow 100ms ease;
+}
+
+.kth-material:hover {
+  border-color: var(--kc-muted);
+}
+
+.kth-material.is-active {
+  border-color: var(--kc-accent);
+  box-shadow: 0 0 0 3px var(--kc-accent-soft);
+}
+
+.kth-material-name {
+  display: block;
+  margin-top: 7px;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kth-material-hint {
+  display: block;
+  color: var(--kc-muted);
+  font-size: calc(11px * var(--kui-fs));
+  line-height: 1.45;
+}
+
+/* 小样：左边露着一条带花纹的「背景」，右边压一块面。花纹是为了看得出模糊——毛玻璃那一档右边的花纹是糊的。
+   这里的糊是另画的一层平滑渐变，不是 backdrop-filter。 */
+.kth-sample {
+  --kth-wall: linear-gradient(115deg, color-mix(in srgb, var(--kc-accent-fill, var(--kc-accent)) 88%, #000000), color-mix(in srgb, var(--kc-accent-fill, var(--kc-accent)) 46%, #ffffff));
+  position: relative;
+  display: block;
+  height: 42px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.42) 0 3px, transparent 3px 11px), var(--kth-wall);
+}
+
+.kth-sample-panel,
+.kth-sample-blur {
+  position: absolute;
+  inset: 0 0 0 34%;
+}
+
+.kth-sample-blur {
+  background: linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.16)), var(--kth-wall);
+  background-position: 0 0, right center;
+  background-size: auto, 152% 100%;
+}
+
+.kth-sample-panel {
+  z-index: 1;
+  background: var(--kc-panel);
+  box-shadow: -1px 0 0 var(--kc-border);
+}
+
+.kth-sample--custom {
+  background: repeating-linear-gradient(90deg, var(--kc-panel) 0 20%, color-mix(in srgb, var(--kc-panel) 60%, transparent) 20% 40%, color-mix(in srgb, var(--kc-panel) 25%, transparent) 40% 60%), var(--kth-wall);
+}
+
+.kth-advanced > summary {
+  width: fit-content;
+  padding: 2px 0;
+  color: var(--kc-text);
+  cursor: pointer;
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+  user-select: none;
+}
+
+.kth-advanced > summary:hover {
+  color: var(--kc-accent);
+}
+
+.kth-surfaces {
+  margin-top: 8px;
+}
+
+.kth-surface {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kth-surface-name {
+  min-width: 0;
+  flex: 1 1 150px;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kth-surface-note {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+.kth-surface-note.is-blocked {
+  color: var(--kui-warn);
+}
+
+.kth-surface > .kth-slider {
+  flex: 1 1 230px;
+}
+
+.kth-surface-warning {
+  flex: 1 1 100%;
+  padding-left: 10px;
+  border-left: 2px solid var(--kui-warn);
+  color: var(--kc-text);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+/* ───────── 颜色 ───────── */
+
+.kth-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.kth-chip {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--kc-border);
+  border-radius: 999px;
+  color: var(--kc-text);
+  font-weight: 600;
+  transition: border-color 100ms ease, box-shadow 100ms ease;
+}
+
+#kukechat-root [data-font-scale] .kth-chip {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kth-chip:hover {
+  border-color: var(--kc-muted);
+}
+
+.kth-chip.is-active {
+  border-color: var(--kc-accent);
+  box-shadow: 0 0 0 3px var(--kc-accent-soft);
+}
+
+.kth-swatch,
+.kth-well {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  color: #ffffff;
+  transition: transform 100ms ease, border-color 100ms ease;
+}
+
+.kth-swatch:hover,
+.kth-well:hover {
+  transform: scale(1.1);
+}
+
+.kth-swatch.is-active,
+.kth-well.is-set {
+  border-color: var(--kc-text);
+}
+
+/* 自选颜色：还没选的时候是一圈色环，选了之后显示选中的那个颜色 */
+.kth-well {
+  position: relative;
+  overflow: hidden;
+  background: conic-gradient(#fa5252, #f59f00, #40c057, #1f6bff, #7950f2, #fa5252);
+  cursor: pointer;
+}
+
+.kth-well input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+/* ───────── 我的主题、分享 ───────── */
+
+.kth-save,
+.kth-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.kth-save > input {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.kth-share {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kth-share > .kth-label {
+  margin-bottom: 0;
+  font-weight: 600;
+}
+
+.kth-import {
+  display: grid;
+  gap: 8px;
+}
+
+#kukechat-root [data-font-scale] .kth-import-code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.5;
+  word-break: break-all;
+}

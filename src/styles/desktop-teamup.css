@@ -1,0 +1,1814 @@
+/* 桌面端：组队（src/components/teamup/desktop）。基础样式见 kui.css。 */
+
+/* ───────── 骨架 ───────── */
+
+.ktu {
+  /* 贴着画布的面：发丝边 + 按钮底边那一线阴影。背景用 --kc-chat-surface，整窗背景下会跟着变半透明 */
+  --ktu-edge: 0 0 0 1px var(--kc-border), var(--kui-shadow-key);
+  height: 100%;
+  min-height: 0;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+/* 容器查询的基准单独放一层：带 container-type 的元素会把 position: fixed 的对话框圈在自己里面，
+   对话框要挂在它外面（.ktu 的直接子元素）才能盖住整个窗口 */
+.ktu-shell {
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.ktu-frame {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 216px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.ktu-main {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.ktu-bar {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 0 22px;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+.ktu-bar h2 {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-bar > .kui-icon-btn:first-child {
+  margin-left: -12px;
+}
+
+.ktu-bar-search {
+  width: 220px;
+  flex: 0 1 220px;
+}
+
+.ktu-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.ktu-page {
+  display: flex;
+  max-width: 1180px;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  padding: 18px 22px 8px;
+}
+
+.ktu-page--detail {
+  max-width: 1040px;
+  padding-bottom: 28px;
+}
+
+.ktu-panel {
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--ktu-edge);
+}
+
+/* ───────── 左栏 ───────── */
+
+.ktu-side {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0 8px 12px;
+  border-right: 1px solid var(--kc-border);
+  background: var(--kc-list);
+}
+
+.ktu-side-head {
+  padding: 16px 10px 14px;
+}
+
+.ktu-side-head h2 {
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.ktu-side-head p {
+  margin-top: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.ktu-side-title {
+  padding: 16px 10px 6px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.ktu-nav {
+  display: grid;
+  gap: 1px;
+}
+
+.ktu-nav-item {
+  display: flex;
+  min-width: 0;
+  height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.ktu-nav-item:hover {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+.ktu-nav-item svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.ktu-nav-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-nav-count {
+  min-width: 20px;
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  text-align: right;
+}
+
+/* 这个方向的名片数相对最多的那个方向有多少 */
+.ktu-nav-meter {
+  width: 44px;
+  height: 3px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 1.5px;
+  background: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+.ktu-nav-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--kc-accent);
+}
+
+/* 选中：和会话列表一样的强调色实底，里面的东西全部反白 */
+.ktu-nav-item.is-active,
+.ktu-nav-item.is-active:hover {
+  background: var(--kui-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px color-mix(in srgb, var(--kui-fill) 40%, transparent);
+  color: var(--kui-on-fill);
+  font-weight: 600;
+}
+
+.ktu-nav-item.is-active :is(svg, .ktu-nav-count) {
+  color: color-mix(in srgb, var(--kui-on-fill) 82%, transparent);
+}
+
+.ktu-nav-item.is-active .ktu-nav-meter {
+  background: color-mix(in srgb, var(--kui-on-fill) 28%, transparent);
+}
+
+.ktu-nav-item.is-active .ktu-nav-meter i {
+  background: var(--kui-on-fill);
+}
+
+#kukechat-root [data-font-scale] .ktu-nav-item {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* ───────── 赛季 ───────── */
+
+.ktu-season {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  padding: 14px 16px 14px 18px;
+}
+
+.ktu-season-cover {
+  width: 96px;
+  height: 60px;
+  flex: none;
+  border-radius: var(--kui-r-sm);
+  object-fit: cover;
+}
+
+.ktu-season-text {
+  min-width: 200px;
+  flex: 1;
+}
+
+.ktu-season-text h3 {
+  margin-top: 5px;
+  overflow: hidden;
+  font-size: calc(18px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-season-text p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.ktu-season-figures {
+  display: flex;
+  flex: none;
+}
+
+.ktu-season-figures div {
+  padding: 2px 20px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.ktu-season-figures dt {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+.ktu-season-figures dd {
+  margin-top: 2px;
+  font-size: calc(17px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.ktu-season-figures small {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.ktu-season-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+/* ───────── 广场首屏 ───────── */
+
+/* 四个数字直接排在画布上，不套面板：数字在上、说明在下，之间只隔发丝线 */
+.ktu-figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 0;
+  padding: 4px 0;
+}
+
+.ktu-figure {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 0 20px;
+  border-left: 1px solid var(--kc-border-strong);
+}
+
+.ktu-figure:first-child {
+  padding-left: 4px;
+  border-left: 0;
+}
+
+.ktu-figure span {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+.ktu-figure strong {
+  overflow: hidden;
+  font-size: calc(26px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-figure small {
+  overflow: hidden;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px 8px;
+}
+
+.ktu-section-head > div {
+  min-width: 0;
+}
+
+.ktu-section-head h3 {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.ktu-section-head p {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-section-head .kui-icon-btn {
+  margin: -3px -6px 0 0;
+}
+
+.ktu-section-aside {
+  flex: none;
+  padding-top: 2px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktu-recommend {
+  padding-bottom: 8px;
+}
+
+.ktu-recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+  padding: 0 10px;
+}
+
+.ktu-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ktu-column {
+  min-width: 0;
+  padding: 0 10px 8px;
+}
+
+.ktu-column + .ktu-column {
+  border-left: 1px solid var(--kc-border);
+}
+
+.ktu-column .ktu-section-head {
+  padding: 14px 8px 8px;
+}
+
+.ktu-column-empty {
+  padding: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* 推荐列表里的一个人。宽的时候标签和热度靠右，放进三列里就挪到名字下面 */
+.ktu-person {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 11px;
+  padding: 8px;
+  border-radius: var(--kui-r-md);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.ktu-person:hover {
+  background: var(--kc-hover);
+}
+
+.ktu-person:active {
+  background: var(--kc-active);
+}
+
+.ktu-person-text {
+  min-width: 0;
+}
+
+.ktu-person-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.ktu-person-name strong {
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 正在招募的小绿点 */
+.ktu-live {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--kui-ok);
+}
+
+.ktu-person-headline {
+  display: block;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-person-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  overflow: hidden;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ktu-column .ktu-person {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.ktu-column .ktu-person > :first-child {
+  align-self: start;
+  grid-row: span 2;
+}
+
+.ktu-column .ktu-person-meta {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  grid-column: 2;
+}
+
+/* ───────── 名片列表 ───────── */
+
+.ktu-list-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 2px 0;
+  scroll-margin-top: 14px;
+}
+
+.ktu-list-head h3 {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.ktu-list-head span {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktu-manage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px 10px 16px;
+}
+
+.ktu-manage strong {
+  font-weight: 600;
+}
+
+.ktu-manage > span {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktu-manage-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.ktu-empty {
+  padding: 56px 16px;
+}
+
+.ktu-empty .kui-btn {
+  margin-top: 8px;
+}
+
+/* 瀑布流：按列宽自动分栏，卡片高矮不一 */
+.ktu-cards {
+  column-gap: 12px;
+  column-width: 272px;
+}
+
+.ktu-card {
+  display: block;
+  width: 100%;
+  margin-bottom: 12px;
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--ktu-edge);
+  break-inside: avoid;
+  text-align: left;
+  transition: box-shadow 120ms ease;
+}
+
+.ktu-card:hover {
+  box-shadow: 0 0 0 1px var(--kc-border-strong), 0 8px 18px -10px color-mix(in srgb, var(--kui-scrim) 70%, transparent);
+}
+
+.ktu-card-cover {
+  width: 100%;
+  height: 76px;
+  object-fit: cover;
+}
+
+.ktu-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 13px 14px 11px;
+}
+
+.ktu-card-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.ktu-card-who {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.ktu-card-who strong {
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-card-who span {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktu-card-who .is-friend {
+  color: var(--kc-accent);
+}
+
+.ktu-card-headline,
+.ktu-card-intro {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.ktu-card-headline {
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.ktu-card-intro {
+  margin-top: -4px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.ktu-card-tags,
+.ktu-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.ktu-card-tags em {
+  margin-right: 1px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-style: normal;
+}
+
+/* 一个技能方向：比 .kui-tag 高一点，带图标 */
+.ktu-skill {
+  display: inline-flex;
+  height: 22px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  font-size: calc(12px * var(--kui-fs));
+  white-space: nowrap;
+}
+
+.ktu-skill svg {
+  width: 12px;
+  height: 12px;
+  color: var(--kc-muted);
+}
+
+.ktu-skill small {
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+}
+
+.ktu-skill.is-outlined {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--kc-border-strong);
+}
+
+.ktu-card-showcase {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.ktu-thumb {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  background: var(--kc-panel-muted);
+}
+
+.ktu-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 压在图片上的字：一条不透明度固定的深色底，不随主题变 */
+.ktu-thumb-caption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 3px 5px;
+  background: rgba(12, 14, 20, 0.64);
+  color: #ffffff;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.ktu-thumb-caption b {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-thumb-caption span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.86;
+}
+
+.ktu-thumb-caption svg {
+  width: 10px;
+  height: 10px;
+}
+
+.ktu-thumb-caption svg + svg {
+  margin-left: 4px;
+}
+
+.ktu-thumb-more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(12, 14, 20, 0.6);
+  color: #ffffff;
+  font-size: calc(13px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.ktu-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 9px;
+  border-top: 1px solid var(--kc-border);
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktu-card-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ktu-card-foot svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ktu-more {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* ───────── 名片详情 ───────── */
+
+.ktu-detail-state {
+  flex: 1;
+}
+
+.ktu-hero {
+  overflow: hidden;
+}
+
+/* 名片主人上传的背景图：桌面端放在名片头的上沿当题图 */
+.ktu-hero-cover {
+  width: 100%;
+  height: 148px;
+  border-bottom: 1px solid var(--kc-border);
+  object-fit: cover;
+}
+
+.ktu-hero-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.ktu-hero-avatar {
+  flex: none;
+  border-radius: 50%;
+}
+
+.ktu-hero-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.ktu-hero-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.ktu-hero-name button {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-hero-name button:hover {
+  color: var(--kc-accent);
+}
+
+#kukechat-root [data-font-scale] .ktu-hero-name button {
+  font-size: calc(20px * var(--kui-fs));
+}
+
+.ktu-hero-headline {
+  margin-top: 5px;
+  font-size: calc(14px * var(--kui-fs));
+  font-weight: 500;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ktu-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  margin-top: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktu-hero-meta b {
+  color: var(--kc-text);
+  font-weight: 700;
+}
+
+.ktu-hero-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 不能再操作的关系状态（已是好友、申请已发送）：一行字，不做成按钮的样子 */
+.ktu-relation {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px;
+  color: var(--kc-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ktu-relation svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ktu-relation.is-friend {
+  color: var(--kc-accent);
+}
+
+.ktu-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 296px;
+  align-items: start;
+  gap: 14px;
+}
+
+.ktu-detail-main {
+  min-width: 0;
+}
+
+.ktu-detail-aside {
+  position: sticky;
+  top: 14px;
+  min-width: 0;
+}
+
+.ktu-intro {
+  padding: 0 0 10px;
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.ktu-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
+  padding: 2px 0 10px;
+}
+
+.ktu-gallery button {
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--kui-r-sm);
+  background: var(--kc-panel-muted);
+  transition: opacity 100ms ease;
+}
+
+.ktu-gallery button:hover {
+  opacity: 0.88;
+}
+
+.ktu-gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ktu-works {
+  display: grid;
+  gap: 8px;
+  padding: 2px 0 10px;
+}
+
+.ktu-tags {
+  gap: 6px;
+  padding: 2px 0 10px;
+}
+
+.ktu-contact {
+  margin: 2px 0 10px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ktu-ccw {
+  padding-bottom: 16px;
+}
+
+.ktu-ccw-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0 8px;
+}
+
+.ktu-ccw-head img {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.ktu-ccw-head strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(14px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-ccw-bio {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin-bottom: 10px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* 六个数字排成 3×2，通栏，格子之间只隔发丝线 */
+.ktu-ccw-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 -18px 14px;
+  border-top: 1px solid var(--kc-border);
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.ktu-ccw-stats div {
+  min-width: 0;
+  padding: 9px 18px 10px;
+}
+
+.ktu-ccw-stats div:not(:nth-child(3n + 1)) {
+  box-shadow: -1px 0 0 var(--kc-border);
+}
+
+.ktu-ccw-stats div:nth-child(n + 4) {
+  border-top: 1px solid var(--kc-border);
+}
+
+.ktu-ccw-stats strong {
+  display: block;
+  font-size: calc(16px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.ktu-ccw-stats span {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+/* ───────── 留言板 ───────── */
+
+.ktu-comments .kui-group {
+  padding-bottom: 4px;
+}
+
+.ktu-reply-to {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding-left: 42px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktu-reply-to b,
+.ktu-comment-who b {
+  color: var(--kc-accent);
+  font-weight: 500;
+}
+
+.ktu-reply-to .kui-icon-btn {
+  width: 22px;
+  height: 22px;
+}
+
+.ktu-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0 14px;
+}
+
+.ktu-composer .kui-input {
+  flex: 1;
+}
+
+.ktu-threads {
+  margin: 0 -18px;
+  padding: 0 18px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ktu-thread {
+  padding: 4px 0;
+}
+
+.ktu-thread + .ktu-thread {
+  border-top: 1px solid var(--kc-border);
+}
+
+.ktu-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 10px 0;
+}
+
+.ktu-comment.is-nested {
+  padding: 7px 0;
+}
+
+.ktu-comment-avatar {
+  flex: none;
+  border-radius: 50%;
+}
+
+.ktu-comment-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.ktu-comment-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktu-comment-who > button {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--kc-text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-comment-who > button:hover {
+  color: var(--kc-accent);
+}
+
+.ktu-comment-text {
+  margin-top: 2px;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.ktu-comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 5px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ktu-comment-meta button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--kc-muted);
+}
+
+.ktu-comment-meta button:hover {
+  color: var(--kc-text);
+}
+
+.ktu-comment-meta button.is-liked {
+  color: var(--kc-accent);
+}
+
+.ktu-comment-meta button.is-danger:hover {
+  color: var(--kui-danger);
+}
+
+.ktu-comment-meta svg {
+  width: 13px;
+  height: 13px;
+}
+
+#kukechat-root [data-font-scale] .ktu-comment-who > button {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+#kukechat-root [data-font-scale] .ktu-comment-meta button,
+#kukechat-root [data-font-scale] .ktu-replies-toggle {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 回复缩进一级，用一条竖线挂在所属的留言下面；竖线对着楼主头像的中线 */
+.ktu-replies {
+  margin: -2px 0 6px 18px;
+  padding-left: 29px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.ktu-replies-toggle {
+  display: block;
+  margin: 2px 0 4px 43px;
+}
+
+/* ───────── 分享对话框 ───────── */
+
+.ktu-share {
+  max-width: 440px;
+}
+
+.ktu-share-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ktu-share-body > * {
+  flex: none;
+}
+
+.ktu-options {
+  display: flex;
+  max-height: 300px;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 -8px;
+}
+
+.ktu-option {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 100ms ease;
+}
+
+.ktu-option:hover {
+  background: var(--kc-hover);
+}
+
+.ktu-option.is-selected,
+.ktu-option.is-selected:hover {
+  background: var(--kui-tint);
+}
+
+.ktu-option-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.ktu-option-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktu-option-text span:first-child {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.ktu-option-text span:nth-child(2) {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 没有头像的操作项：图标占和小头像一样的宽度，文字才对得齐 */
+.ktu-option-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin: 0 7px;
+  color: var(--kc-muted);
+}
+
+.ktu-option-check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--kc-accent);
+}
+
+.ktu-option-arrow {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+/* ───────── 名片编辑器 ───────── */
+
+.ktu-editor {
+  max-width: 720px;
+}
+
+.ktu-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ktu-editor-body > * {
+  flex: none;
+}
+
+.ktu-editor-hint {
+  min-width: 0;
+  flex: 1;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ktu-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ktu-field-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.ktu-field-label small {
+  margin-left: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 400;
+}
+
+.ktu-field-label i {
+  margin-left: 3px;
+  color: var(--kui-danger);
+  font-style: normal;
+}
+
+.ktu-count {
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+/* Markdown 输入：工具条和文本框合成一个输入框，聚焦时整个描边 */
+.ktu-md {
+  overflow: hidden;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-control);
+  transition: border-color 100ms ease, box-shadow 100ms ease;
+}
+
+.ktu-md:focus-within {
+  border-color: var(--kc-accent);
+  box-shadow: inset 0 0 0 0.5px var(--kc-accent);
+}
+
+.ktu-md-tools {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px 9px 3px 4px;
+  border-bottom: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+}
+
+.ktu-md-tools .kui-icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+.ktu-md-tools .ktu-count {
+  margin-left: auto;
+}
+
+.ktu-md textarea {
+  display: block;
+  width: 100%;
+  min-height: 168px;
+  padding: 9px 11px;
+  background: transparent;
+  color: var(--kc-text);
+  line-height: 1.65;
+  outline: none;
+  resize: vertical;
+}
+
+.ktu-md textarea::placeholder {
+  color: var(--kc-subtle);
+}
+
+#kukechat-root [data-font-scale] .ktu-md textarea {
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.ktu-md-preview {
+  min-height: 202px;
+  padding: 9px 11px;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.ktu-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 可多选的技能标签。选中后是强调色描边 + 一层很淡的底；「我擅长」里选中的还带熟练度和一个取消按钮 */
+.ktu-pick {
+  display: inline-flex;
+  height: 28px;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-control);
+  color: var(--kc-muted);
+  transition: border-color 100ms ease, color 100ms ease, background-color 100ms ease;
+}
+
+.ktu-pick:hover {
+  border-color: color-mix(in srgb, var(--kc-text) 26%, transparent);
+  color: var(--kc-text);
+}
+
+.ktu-pick button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+}
+
+.ktu-pick button + button {
+  padding: 0 6px;
+  border-left: 1px solid color-mix(in srgb, var(--kc-accent) 28%, transparent);
+}
+
+.ktu-pick button + button:hover {
+  background: color-mix(in srgb, var(--kc-accent) 12%, transparent);
+}
+
+.ktu-pick svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ktu-pick small {
+  margin-left: 2px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kc-accent) 14%, transparent);
+  font-size: calc(11px * var(--kui-fs));
+  line-height: 17px;
+}
+
+.ktu-pick.is-active,
+.ktu-pick.is-active:hover {
+  border-color: color-mix(in srgb, var(--kc-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--kc-accent) 8%, var(--kui-control));
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+#kukechat-root [data-font-scale] .ktu-pick button {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktu-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.ktu-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--kui-r-sm);
+  background: var(--kc-panel-muted);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+.ktu-tile--square {
+  aspect-ratio: 1;
+}
+
+.ktu-tile--wide {
+  width: 100%;
+  height: 112px;
+}
+
+.ktu-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ktu-tile-state {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  background: rgba(12, 14, 20, 0.52);
+  color: #ffffff;
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.ktu-tile-state.is-error {
+  background: rgba(176, 32, 38, 0.82);
+}
+
+/* 图片上的操作按钮：鼠标移上去或键盘聚焦到里面时才出现 */
+.ktu-tile-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.ktu-tile:hover .ktu-tile-actions,
+.ktu-tile:focus-within .ktu-tile-actions {
+  opacity: 1;
+}
+
+.ktu-tile-actions button {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: rgba(12, 14, 20, 0.64);
+  color: #ffffff;
+}
+
+.ktu-tile-actions button:hover {
+  background: rgba(12, 14, 20, 0.84);
+}
+
+.ktu-tile-actions svg {
+  width: 12px;
+  height: 12px;
+}
+
+#kukechat-root [data-font-scale] .ktu-tile-actions button {
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.ktu-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed color-mix(in srgb, var(--kc-text) 28%, transparent);
+  border-radius: var(--kui-r-sm);
+  color: var(--kc-muted);
+  transition: border-color 100ms ease, color 100ms ease;
+}
+
+.ktu-drop:hover {
+  border-color: var(--kc-accent);
+  color: var(--kc-accent);
+}
+
+.ktu-drop.ktu-tile--wide {
+  height: 60px;
+}
+
+.ktu-drop.ktu-tile--square {
+  flex-direction: column;
+  gap: 3px;
+}
+
+#kukechat-root [data-font-scale] .ktu-drop {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.ktu-work-add {
+  display: flex;
+  gap: 8px;
+}
+
+/* 一个代表作：作品卡片，右边一个移除按钮 */
+.ktu-work {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.ktu-work > :first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.ktu-work-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 8px 12px;
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  overflow-wrap: anywhere;
+}
+
+.ktu-work-state.is-error {
+  background: color-mix(in srgb, var(--kui-danger) 8%, transparent);
+  color: var(--kui-danger);
+}
+
+/* ───────── 组队申请已发送 ───────── */
+
+.ktu-celebrate {
+  width: auto;
+  max-width: 380px;
+  align-items: center;
+  padding: 26px 32px 22px;
+  text-align: center;
+}
+
+.ktu-celebrate-pair {
+  display: flex;
+  align-items: flex-start;
+}
+
+.ktu-celebrate-pair > span {
+  display: flex;
+  width: 100px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ktu-celebrate-pair b {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 两个头像之间的连接：一条发丝线，中间一个强调色的圆点 */
+.ktu-celebrate-pair > i {
+  position: relative;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  margin: 13px 18px 0;
+  border-radius: 50%;
+  background: var(--kui-fill);
+  color: var(--kui-on-fill);
+}
+
+.ktu-celebrate-pair > i::before,
+.ktu-celebrate-pair > i::after {
+  position: absolute;
+  top: 50%;
+  width: 26px;
+  height: 1px;
+  background: var(--kc-border-strong);
+  content: '';
+}
+
+.ktu-celebrate-pair > i::before {
+  right: 100%;
+}
+
+.ktu-celebrate-pair > i::after {
+  left: 100%;
+}
+
+.ktu-celebrate h3 {
+  margin-top: 16px;
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.ktu-celebrate p {
+  margin-top: 3px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* ───────── 窄窗口 ───────── */
+
+@container (max-width: 880px) {
+  .ktu-recommend-grid,
+  .ktu-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ktu-detail-aside {
+    position: static;
+  }
+
+  .ktu-bar h2 + .ktu-bar-search {
+    flex-basis: 150px;
+  }
+}
+
+@container (max-width: 800px) {
+  .ktu-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ktu-column + .ktu-column {
+    border-top: 1px solid var(--kc-border);
+    border-left: 0;
+  }
+
+  .ktu-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ktu-figure:nth-child(3) {
+    padding-left: 4px;
+    border-left: 0;
+  }
+
+  .ktu-hero-main {
+    flex-wrap: wrap;
+  }
+
+  /* 操作按钮换到下一行，和名字左边对齐（头像 56 + 间距 16） */
+  .ktu-hero-actions {
+    width: 100%;
+    padding-left: 72px;
+  }
+}
+
+/* 放不下左栏：收成顶上一排可换行的筛选项 */
+@container (max-width: 700px) {
+  .ktu-frame {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .ktu-side {
+    flex-flow: row wrap;
+    gap: 4px;
+    overflow: visible;
+    padding: 8px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--kc-border);
+  }
+
+  .ktu-side-head,
+  .ktu-side-title,
+  .ktu-nav-meter {
+    display: none;
+  }
+
+  .ktu-nav {
+    display: contents;
+  }
+
+  .ktu-nav-item {
+    height: 28px;
+    gap: 6px;
+    padding: 0 9px;
+  }
+
+  .ktu-bar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+  }
+
+  .ktu-bar h2 + .ktu-bar-search {
+    flex: 1 1 100%;
+    order: 9;
+  }
+
+  .ktu-page {
+    padding: 12px 12px 8px;
+  }
+}

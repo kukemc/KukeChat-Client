@@ -1,0 +1,542 @@
+/* 桌面端：联系人（src/components/contacts/desktop）。基础样式见 kui.css。 */
+
+/* 左边一列是入口和好友 / 群聊列表，右边是选中对象的内容。画布色由外层的 main 给。 */
+.kcc {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 268px minmax(0, 1fr);
+  color: var(--kc-text);
+}
+
+/* ───────── 列表栏 ───────── */
+
+.kcc-side {
+  position: relative;
+  /* 右键菜单会探出这一栏，要压在右边的内容区上面 */
+  z-index: 3;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--kc-border);
+  background: var(--kc-list);
+}
+
+.kcc-side-header {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 14px;
+}
+
+.kcc-side-header .kui-field {
+  flex: 1;
+}
+
+.kcc-nav {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 8px 10px;
+}
+
+.kcc-entry {
+  display: flex;
+  height: 36px;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: var(--kui-r-md);
+  color: var(--kc-text);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.kcc-entry > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.kcc-entry-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcc-entry-count {
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kcc-entry:hover {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+/* 选中和会话列表一个做法：强调色实底，里面的字和标记全部反白 */
+.kcc-entry.is-active,
+.kcc-item.is-active::before,
+.kcc-item.is-active:hover::before {
+  background: var(--kui-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px color-mix(in srgb, var(--kui-fill) 40%, transparent);
+}
+
+.kcc-entry.is-active {
+  color: var(--kui-on-fill);
+  font-weight: 600;
+}
+
+.kcc-entry.is-active > svg,
+.kcc-entry.is-active .kcc-entry-count {
+  color: color-mix(in srgb, var(--kui-on-fill) 82%, transparent);
+}
+
+:is(.kcc-entry, .kcc-item).is-active .kui-badge {
+  background: #ffffff;
+  color: var(--kui-unread);
+}
+
+#kukechat-root [data-font-scale] .kcc-entry {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* 好友 / 群聊的切换：分段控件拉满一栏宽 */
+.kcc-tabs {
+  flex: none;
+  padding: 10px 14px 6px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kcc-tabs .kui-segment {
+  display: flex;
+}
+
+.kcc-tabs .kui-segment button {
+  flex: 1;
+}
+
+.kcc-tabs .kui-segment span {
+  margin-left: 5px;
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kcc-list {
+  min-height: 0;
+  flex: 1;
+  padding-bottom: 8px;
+}
+
+/* 每一行的底色画在一块缩进的圆角伪元素上，和会话列表的行同一个路数 */
+.kcc-item {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  align-items: center;
+  gap: 11px;
+  padding: 0 18px;
+  isolation: isolate;
+  text-align: left;
+}
+
+.kcc-item::before {
+  position: absolute;
+  z-index: -1;
+  inset: 2px 8px;
+  border-radius: var(--kui-r-md);
+  content: '';
+  transition: background-color 80ms ease;
+}
+
+.kcc-item:hover::before {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+.kcc-item-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kcc-item-title,
+.kcc-item-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcc-item-title {
+  font-size: calc(13.5px * var(--kui-fs));
+  letter-spacing: 0.005em;
+  line-height: 20px;
+}
+
+.kcc-item-sub {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 18px;
+}
+
+.kcc-item.is-active .kcc-item-title {
+  color: var(--kui-on-fill);
+  font-weight: 600;
+}
+
+.kcc-item.is-active .kcc-item-sub {
+  color: color-mix(in srgb, var(--kui-on-fill) 80%, transparent);
+}
+
+.kcc-item.is-active .kc-avatar-tone {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--kui-on-fill) 50%, transparent);
+}
+
+.kcc-list .kui-empty {
+  padding: 28px 20px;
+  line-height: 1.7;
+}
+
+/* 盖住列表栏、接住菜单外点击的一层 */
+.kcc-menu-layer {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+}
+
+.kcc-menu-layer .kui-menu {
+  position: absolute;
+}
+
+/* ───────── 内容区 ───────── */
+
+.kcc-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* 和聊天面板的头部同高、同一个面，切换工作区时顶边是连着的 */
+.kcc-pane-header {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px 0 24px;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+.kcc-pane-title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.kcc-pane-title h2 {
+  flex: none;
+  font-size: calc(15.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.kcc-pane-title span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcc-pane-title b {
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+.kcc-pane-header .kui-segment {
+  flex: none;
+}
+
+/* 分段里的计数：比标签淡一档，选中时跟着变实 */
+.kcc-pane-header .kui-segment span {
+  margin-left: 4px;
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kcc-pane-header .kui-segment .is-active span {
+  color: var(--kc-muted);
+}
+
+.kcc-pane-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.kcc-pane-inner {
+  display: flex;
+  max-width: 808px;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+}
+
+.kcc-pane-inner > .kui-note {
+  margin: 2px 0;
+}
+
+/* 画布上的一块白面：发丝边 + 很紧的硬阴影。整窗背景下跟着聊天头部一起变半透明 */
+.kcc-card {
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kui-shadow-raised);
+}
+
+.kcc-card > .kui-empty {
+  padding: 44px 16px;
+  line-height: 1.7;
+}
+
+.kcc-card > .kui-empty svg {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 4px;
+  color: var(--kc-subtle);
+}
+
+.kcc-error {
+  color: var(--kui-danger);
+}
+
+/* ───────── 行：通知、屏蔽名单、找人结果 ───────── */
+
+.kcc-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px 11px 18px;
+  transition: background-color 80ms ease;
+}
+
+.kcc-row + .kcc-row {
+  box-shadow: inset 0 1px 0 var(--kc-border);
+}
+
+/* 通知有正文，多行时头像和操作都顶对齐 */
+.kcc-row--top {
+  align-items: flex-start;
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+
+.kcc-row.is-link {
+  cursor: pointer;
+}
+
+.kcc-row.is-link:hover {
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+}
+
+.kcc-row.is-link:focus-visible {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: -2px;
+}
+
+.kcc-row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.kcc-row-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.kcc-row-title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 没看过的和等你处理的通知标题加粗，看过的退成正文字重 */
+.kcc-row.is-unread .kcc-row-title {
+  font-weight: 700;
+}
+
+.kcc-row-body {
+  margin-top: 3px;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kcc-row-sub {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcc-row-body + .kcc-row-sub {
+  margin-top: 4px;
+}
+
+.kcc-row-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.kcc-row--top .kcc-row-actions {
+  margin-top: 1px;
+}
+
+.kcc-row-arrow {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+.kcc-row--top .kcc-row-arrow {
+  margin-top: 4px;
+}
+
+/* 等你处理的通知：左侧一条强调色线，不铺色块 */
+.kcc-row.is-pending {
+  position: relative;
+}
+
+.kcc-row.is-pending::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--kui-fill);
+  content: '';
+}
+
+/* ───────── 好友 / 群聊资料 ───────── */
+
+.kcc-profile {
+  width: 100%;
+  max-width: 520px;
+  margin: 28px auto 0;
+}
+
+.kcc-profile-head {
+  padding: 26px 26px 22px;
+}
+
+.kcc-profile-head :is(.kc-avatar-tone, img.rounded-full) {
+  width: 72px;
+  height: 72px;
+  font-size: calc(26px * var(--kui-fs));
+}
+
+/* 名称允许换行：截断的名字比多占一行更糟 */
+.kcc-profile-name {
+  margin-top: 16px;
+  font-size: calc(22px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.kcc-profile-meta {
+  margin-top: 6px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.kcc-profile-bio {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  margin-top: 14px;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kcc-profile-bio.is-empty {
+  color: var(--kc-subtle);
+}
+
+.kcc-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.kcc-profile-actions .kui-btn--primary {
+  min-width: 96px;
+}
+
+.kcc-profile .kui-group {
+  padding: 0 26px 12px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kcc-profile .kui-row-value {
+  max-width: 68%;
+  user-select: text;
+}
+
+/* 单行截断。放在 flex 子项上才会出省略号 */
+.kcc-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kcc-profile-quote {
+  margin: 2px 0 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

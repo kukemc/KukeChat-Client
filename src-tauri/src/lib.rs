@@ -1,6 +1,7 @@
+mod updater;
+
 use std::{
     fs,
-    io::Write,
     path::PathBuf,
     process::Command,
     sync::{
@@ -25,26 +26,6 @@ const MIN_WINDOW_WIDTH: u32 = 900;
 const MIN_WINDOW_HEIGHT: u32 = 620;
 const MAX_WINDOW_WIDTH: u32 = 7680;
 const MAX_WINDOW_HEIGHT: u32 = 4320;
-/// 编译期注入的桌面端更新源地址。
-///
-/// 本仓库不内置任何服务器地址：打包时设置环境变量 `KUKECHAT_UPDATE_METADATA_URL`
-/// 即可写入，未设置时桌面端「检查更新」会直接跳过而不是请求一个不存在的地址。
-const BUILD_UPDATE_METADATA_URL: Option<&str> = option_env!("KUKECHAT_UPDATE_METADATA_URL");
-/// 同名环境变量在运行期同样可以覆盖编译期写入的值，便于本地联调。
-const UPDATE_METADATA_URL_ENV: &str = "KUKECHAT_UPDATE_METADATA_URL";
-
-fn resolve_update_metadata_url() -> Option<String> {
-    std::env::var(UPDATE_METADATA_URL_ENV)
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .or_else(|| {
-            BUILD_UPDATE_METADATA_URL
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-        })
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -52,7 +33,10 @@ pub fn run() {
             show_main_window(app);
         }))
         .plugin(tauri_plugin_notification::init())
+        .manage(updater::UpdateState::default())
         .setup(|app| {
+            let version = app.package_info().version.to_string();
+            thread::spawn(move || updater::cleanup_old_installers(&version));
             let show_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let hide_item = MenuItem::with_id(app, "hide", "隐藏到托盘", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
@@ -112,7 +96,7 @@ pub fn run() {
             }
             _ => {}
         })
-        .invoke_handler(tauri::generate_handler![open_external_url, flash_tray_for_message, check_and_install_update, get_desktop_autostart_enabled, set_desktop_autostart_enabled])
+        .invoke_handler(tauri::generate_handler![open_external_url, flash_tray_for_message, updater::desktop_update_check, updater::desktop_update_download, updater::desktop_update_cancel, updater::desktop_update_install, get_desktop_autostart_enabled, set_desktop_autostart_enabled])
         .run(tauri::generate_context!())
         .expect("error while running KukeChat desktop app");
 }
@@ -366,153 +350,4 @@ fn get_desktop_autostart_enabled_platform() -> Result<bool, String> {
 #[cfg(not(target_os = "windows"))]
 fn set_desktop_autostart_enabled_platform(_enabled: bool) -> Result<bool, String> {
     Err("当前自启动设置仅支持 Windows 桌面端".to_string())
-}
-
-#[tauri::command]
-async fn check_and_install_update(app: AppHandle) -> Result<DesktopUpdateCheckResult, String> {
-    tauri::async_runtime::spawn_blocking(move || check_and_install_update_blocking(app))
-        .await
-        .map_err(|error| format!("更新任务失败：{error}"))?
-}
-
-fn check_and_install_update_blocking(app: AppHandle) -> Result<DesktopUpdateCheckResult, String> {
-    let current_version = app.package_info().version.to_string();
-    let Some(metadata_url) = resolve_update_metadata_url() else {
-        return Ok(DesktopUpdateCheckResult::skipped(current_version, None, "未配置桌面端更新源"));
-    };
-    let metadata = fetch_update_metadata(&metadata_url)?;
-    let latest_version = normalize_version(metadata.pc_version.as_deref().or(metadata.version.as_deref()));
-    let Some(latest_version) = latest_version else {
-        return Ok(DesktopUpdateCheckResult::skipped(current_version, None, "未配置 PC 版本号"));
-    };
-
-    if versions_match(&current_version, &latest_version) {
-        return Ok(DesktopUpdateCheckResult::skipped(current_version, Some(latest_version), "当前已是最新版本"));
-    }
-
-    let installer_url = metadata.pc_url.or(metadata.url).and_then(|url| normalize_http_url(&url));
-    let Some(installer_url) = installer_url else {
-        return Ok(DesktopUpdateCheckResult::skipped(current_version, Some(latest_version), "未配置 PC 安装包链接"));
-    };
-
-    let installer_path = download_installer(&installer_url, &latest_version)?;
-    launch_update_installer_after_exit(&installer_path, std::process::id())?;
-    app.exit(0);
-
-    Ok(DesktopUpdateCheckResult {
-        current_version,
-        latest_version: Some(latest_version),
-        update_available: true,
-        installer_started: true,
-        message: "已下载新版本，正在关闭旧客户端并启动安装程序".to_string(),
-    })
-}
-
-#[derive(serde::Serialize)]
-struct DesktopUpdateCheckResult {
-    current_version: String,
-    latest_version: Option<String>,
-    update_available: bool,
-    installer_started: bool,
-    message: String,
-}
-
-impl DesktopUpdateCheckResult {
-    fn skipped(current_version: String, latest_version: Option<String>, message: &str) -> Self {
-        Self {
-            current_version,
-            latest_version,
-            update_available: false,
-            installer_started: false,
-            message: message.to_string(),
-        }
-    }
-}
-
-#[derive(serde::Deserialize)]
-struct DesktopUpdateMetadata {
-    url: Option<String>,
-    pc_url: Option<String>,
-    version: Option<String>,
-    pc_version: Option<String>,
-}
-
-fn fetch_update_metadata(metadata_url: &str) -> Result<DesktopUpdateMetadata, String> {
-    let url = normalize_http_url(metadata_url).ok_or_else(|| "更新元数据地址无效".to_string())?;
-    ureq::get(&url)
-        .timeout(Duration::from_secs(12))
-        .call()
-        .map_err(|error| format!("检查更新失败：{error}"))?
-        .into_json::<DesktopUpdateMetadata>()
-        .map_err(|error| format!("更新元数据格式错误：{error}"))
-}
-
-fn download_installer(installer_url: &str, version: &str) -> Result<PathBuf, String> {
-    let temp_dir = std::env::temp_dir().join("KukeChatUpdate");
-    fs::create_dir_all(&temp_dir).map_err(|error| format!("无法创建更新目录：{error}"))?;
-    let installer_path = temp_dir.join(format!("KukeChat-{}-setup.exe", sanitize_filename_part(version)));
-    let partial_path = installer_path.with_extension("download");
-    let _ = fs::remove_file(&partial_path);
-    let _ = fs::remove_file(&installer_path);
-
-    let mut reader = ureq::get(installer_url)
-        .timeout(Duration::from_secs(120))
-        .call()
-        .map_err(|error| format!("下载安装包失败：{error}"))?
-        .into_reader();
-    let mut output = fs::File::create(&partial_path).map_err(|error| format!("无法写入安装包：{error}"))?;
-    std::io::copy(&mut reader, &mut output).map_err(|error| format!("保存安装包失败：{error}"))?;
-    output.flush().map_err(|error| format!("保存安装包失败：{error}"))?;
-    drop(output);
-
-    let size = fs::metadata(&partial_path).map_err(|error| format!("读取安装包失败：{error}"))?.len();
-    if size < 1024 * 1024 {
-        let _ = fs::remove_file(&partial_path);
-        return Err("下载到的安装包过小，已取消自动更新".to_string());
-    }
-
-    fs::rename(&partial_path, &installer_path).map_err(|error| format!("准备安装包失败：{error}"))?;
-    Ok(installer_path)
-}
-
-#[cfg(target_os = "windows")]
-fn launch_update_installer_after_exit(installer_path: &PathBuf, current_pid: u32) -> Result<(), String> {
-    let escaped_installer = installer_path.to_string_lossy().replace('`', "``").replace('"', "`\"");
-    let script = format!(
-        "$ErrorActionPreference='SilentlyContinue'; Wait-Process -Id {current_pid} -Timeout 30; Start-Process -FilePath \"{escaped_installer}\";"
-    );
-    Command::new("powershell")
-        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", &script])
-        .spawn()
-        .map_err(|error| format!("启动安装程序失败：{error}"))?;
-    Ok(())
-}
-
-#[cfg(not(target_os = "windows"))]
-fn launch_update_installer_after_exit(_installer_path: &PathBuf, _current_pid: u32) -> Result<(), String> {
-    Err("当前自动安装更新仅支持 Windows 桌面端".to_string())
-}
-
-fn normalize_http_url(value: &str) -> Option<String> {
-    let normalized = value.trim();
-    if normalized.starts_with("https://") || normalized.starts_with("http://") {
-        Some(normalized.to_string())
-    } else {
-        None
-    }
-}
-
-fn normalize_version(value: Option<&str>) -> Option<String> {
-    value.map(str::trim).filter(|value| !value.is_empty()).map(|value| value.trim_start_matches(['v', 'V']).to_string())
-}
-
-fn versions_match(current: &str, latest: &str) -> bool {
-    current.trim().trim_start_matches(['v', 'V']).eq_ignore_ascii_case(latest.trim().trim_start_matches(['v', 'V']))
-}
-
-fn sanitize_filename_part(value: &str) -> String {
-    value
-        .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_') { ch } else { '_' })
-        .collect()
 }

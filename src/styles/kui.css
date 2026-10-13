@@ -1,0 +1,1070 @@
+/*
+ * kui —— 桌面端界面的基础样式。
+ *
+ * 设计取向「利落」（重写页面时照这个来，不要再发明新的样式）：
+ *   · 层次靠明度：导航栏最深 → 会话列表、右侧栏 → 消息画布 → 白色的面（聊天头部、气泡、输入卡片、浮层）。
+ *     相邻两个面不能是同一个颜色；面与面之间再压一条发丝线。
+ *   · 中性色带一点冷调。强调色只给主按钮、选中、未读、进度和自己的气泡，但出现时是饱满的实底。
+ *   · 圆角 6–10px。贴着底面的面是发丝边 + 很紧的硬阴影，浮层再加一层收得很窄的投影；默认不用玻璃、模糊和渐变底。
+ *     气泡和昵称旁的标签是例外：不描边，气泡只留一层贴身的柔和投影，标签是淡底色 + 同色字。
+ *   · 用户设了背景图之后，面可以换成半透明或毛玻璃（外观设置里的「材质」）。这件事在令牌层完成：
+ *     页面照常用 --kc-rail / --kc-list / --kc-chat-surface 这些令牌就行，不需要、也不要自己写 backdrop-filter。
+ *     规则见本文件「背景与材质」一节。
+ *   · 数字一律等宽数字，关键数字放大并收紧字距；分组标题是小号加粗 + 字距。
+ *   · 信息密度参考 QQ NT：行高 28–40px，正文 13–14px，说明文字 12px。
+ *
+ * 颜色全部取主题令牌（--kc-*）。字号乘 --kc-font-multiplier。
+ * 全局有一条 #kukechat-root [data-font-scale] :is(button, input, …) { font-size: inherit }，
+ * 所以表单控件自己的字号要带上 #kukechat-root 前缀才写得进去。
+ *
+ * 聊天面板里的按钮（.kcd-button / .kcd-icon-button / .kcd-tool …）外观和这里的按钮共用一份规则，
+ * desktop-chat.css 只补尺寸。文件末尾的头像占位是唯一一段移动端也在用的样式。
+ */
+
+/* ───────── 桌面布局的配色 ───────── */
+
+/* 这些默认值只属于桌面布局，所以不写进 tailwind.css 的全局默认里（移动端另有一套，不能跟着变）。
+   前缀要带 #kukechat-root：全局的深色块是 #kukechat-root [data-theme='dark']，不带压不过它。
+   主题引擎（src/theme/themes.ts）用内联变量覆盖这里；改底色时那边的 SURFACES 要一起改。 */
+#kukechat-root [data-layout='desktop'] {
+  --kc-accent: #1f6bff;
+  /* 实底用的强调色，上面放 --kc-accent-contrast 的字（主按钮、选中、未读、纯色气泡） */
+  --kc-accent-fill: #1f6bff;
+  --kc-accent-contrast: #ffffff;
+  --kc-accent-soft: color-mix(in srgb, var(--kc-accent-fill) 14%, var(--kc-panel));
+  --kc-text: #12141a;
+  --kc-muted: #676d7c;
+  --kc-subtle: #a0a6b3;
+  --kc-border: rgba(18, 22, 38, 0.08);
+  --kc-border-strong: rgba(18, 22, 38, 0.15);
+  --kc-window: #eceef3;
+  --kc-titlebar: #e7e9ef;
+  --kc-rail: #e2e4eb;
+  --kc-list: #eceef3;
+  --kc-chat: #f5f6f9;
+  --kc-panel: #ffffff;
+  --kc-panel-muted: #f0f1f5;
+  /* 贴着画布的面：各页面的顶栏、内容卡片。整窗背景下主题引擎把它换成半透明（材质里的「顶栏」） */
+  --kc-chat-surface: var(--kc-panel);
+  /* 聊天页的顶栏、输入卡片、右侧栏各有自己的材质，默认都和上面那个一样 */
+  --kc-header-surface: var(--kc-chat-surface);
+  --kc-composer-surface: var(--kc-chat-surface);
+  --kc-side-surface: var(--kc-chat-surface);
+  --kc-hover: rgba(18, 22, 38, 0.055);
+  --kc-active: rgba(18, 22, 38, 0.09);
+  --kc-bubble-in: #ffffff;
+  --kc-bubble-out: var(--kc-accent-fill);
+  --kc-bubble-out-text: var(--kc-accent-contrast);
+  --kc-bubble-out-accent: var(--kc-accent-contrast);
+  --kc-bubble-out-muted: color-mix(in srgb, var(--kc-accent-contrast) 76%, transparent);
+  /* 气泡不描边：白面压在画布上只差一点明度，靠一层贴得很近的柔和投影托住，不能读成一圈线 */
+  --kc-bubble-shadow: 0 1px 1.5px rgba(18, 22, 38, 0.07), 0 3px 8px -3px rgba(18, 22, 38, 0.09);
+  font-family: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', 'SF Pro Text', -apple-system, 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#kukechat-root [data-layout='desktop'][data-theme='dark'] {
+  /* 饱满的强调色压在深底上当字太暗，文字和图标用提亮的；实底仍用上面那个 --kc-accent-fill */
+  --kc-accent: #5b93ff;
+  --kc-accent-soft: color-mix(in srgb, var(--kc-accent-fill) 22%, var(--kc-panel));
+  /* 浅字压深底在 Windows 上会显得发粗，正文不用纯白 */
+  --kc-text: #e1e4ea;
+  --kc-muted: #8d93a2;
+  --kc-subtle: #636979;
+  --kc-border: rgba(255, 255, 255, 0.075);
+  --kc-border-strong: rgba(255, 255, 255, 0.14);
+  --kc-window: #0b0c0f;
+  --kc-titlebar: #0d0e11;
+  --kc-rail: #090a0c;
+  --kc-list: #15161b;
+  --kc-chat: #0e0f12;
+  --kc-panel: #1b1d23;
+  --kc-panel-muted: #212329;
+  --kc-hover: rgba(255, 255, 255, 0.06);
+  --kc-active: rgba(255, 255, 255, 0.1);
+  --kc-bubble-in: #22242a;
+  /* 和浅色一样，但要再写一遍：全局深色块里有一条同优先级、排在后面的 --kc-bubble-out */
+  --kc-bubble-out: var(--kc-accent-fill);
+  /* 深色下气泡本身就比画布亮一截，只留一点落地的影子 */
+  --kc-bubble-shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
+}
+
+/* ───────── 背景与材质 ───────── */
+
+/*
+ * 背景图有两种铺法（根节点的 data-kc-wallpaper）：
+ *   'chat'    只铺聊天消息区，画在 .kcd-column 的伪元素上（desktop-chat.css）；
+ *   'window'  铺满整个窗口，画在根节点的伪元素上（下面这段），各个面的令牌由主题引擎换成半透明。
+ * 图片本身的模糊是预先算好的另一张图（--kc-wallpaper-soft-bg），不是 filter: blur——那样每次重绘都要再模糊一遍。
+ */
+[data-kc-wallpaper='window'] {
+  /* 伪元素用负的 z-index 垫在内容下面，根节点得是层叠上下文，也得是定位的包含块 */
+  position: relative;
+  isolation: isolate;
+  /* 图片没盖住的地方（「适应」留出的边、带透明通道的图）露出这个底色，而不是窗口后面的东西 */
+  background-color: var(--kc-wallpaper-base) !important;
+}
+
+[data-kc-wallpaper='window']::before,
+[data-kc-wallpaper='window']::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  content: '';
+  pointer-events: none;
+}
+
+[data-kc-wallpaper='window']::before {
+  background: var(--kc-wallpaper-soft-bg, var(--kc-wallpaper-bg));
+  filter: var(--kc-wallpaper-filter, none);
+}
+
+/* 压暗 / 提亮：一层黑或白的遮罩 */
+[data-kc-wallpaper='window']::after {
+  background: var(--kc-wallpaper-shade, transparent);
+}
+
+/*
+ * 毛玻璃面。ThemeEffects 给它们打上 data-kc-frost 并写好位置（--kc-fx / --kc-fy / --kc-fw / --kc-fh），
+ * 这里把背景叠成四层：最上面是这个面自己的半透明底色，往下是给照片刷的一层主题色（--kc-frost-wash，保证字读得清）、
+ * 背景的明暗遮罩，最下面是预先模糊好的背景图，位置和窗口里那张清晰的背景图重合。
+ * 面本身的 background-color 被图盖在最下面，不起作用。
+ * 模糊图还没算好时 --kc-frost-image 是空的，整条声明失效，面退回普通的半透明。
+ */
+#kukechat-root [data-kc-frost] {
+  background-image:
+    linear-gradient(var(--kc-frost-tint), var(--kc-frost-tint)),
+    linear-gradient(var(--kc-frost-wash, transparent), var(--kc-frost-wash, transparent)),
+    linear-gradient(var(--kc-wallpaper-shade, transparent), var(--kc-wallpaper-shade, transparent)),
+    var(--kc-frost-image) !important;
+  background-position: 0 0, 0 0, 0 0, var(--kc-fx) var(--kc-fy) !important;
+  background-repeat: no-repeat, no-repeat, no-repeat, var(--kc-frost-repeat, no-repeat) !important;
+  background-size: auto, auto, auto, var(--kc-fw) var(--kc-fh) !important;
+}
+
+#kukechat-root [data-kc-frost='rail'] {
+  --kc-frost-tint: var(--kc-rail);
+}
+
+#kukechat-root [data-kc-frost='titlebar'] {
+  --kc-frost-tint: var(--kc-titlebar);
+}
+
+#kukechat-root [data-kc-frost='list'] {
+  --kc-frost-tint: var(--kc-list);
+}
+
+#kukechat-root [data-kc-frost='header'] {
+  --kc-frost-tint: var(--kc-header-surface);
+}
+
+#kukechat-root [data-kc-frost='composer'] {
+  --kc-frost-tint: var(--kc-composer-surface);
+}
+
+#kukechat-root [data-kc-frost='sidebar'] {
+  --kc-frost-tint: var(--kc-side-surface);
+}
+
+/* 聊天以外的页面：内容区整块垫模糊的背景，上面再盖画布的遮罩；页面里的卡片、列表栏自己是半透明的 */
+#kukechat-root [data-kc-frost='page'] {
+  --kc-frost-tint: var(--kc-chat);
+}
+
+/*
+ * 主界面和每个页面的进场动画（tailwind.css 里的 kc-pc-view-in）是 fill: both，结束帧写着 filter: blur(0)，
+ * 于是动画放完之后这两个容器一直挂着一个什么都不做的滤镜。它有两个代价：
+ *   · 带滤镜的元素是 backdrop-filter 的取样边界，里面的浮层（菜单、对话框）玻璃只模糊得到页面里的东西，窗口底层的背景图透上来还是清晰的；
+ *   · 整个页面每一帧都要先画进一张离屏图层再贴回来。
+ * 这里换成一份结束帧不带 filter 的同款动画：过程一模一样，放完之后滤镜就没了。
+ * transform 保留在结束帧上：它决定了里面 position: fixed 元素相对谁定位，去掉会改变已有浮层的位置。
+ */
+@keyframes kui-view-in {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, 0, 0) scale(0.994);
+    filter: blur(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+#kukechat-root [data-layout='desktop'] :is(.kc-pc-dashboard, .kc-pc-view) {
+  animation-name: kui-view-in;
+}
+
+/* 头像形状。Avatar 组件自带 rounded-full，这里按主题改写 */
+[data-layout='desktop'] .kc-avatar {
+  border-radius: var(--kc-avatar-radius, 9999px);
+}
+
+/* 图标线条收细一档，和发丝线的分量对上 */
+[data-layout='desktop'] svg.lucide {
+  stroke-width: 1.75;
+}
+
+[data-layout='desktop'] :is(button, [role='menuitem'], [role='option']):focus-visible {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: 1px;
+}
+
+/* ───────── kui 自己的量 ───────── */
+
+.kui,
+[data-layout='desktop'] {
+  --kui-fs: var(--kc-font-multiplier, 1);
+  --kui-r-sm: 7px;
+  --kui-r-md: 9px;
+  --kui-r-lg: 10px;
+  --kui-danger: #e0383e;
+  --kui-ok: #0d8f69;
+  --kui-warn: #b06a00;
+  /* 未读数字的底：一直是红的，不跟主题的强调色走。比报错的红亮一档——它到处都是，不能看着像出了错；上面压白字 */
+  --kui-unread: #ec3d44;
+  --kui-fill: var(--kc-accent-fill, var(--kc-accent));
+  --kui-on-fill: var(--kc-accent-contrast, #ffffff);
+  --kui-tint: color-mix(in srgb, var(--kc-accent) 10%, transparent);
+  /* 按钮、输入框的面 */
+  --kui-control: var(--kc-panel);
+  /* 菜单、对话框这些浮层的面 */
+  --kui-raised: var(--kc-panel);
+  /* 轨道里被选中的那一块（分段选择、导航栏当前项） */
+  --kui-cap: var(--kc-panel);
+  --kui-scrim: rgba(14, 16, 24, 0.4);
+  /* 输入框聚焦时的边：往发丝线里掺四分之一强调色，比没聚焦时深一点、带一点色，看得出焦点在哪但不跳出来 */
+  --kui-focus: color-mix(in srgb, var(--kc-accent) 24%, var(--kc-border-strong));
+  /* 铺在底色上的内容块（群资料侧栏的分组这一类）：比发丝线还淡的一圈 + 一点落地的影子 */
+  --kui-shadow-card: 0 0 0 1px rgba(18, 22, 38, 0.06), 0 1px 2px rgba(18, 22, 38, 0.04);
+  /* 三档阴影：按钮底边的一线 → 贴着底面浮起一点的面 → 浮层 */
+  --kui-shadow-key: 0 1px 0 rgba(18, 22, 38, 0.05);
+  --kui-shadow-raised: 0 0 0 1px rgba(18, 22, 38, 0.1), 0 1px 2px rgba(18, 22, 38, 0.07), 0 5px 12px -8px rgba(18, 22, 38, 0.2);
+  --kui-shadow: 0 0 0 1px rgba(18, 22, 38, 0.11), 0 1px 1px rgba(18, 22, 38, 0.05), 0 8px 20px -8px rgba(18, 22, 38, 0.22);
+  --kui-shadow-dialog: 0 0 0 1px rgba(18, 22, 38, 0.12), 0 2px 4px rgba(18, 22, 38, 0.06), 0 18px 40px -12px rgba(18, 22, 38, 0.32);
+}
+
+/* 深色下「浮得越高越亮」：控件和浮层的面从面板色往上提，而不是靠阴影 */
+[data-theme='dark'] .kui,
+[data-layout='desktop'][data-theme='dark'] {
+  --kui-danger: #ff6369;
+  --kui-ok: #3ecf9f;
+  --kui-warn: #f0b03f;
+  --kui-unread: #f04a50;
+  --kui-control: color-mix(in srgb, #ffffff 5%, var(--kc-panel));
+  --kui-raised: color-mix(in srgb, #ffffff 3%, var(--kc-panel));
+  --kui-cap: color-mix(in srgb, #ffffff 11%, var(--kc-panel));
+  --kui-scrim: rgba(0, 0, 0, 0.58);
+  --kui-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.28);
+  --kui-shadow-key: 0 1px 0 rgba(0, 0, 0, 0.35);
+  --kui-shadow-raised: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 2px 6px -2px rgba(0, 0, 0, 0.55);
+  --kui-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 24px -8px rgba(0, 0, 0, 0.7);
+  --kui-shadow-dialog: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 20px 44px -12px rgba(0, 0, 0, 0.8);
+}
+
+/* ───────── 滚动 ───────── */
+
+/* 不要用全局的 .scroll-soft：它在桌面端带 scroll-behavior: smooth，程序化滚动会被做成动画 */
+.kui-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* 标准的 scrollbar-width / scrollbar-color 一旦设了值，Chromium 就改用系统样式（带上下箭头），
+   所以这里不设它们，并把全局 .scroll-soft 设的退回 auto，让下面的 ::-webkit-scrollbar 生效。 */
+[data-layout='desktop'] .scroll-soft {
+  scrollbar-color: auto;
+  scrollbar-width: auto;
+}
+
+:is(.kui-scroll, .kcd-scroller, [data-layout='desktop'] .scroll-soft)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:is(.kui-scroll, .kcd-scroller, [data-layout='desktop'] .scroll-soft)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:is(.kui-scroll, .kcd-scroller, [data-layout='desktop'] .scroll-soft)::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-text) 16%, transparent);
+  background-clip: content-box;
+}
+
+:is(.kui-scroll, .kcd-scroller, [data-layout='desktop'] .scroll-soft)::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--kc-text) 32%, transparent);
+  background-clip: content-box;
+}
+
+/* ───────── 按钮 ───────── */
+
+.kui-btn,
+.kcd-button,
+.kcd-chip,
+.kcd-send {
+  display: inline-flex;
+  height: 30px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 13px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-control);
+  box-shadow: var(--kui-shadow-key);
+  color: var(--kc-text);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 100ms ease, border-color 100ms ease, box-shadow 100ms ease, transform 60ms ease;
+}
+
+:is(.kui-btn, .kcd-button, .kcd-chip):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--kc-text) 26%, transparent);
+  background: color-mix(in srgb, var(--kc-text) 4%, var(--kui-control));
+}
+
+/* 按下：底边那一线阴影收掉，整块沉 1px */
+:is(.kui-btn, .kcd-button, .kcd-chip, .kcd-send):active:not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 8%, var(--kui-control));
+  box-shadow: none;
+  transform: translateY(1px);
+}
+
+:is(.kui-btn, .kcd-button, .kcd-chip, .kcd-send):disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.kui-btn--primary,
+.kcd-button--primary,
+.kcd-send {
+  border-color: color-mix(in srgb, var(--kui-fill) 84%, #000000);
+  background: var(--kui-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 1.5px color-mix(in srgb, var(--kui-fill) 42%, transparent);
+  color: var(--kui-on-fill);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+:is(.kui-btn--primary, .kcd-button--primary, .kcd-send):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--kui-fill) 74%, #000000);
+  background: color-mix(in srgb, var(--kui-fill) 90%, #000000);
+}
+
+:is(.kui-btn--primary, .kcd-button--primary, .kcd-send):active:not(:disabled) {
+  background: color-mix(in srgb, var(--kui-fill) 80%, #000000);
+}
+
+/* 不可用的主按钮退成中性色，而不是一块发虚的强调色 */
+:is(.kui-btn--primary, .kcd-button--primary, .kcd-send):disabled {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  color: var(--kc-subtle);
+  opacity: 1;
+}
+
+.kui-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--kc-muted);
+}
+
+.kui-btn--ghost:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kui-btn--danger {
+  border-color: color-mix(in srgb, var(--kui-danger) 42%, transparent);
+  color: var(--kui-danger);
+}
+
+.kui-btn--danger:hover:not(:disabled) {
+  border-color: var(--kui-danger);
+  background: color-mix(in srgb, var(--kui-danger) 8%, var(--kui-control));
+}
+
+.kui-btn--sm {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+}
+
+.kui-btn--block {
+  width: 100%;
+}
+
+#kukechat-root [data-font-scale] .kui-btn {
+  font-size: calc(13px * var(--kui-fs));
+}
+
+#kukechat-root [data-font-scale] .kui-btn--sm {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kui-icon-btn,
+.kcd-icon-button,
+.kcd-tool {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--kui-r-sm);
+  color: var(--kc-muted);
+  transition: background-color 100ms ease, color 100ms ease, transform 60ms ease;
+}
+
+:is(.kui-icon-btn, .kcd-icon-button, .kcd-tool):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-text);
+}
+
+:is(.kui-icon-btn, .kcd-icon-button, .kcd-tool):active:not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 11%, transparent);
+  transform: scale(0.94);
+}
+
+:is(.kui-icon-btn, .kcd-icon-button, .kcd-tool).is-active {
+  background: var(--kui-tint);
+  color: var(--kc-accent);
+}
+
+:is(.kui-icon-btn, .kcd-icon-button, .kcd-tool):disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.kui-link,
+.kcd-link-button {
+  color: var(--kc-accent);
+}
+
+:is(.kui-link, .kcd-link-button):hover {
+  text-decoration: underline;
+}
+
+/* ───────── 表单 ───────── */
+
+.kui-input,
+.kui-textarea,
+.kui-select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-control);
+  color: var(--kc-text);
+  outline: none;
+  transition: border-color 100ms ease, box-shadow 100ms ease;
+}
+
+.kui-input,
+.kui-select {
+  height: 32px;
+  padding: 0 10px;
+}
+
+.kui-select {
+  padding-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kui-textarea {
+  padding: 7px 10px;
+  line-height: 1.6;
+  resize: none;
+}
+
+.kui-input::placeholder,
+.kui-textarea::placeholder {
+  color: var(--kc-subtle);
+}
+
+:is(.kui-input, .kui-textarea, .kui-select):hover:not(:focus):not(:disabled) {
+  border-color: color-mix(in srgb, var(--kc-text) 28%, transparent);
+}
+
+/* 聚焦：只把 1px 的边换成掺了强调色的那一条，不加粗、不发光（键盘导航的轮廓另有 :focus-visible 管） */
+:is(.kui-input, .kui-textarea, .kui-select):focus {
+  border-color: var(--kui-focus);
+}
+
+/* tailwind.css 里有一条旧规则，用 !important 把桌面布局下所有 input / textarea 聚焦时的边压成 --kc-border
+   （比没聚焦时还淡）。那条规则删掉之前，这里得同样带 !important、再靠 #kukechat-root 的优先级盖过去。 */
+#kukechat-root [data-layout='desktop'] :is(.kui-input, .kui-textarea):focus {
+  border-color: var(--kui-focus) !important;
+}
+
+:is(.kui-input, .kui-textarea, .kui-select):disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+#kukechat-root [data-font-scale] .kui-input,
+#kukechat-root [data-font-scale] .kui-textarea,
+#kukechat-root [data-font-scale] .kui-select {
+  font-size: calc(13px * var(--kui-fs));
+}
+
+/* 带前置图标的输入框：<label class="kui-field"><Icon/><input/></label> */
+.kui-field {
+  display: flex;
+  height: 32px;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  color: var(--kc-subtle);
+  transition: border-color 100ms ease, background-color 100ms ease, box-shadow 100ms ease, color 100ms ease;
+}
+
+.kui-field:hover {
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kui-field:focus-within {
+  border-color: var(--kui-focus);
+  background: var(--kui-control);
+  color: var(--kc-muted);
+}
+
+.kui-field input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  color: var(--kc-text);
+  outline: none;
+}
+
+.kui-field input::placeholder {
+  color: var(--kc-subtle);
+}
+
+#kukechat-root [data-font-scale] .kui-field input {
+  font-size: calc(13px * var(--kui-fs));
+}
+
+/* 开关：<input type="checkbox" class="kui-switch" role="switch" /> */
+.kui-switch {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  flex: none;
+  appearance: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-text) 20%, transparent);
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.kui-switch::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  background: #ffffff;
+  box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  content: '';
+  transition: transform 140ms cubic-bezier(0.3, 0.7, 0.3, 1), width 120ms ease;
+}
+
+.kui-switch:hover:not(:checked):not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 27%, transparent);
+}
+
+.kui-switch:checked {
+  background: var(--kui-fill);
+}
+
+.kui-switch:checked::after {
+  transform: translateX(12px);
+}
+
+/* 按住时滑块拉长一点，松手才落位 */
+.kui-switch:active:not(:disabled)::after {
+  width: 17px;
+}
+
+.kui-switch:checked:active:not(:disabled)::after {
+  transform: translateX(9px);
+}
+
+.kui-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 分段选择：<div class="kui-segment"><button class="is-active">…</button>…</div> */
+.kui-segment {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--kui-r-sm);
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+}
+
+.kui-segment button {
+  height: 24px;
+  padding: 0 11px;
+  border-radius: 5px;
+  color: var(--kc-muted);
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.kui-segment button:hover {
+  color: var(--kc-text);
+}
+
+.kui-segment button.is-active {
+  background: var(--kui-cap);
+  box-shadow: var(--kui-shadow-raised);
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+#kukechat-root [data-font-scale] .kui-segment button {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* ───────── 分组与行 ───────── */
+
+/* 一组设置项：标题在上。区块之间只留一条发丝线；行与行之间靠对齐和留白，不画线 */
+.kui-group {
+  padding: 0 18px 8px;
+}
+
+.kui-group + .kui-group {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kui-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 0 6px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+/* 标题右边的计数和「查看全部」是正文，不跟着标题加粗拉字距 */
+.kui-group-title > :is(.kui-link, span + span) {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.kui-group-title > span + span {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+#kukechat-root [data-font-scale] .kui-group-title > .kui-link {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kui-row {
+  display: flex;
+  min-height: 38px;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  color: var(--kc-text);
+  text-align: left;
+}
+
+/* 可点击的行：悬停是一块向两侧探出 8px 的圆角底，不铺满整行 */
+button.kui-row {
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding-right: 8px;
+  padding-left: 8px;
+  border-radius: var(--kui-r-sm);
+  cursor: pointer;
+  transition: background-color 80ms ease;
+}
+
+button.kui-row:hover {
+  background: var(--kc-hover);
+}
+
+button.kui-row:active:not(:disabled) {
+  background: var(--kc-active);
+}
+
+.kui-row-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.kui-row-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.55;
+}
+
+.kui-row-value {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 56%;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kui-row > svg:first-child {
+  flex: none;
+  color: var(--kc-muted);
+}
+
+#kukechat-root [data-font-scale] button.kui-row,
+.kui-row {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+/* ───────── 标记 ───────── */
+
+/* 未读和待处理的数字：红底白字。这是界面里少数「需要你注意」的东西之一，颜色固定，不跟强调色走 */
+.kui-badge {
+  display: inline-grid;
+  min-width: 17px;
+  height: 17px;
+  flex: none;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--kui-unread);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+/* 免打扰会话的未读：只提示有，不抢注意力 */
+.kui-badge--quiet {
+  background: color-mix(in srgb, var(--kc-text) 13%, transparent);
+  color: var(--kc-muted);
+}
+
+.kui-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--kui-unread);
+}
+
+.kui-tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(10.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.kui-tag--accent {
+  background: color-mix(in srgb, var(--kc-accent) 12%, transparent);
+  color: var(--kc-accent);
+}
+
+.kui-tag--danger {
+  background: color-mix(in srgb, var(--kui-danger) 11%, transparent);
+  color: var(--kui-danger);
+}
+
+.kui-tag--warn {
+  background: color-mix(in srgb, var(--kui-warn) 14%, transparent);
+  color: var(--kui-warn);
+}
+
+.kui-tag--ok {
+  background: color-mix(in srgb, var(--kui-ok) 13%, transparent);
+  color: var(--kui-ok);
+}
+
+/* 一段带语气的说明文字：左侧一条色线，不铺色块 */
+.kui-note {
+  padding: 1px 0 1px 11px;
+  border-left: 2px solid var(--kc-border-strong);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kui-note--warn {
+  border-color: var(--kui-warn);
+  color: var(--kc-text);
+}
+
+.kui-note--danger {
+  border-color: var(--kui-danger);
+  color: var(--kui-danger);
+}
+
+.kui-empty {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 32px 16px;
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  text-align: center;
+}
+
+.kui-muted {
+  color: var(--kc-muted);
+}
+
+/* ───────── 菜单 ───────── */
+
+.kui-menu {
+  min-width: 172px;
+  padding: 4px;
+  border-radius: var(--kui-r-md);
+  /* 浮层的材质是玻璃时，主题引擎给出半透明的底和 backdrop-filter；否则这两个变量不存在，就是实底 */
+  background: var(--kc-overlay-surface, var(--kui-raised));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+  user-select: none;
+}
+
+/* 悬停不做过渡：菜单里鼠标划过一串项，底色要跟手 */
+.kui-menu-item {
+  display: flex;
+  width: 100%;
+  height: 28px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 9px 0 8px;
+  border-radius: 5px;
+  text-align: left;
+}
+
+.kui-menu-item:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kui-menu-item:active:not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 12%, transparent);
+}
+
+.kui-menu-item > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.kui-menu-item:hover:not(:disabled) > svg {
+  color: var(--kc-text);
+}
+
+.kui-menu-item.is-danger,
+.kui-menu-item.is-danger:hover > svg,
+.kui-menu-item.is-danger > svg {
+  color: var(--kui-danger);
+}
+
+.kui-menu-item.is-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kui-danger) 11%, transparent);
+}
+
+.kui-menu-item.is-selected {
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+.kui-menu-item.is-selected:hover > svg,
+.kui-menu-item.is-selected > svg {
+  color: var(--kc-accent);
+  stroke-width: 2.25;
+}
+
+.kui-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.kui-menu-suffix {
+  margin-left: auto;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* 菜单的外层（ui/ContextMenu 的 MenuLayer）：铺满容器但自己不接鼠标，
+   点菜单外面的那一下照常落到下面的按钮上（关菜单由 MenuLayer 监听 mousedown 来做）。 */
+.kui-menu-layer {
+  pointer-events: none;
+}
+
+.kui-menu-layer > * {
+  pointer-events: auto;
+}
+
+/* 分隔线贯通菜单两边 */
+.kui-menu-sep {
+  height: 1px;
+  margin: 4px -4px;
+  background: var(--kc-border);
+}
+
+#kukechat-root [data-font-scale] .kui-menu-item {
+  font-size: calc(13px * var(--kui-fs));
+}
+
+/* ───────── 浮层 ───────── */
+
+.kui-backdrop {
+  position: fixed;
+  z-index: 2147483000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--kui-scrim);
+  pointer-events: auto;
+}
+
+.kui-dialog {
+  display: flex;
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100% - 32px);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-overlay-surface, var(--kui-raised));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow-dialog);
+  color: var(--kc-text);
+}
+
+.kui-dialog-header {
+  display: flex;
+  height: 48px;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 9px 0 18px;
+  border-bottom: 1px solid var(--kc-border);
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.kui-dialog-body {
+  min-height: 0;
+  flex: 1;
+  padding: 16px 18px 18px;
+}
+
+/* 底栏垫一层极浅的底色，把「操作」和「内容」分开 */
+.kui-dialog-footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 11px 18px;
+  border-top: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+}
+
+/* 从右侧滑出的侧栏面板（群资料之类） */
+.kui-drawer-backdrop {
+  position: absolute;
+  z-index: 45;
+  inset: 0;
+  background: color-mix(in srgb, var(--kui-scrim) 45%, transparent);
+}
+
+.kui-drawer {
+  position: absolute;
+  z-index: 46;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  width: 372px;
+  max-width: 100%;
+  flex-direction: column;
+  background: var(--kc-overlay-drawer, var(--kc-panel));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: -1px 0 0 var(--kc-border-strong), -14px 0 30px -16px color-mix(in srgb, var(--kui-scrim) 80%, transparent);
+  color: var(--kc-text);
+  animation: kui-drawer-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes kui-drawer-in {
+  from {
+    opacity: 0.6;
+    transform: translateX(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kui-drawer {
+    animation: none;
+  }
+}
+
+/* ───────── 头像占位 ───────── */
+
+/* 没有头像图片时的底色。色相（--kc-avatar-tone）由 Avatar 组件按人固定给出，这里只管调成柔和的底和同色系的字。
+   移动端同样在用，所以不限定布局。 */
+.kc-avatar-tone {
+  background: color-mix(in srgb, var(--kc-avatar-tone) 17%, var(--kc-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc-avatar-tone) 16%, transparent);
+  color: color-mix(in srgb, var(--kc-avatar-tone) 84%, var(--kc-text));
+}
+
+/* 深色下底色要掺得更浓、字更亮，不然一排头像糊成一片暗 */
+[data-theme='dark'] .kc-avatar-tone {
+  background: color-mix(in srgb, var(--kc-avatar-tone) 27%, var(--kc-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc-avatar-tone) 30%, transparent);
+  color: color-mix(in srgb, var(--kc-avatar-tone) 58%, #ffffff);
+}

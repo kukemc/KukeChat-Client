@@ -1,0 +1,1823 @@
+/*
+ * 商店与气泡皮肤（src/components/shop）。基础样式见 kui.css。
+ *
+ * 三部分：
+ *   1. 气泡皮肤（kcsk-）——聊天里的气泡、商店里的预览共用，桌面和移动两套消息列表都用它；
+ *   2. 商店的桌面页面（ksp-）——守 kui 的「利落」取向：面只用标准令牌，卡片不描边、不套卡片；
+ *   3. 商店的移动端页面（ksp-m-）——外框沿用移动端的 kc-qq-*，颜色取移动端令牌。
+ */
+
+/* ───────── 1. 气泡皮肤 ───────── */
+
+/*
+ * 皮肤的值（颜色、渐变、阴影、圆角）不写在这里：components/shop/skin/bubbleSkin.ts 把服务端给的 style 校验、重新拼好之后，
+ * 作为一组自定义属性（--kcsk-* 是浅色的，--kcsk-d-* 是深色的）挂在气泡元素上；这里只负责「用哪一组、画到哪些属性上」。
+ * 所以皮肤和主题是叠加关系：皮肤只改它自己这个气泡的底、字、链接、边、投影、圆角，其余（间距、字号、尖角朝向、连发时的圆角）仍是主题的。
+ */
+.kcsk {
+  --kcsk-c-bg: var(--kcsk-bg);
+  --kcsk-c-text: var(--kcsk-text);
+  --kcsk-c-link: var(--kcsk-link);
+  --kcsk-c-bw: var(--kcsk-bw);
+  --kcsk-c-bc: var(--kcsk-bc);
+  --kcsk-c-shadow: var(--kcsk-shadow);
+}
+
+[data-theme='dark'] .kcsk {
+  --kcsk-c-bg: var(--kcsk-d-bg);
+  --kcsk-c-text: var(--kcsk-d-text);
+  --kcsk-c-link: var(--kcsk-d-link);
+  --kcsk-c-bw: var(--kcsk-d-bw);
+  --kcsk-c-bc: var(--kcsk-d-bc);
+  --kcsk-c-shadow: var(--kcsk-d-shadow);
+}
+
+/*
+ * 前缀带 #kukechat-root：要压过桌面气泡（.kcd-row.is-mine .kcd-bubble）和移动端气泡上的原子类。
+ *   · 气泡里的 @、链接、引用、灰字读的是全局令牌，这里把它们重定向到皮肤的前景色（和主题气泡的做法一样）；
+ *   · 边框画成内描边（见下面的 ::after），不占布局；
+ *   · 皮肤是实打实的一块底，主题里给气泡选的毛玻璃在这块气泡上不生效；
+ *   · 没给阴影时 --kcsk-c-shadow 是空的，退回主题自己的气泡投影。
+ */
+#kukechat-root .kcsk {
+  --kc-text: var(--kcsk-c-text);
+  --kc-accent: var(--kcsk-c-link);
+  --kc-muted: color-mix(in srgb, var(--kcsk-c-text) 72%, transparent);
+  --kc-border: color-mix(in srgb, var(--kcsk-c-text) 20%, transparent);
+  position: relative;
+  background: var(--kcsk-c-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: var(--kcsk-c-shadow, var(--kc-bubble-shadow, 0 0 0 transparent));
+  color: var(--kcsk-c-text);
+  /* 纹样、动效这些层用负的 z-index 垫在内容下面，得把它们关在这个气泡自己的层叠上下文里 */
+  isolation: isolate;
+}
+
+/* 边框：一圈内描边，画在纹样和流动的渐变上面、文字下面（伪元素排在所有子元素之后，同是 -1 的层里它最靠上） */
+#kukechat-root .kcsk::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 var(--kcsk-c-bw, 0px) var(--kcsk-c-bc, transparent);
+  content: '';
+  pointer-events: none;
+}
+
+/* 皮肤上的链接可能和字同色，靠下划线认出来 */
+#kukechat-root .kcsk a {
+  color: var(--kcsk-c-link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  text-underline-offset: 2px;
+}
+
+/*
+ * 气泡里「自带底色的内容」（作品卡片、角上的收藏 / 精华标记）不跟着皮肤变色，要用回主题的颜色。
+ * 气泡已经把 --kc-text 这些令牌改掉了，子元素没法越过它拿到原值，所以在气泡的上一层先存一份（--kcsk-o-*）。
+ */
+.kcd-line,
+.kc-mobile-message-stack,
+.kcsk-scope {
+  --kcsk-o-text: var(--kc-text);
+  --kcsk-o-accent: var(--kc-accent);
+  --kcsk-o-muted: var(--kc-muted);
+  --kcsk-o-border: var(--kc-border);
+}
+
+#kukechat-root .kcsk :is(.kc-ccw-card, .kcd-flags, .kcsk-keep) {
+  --kc-text: var(--kcsk-o-text);
+  --kc-accent: var(--kcsk-o-accent);
+  --kc-muted: var(--kcsk-o-muted);
+  --kc-border: var(--kcsk-o-border);
+  color: var(--kcsk-o-text);
+  text-decoration: none;
+}
+
+/* 圆角。桌面气泡的圆角来自 --kcd-radius / --kcd-tail，皮肤只换这两个量：朝头像的尖角、连发时四角一致这些规则照旧 */
+#kukechat-root .kcd-bubble.kcsk--r {
+  --kcd-radius: var(--kcsk-radius);
+  --kcd-tail: min(var(--kc-bubble-tail, 3px), var(--kcsk-radius));
+}
+
+/* 移动端气泡和语音气泡的圆角是原子类写死的，这里按朝向重写（kcsk-m 只加在这两种气泡上） */
+#kukechat-root .kcsk-m.kcsk--r {
+  border-radius: var(--kcsk-radius);
+}
+
+#kukechat-root .kcsk-m.kcsk--r.kcsk--in {
+  border-top-left-radius: 0.125rem;
+}
+
+#kukechat-root .kcsk-m.kcsk--r.kcsk--out {
+  border-top-right-radius: 0.125rem;
+}
+
+/* 语音气泡：自己的那圈描边收掉，播放键和波形换成皮肤的前景色 */
+#kukechat-root .kc-voice.kcsk {
+  border-color: transparent;
+}
+
+#kukechat-root .kcsk .kc-voice-play {
+  background: color-mix(in srgb, var(--kcsk-c-text) 16%, transparent);
+  box-shadow: none;
+  color: var(--kcsk-c-text);
+}
+
+#kukechat-root .kcsk .kc-voice-bar {
+  background: color-mix(in srgb, var(--kcsk-c-text) 30%, transparent);
+}
+
+#kukechat-root .kcsk .kc-voice-bar.is-active {
+  background: var(--kcsk-c-text);
+}
+
+/*
+ * 底色以外的几层（由 SkinDecor 渲染，都是气泡最前面的子元素，绝对定位、垫在文字下面，不参与布局）：
+ *   .kcsk-glow     呼吸的光晕，气泡外沿一圈
+ *   .kcsk-fx       裁在气泡形状里的一层：流动的渐变 → 纹样 → 扫光
+ *   .kcsk-orn      角饰
+ *
+ * 聊天里可能同时有几十个带动效的气泡，所以：
+ *   · 会动的都只动 transform / opacity —— 不触发布局，也不重绘气泡里的文字，交给合成器就行；
+ *   · 节奏都很慢（一次呼吸八九秒、一道扫光八秒里只走两秒多），同屏的气泡用 --kcsk-delay 错开；
+ *   · 消息列表是虚拟的，屏幕外的气泡不在 DOM 里，自然也不跑动画；
+ *   · 纯色底的 flow 没有东西可流，SkinDecor 根本不渲染；外观里开了「性能优先」时会动的层都不渲染；
+ *   · 系统设了「减少动态效果」时会动的层隐藏、角饰不动，纹样和角饰本身照常画（契约：此时 animation 当作 none）。
+ */
+.kcsk-fx {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  contain: strict;
+  pointer-events: none;
+}
+
+.kcsk-fx > i {
+  position: absolute;
+  display: block;
+}
+
+/* 纹样：内置的小块 SVG 平铺。图和每块的大小来自 bubbleSkin.ts（--kcsk-pat / --kcsk-pat-size，深色另有一组） */
+.kcsk {
+  --kcsk-c-pat: var(--kcsk-pat, none);
+  --kcsk-c-pat-size: var(--kcsk-pat-size, auto);
+  --kcsk-c-glow: var(--kcsk-glow, transparent);
+}
+
+[data-theme='dark'] .kcsk {
+  --kcsk-c-pat: var(--kcsk-d-pat, none);
+  --kcsk-c-pat-size: var(--kcsk-d-pat-size, auto);
+  --kcsk-c-glow: var(--kcsk-d-glow, transparent);
+}
+
+.kcsk-fx-pattern {
+  inset: 0;
+  background-image: var(--kcsk-c-pat);
+  background-repeat: repeat;
+  background-size: var(--kcsk-c-pat-size);
+}
+
+/* flow：同一幅渐变放大一圈，在气泡后面缓慢地来回平移。十几秒走一个来回 */
+.kcsk-fx-flow {
+  inset: -60%;
+  background: var(--kcsk-c-bg);
+  animation: kcsk-flow 13s ease-in-out var(--kcsk-delay, 0s) infinite alternate;
+}
+
+@keyframes kcsk-flow {
+  from {
+    transform: translate3d(-17%, -12%, 0);
+  }
+
+  to {
+    transform: translate3d(17%, 12%, 0);
+  }
+}
+
+/* shimmer：一道柔和的斜光，八秒里只有两秒多在扫，其余时间停在气泡外面 */
+.kcsk-fx-shine {
+  top: -30%;
+  bottom: -30%;
+  left: 0;
+  width: 52%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+  transform: translate3d(-140%, 0, 0) skewX(-16deg);
+  animation: kcsk-shimmer 8s cubic-bezier(0.4, 0, 0.2, 1) var(--kcsk-delay, 0s) infinite;
+}
+
+[data-theme='dark'] .kcsk-fx-shine {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.16) 50%, transparent 100%);
+}
+
+@keyframes kcsk-shimmer {
+  0%,
+  68% {
+    transform: translate3d(-140%, 0, 0) skewX(-16deg);
+  }
+
+  100% {
+    transform: translate3d(240%, 0, 0) skewX(-16deg);
+  }
+}
+
+/* breathe：光晕画一次（外沿一圈 + 里面一层薄薄的亮），之后只改它的不透明度。一呼一吸九秒 */
+.kcsk-glow {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 9px 1px color-mix(in srgb, var(--kcsk-c-glow) 70%, transparent), 0 0 2px color-mix(in srgb, var(--kcsk-c-glow) 80%, transparent), inset 0 0 12px rgba(255, 255, 255, 0.2);
+  opacity: 0.2;
+  pointer-events: none;
+  animation: kcsk-breathe 4.5s ease-in-out var(--kcsk-delay, 0s) infinite alternate;
+}
+
+/* 移动端的消息行各自裁切，行与行之间只有几像素：光晕收小，不然会在行的边界上被切出一条直线 */
+:is(.kc-mobile-message-row, .ksp-stage--mobile) .kcsk-glow {
+  box-shadow: 0 0 3px color-mix(in srgb, var(--kcsk-c-glow) 80%, transparent), inset 0 0 14px rgba(255, 255, 255, 0.24);
+}
+
+@keyframes kcsk-breathe {
+  from {
+    opacity: 0.2;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+ * 角饰：骑在气泡的角上，探出去一点。
+ *   · 横向最多探出 7 像素：头像和气泡之间只有 8–10 像素，不能压到头像；
+ *   · 竖向：伸进气泡里的那一截不超过 8 像素 —— 正好落在气泡上下的内边距里，所以不管角饰多大、气泡多小，都盖不到字；
+ *     其余的都探在气泡外面。探出去的部分超过气泡上下原有空隙时，bubbleSkin.ts 给气泡加了外边距
+ *     （--kcsk-mt / --kcsk-mb）垫出来，所以压不到上面的昵称，也压不到相邻消息的文字；
+ *   · 压在边框上面（z-index: 1）：它是骑在边上的，不能被那一圈描边切开；
+ *   · 贴身的一圈暗边加一层很轻的投影：浅色的角饰探到浅色画布上时仍然看得出轮廓。
+ */
+.kcsk-orn {
+  --kcsk-ox: min(calc(var(--kcsk-os) * 0.38), 7px);
+  --kcsk-oy: max(calc(var(--kcsk-os) * 0.4), calc(var(--kcsk-os) - 8px));
+  position: absolute;
+  z-index: 1;
+  width: var(--kcsk-os);
+  height: var(--kcsk-os);
+  overflow: visible;
+  filter: drop-shadow(0 0 0.5px rgba(15, 18, 30, 0.5)) drop-shadow(0 1px 1.5px rgba(15, 18, 30, 0.2));
+  pointer-events: none;
+}
+
+.kcsk-orn--tl {
+  top: calc(var(--kcsk-oy) * -1);
+  left: calc(var(--kcsk-ox) * -1);
+}
+
+.kcsk-orn--tr {
+  top: calc(var(--kcsk-oy) * -1);
+  right: calc(var(--kcsk-ox) * -1);
+}
+
+.kcsk-orn--bl {
+  bottom: calc(var(--kcsk-oy) * -1);
+  left: calc(var(--kcsk-ox) * -1);
+}
+
+.kcsk-orn--br {
+  right: calc(var(--kcsk-ox) * -1);
+  bottom: calc(var(--kcsk-oy) * -1);
+}
+
+/* animated 的角饰：闪、晃、浮、跳，幅度都很小 */
+.kcsk-orn--twinkle {
+  animation: kcsk-twinkle 3.6s ease-in-out var(--kcsk-delay, 0s) infinite alternate;
+}
+
+.kcsk-orn--sway {
+  animation: kcsk-sway 4.4s ease-in-out var(--kcsk-delay, 0s) infinite alternate;
+}
+
+.kcsk-orn--float {
+  animation: kcsk-float 4.8s ease-in-out var(--kcsk-delay, 0s) infinite alternate;
+}
+
+.kcsk-orn--pulse {
+  animation: kcsk-pulse 3.2s ease-in-out var(--kcsk-delay, 0s) infinite alternate;
+}
+
+@keyframes kcsk-twinkle {
+  from {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+
+  to {
+    opacity: 0.6;
+    transform: scale(0.84) rotate(10deg);
+  }
+}
+
+@keyframes kcsk-sway {
+  from {
+    transform: rotate(-7deg);
+  }
+
+  to {
+    transform: rotate(7deg);
+  }
+}
+
+@keyframes kcsk-float {
+  from {
+    transform: translate3d(0, -1.5px, 0);
+  }
+
+  to {
+    transform: translate3d(0, 1.5px, 0);
+  }
+}
+
+@keyframes kcsk-pulse {
+  from {
+    transform: scale(0.94);
+  }
+
+  to {
+    transform: scale(1.08);
+  }
+}
+
+/* 有东西要探出去的气泡：给角饰垫出上下的空，并且不裁切自己（移动端的气泡默认是裁切的） */
+#kukechat-root .kcsk {
+  margin-top: var(--kcsk-mt, 0px);
+  margin-bottom: var(--kcsk-mb, 0px);
+}
+
+#kukechat-root .kcsk.kcsk--spill,
+#kukechat-root .kc-native-app .kc-mobile-message-bubble.kcsk--spill {
+  overflow: visible !important;
+}
+
+/* 语音气泡在移动端外面还套着一层会裁切的容器 */
+#kukechat-root .kc-mobile-message-content:has(> .kcsk--spill),
+#kukechat-root .kc-native-app .kc-mobile-message-content:has(> .kcsk--spill) {
+  overflow: visible !important;
+}
+
+/* 气泡角上原有的收藏 / 精华标记：那个角被角饰占了就挪到下面的角 */
+#kukechat-root .kcsk--orn-tr > .kcd-flags {
+  top: auto;
+  bottom: -6px;
+}
+
+#kukechat-root .kcd-row.is-mine .kcsk--orn-tr > .kcd-flags {
+  top: -6px;
+  bottom: auto;
+}
+
+#kukechat-root .kcd-row.is-mine .kcsk--orn-tl > .kcd-flags {
+  top: auto;
+  bottom: -6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kcsk-glow,
+  .kcsk-fx-flow,
+  .kcsk-fx-shine {
+    display: none;
+  }
+
+  .kcsk-orn {
+    animation: none;
+  }
+}
+
+/* ───────── 气泡预览（商店里用真的气泡画） ───────── */
+
+/* 桌面：外层同时带着 .kcd，气泡行用的就是聊天面板的那批规则；这里把聊天面板「铺满、裁切、自成容器」的那几条收回去 */
+.kcd.ksp-stage {
+  display: flex;
+  height: auto;
+  flex-direction: column;
+  overflow: visible;
+  padding: 2px 12px 12px;
+  background: none;
+  container-type: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ksp-stage .kcd-item {
+  padding-top: 10px;
+}
+
+/* 真界面里气泡外侧要给悬浮工具条留位置，预览里没有工具条 */
+.ksp-stage .kcd-line {
+  max-width: 88%;
+}
+
+.ksp-stage .kcd-bubble {
+  user-select: none;
+}
+
+.ksp-stage--mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 8px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 垫一块消息画布的颜色：试穿、确认框里用。圆角、发丝边和卡片一致 */
+.ksp-stage--boxed {
+  border-radius: var(--kui-r-md, 9px);
+  background: var(--kc-chat);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+.kcd.ksp-stage--boxed {
+  padding: 4px 14px 16px;
+}
+
+.ksp-stage--tall .kcd-item {
+  padding-top: 12px;
+}
+
+/* 「我的装扮」里那一条：不要外边距，贴着文字 */
+.kcd.ksp-stage--slot,
+.ksp-stage--mobile.ksp-stage--slot {
+  padding: 0;
+}
+
+.ksp-stage--slot .kcd-item {
+  padding-top: 0;
+}
+
+.ksp-stage--slot .kcd-line {
+  max-width: 100%;
+}
+
+/* ───────── 2. 桌面页面 ───────── */
+
+.ksp-root {
+  height: 100%;
+  min-height: 0;
+}
+
+.ksp {
+  --kui-fs: var(--kc-font-multiplier, 1);
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.ksp-head {
+  display: flex;
+  min-height: 52px;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 20px 8px 24px;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+.ksp-head-title {
+  flex: none;
+  font-size: calc(15.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.ksp-head-sub {
+  min-width: 0;
+  flex: 1 1 120px;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ksp-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.ksp-wrap {
+  display: flex;
+  max-width: 1160px;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  padding: 18px 24px 28px;
+}
+
+/* 余额和我的装扮并排；窄了就上下叠 */
+.ksp-top {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 14px;
+}
+
+.ksp-card {
+  min-width: 0;
+  padding: 16px 18px 18px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kui-shadow-card);
+}
+
+.ksp-card-head {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ksp-card-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.ksp-card-head h2 > svg {
+  color: var(--kc-muted);
+}
+
+.ksp-card > .kui-note {
+  margin-top: 10px;
+}
+
+/* 分组标题：小号加粗 + 字距 */
+.ksp-h {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+/* —— 余额 —— */
+
+.ksp-balance-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.ksp-coin {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--kui-r-lg);
+  background: var(--kui-tint);
+  color: var(--kc-accent);
+}
+
+.ksp-balance-figure {
+  min-width: 0;
+  flex: 1 1 96px;
+}
+
+.ksp-balance-label {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.3;
+}
+
+/* 关键数字：放大、等宽、收紧字距 */
+.ksp-balance-number {
+  font-size: calc(28px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.ksp-balance-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ksp-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ksp-stats > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.ksp-stats dt {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ksp-stats dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 点过「去投币」之后：把「回来点刷新」那句话提成强调色 */
+.kui-note.ksp-note--live {
+  border-color: var(--kc-accent);
+  color: var(--kc-text);
+}
+
+/* 没绑定 CCW：整块换成引导 */
+.ksp-bind {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+}
+
+.ksp-bind-text {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.ksp-bind-text h2 {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.ksp-bind-text p {
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+/* —— 我的装扮 —— */
+
+.ksp-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.ksp-slot + .ksp-slot {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ksp-slot-text {
+  min-width: 0;
+  flex: 1 1 150px;
+}
+
+.ksp-slot-label {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.ksp-slot-name {
+  overflow: hidden;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-slot-hint {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.55;
+}
+
+.ksp-slot > .ksp-stage {
+  min-width: 0;
+  max-width: 220px;
+  flex: 0 1 auto;
+}
+
+/* —— 商品 —— */
+
+.ksp-catalog-head {
+  display: flex;
+  min-height: 28px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin: 4px 0 10px;
+}
+
+.ksp-catalog-count {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.ksp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 232px), 1fr));
+  gap: 14px;
+}
+
+.ksp-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kui-shadow-card);
+}
+
+/* 正在用的那一件：一圈强调色，不换底色 */
+.ksp-item.is-equipped {
+  box-shadow: 0 0 0 1.5px var(--kc-accent), var(--kui-shadow-card);
+}
+
+/* 预览区是一小块消息画布：气泡压在画布色上，和聊天里看到的一样 */
+.ksp-item-preview {
+  position: relative;
+  display: flex;
+  min-height: 136px;
+  flex-direction: column;
+  justify-content: center;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ksp-item-preview:focus-visible {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: -2px;
+}
+
+.ksp-item-try {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  height: 22px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow-raised);
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.ksp-item-preview:hover .ksp-item-try,
+.ksp-item-preview:focus-visible .ksp-item-try {
+  opacity: 1;
+}
+
+.ksp-item-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 14px;
+}
+
+.ksp-item-title {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.ksp-item-title h3 {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-tags {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ksp-item-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.55;
+}
+
+.ksp-item-foot {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.ksp-price {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ksp-price > svg {
+  flex: none;
+  color: var(--kui-warn);
+}
+
+.ksp-price b {
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ksp-price small {
+  overflow: hidden;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-price--text,
+.ksp-price--text b {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* —— 空、出错、加载 —— */
+
+.ksp-state {
+  display: grid;
+  max-width: 460px;
+  justify-items: center;
+  gap: 4px;
+  margin: 0 auto;
+  padding: 56px 16px;
+  text-align: center;
+}
+
+.ksp-state.is-compact {
+  padding: 28px 12px;
+}
+
+.ksp-state-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  color: var(--kc-muted);
+}
+
+.ksp-state.is-danger .ksp-state-icon {
+  background: color-mix(in srgb, var(--kui-danger) 11%, transparent);
+  color: var(--kui-danger);
+}
+
+.ksp-state-title {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.ksp-state-text {
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.7;
+}
+
+.ksp-state-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ksp-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ksp-bone--card {
+  height: 150px;
+  border-radius: var(--kui-r-lg);
+}
+
+.ksp-bone--item {
+  height: 236px;
+  border-radius: var(--kui-r-lg);
+}
+
+/* —— 页面里的轻提示 —— */
+
+.ksp-toasts {
+  position: absolute;
+  z-index: 5;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  width: min(340px, calc(100% - 36px));
+  pointer-events: none;
+}
+
+.ksp-toast {
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 7px 6px 7px 12px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-overlay-surface, var(--kui-raised));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kui-ok);
+  pointer-events: auto;
+  animation: ksp-rise 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ksp-toast > svg {
+  color: var(--kui-ok);
+}
+
+.ksp-toast.is-danger {
+  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kui-danger);
+}
+
+.ksp-toast.is-danger > svg {
+  color: var(--kui-danger);
+}
+
+@keyframes ksp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* —— 对话框里的内容（桌面的对话框和移动端的底部面板共用） —— */
+
+.ksp-buy,
+.ksp-tryon {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ksp-buy-lead {
+  line-height: 1.7;
+}
+
+.ksp-buy-short {
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs, 1));
+}
+
+.ksp-buy-short b {
+  margin: 0 3px;
+  color: var(--kui-danger, #e0383e);
+  font-size: calc(24px * var(--kui-fs, 1));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* 一张小账单：价格、余额、买完之后 */
+.ksp-bill > div {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ksp-bill dt {
+  color: var(--kc-muted);
+}
+
+.ksp-bill dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ksp-bill dd > svg {
+  color: var(--kui-warn, #b06a00);
+}
+
+.ksp-bill > .is-total {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ksp-bill > .is-total dd {
+  font-size: calc(16px * var(--kui-fs, 1));
+  font-weight: 700;
+}
+
+.ksp-tryon-info {
+  display: grid;
+  gap: 4px;
+}
+
+.ksp-tryon-note {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.ksp-tryon-foot {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ksp-history li {
+  display: grid;
+  min-height: 38px;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto 72px 96px;
+  gap: 10px;
+}
+
+.ksp-history li + li {
+  border-top: 1px solid var(--kc-border);
+}
+
+.ksp-history-name {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 来源后面可能还跟着「已收回」「已退币」 */
+.ksp-history-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+/* 被后台收回的那一条：名字划掉，其余照常 */
+.ksp-history li.is-revoked .ksp-history-name {
+  color: var(--kc-muted);
+  text-decoration: line-through;
+}
+
+.ksp-history-price {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ksp-history-price > svg {
+  color: var(--kui-warn, #b06a00);
+}
+
+.ksp-history-time {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs, 1));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ksp-pager {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+}
+
+.ksp-pager > span {
+  flex: 1;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── 「获得新装扮」的提示（主界面上，不在商店页里） ───────── */
+
+.ksp-grants {
+  position: absolute;
+  z-index: 60;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  width: min(340px, calc(100% - 36px));
+  gap: 8px;
+  color: var(--kc-text);
+  pointer-events: none;
+}
+
+/* 移动布局：从顶上落下来，挂在窗口根上，盖过各个全屏的二级页面 */
+.ksp-grants.is-mobile {
+  position: fixed;
+  z-index: 2147483647;
+  top: calc(var(--kc-native-safe-top, env(safe-area-inset-top, 0px)) + 10px);
+  right: 12px;
+  bottom: auto;
+  left: 12px;
+  width: auto;
+}
+
+.ksp-grant {
+  display: grid;
+  align-items: start;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px 8px 10px 12px;
+  border-radius: 10px;
+  background: var(--kc-overlay-surface, var(--kui-raised, var(--kc-panel)));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow, 0 8px 24px rgba(15, 23, 42, 0.18)), inset 3px 0 0 var(--kc-accent);
+  pointer-events: auto;
+  animation: ksp-rise 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ksp-grant-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kc-accent) 13%, transparent);
+  color: var(--kc-accent);
+}
+
+.ksp-grant-main {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.ksp-grant-main b {
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kc-font-multiplier, 1));
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-grant-main > span {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+}
+
+.ksp-grant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+#kukechat-root .ksp-grant-btn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: 6px;
+  color: var(--kc-text);
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+  font-weight: 500;
+}
+
+#kukechat-root .ksp-grant-btn.is-primary {
+  border-color: transparent;
+  background: var(--kc-accent-fill, var(--kc-accent));
+  color: var(--kc-accent-contrast, #ffffff);
+  font-weight: 600;
+}
+
+.ksp-grant-btn:disabled {
+  opacity: 0.55;
+}
+
+.ksp-grant-close {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--kc-muted);
+}
+
+.ksp-grant-close:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+/* ───────── 3. 移动端页面 ───────── */
+
+.ksp-m {
+  position: relative;
+  --ksp-m-card: var(--kc-mobile-card, var(--kc-panel));
+  --ksp-m-muted: var(--kc-mobile-muted, var(--kc-muted));
+  --ksp-m-strong: var(--kc-mobile-strong, var(--kc-text));
+  --ksp-m-line: var(--kc-mobile-border, var(--kc-border));
+}
+
+.ksp-m-title {
+  color: var(--ksp-m-strong);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.ksp-m-subtitle {
+  color: var(--ksp-m-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ksp-m-round {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ksp-m-card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  color: var(--ksp-m-muted);
+}
+
+/* 余额：页面里唯一一块实底强调色 */
+.ksp-m-hero {
+  margin-top: 2px;
+  padding: 18px 18px 16px;
+  border-radius: 24px;
+  background: var(--kc-accent);
+  color: #ffffff;
+}
+
+.ksp-m-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ksp-m-hero-label {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.86;
+}
+
+.ksp-m-hero-number {
+  margin-top: 4px;
+  font-size: 36px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.ksp-m-hero-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.ksp-m-hero-stats {
+  margin-top: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  opacity: 0.86;
+}
+
+.ksp-m-hero-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+#kukechat-root .ksp-m-hero-btn {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+#kukechat-root .ksp-m-hero-btn.is-primary {
+  background: #ffffff;
+  color: var(--kc-accent);
+}
+
+.ksp-m-hero-btn:disabled {
+  opacity: 0.6;
+}
+
+.ksp-m-hero--bind h2 {
+  margin-top: 12px;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.ksp-m-hero--bind p {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.7;
+  opacity: 0.9;
+}
+
+.ksp-m-hero--bind .ksp-m-hero-btn {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.ksp-m-notes {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ksp-m-note {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--ksp-m-card);
+  color: var(--ksp-m-muted);
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.ksp-m-note.is-live {
+  box-shadow: inset 0 0 0 1.5px var(--kc-accent);
+  color: var(--ksp-m-strong);
+}
+
+.ksp-m-note.is-warn {
+  background: color-mix(in srgb, #f59e0b 14%, var(--ksp-m-card));
+  color: var(--ksp-m-strong);
+}
+
+.ksp-m-note.is-danger {
+  background: color-mix(in srgb, #ef4444 12%, var(--ksp-m-card));
+  color: #dc2626;
+}
+
+[data-theme='dark'] .ksp-m-note.is-danger {
+  color: #fca5a5;
+}
+
+.ksp-m-card {
+  padding: 16px;
+}
+
+.ksp-m-slot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ksp-m-slot + .ksp-m-slot {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ksp-m-line);
+}
+
+.ksp-m-slot-name {
+  margin-bottom: 8px;
+  overflow: hidden;
+  color: var(--ksp-m-strong);
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-m-slot-name > span {
+  margin-right: 8px;
+  color: var(--ksp-m-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ksp-m-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+#kukechat-root .ksp-m-tab {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--ksp-m-card);
+  color: var(--ksp-m-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#kukechat-root .ksp-m-tab.is-active {
+  background: var(--kc-accent);
+  color: #ffffff;
+}
+
+.ksp-m-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 158px), 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.ksp-m-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ksp-m-item.is-equipped {
+  box-shadow: 0 0 0 2px var(--kc-accent);
+}
+
+.ksp-m-item-preview {
+  min-height: 104px;
+  background: var(--kc-mobile-chat, var(--kc-chat));
+}
+
+.ksp-m-item-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+
+.ksp-m-item-body h3 {
+  overflow: hidden;
+  color: var(--ksp-m-strong);
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-m-item-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--ksp-m-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ksp-m-item-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.ksp-m .ksp-price b {
+  color: var(--ksp-m-strong);
+  font-size: 15px;
+}
+
+.ksp-m .ksp-price--text,
+.ksp-m .ksp-price--text b {
+  color: var(--ksp-m-muted);
+  font-size: 12px;
+}
+
+.ksp-m .ksp-price small {
+  font-size: 11px;
+}
+
+#kukechat-root .ksp-m-btn {
+  display: inline-flex;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--kc-mobile-card-muted, var(--kc-panel-muted));
+  color: var(--ksp-m-strong);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+#kukechat-root .ksp-m-btn--primary {
+  background: var(--kc-accent);
+  color: #ffffff;
+}
+
+#kukechat-root .ksp-m-btn.is-large {
+  height: 44px;
+  padding: 0 20px;
+  font-size: 15px;
+}
+
+#kukechat-root .ksp-m-btn.is-block {
+  flex: 1;
+}
+
+.ksp-m-btn:disabled {
+  opacity: 0.5;
+}
+
+.ksp-m-empty,
+.ksp-m-quiet {
+  color: var(--ksp-m-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ksp-m-empty {
+  padding: 28px 12px;
+  text-align: center;
+}
+
+.ksp-m-state {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 64px 20px;
+  text-align: center;
+}
+
+.ksp-m-state-icon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border-radius: 22px;
+  background: var(--ksp-m-card);
+  color: var(--ksp-m-muted);
+}
+
+.ksp-m-state-title {
+  margin-top: 6px;
+  color: var(--ksp-m-strong);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.ksp-m-state-text {
+  margin-bottom: 8px;
+  color: var(--ksp-m-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.ksp-m-loading {
+  display: grid;
+  gap: 12px;
+}
+
+.ksp-m-bone--hero {
+  height: 168px;
+  border-radius: 24px;
+}
+
+.ksp-m-bone--row {
+  height: 96px;
+  border-radius: 20px;
+}
+
+.ksp-m-bone--item {
+  height: 220px;
+  border-radius: 20px;
+}
+
+.ksp-m-toast {
+  position: absolute;
+  z-index: 70;
+  top: calc(var(--kc-native-safe-top, 0px) + 58px);
+  right: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: #1f2937;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  animation: ksp-drop 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ksp-m-toast.is-danger {
+  background: #dc2626;
+}
+
+@keyframes ksp-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* 底部面板 */
+.ksp-m-backdrop {
+  position: absolute;
+  z-index: 60;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.36);
+  animation: ksp-fade 160ms ease both;
+}
+
+.ksp-m-sheet {
+  display: flex;
+  width: 100%;
+  max-height: 86%;
+  flex-direction: column;
+  border-radius: 26px 26px 0 0;
+  background: var(--kc-mobile-bg, var(--kc-window));
+  color: var(--ksp-m-strong);
+  animation: ksp-sheet 240ms cubic-bezier(0.2, 0.85, 0.2, 1) both;
+}
+
+.ksp-m-sheet.is-tall {
+  height: 86%;
+}
+
+.ksp-m-sheet-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 10px 20px;
+}
+
+.ksp-m-sheet-head h2 {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.ksp-m-sheet-head p {
+  overflow: hidden;
+  color: var(--ksp-m-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-m-sheet-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 16px 16px;
+  font-size: 14px;
+}
+
+.ksp-m-sheet-body .ksp-stage--boxed {
+  border-radius: 18px;
+  background: var(--kc-mobile-chat, var(--kc-chat));
+  box-shadow: none;
+}
+
+.ksp-m-sheet-body .ksp-bill,
+.ksp-m-sheet-body .ksp-buy-short,
+.ksp-m-sheet-body .ksp-m-note,
+.ksp-m-lead,
+.ksp-m-tryon-info {
+  margin-top: 12px;
+}
+
+.ksp-m-sheet-body .ksp-bill {
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: var(--ksp-m-card);
+}
+
+.ksp-m-lead {
+  line-height: 1.7;
+}
+
+.ksp-m-tryon-info {
+  display: grid;
+  gap: 6px;
+  color: var(--ksp-m-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ksp-m-sheet-body .ksp-history li {
+  min-height: 46px;
+  grid-template-columns: minmax(0, 1fr) auto 56px 84px;
+}
+
+.ksp-m-sheet-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px calc(var(--kc-native-safe-bottom, env(safe-area-inset-bottom, 0px)) + 14px);
+  border-top: 1px solid var(--ksp-m-line);
+}
+
+@keyframes ksp-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ksp-sheet {
+  from {
+    transform: translateY(24%);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ksp-toast,
+  .ksp-grant,
+  .ksp-m-toast,
+  .ksp-m-backdrop,
+  .ksp-m-sheet {
+    animation: none;
+  }
+}

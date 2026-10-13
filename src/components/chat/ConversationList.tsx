@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from 'react';
 import { VirtualConversationList } from './VirtualConversationList';
+import { conversationTitle, currentMessageSetting, isConversationPinned, lastMessagePreview, matchesConversation, messageSettingLabel, messageSettingPayload } from './conversationMeta';
 import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useKukeStore } from '@/store/kukeStore';
@@ -18,18 +19,12 @@ import { isConversationPinnedForMe, sortConversationsByActivity } from '@/utils/
 import { isConversationBlocked, isConversationMuted } from '@/utils/notifications';
 import { useResolvedThemeMode } from '@/utils/theme';
 
-function imageCount(conversation: Conversation): number {
-  const images = conversation.last_message?.metadata?.images;
-  return Array.isArray(images) ? images.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).length : 0;
-}
-
 interface ConversationListProps {
   conversations: Conversation[];
   isLoading: boolean;
   currentUser: User;
   onCreateGroup: () => void;
   onOpenGlobalSearch: (keyword?: string) => void;
-  variant?: 'desktop' | 'mobile';
   onSelectConversation?: (conversation: Conversation) => void;
   onOpenSettings?: () => void;
   onOpenOnlineUsers?: (users: User[], onlineCount: number) => void;
@@ -54,78 +49,6 @@ const CONVERSATION_MENU_HEIGHT = 108;
 const MESSAGE_SUBMENU_WIDTH = 144;
 const MESSAGE_SUBMENU_HEIGHT = 104;
 const LONG_PRESS_DELAY = 420;
-
-function myMembership(conversation: Conversation, currentUser: User) {
-  return conversation.members?.find((member) => member.user_id === currentUser.id || member.user?.id === currentUser.id);
-}
-
-function isConversationPinned(conversation: Conversation, currentUser: User, pinnedOverrides: Record<number, boolean>): boolean {
-  return pinnedOverrides[conversation.id] ?? (isConversationPinnedForMe(conversation) || Boolean(myMembership(conversation, currentUser)?.pinned));
-}
-
-function conversationTitle(conversation: Conversation, currentUser: User): string {
-  if (conversation.type === 'group') {
-    const title = conversation.display_title?.trim() || conversation.title || '未命名群聊';
-    return `${title} (${conversation.member_count ?? 0})`;
-  }
-
-  const directMember = conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
-  return conversation.display_title?.trim() || getDisplayName(conversation.direct_user ?? directMember, conversation.title || '私聊');
-}
-
-function lastMessage(conversation: Conversation): string {
-  const message = conversation.last_message;
-  if (!message) {
-    return conversation.type === 'group' ? '群聊已创建' : '开始聊天吧';
-  }
-  if (message.recalled_at) {
-    return '消息已撤回';
-  }
-  const senderPrefix = conversation.type === 'group'
-    ? `${message.sender_display_name || message.sender?.nickname || message.sender?.username || '有人'}: `
-    : '';
-  if (message.type === 'image') {
-    return `${senderPrefix}[图片]`;
-  }
-  if (message.type === 'voice') {
-    return `${senderPrefix}[语音]`;
-  }
-  if (message.type === 'system') {
-    return message.content || '系统消息';
-  }
-  if (message.type === 'forward_bundle') {
-    return `${senderPrefix}[聊天记录]`;
-  }
-
-  const images = imageCount(conversation);
-  if (images > 0) {
-    const label = images > 1 ? `[图片] ${images}张图片` : '[图片]';
-    return message.content ? `${senderPrefix}${message.content} ${label}` : `${senderPrefix}${label}`;
-  }
-
-  return `${senderPrefix}${message.content || '新消息'}`;
-}
-
-function fieldText(value?: string | number | null): string {
-  return String(value ?? '').trim().toLowerCase();
-}
-
-function matchesConversation(conversation: Conversation, currentUser: User, keyword: string): boolean {
-  const peer = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
-  const text = [
-    conversation.id,
-    conversationTitle(conversation, currentUser),
-    conversation.title,
-    conversation.description,
-    conversation.category,
-    peer?.id,
-    peer?.username,
-    peer?.nickname,
-    peer?.email,
-    peer?.bio
-  ].map(fieldText).join(' ');
-  return text.includes(keyword);
-}
 
 function renderConversationAvatar(conversation: Conversation, title: string, peer?: User | null): JSX.Element {
   if (conversation.type !== 'group') {
@@ -190,36 +113,6 @@ function getKukePortalRoot(): Element | DocumentFragment {
   return host?.shadowRoot?.getElementById('kukechat-root') ?? document.body;
 }
 
-function currentMessageSetting(conversation: Conversation): MessageSetting {
-  if (conversation.my_message_setting === 'ignore') {
-    return 'ignore';
-  }
-  if (conversation.my_do_not_disturb || conversation.my_message_setting === 'silent') {
-    return 'silent';
-  }
-  return conversation.my_message_setting ?? 'notify';
-}
-
-function messageSettingLabel(setting: MessageSetting): string {
-  if (setting === 'ignore') {
-    return '屏蔽消息';
-  }
-  if (setting === 'silent') {
-    return '接收不提醒';
-  }
-  return '接收并提醒';
-}
-
-function messageSettingPayload(setting: MessageSetting): { message_setting: MessageSetting; do_not_disturb: boolean } {
-  if (setting === 'ignore') {
-    return { message_setting: 'ignore', do_not_disturb: true };
-  }
-  if (setting === 'silent') {
-    return { message_setting: 'silent', do_not_disturb: true };
-  }
-  return { message_setting: 'notify', do_not_disturb: false };
-}
-
 function ConversationStatusIcon({ conversation }: { conversation: Conversation }): JSX.Element | null {
   if (isConversationBlocked(conversation)) {
     return <Icon name="close" className="h-4 w-4 shrink-0 text-[#a8aeb8]" />;
@@ -245,8 +138,6 @@ function presenceText(user: User): string {
 interface ConversationRowProps {
   conversation: Conversation;
   currentUser: User;
-  variant: 'desktop' | 'mobile';
-  active: boolean;
   visible: boolean;
   index: number;
   onSelect: (conversation: Conversation) => void;
@@ -260,13 +151,12 @@ interface ConversationRowProps {
   onClickCapture: (event: ReactMouseEvent<HTMLElement>) => void;
 }
 
-const ConversationRow = memo(function ConversationRow({ conversation, currentUser, variant, active, visible, index, onSelect, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onTouchStart, onTouchMove, onTouchEnd, onClickCapture }: ConversationRowProps): JSX.Element {
+const ConversationRow = memo(function ConversationRow({ conversation, currentUser, visible, index, onSelect, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onTouchStart, onTouchMove, onTouchEnd, onClickCapture }: ConversationRowProps): JSX.Element {
   const title = conversationTitle(conversation, currentUser);
   const peer = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
   const muted = isConversationMuted(conversation);
   const blocked = isConversationBlocked(conversation);
   const unread = visible ? 0 : Math.max(0, conversation.unread_count ?? 0);
-  if (variant === 'mobile') {
     return <button type="button" onContextMenu={(event) => onContextMenu(event, conversation)}
       onPointerDownCapture={(event) => onPointerDown(event, conversation)} onPointerMoveCapture={onPointerMove} onPointerUpCapture={onPointerUp} onPointerCancelCapture={onPointerUp}
       onTouchStartCapture={(event) => onTouchStart(event, conversation)} onTouchMoveCapture={onTouchMove} onTouchEndCapture={onTouchEnd} onTouchCancelCapture={onTouchEnd}
@@ -282,34 +172,16 @@ const ConversationRow = memo(function ConversationRow({ conversation, currentUse
           <span className="shrink-0 pt-0.5 text-[11px] font-medium text-[#b0b6c0]">{formatClockTime(conversation.updated_at)}</span>
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden">
-          <span className="min-w-0 flex-1 truncate text-[12px] leading-4 text-[#8b95a5]">{lastMessage(conversation)}</span>
+          <span className="min-w-0 flex-1 truncate text-[12px] leading-4 text-[#8b95a5]">{lastMessagePreview(conversation)}</span>
           <ConversationStatusIcon conversation={conversation} />
           {conversation.pending_join_request_count ? <span className="rounded-full bg-[#168bff] px-2 py-0.5 text-[10px] font-bold text-white">审 {conversation.pending_join_request_count}</span> : null}
           {unread && (muted || blocked) ? <span className="kc-qq-unread-badge kc-qq-unread-muted">{unread > 99 ? '99+' : unread}</span> : null}
         </span>
       </span>
     </button>;
-  }
-  return <button type="button" onContextMenu={(event) => onContextMenu(event, conversation)} onClick={() => onSelect(conversation)}
-    className={`kc-pc-conversation-item flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl px-2 py-2.5 text-left transition ${active ? '[background:var(--kc-active)] [color:var(--kc-text)]' : '[color:var(--kc-text)] hover:[background:var(--kc-hover)]'}`} style={{ animation: 'none' }}>
-    {renderConversationAvatar(conversation, title, peer)}
-    <span className="min-w-0 flex-1 overflow-hidden">
-      <span className="flex min-w-0 items-center justify-between gap-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</span>
-        <span className="shrink-0 text-[10px] [color:var(--kc-subtle)]">{formatClockTime(conversation.updated_at)}</span>
-      </span>
-      <span className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden">
-        <span className="min-w-0 flex-1 truncate text-xs [color:var(--kc-muted)]">{lastMessage(conversation)}</span>
-        <ConversationStatusIcon conversation={conversation} />
-        {conversation.pending_join_request_count ? <span className="rounded-full bg-[var(--kc-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">审 {conversation.pending_join_request_count}</span> : null}
-        {unread && !muted && !blocked ? <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{unread > 99 ? '99+' : unread}</span> : null}
-        {unread && (muted || blocked) ? <span className="rounded-full bg-slate-300 px-1.5 py-0.5 text-[10px] font-bold text-white dark:bg-slate-600">{unread > 99 ? '99+' : unread}</span> : null}
-      </span>
-    </span>
-  </button>;
 });
 
-export function ConversationList({ conversations, isLoading, currentUser, onCreateGroup, onOpenGlobalSearch, variant = 'desktop', onSelectConversation, onOpenSettings, onOpenOnlineUsers }: ConversationListProps): JSX.Element {
+export function ConversationList({ conversations, isLoading, currentUser, onCreateGroup, onOpenGlobalSearch, onSelectConversation, onOpenSettings, onOpenOnlineUsers }: ConversationListProps): JSX.Element {
   const activeConversationId = useKukeStore((state) => state.activeConversationId);
   const visibleConversationId = useKukeStore((state) => state.visibleConversationId);
   const setActiveConversationId = useKukeStore((state) => state.setActiveConversationId);
@@ -326,9 +198,8 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
   const onlineUsersQuery = useQuery({
     queryKey: ['online-users'],
     queryFn: getOnlineUsers,
-    enabled: variant === 'mobile',
     staleTime: 20_000,
-    refetchInterval: variant === 'mobile' ? 30_000 : false
+    refetchInterval: 30_000
   });
   const addMenuRef = useRef<HTMLDivElement | null>(null);
   const submenuCloseTimerRef = useRef<number | null>(null);
@@ -336,7 +207,6 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
   const longPressStartRef = useRef<LongPressState | null>(null);
   const suppressNextClickRef = useRef(false);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
-  const desktopScrollRef = useRef<HTMLDivElement>(null);
   const cleanSearchQuery = searchQuery.trim().toLowerCase();
   const filteredConversations = useMemo(() => sortConversationsByActivity(cleanSearchQuery ? conversations.filter((conversation) => matchesConversation(conversation, currentUser, cleanSearchQuery)) : conversations), [conversations, currentUser.id, cleanSearchQuery]);
   const groupSettingsMutation = useMutation({
@@ -433,7 +303,7 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
       scroll.removeEventListener('scroll', clearConversationLongPress);
       clearConversationLongPress();
     };
-  }, [variant, clearConversationLongPress]);
+  }, [clearConversationLongPress]);
 
   const triggerConversationLongPress = useCallback((): void => {
     const start = longPressStartRef.current;
@@ -449,23 +319,23 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
   }, [clearConversationLongPress]);
 
   const startConversationLongPress = useCallback((event: ReactPointerEvent<HTMLElement>, conversation: Conversation): void => {
-    if (variant !== 'mobile' || event.pointerType === 'mouse') {
+    if (event.pointerType === 'mouse') {
       return;
     }
     clearConversationLongPress();
     longPressStartRef.current = { x: event.clientX, y: event.clientY, conversation, startedAt: Date.now(), pointerId: event.pointerId };
     longPressTimerRef.current = window.setTimeout(triggerConversationLongPress, LONG_PRESS_DELAY);
-  }, [variant, clearConversationLongPress, triggerConversationLongPress]);
+  }, [clearConversationLongPress, triggerConversationLongPress]);
 
   const startConversationTouchLongPress = useCallback((event: ReactTouchEvent<HTMLElement>, conversation: Conversation): void => {
-    if (variant !== 'mobile' || event.touches.length !== 1) {
+    if (event.touches.length !== 1) {
       return;
     }
     const touch = event.touches[0];
     clearConversationLongPress();
     longPressStartRef.current = { x: touch.clientX, y: touch.clientY, conversation, startedAt: Date.now(), pointerId: touch.identifier };
     longPressTimerRef.current = window.setTimeout(triggerConversationLongPress, LONG_PRESS_DELAY);
-  }, [variant, clearConversationLongPress, triggerConversationLongPress]);
+  }, [clearConversationLongPress, triggerConversationLongPress]);
 
   const moveConversationLongPress = useCallback((event: ReactPointerEvent<HTMLElement>): void => {
     const start = longPressStartRef.current;
@@ -512,21 +382,20 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
       suppressNextClickRef.current = false;
       return;
     }
-    if (variant === 'mobile' && onSelectConversation) {
+    if (onSelectConversation) {
       onSelectConversation(conversation);
       return;
     }
     setActiveConversationId(conversation.id);
-    onSelectConversation?.(conversation);
-  }, [variant, onSelectConversation, setActiveConversationId]);
+  }, [onSelectConversation, setActiveConversationId]);
 
   const renderRow = useCallback((conversation: Conversation, index: number) => <ConversationRow
-    conversation={conversation} currentUser={currentUser} variant={variant} active={activeConversationId === conversation.id}
+    conversation={conversation} currentUser={currentUser}
     visible={visibleConversationId === conversation.id} index={index} onSelect={selectConversation} onContextMenu={openConversationContextMenu}
     onPointerDown={startConversationLongPress} onPointerMove={moveConversationLongPress} onPointerUp={finishConversationLongPress}
     onTouchStart={startConversationTouchLongPress} onTouchMove={moveConversationTouchLongPress} onTouchEnd={finishConversationLongPress}
     onClickCapture={suppressLongPressClick}
-  />, [currentUser, variant, activeConversationId, visibleConversationId, selectConversation, openConversationContextMenu, startConversationLongPress, moveConversationLongPress, finishConversationLongPress, startConversationTouchLongPress, moveConversationTouchLongPress, suppressLongPressClick]);
+  />, [currentUser, visibleConversationId, selectConversation, openConversationContextMenu, startConversationLongPress, moveConversationLongPress, finishConversationLongPress, startConversationTouchLongPress, moveConversationTouchLongPress, suppressLongPressClick]);
 
   function updateMenuConversation(conversationId: number, payload: { pinned?: boolean; do_not_disturb?: boolean; message_setting?: MessageSetting }): void {
     if (typeof payload.pinned === 'boolean') {
@@ -598,7 +467,7 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
       <ContextMenuSurface onMouseLeave={closeMessageSubmenuSoon} onMouseDown={(event) => event.stopPropagation()} className="fixed w-[220px] py-1" style={conversationMenuPosition}>
         <ContextMenuItem icon="pin" label={isConversationPinned(conversationMenu.conversation, currentUser, pinnedOverrides) ? '取消置顶' : '设为置顶'} onMouseEnter={closeMessageSubmenuNow} onClick={() => updateMenuConversation(conversationMenu.conversation.id, { pinned: !isConversationPinned(conversationMenu.conversation, currentUser, pinnedOverrides) })} />
         {conversationMenu.conversation.type === 'group' ? <ContextMenuItem icon="share" label="分享群聊" onMouseEnter={closeMessageSubmenuNow} onClick={() => shareGroup(conversationMenu.conversation.id)} /> : null}
-        <ContextMenuItem icon="bell" label="消息设置" suffix={messageSettingLabel(currentMessageSetting(conversationMenu.conversation))} pillSuffix onMouseEnter={openMessageSubmenu} onClick={openMessageSubmenu} />
+        <ContextMenuItem icon="bell" label="消息设置" suffix={messageSettingLabel(currentMessageSetting(conversationMenu.conversation))} onMouseEnter={openMessageSubmenu} onClick={openMessageSubmenu} />
       </ContextMenuSurface>
       {showMessageSubmenu && messageSubmenuBridgePosition ? <div onMouseDown={(event) => event.stopPropagation()} onMouseEnter={openMessageSubmenu} onMouseLeave={closeMessageSubmenuSoon} className="fixed z-0" style={messageSubmenuBridgePosition} /> : null}
       {showMessageSubmenu && messageSubmenuPosition ? (
@@ -612,8 +481,7 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
     getKukePortalRoot()
   ) : null;
 
-  if (variant === 'mobile') {
-    return (
+  return (
       <aside className="kc-qq-page relative h-full min-h-0 overflow-hidden">
         <MobileStatusBar />
         <div ref={mobileScrollRef} className="kc-qq-scroll kc-native-list-scroll scroll-soft h-[calc(100%-30px)] overflow-y-auto px-3.5 pb-4">
@@ -682,66 +550,5 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
         </div>
         {conversationContextMenu}
       </aside>
-    );
-  }
-
-  return (
-    <aside className="kc-pc-conversation-panel relative min-h-0 border-r [background:var(--kc-list)] [border-color:var(--kc-border)]">
-      <div className="flex h-[52px] items-center gap-2 px-3">
-        <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg px-3 [background:var(--kc-panel-muted)]">
-          <button type="button" onClick={() => openGlobalSearch()} className="grid h-5 w-5 place-items-center [color:var(--kc-muted)] transition hover:[color:var(--kc-text)]" aria-label="全局搜索">
-            <Icon name="search" className="h-4 w-4" />
-          </button>
-          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              openGlobalSearch();
-            }
-          }} className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none [color:var(--kc-text)] placeholder:[color:var(--kc-muted)]" placeholder="搜索" />
-        </div>
-        <div ref={addMenuRef} className="relative" onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            setShowAddMenu(false);
-          }
-        }}>
-          <button className={`grid h-8 w-8 place-items-center rounded-lg [background:var(--kc-panel-muted)] transition hover:[color:var(--kc-text)] ${showAddMenu ? '[color:var(--kc-text)]' : '[color:var(--kc-muted)]'}`} type="button" title="新建" aria-expanded={showAddMenu} onClick={() => setShowAddMenu((value) => !value)}>
-            <Icon name="plus" className="h-4 w-4" />
-          </button>
-          {showAddMenu ? (
-            <div className="absolute right-0 top-10 z-20 w-40 overflow-hidden rounded-2xl border py-1 text-sm shadow-float [background:var(--kc-panel)] [border-color:var(--kc-border)] [color:var(--kc-text)]">
-              <button type="button" onMouseDown={(event) => {
-                event.preventDefault();
-                setShowAddMenu(false);
-                onCreateGroup();
-              }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition hover:[background:var(--kc-hover)]">
-                <Icon name="users" className="h-4 w-4 [color:var(--kc-muted)]" />
-                创建群聊
-              </button>
-              <button type="button" onMouseDown={(event) => {
-                event.preventDefault();
-                openGlobalSearch('');
-              }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition hover:[background:var(--kc-hover)]">
-                <Icon name="search" className="h-4 w-4 [color:var(--kc-muted)]" />
-                加好友/群
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-      <div ref={desktopScrollRef} className="scroll-soft h-[calc(100%-52px)] overflow-y-auto px-2 pb-2">
-        {isLoading ? <p className="rounded-lg p-4 text-sm [color:var(--kc-muted)]">正在加载会话...</p> : null}
-        {!isLoading && conversations.length === 0 ? (
-          <div className="rounded-xl p-5 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">
-            暂无会话。先在好友页添加好友，再创建私聊或群聊。
-          </div>
-        ) : null}
-        {!isLoading && conversations.length > 0 && filteredConversations.length === 0 ? (
-          <div className="rounded-xl p-4 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">
-            没有匹配会话，按 Enter 搜索用户或群聊。
-          </div>
-        ) : null}
-        <VirtualConversationList items={filteredConversations} scrollRef={desktopScrollRef} activeId={activeConversationId} searchKey={cleanSearchQuery} estimatedRowHeight={68} rowGap={4} renderRow={renderRow} />
-      </div>
-      {conversationContextMenu}
-    </aside>
   );
 }

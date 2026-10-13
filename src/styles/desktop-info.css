@@ -1,0 +1,792 @@
+/*
+ * 桌面端：群聊 / 私聊资料侧栏（src/components/chat/desktop/info）。基础样式见 kui.css。
+ *
+ * 这一栏用的是分组列表的排法（QQ NT / iOS 设置那一路）：侧栏的底是带一点冷灰的中性色，
+ * 每个分组是底上的一张圆角白面，面里的行铺满宽度、行间一条两端内缩的发丝线。
+ * kui 的 .kui-group / .kui-row 默认是「平铺 + 分区线」，这里在 .kci-body 作用域内改成上面这种，不动 kui 本身。
+ */
+
+/* 盖住整个聊天面板的根：遮罩、侧栏、资料卡、右键菜单都以它为定位基准 */
+.kci {
+  /* 底取 --kc-panel-muted：它跟着主题预设染色，而且整窗背景图下不会变透明——侧栏盖在聊天区上面，必须是实的 */
+  --kci-base: var(--kc-panel-muted);
+  --kci-card: var(--kc-panel);
+  position: absolute;
+  z-index: 45;
+  inset: 0;
+}
+
+/* 深色下 --kc-panel-muted 反而比面板亮，底另外压暗一档，面往上提一档（浮得越高越亮） */
+[data-theme='dark'] .kci {
+  --kci-base: color-mix(in srgb, #000000 16%, var(--kc-panel));
+  --kci-card: var(--kui-raised);
+}
+
+.kci .kui-drawer {
+  background: var(--kci-base);
+}
+
+/* 压在侧栏之上的一层：右键菜单、公告弹窗 */
+.kci-layer {
+  position: absolute;
+  z-index: 50;
+  inset: 0;
+}
+
+.kci .kui-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ───────── 侧栏骨架 ───────── */
+
+.kci-bar {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 18px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kci-bar.has-back {
+  padding-left: 10px;
+}
+
+.kci-bar h2 {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 操作结果的提示：和分组一样是底上的一张面，左边一条色线说明语气 */
+.kci-notice {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 12px 0;
+  padding: 8px 8px 8px 12px;
+  border-left: 2px solid var(--kc-accent);
+  border-radius: var(--kui-r-sm);
+  background: var(--kci-card);
+  box-shadow: var(--kui-shadow-card);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kci-notice.is-error {
+  border-color: var(--kui-danger);
+  color: var(--kui-danger);
+}
+
+.kci-notice span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.kci-notice button {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--kc-muted);
+}
+
+.kci-notice button:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kci-body {
+  min-height: 0;
+  flex: 1;
+  padding: 12px 12px 20px;
+}
+
+/* 每个分组是底色上的一张面：圆角、极淡的一圈边、一点落地的影子。相对定位给资料头右上角的按钮用 */
+.kci-body > .kui-group {
+  position: relative;
+  overflow: hidden;
+  padding: 0 14px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kci-card);
+  box-shadow: var(--kui-shadow-card);
+}
+
+.kci-body > .kui-group + .kui-group {
+  margin-top: 10px;
+  border-top: 0;
+}
+
+.kci-body .kui-group-title {
+  padding: 12px 0 4px;
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.kci-body .kui-row {
+  min-height: 44px;
+}
+
+/* 行与行之间一条发丝线。不可点的行本来就只有内容区那么宽，线自然两端内缩 */
+.kci-body .kui-row + .kui-row {
+  border-top: 1px solid var(--kc-border);
+}
+
+/* 可点击的行铺满整张面的宽度，悬停是一整条。它的分隔线改用背景画，才能照样两端内缩 14px */
+.kci-body :is(button.kui-row, .kui-row--action) {
+  width: calc(100% + 28px);
+  margin: 0 -14px;
+  padding-right: 14px;
+  padding-left: 14px;
+  border-radius: 0;
+}
+
+.kci-body :is(.kui-row, .kci-hint) + button.kui-row {
+  border-top: 0;
+  background-image: linear-gradient(var(--kc-border), var(--kc-border));
+  background-position: 14px 0;
+  background-repeat: no-repeat;
+  background-size: calc(100% - 28px) 1px;
+}
+
+/* 单行截断。放在 flex 子项上才会出省略号 */
+.kci-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kci-hint {
+  padding: 8px 0 12px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+}
+
+.kci-note {
+  margin: 8px 0 12px;
+}
+
+.kci-note strong {
+  font-weight: 600;
+}
+
+/* ───────── 资料头 ───────── */
+
+/* 头像、名称、群号居中成一组；「分享」退到这张面的右上角，不和名称抢位置。
+   群聊是「头像 / 文字 / 分享按钮」三个并列的子元素，私聊是头像和文字包在一个按钮里，两种都排成同一个样子。 */
+.kci-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 26px 0 20px;
+  text-align: center;
+}
+
+.kci-head-user {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* 头像外面留一圈面的颜色，再套一圈发丝线，下面落一点影子 */
+.kci-head :is(.kc-avatar-tone, img.rounded-full) {
+  width: 68px;
+  height: 68px;
+  box-shadow: 0 0 0 3px var(--kci-card), 0 0 0 4px var(--kc-border), 0 8px 18px -8px color-mix(in srgb, var(--kui-scrim) 75%, transparent);
+  font-size: 26px;
+}
+
+.kci-head-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 14px;
+}
+
+/* 名称允许换行：群名被截成「Scratch 创作交流…」比多占一行更糟 */
+.kci-head-name {
+  display: block;
+  font-size: calc(17px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.kci-head-user:hover .kci-head-name {
+  color: var(--kc-accent);
+}
+
+.kci-head-meta {
+  display: block;
+  margin-top: 5px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+.kci-head > .kui-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--kc-muted);
+}
+
+.kci-head > .kui-btn:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kci-head-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  margin: -6px 0 18px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+/* ───────── 群成长 ───────── */
+
+/* 一行排开：左边等级和头衔上下叠，中间进度条和经验，右边签到 */
+.kci-growth {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0 14px;
+}
+
+.kci-growth-level {
+  display: flex;
+  min-width: 40px;
+  flex: none;
+  flex-direction: column;
+  font-size: calc(18px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+/* 等级下面的头衔 */
+.kci-growth-level small {
+  margin-top: 3px;
+  color: var(--kc-accent);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.kci-growth > .kui-btn {
+  min-width: 52px;
+}
+
+.kci-growth-exp {
+  min-width: 0;
+  flex: 1;
+}
+
+.kci-growth-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+.kci-growth-bar > span {
+  display: block;
+  min-width: 6px;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--kui-fill);
+  transition: width 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.kci-growth-exp p {
+  overflow: hidden;
+  margin-top: 7px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 三个数字：通栏三等分、居中，数字在上、标签在下，之间是一条上下收短的发丝线 */
+.kci-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 -14px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kci-stats button {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 4px 13px;
+  color: var(--kc-muted);
+  line-height: 1.3;
+  transition: background-color 100ms ease;
+}
+
+.kci-stats button + button::before {
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 0;
+  width: 1px;
+  background: var(--kc-border);
+  content: '';
+}
+
+.kci-stats button:hover {
+  background: var(--kc-hover);
+}
+
+.kci-stats strong {
+  color: var(--kc-text);
+  font-size: calc(20px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+#kukechat-root .kci .kci-stats button {
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+/* ───────── 成员 ───────── */
+
+.kci-members {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  row-gap: 2px;
+  margin: 0 -6px;
+  padding: 4px 0 10px;
+}
+
+.kci-member {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 2px 7px;
+  border-radius: var(--kui-r-sm);
+  transition: background-color 100ms ease;
+}
+
+.kci-member > :is(.kc-avatar-tone, img.rounded-full) {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.kci-member:hover {
+  background: var(--kc-hover);
+}
+
+.kci-member-name {
+  width: 100%;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  line-height: 1.3;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kci-member:hover .kci-member-name {
+  color: var(--kc-text);
+}
+
+/* 「邀请」「移除」：和头像一样大的虚线圆 */
+.kci-member-slot {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px dashed color-mix(in srgb, var(--kc-muted) 46%, transparent);
+  border-radius: 50%;
+  color: var(--kc-muted);
+  transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.kci-member:hover .kci-member-slot {
+  border-color: var(--kc-accent);
+  background: var(--kui-tint);
+  color: var(--kc-accent);
+}
+
+/* 成员名单是一整页长列表，不再分块：整栏换成白面，行是两边内缩的圆角条 */
+.kci .kui-drawer:has(> .kci-search) {
+  background: var(--kci-card);
+}
+
+.kci-search {
+  flex: none;
+  padding: 12px 14px 8px;
+}
+
+.kci-search ~ .kci-body {
+  padding: 0 8px 12px;
+}
+
+.kci-person {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+  border-radius: var(--kui-r-sm);
+  transition: background-color 100ms ease;
+}
+
+.kci-person:hover {
+  background: var(--kc-hover);
+}
+
+.kci-person-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 8px 8px;
+  text-align: left;
+}
+
+.kci-person-text {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+.kci-person-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 500;
+}
+
+.kci-person-sub {
+  display: block;
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kci-tag-clip {
+  display: inline-block;
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kci-person-action {
+  flex: none;
+}
+
+.kci-person-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+#kukechat-root .kci .kci-person-action {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* ───────── 设置行 ───────── */
+
+.kci-row-arrow {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  margin-right: -2px;
+  color: var(--kc-subtle);
+}
+
+.kci-row-placeholder {
+  color: var(--kc-subtle);
+}
+
+.kci-row--danger {
+  color: var(--kui-danger);
+}
+
+button.kci-row--danger:hover {
+  background: color-mix(in srgb, var(--kui-danger) 9%, transparent);
+}
+
+.kci-row-input {
+  width: 190px;
+  height: 30px;
+  flex: none;
+}
+
+.kci-select {
+  width: auto;
+  max-width: 60%;
+  height: 30px;
+  flex: none;
+  padding: 0 6px 0 8px;
+}
+
+/* ───────── 对话框 ───────── */
+
+/* 从这一栏里打开的对话框：外框照 kui 的不动，只让标题的字和侧栏自己的标题栏一个写法 */
+.kci .kui-dialog-header {
+  font-size: calc(15px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.kci-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kci-dialog-body > * {
+  flex: none;
+}
+
+/* 列表吃掉对话框里剩下的高度，自己滚 */
+.kci-dialog-body > .kci-list {
+  min-height: 64px;
+  max-height: 320px;
+  flex: 0 1 auto;
+}
+
+.kci-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 -8px;
+}
+
+.kci-list > .kci-hint {
+  padding: 8px;
+}
+
+.kci-item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 100ms ease;
+}
+
+button.kci-item:hover {
+  background: var(--kc-hover);
+}
+
+.kci-item.is-selected,
+button.kci-item.is-selected:hover {
+  background: var(--kui-tint);
+}
+
+.kci-item--top {
+  align-items: flex-start;
+}
+
+.kci-item-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kci-item-text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kci-item-text > span:first-child {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.kci-item-text > span:nth-child(2) {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kci-item-quote {
+  margin-top: 4px;
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kci-item-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+/* 没有头像的操作项：图标占和小头像一样的宽度，文字才对得齐 */
+.kci-item-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin: 0 7px;
+  color: var(--kc-muted);
+}
+
+.kci-item-check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--kc-accent);
+}
+
+.kci-check {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--kc-text) 30%, transparent);
+  border-radius: 4px;
+  color: var(--kui-on-fill);
+}
+
+.kci-item.is-selected .kci-check {
+  border-color: var(--kui-fill);
+  background: var(--kui-fill);
+}
+
+.kci-rank {
+  width: 22px;
+  flex: none;
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: center;
+}
+
+.kci-rank.is-top {
+  color: var(--kc-accent);
+}
+
+.kci-score {
+  flex: none;
+  font-size: calc(13px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.kci-board-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kci-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kci-form-avatar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kci-form-error {
+  color: var(--kui-danger);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kci-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kci-field > span {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* 等级头衔分档：一行一档 */
+.kci-tiers {
+  display: grid;
+  gap: 8px;
+}
+
+.kci-tier {
+  display: grid;
+  grid-template-columns: auto 56px 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kci-tier-range {
+  color: var(--kc-subtle);
+}
+
+.kci-tier .kui-input {
+  height: 30px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kci-tier .kui-input:first-of-type {
+  font-weight: 600;
+  text-align: center;
+}

@@ -9,7 +9,7 @@ name: Release
 #   VITE_MOBILE_UPDATE_URL     选填，安卓自更新元数据地址
 #   VITE_EXTENSION_ASSET_URL   选填，已发布的扩展文件地址
 #   VITE_BOT_API_DOCS_URL      选填，机器人 API 文档地址
-#   KUKECHAT_UPDATE_METADATA_URL 选填，桌面端「检查更新」地址（Rust 编译期读取）
+#   KUKECHAT_UPDATE_METADATA_URL 选填，覆盖桌面端更新地址（默认 <VITE_API_BASE_URL>/desktop-update.json）
 #
 # 仓库源码不含任何服务器地址，fork 后请设置你自己的变量。
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getConversationMembers, getConversationMembersPage, getConversations } from '@/api/conversations';
@@ -8,14 +8,21 @@ import { getTasks } from '@/api/tasks';
 import { getLatestAnnouncement } from '@/api/announcements';
 import { getTrendingPostTopics } from '@/api/posts';
 import { AnnouncementModal } from '@/components/announcements/AnnouncementModal';
+import { applyAnnouncementReactionEvent } from '@/components/announcements/announcementReactions';
 import { subscribeRealtimeEvents } from '@/realtime/events';
 import { logoutCookieSession, setRememberIpLogin } from '@/api/auth';
 import { useKukeStore, type WorkspaceView } from '@/store/kukeStore';
 import type { Bot, Conversation, ConversationMember, MemberRole, Message, User } from '@/types/api';
+import type { LevelTab } from '@/types/level';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { ConversationList } from './ConversationList';
-import { FavoritesPanel, ForwardBundleDetailModal, MessagePanel } from './MessagePanel';
+import { ConversationPane } from '@/components/shell/ConversationPane';
+import { NavRail } from '@/components/shell/NavRail';
+import { MessagePanel } from './MessagePanel';
+import { DesktopChatPanel } from './desktop/DesktopChatPanel';
+import { FavoritesPanel } from './message/FavoritesPanel';
+import { ForwardBundleDetailModal } from './message/ForwardBundleDetailModal';
 import { ContactsPanel } from '@/components/contacts/ContactsPanel';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { CcwBindingPromptModal } from '@/components/settings/CcwBindingPromptModal';
@@ -24,6 +31,18 @@ import { BotCenterPanel } from '@/components/bots/BotCenterPanel';
 import { TeamupCenterPanel } from '@/components/teamup/TeamupCenterPanel';
 import { TaskCenterPanel } from '@/components/tasks/TaskCenterPanel';
 import { HomePanel } from '@/components/home/HomePanel';
+import { JuryPage } from '@/components/jury/JuryPage';
+import { useJuryPendingCount } from '@/components/jury/data/queries';
+import { useLevelRules } from '@/components/level/data';
+import { LevelPage } from '@/components/level/desktop/LevelPage';
+import { LevelHoverCard } from '@/components/level/LevelHoverCard';
+import { LevelUpToasts } from '@/components/level/LevelUpToasts';
+import { ProfileLikeToasts } from '@/components/likes/ProfileLikeToasts';
+import { MobileLevelPage } from '@/components/level/mobile/MobileLevelPage';
+import { useHiddenMobileFeatures, useShopAvailable } from '@/components/shop/data';
+import { ShopPage } from '@/components/shop/desktop/ShopPage';
+import { MobileShopPage } from '@/components/shop/mobile/MobileShopPage';
+import { ShopGrantToasts } from '@/components/shop/ShopGrantToasts';
 import { getMobileBottomFeatureIds, getMobileFeatureDefinition, type MobileFeatureId } from '@/mobile/features';
 import { BotDetailPanel } from '@/components/bots/BotDetailPanel';
 import { BotEditorPage } from '@/components/bots/BotEditorPage';
@@ -43,7 +62,7 @@ import { isNativeMobileApp } from '@/utils/appMode';
 import { nativeConversationChange, projectDashboardConversations, sameConversationMembership } from '@/utils/conversations';
 import { userPresenceLabel } from '@/utils/presence';
 
-type MobileSharedSecondaryPage = { type: 'post'; postId: number } | { type: 'user'; user: User | null | undefined; fallbackId: number } | { type: 'onlineUsers'; users: User[]; onlineCount: number } | { type: 'bots' } | { type: 'home' } | { type: 'bot'; botId: number } | { type: 'botEditor'; mode: 'create' | 'edit'; bot?: Bot } | { type: 'conversation'; conversationId: number } | { type: 'announcement' } | { type: 'teamup' } | { type: 'tasks' } | { type: 'favorites' };
+type MobileSharedSecondaryPage = { type: 'post'; postId: number } | { type: 'user'; user: User | null | undefined; fallbackId: number } | { type: 'onlineUsers'; users: User[]; onlineCount: number } | { type: 'bots' } | { type: 'home' } | { type: 'bot'; botId: number } | { type: 'botEditor'; mode: 'create' | 'edit'; bot?: Bot } | { type: 'conversation'; conversationId: number } | { type: 'announcement' } | { type: 'teamup' } | { type: 'tasks' } | { type: 'favorites' } | { type: 'shop' } | { type: 'level'; tab: LevelTab };
 
 function getSharedSecondaryKey(page: MobileSharedSecondaryPage): string {
   if (page.type === 'post') {
@@ -64,7 +83,7 @@ function getSharedSecondaryKey(page: MobileSharedSecondaryPage): string {
   if (page.type === 'conversation') {
     return `conversation-${page.conversationId}`;
   }
-  if (page.type === 'announcement' || page.type === 'teamup' || page.type === 'tasks' || page.type === 'favorites' || page.type === 'home') {
+  if (page.type === 'announcement' || page.type === 'teamup' || page.type === 'tasks' || page.type === 'favorites' || page.type === 'home' || page.type === 'shop' || page.type === 'level') {
     return page.type;
   }
   return 'bots';
@@ -236,7 +255,6 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [globalSearchKeyword, setGlobalSearchKeyword] = useState<string | null>(null);
   const [forwardDetailMessage, setForwardDetailMessage] = useState<Message | null>(null);
-  const [railRipples, setRailRipples] = useState<Record<string, RailRipple | null>>({});
   const [mobilePage, setMobilePage] = useState<'list' | 'chat'>('list');
   const [contactsMobileDetailActive, setContactsMobileDetailActive] = useState(false);
   const [mobileTransitionClass, setMobileTransitionClass] = useState('kc-ios-slide-from-right');
@@ -260,6 +278,9 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const [settingsInitialTab, setSettingsInitialTab] = useState<'account' | 'ccw'>('account');
   const [settingsInitialMobilePage, setSettingsInitialMobilePage] = useState<'mobileMenu' | null>(null);
   const [settingsFocusKey, setSettingsFocusKey] = useState(0);
+  // 移动端「这一次进设置直接落到某一页」的一次性意图：设置面板落过去之后就清掉，之后再进设置仍然是首页
+  const [settingsMobileIntent, setSettingsMobileIntent] = useState<{ page: 'ccw'; key: number } | null>(null);
+  const consumeSettingsMobileIntent = useCallback(() => setSettingsMobileIntent(null), []);
   const mobileRouteHistoryRef = useRef<string[]>([]);
   const mobileSettingsDragProgressRef = useRef(0);
   const mobileTabGestureRef = useRef<{ pointerId: number; startX: number; startY: number; active: boolean; moved: boolean } | null>(null);
@@ -290,6 +311,10 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const clearPendingUserSpace = useKukeStore((state) => state.clearPendingUserSpace);
   const clearPendingPost = useKukeStore((state) => state.clearPendingPost);
   const clearPendingBot = useKukeStore((state) => state.clearPendingBot);
+  const pendingShop = useKukeStore((state) => state.pendingShop);
+  const clearPendingShop = useKukeStore((state) => state.clearPendingShop);
+  const pendingLevel = useKukeStore((state) => state.pendingLevel);
+  const clearPendingLevel = useKukeStore((state) => state.clearPendingLevel);
   const openUserSpace = useKukeStore((state) => state.openUserSpace);
   const closeRecommendedFriendRequest = useKukeStore((state) => state.closeRecommendedFriendRequest);
   const logout = useKukeStore((state) => state.logout);
@@ -341,6 +366,9 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     const unsubscribe = subscribeRealtimeEvents((event) => {
       if (event.rawType === 'announcement.published') {
         void queryClient.invalidateQueries({ queryKey: ['announcement', 'latest'] });
+      }
+      if (event.rawType === 'announcement.reaction.updated') {
+        applyAnnouncementReactionEvent(queryClient, event.data);
       }
     });
     return unsubscribe;
@@ -492,6 +520,13 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const membersHasMore = activeConversation?.type === 'group' ? Boolean(groupMembersQuery.hasNextPage) : false;
   const membersLoadingMore = activeConversation?.type === 'group' ? groupMembersQuery.isFetchingNextPage : false;
   const showConversationList = workspaceView === 'chat';
+  // 风纪页只有桌面布局；移动布局下既不查也不显示
+  const juryPendingCount = useJuryPendingCount(layoutMode === 'desktop');
+  // 商店入口只在服务端确实有商店时出现（docs/shop.md；旧后端 GET /shop 是 404）
+  const shopAvailable = useShopAvailable();
+  // 账号等级（docs/account-level.md）：探测服务端有没有等级，顺便拿到图标的换算表。结果写进 store/levelStore，各处的等级图标和入口读的是那里
+  useLevelRules();
+  const hiddenMobileFeatures = useHiddenMobileFeatures();
   const isMobile = layoutMode === 'mobile';
   const isNativeApp = isNativeMobileApp();
   const mobileRouteKey = workspaceView === 'chat' ? `chat:${mobilePage}` : workspaceView;
@@ -506,12 +541,12 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const mobileBottomNavHidden = mobileRouteKey === 'settings' && !isSettingsRailRoute;
   const mobileBottomNavShouldHide = !showMobileBottomNav || mobileBottomNavHidden;
   const mobileFixedSpaceTab = { key: 'space', label: getMobileFeatureDefinition('space').label, icon: getMobileFeatureDefinition('space').icon, view: 'space' as WorkspaceView, featureId: undefined as MobileFeatureId | undefined };
-  const mobileBottomTabs = [mobileFixedChatTab, ...getMobileBottomFeatureIds(mobileFeatureOrder).map((id) => {
+  const mobileBottomTabs = [mobileFixedChatTab, ...getMobileBottomFeatureIds(mobileFeatureOrder, hiddenMobileFeatures).map((id) => {
     const feature = getMobileFeatureDefinition(id);
-    const view = id === 'announcement' || id === 'favorites' || id === 'teamup' || id === 'tasks' || id === 'bots' || id === 'home' ? 'space' : id;
+    const view = id === 'announcement' || id === 'favorites' || id === 'teamup' || id === 'tasks' || id === 'bots' || id === 'home' || id === 'shop' ? 'space' : id;
     return { key: id, label: feature.label, icon: feature.icon, view: view as WorkspaceView, featureId: id };
   }), mobileFixedSpaceTab];
-  const activeMobileTabIndex = Math.max(0, mobileBottomTabs.findIndex((item) => item.key === workspaceView || (item.view === workspaceView && !['announcement', 'favorites', 'teamup', 'tasks', 'bots', 'home'].includes(item.key))));
+  const activeMobileTabIndex = Math.max(0, mobileBottomTabs.findIndex((item) => item.key === workspaceView || (item.view === workspaceView && !['announcement', 'favorites', 'teamup', 'tasks', 'bots', 'home', 'shop'].includes(item.key))));
   mobileBottomNavActiveIndexRef.current = activeMobileTabIndex;
   mobileBottomNavActiveViewRef.current = workspaceView;
   const mobileBottomNavSnapshotKey = `${mobileRouteKey}:${conversations.length}:${friends.length}:${bookmarksQuery.data?.length ?? 0}:${unreadCount}`;
@@ -526,7 +561,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
         <div className="kc-mobile-glass-nav-shell">
           <span className="kc-mobile-glass-nav-indicator" aria-hidden="true" />
           {mobileBottomTabs.map((item) => {
-            const active = item.key === activeView || (activeView === item.view && !['announcement', 'favorites', 'teamup', 'tasks', 'bots', 'home'].includes(item.key));
+            const active = item.key === activeView || (activeView === item.view && !['announcement', 'favorites', 'teamup', 'tasks', 'bots', 'home', 'shop'].includes(item.key));
             return (
               <button key={item.key} type="button" data-mobile-nav-key={item.key} onClick={interactive ? () => openMobileTab(item) : undefined} tabIndex={interactive ? undefined : -1} className={`kc-mobile-glass-nav-item ${active ? 'kc-mobile-glass-nav-item-active' : ''}`} aria-current={active ? 'page' : undefined}>
                 <span className="kc-mobile-glass-nav-icon-wrap">
@@ -729,6 +764,25 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     }
   }, [clearPendingBot, isMobile, pendingBotId]);
 
+  // 别处要求打开商店（外观设置里的入口、「获得新装扮」的提示）。桌面布局直接切了工作区，不会走到这里
+  useEffect(() => {
+    if (pendingShop && isMobile) {
+      openMobileFeatureSecondary('shop');
+      clearPendingShop();
+    }
+  }, [clearPendingShop, isMobile, pendingShop]);
+
+  // 别处要求打开等级页（自己的等级图标、个人主页、设置里的「我的等级」、升级提示）。桌面布局直接切了工作区，不会走到这里
+  useEffect(() => {
+    if (pendingLevel && isMobile) {
+      const tab = pendingLevel;
+      runNativeRouteTransition('secondary-forward', () => {
+        setMobileSharedSecondaryStack((current) => (current[current.length - 1]?.type === 'level' ? current : [...current, { type: 'level', tab }]));
+      }, isMobile);
+      clearPendingLevel();
+    }
+  }, [clearPendingLevel, isMobile, pendingLevel]);
+
   useEffect(() => {
     if (!isMobile) {
       setMobileSharedSecondaryStack([]);
@@ -830,8 +884,25 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       }
       if (featureId === 'favorites') {
         setMobileSharedSecondaryStack((current) => [...current, { type: 'favorites' }]);
+        return;
+      }
+      if (featureId === 'shop') {
+        setMobileSharedSecondaryStack((current) => (current[current.length - 1]?.type === 'shop' ? current : [...current, { type: 'shop' }]));
       }
     }, isMobile);
+  }
+
+  /**
+   * 移动端商店里的「去绑定 CCW 账号」：收起商店，直接落到设置里的 CCW 账号页。
+   * 用一次性的意图而不是「初始页」：初始页是粘住的，指过去之后每次进设置都会落在 CCW 那一页。
+   */
+  function openCcwSettingsFromShop(): void {
+    setMobileSharedSecondaryStack([]);
+    setSettingsInitialTab('account');
+    setSettingsInitialMobilePage(null);
+    setSettingsFocusKey((value) => value + 1);
+    setSettingsMobileIntent({ page: 'ccw', key: Date.now() });
+    openMobileSettings(false);
   }
 
   function openDesktopSettings(): void {
@@ -847,6 +918,8 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     setSettingsInitialMobilePage(null);
     setSettingsFocusKey((value) => value + 1);
     if (isMobile) {
+      // 移动端的设置面板不看 initialTab：和商店那边一样，用一次性的意图直接落到 CCW 账号页
+      setSettingsMobileIntent({ page: 'ccw', key: Date.now() });
       openMobileSettings(false);
       return;
     }
@@ -860,27 +933,10 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     openMobileSettings(false);
   }
 
-  function triggerRailRipple(key: string, event: React.PointerEvent<HTMLButtonElement>): void {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const ripple = {
-      id: window.performance.now(),
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
-    };
-    setRailRipples((current) => ({ ...current, [key]: ripple }));
-    window.setTimeout(() => {
-      setRailRipples((current) => (current[key]?.id === ripple.id ? { ...current, [key]: null } : current));
-    }, 520);
-  }
-
-  function renderRailRipple(key: string): JSX.Element {
-    const ripple = railRipples[key];
-    return (
-      <span className="kc-pc-rail-ripple" aria-hidden="true">
-        {ripple ? <span key={ripple.id} className="kc-pc-rail-ripple-dot" style={{ '--kc-ripple-x': `${ripple.x}px`, '--kc-ripple-y': `${ripple.y}px` } as CSSProperties} /> : null}
-      </span>
-    );
-  }
+  // 传给 memo 过的导航栏和会话栏，身份要稳定
+  const openCreateGroup = useCallback(() => setShowCreateGroup(true), []);
+  const openAnnouncement = useCallback(() => setAnnouncementOpen(true), []);
+  const openGlobalSearch = useCallback((keyword = '') => setGlobalSearchKeyword(keyword), []);
 
   function setMobileRouteTransition(nextRoute: string): void {
     if (!isMobile) {
@@ -1278,7 +1334,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   }
 
   function openMobileTab(item: { view: WorkspaceView; featureId?: MobileFeatureId }): void {
-    if (item.featureId === 'announcement' || item.featureId === 'teamup' || item.featureId === 'tasks' || item.featureId === 'favorites' || item.featureId === 'bots' || item.featureId === 'home') {
+    if (item.featureId === 'announcement' || item.featureId === 'teamup' || item.featureId === 'tasks' || item.featureId === 'favorites' || item.featureId === 'bots' || item.featureId === 'home' || item.featureId === 'shop') {
       openMobileFeatureSecondary(item.featureId);
       return;
     }
@@ -1410,50 +1466,22 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   }
 
   return (
-    <div className={`kc-pc-dashboard relative grid h-full overflow-hidden [background:var(--kc-window)] [color:var(--kc-text)] ${isMobile ? 'kc-mobile-shell grid-cols-1' : showConversationList ? 'grid-cols-[56px_252px_minmax(0,1fr)]' : 'grid-cols-[56px_minmax(0,1fr)]'}`}>
-      <aside className={`kc-pc-rail flex flex-col items-center justify-between border-r px-2 py-3 [background:var(--kc-rail)] [border-color:var(--kc-border)] ${isMobile ? 'hidden' : ''}`}>
-        <div className="grid gap-2">
-          {navItems.map((item) => (
-            <span key={item.view} className="kc-pc-rail-action-wrap relative grid h-10 w-10 place-items-center overflow-visible">
-              <button type="button" onPointerDown={(event) => triggerRailRipple(item.view, event)} onClick={() => setWorkspaceView(item.view)} className={`kc-pc-rail-action grid h-10 w-10 place-items-center rounded-xl transition ${item.view === 'teamup' && workspaceView !== item.view ? 'kc-pc-rail-action-teamup' : ''} ${workspaceView === item.view ? 'kc-pc-rail-action-active [background:var(--kc-accent)] text-white' : '[color:var(--kc-muted)] hover:[background:var(--kc-hover)] hover:[color:var(--kc-text)]'}`} title={item.label}>
-                {renderRailRipple(item.view)}
-                <Icon name={item.icon} className="h-5 w-5" />
-              </button>
-              {item.view === 'chat' && unreadCount > 0 ? <span className="kc-pc-rail-badge pointer-events-none absolute -right-1.5 -top-1.5 grid min-h-[18px] min-w-[18px] place-items-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white shadow-[0_2px_6px_rgba(239,68,68,0.35)]">{unreadCount}</span> : null}
-            </span>
-          ))}
-          <button type="button" onPointerDown={(event) => triggerRailRipple('create-group', event)} onClick={() => setShowCreateGroup(true)} className="kc-pc-rail-action grid h-10 w-10 place-items-center rounded-xl transition [color:var(--kc-muted)] hover:[background:var(--kc-hover)] hover:[color:var(--kc-text)]" title="创建群聊">
-            {renderRailRipple('create-group')}
-            <Icon name="plus" className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="grid gap-2">
-          <span className="relative grid h-10 w-10 place-items-center overflow-visible">
-            <button type="button" onPointerDown={(event) => triggerRailRipple('tasks', event)} onClick={() => setWorkspaceView('tasks')} className={`kc-pc-rail-action grid h-10 w-10 place-items-center rounded-xl transition ${workspaceView === 'tasks' ? 'kc-pc-rail-action-active [background:var(--kc-accent)] text-white' : '[color:var(--kc-muted)] hover:[background:var(--kc-hover)] hover:[color:var(--kc-text)]'}`} title="任务">
-              {renderRailRipple('tasks')}
-              <Icon name="checkSquare" className="h-5 w-5" />
-            </button>
-            {hasOpenTasks && workspaceView !== 'tasks' ? <span className="pointer-events-none absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_2px_6px_rgba(239,68,68,0.4)] ring-2 ring-[var(--kc-rail)]" /> : null}
-          </span>
-          <button type="button" onPointerDown={(event) => triggerRailRipple('favorites', event)} onClick={() => setWorkspaceView('favorites')} className={`kc-pc-rail-action grid h-10 w-10 place-items-center rounded-xl transition ${workspaceView === 'favorites' ? 'kc-pc-rail-action-active [background:var(--kc-accent)] text-white' : '[color:var(--kc-muted)] hover:[background:var(--kc-hover)] hover:[color:var(--kc-text)]'}`} title="收藏">
-            {renderRailRipple('favorites')}
-            <Icon name="star" className="h-5 w-5" />
-          </button>
-          <span className="relative grid h-10 w-10 place-items-center overflow-visible">
-            <button type="button" onPointerDown={(event) => triggerRailRipple('announcement', event)} onClick={() => setAnnouncementOpen(true)} className="kc-pc-rail-action grid h-10 w-10 place-items-center rounded-xl transition [color:var(--kc-muted)] hover:[background:var(--kc-hover)] hover:[color:var(--kc-text)]" title="公告">
-              {renderRailRipple('announcement')}
-              <Icon name="announcement" className="h-5 w-5" />
-            </button>
-            {hasUnseenAnnouncement ? <span className="pointer-events-none absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_2px_6px_rgba(239,68,68,0.4)] ring-2 ring-[var(--kc-rail)]" /> : null}
-          </span>
-          <button type="button" onPointerDown={(event) => triggerRailRipple('settings', event)} onClick={openDesktopSettings} className={`kc-pc-rail-action grid h-10 w-10 place-items-center rounded-xl transition ${workspaceView === 'settings' ? 'kc-pc-rail-action-active [background:var(--kc-accent)] text-white' : '[color:var(--kc-muted)] hover:[background:var(--kc-hover)] hover:[color:var(--kc-text)]'}`} title="设置">
-            {renderRailRipple('settings')}
-            <Icon name="settings" className="h-5 w-5" />
-          </button>
-        </div>
-      </aside>
+    <div className={`kc-pc-dashboard relative grid h-full overflow-hidden [background:var(--kc-window)] [color:var(--kc-text)] ${isMobile ? 'kc-mobile-shell grid-cols-1' : showConversationList ? 'grid-cols-[56px_268px_minmax(0,1fr)]' : 'grid-cols-[56px_minmax(0,1fr)]'}`}>
+      {isMobile ? null : (
+        <NavRail
+          view={workspaceView}
+          unreadCount={unreadCount}
+          hasUnseenAnnouncement={hasUnseenAnnouncement}
+          juryPendingCount={juryPendingCount}
+          shopAvailable={shopAvailable}
+          onNavigate={setWorkspaceView}
+          onCreateGroup={openCreateGroup}
+          onOpenAnnouncement={openAnnouncement}
+          onOpenSettings={openDesktopSettings}
+        />
+      )}
 
-      {showConversationList && !isMobile ? <ConversationList conversations={conversations} isLoading={conversationsQuery.isLoading} currentUser={currentUser} onCreateGroup={() => setShowCreateGroup(true)} onOpenGlobalSearch={(keyword = '') => setGlobalSearchKeyword(keyword)} /> : null}
+      {showConversationList && !isMobile ? <ConversationPane conversations={conversations} isLoading={conversationsQuery.isLoading} currentUser={currentUser} onCreateGroup={openCreateGroup} onOpenGlobalSearch={openGlobalSearch} /> : null}
 
       <main className={`grid min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden [background:var(--kc-chat)] ${isNativeApp ? 'kc-native-main' : ''}`}>
         <div
@@ -1474,14 +1502,15 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
                 style={{ '--kc-settings-swipe-progress': mobileSettingsDragProgress } as CSSProperties}
               >
                 <section className="kc-settings-rail-page kc-settings-rail-settings" aria-hidden={mobileRouteKey !== 'settings'}>
-                  <SettingsPanel user={currentUser} isMobile={isMobile} initialMobilePage={settingsInitialMobilePage ?? undefined} focusKey={settingsFocusKey} onMobileBack={backFromMobileSettings} onMobileDetailActiveChange={handleMobileDetailActiveChange} />
+                  <SettingsPanel user={currentUser} isMobile={isMobile} initialMobilePage={settingsInitialMobilePage ?? undefined} focusKey={settingsFocusKey} mobileIntent={settingsMobileIntent} onMobileIntentConsumed={consumeSettingsMobileIntent} onMobileBack={backFromMobileSettings} onMobileDetailActiveChange={handleMobileDetailActiveChange} />
                 </section>
                 <section className="kc-settings-rail-page kc-settings-rail-chat" aria-hidden={mobileRouteKey !== 'chat:list'}>
-                  <ConversationList variant="mobile" conversations={conversations} isLoading={conversationsQuery.isLoading} currentUser={currentUser} onCreateGroup={() => setShowCreateGroup(true)} onOpenGlobalSearch={(keyword = '') => setGlobalSearchKeyword(keyword)} onSelectConversation={openMobileChat} onOpenSettings={openMobileSettings} onOpenOnlineUsers={openSharedOnlineUsers} />
+                  <ConversationList conversations={conversations} isLoading={conversationsQuery.isLoading} currentUser={currentUser} onCreateGroup={() => setShowCreateGroup(true)} onOpenGlobalSearch={(keyword = '') => setGlobalSearchKeyword(keyword)} onSelectConversation={openMobileChat} onOpenSettings={openMobileSettings} onOpenOnlineUsers={openSharedOnlineUsers} />
                 </section>
               </div>
             ) : null}
-            {workspaceView === 'chat' && (!isMobile || mobilePage === 'chat') && !isSettingsRailRoute ? <MessagePanel conversations={conversations} currentUser={currentUser} currentRole={currentRole} members={visibleMembers} friends={friends} membersLoading={membersLoading} membersHasMore={membersHasMore} membersLoadingMore={membersLoadingMore} isMobile={isMobile} mobileBackUnreadCount={mobileChatBackUnreadCount} onMembersNeeded={loadActiveConversationMembers} onLoadMoreMembers={loadMoreActiveConversationMembers} onMemberSearchChange={updateActiveMemberSearch} onOpenPost={isMobile ? openSharedPostDetail : undefined} onBack={backToMobileList} /> : null}
+            {workspaceView === 'chat' && !isMobile ? <DesktopChatPanel conversations={conversations} currentUser={currentUser} currentRole={currentRole} members={visibleMembers} friends={friends} membersLoading={membersLoading} membersHasMore={membersHasMore} membersLoadingMore={membersLoadingMore} onMembersNeeded={loadActiveConversationMembers} onLoadMoreMembers={loadMoreActiveConversationMembers} onMemberSearchChange={updateActiveMemberSearch} /> : null}
+            {workspaceView === 'chat' && isMobile && mobilePage === 'chat' && !isSettingsRailRoute ? <MessagePanel conversations={conversations} currentUser={currentUser} currentRole={currentRole} members={visibleMembers} friends={friends} membersLoading={membersLoading} membersHasMore={membersHasMore} membersLoadingMore={membersLoadingMore} isMobile={isMobile} mobileBackUnreadCount={mobileChatBackUnreadCount} onMembersNeeded={loadActiveConversationMembers} onLoadMoreMembers={loadMoreActiveConversationMembers} onMemberSearchChange={updateActiveMemberSearch} onOpenPost={isMobile ? openSharedPostDetail : undefined} onBack={backToMobileList} /> : null}
             {!isSettingsRailRoute && workspaceView === 'contacts' ? <ContactsPanel friends={friends} conversations={conversations} isLoading={friendsQuery.isLoading} currentUser={currentUser} isMobile={isMobile} onOpenSettings={openMobileSettings} onOpenGlobalSearch={(keyword = '') => setGlobalSearchKeyword(keyword)} onOpenConversation={isMobile ? openConversationFromMobileSurface : undefined} onOpenPost={isMobile ? openSharedPostDetail : undefined} onMobileDetailActiveChange={handleMobileDetailActiveChange} /> : null}
             {!isSettingsRailRoute && workspaceView === 'posts' ? <PostsPanel key={isMobile ? 'mobile-feed-root' : 'desktop-posts-root'} currentUser={currentUser} isMobile={isMobile} onOpenMobileUserProfile={openSharedUserProfile} mobileInitialView="posts" conversations={conversations} bookmarks={bookmarksQuery.data ?? []} bookmarksLoading={bookmarksQuery.isLoading} bookmarksError={bookmarksQuery.error} onOpenForwardBundle={(message) => setForwardDetailMessage(message)} onMobileSecondaryActiveChange={handleMobileDetailActiveChange} /> : null}
             {!isSettingsRailRoute && workspaceView === 'space' && isMobile ? <PostsPanel key="mobile-space-root" currentUser={currentUser} isMobile={isMobile} onOpenMobileUserProfile={openSharedUserProfile} mobileInitialView="home" conversations={conversations} bookmarks={bookmarksQuery.data ?? []} bookmarksLoading={bookmarksQuery.isLoading} bookmarksError={bookmarksQuery.error} onOpenForwardBundle={(message) => setForwardDetailMessage(message)} onMobileSecondaryActiveChange={handleMobileDetailActiveChange} onOpenMobileBots={openSharedBotCenter} onOpenMobileFeature={openMobileFeatureSecondary} onOpenMobileMenuSettings={openMobileMenuSettings} /> : null}
@@ -1489,6 +1518,9 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
             {!isSettingsRailRoute && workspaceView === 'teamup' ? <TeamupCenterPanel currentUser={currentUser} friends={friends} isMobile={isMobile} /> : null}
             {!isSettingsRailRoute && workspaceView === 'tasks' ? <TaskCenterPanel currentUser={currentUser} isMobile={isMobile} /> : null}
             {!isSettingsRailRoute && workspaceView === 'bots' ? <BotCenterPanel conversations={conversations} isMobile={isMobile} onMobileBack={isMobile ? () => replaceMobileRoute('space', 'back') : undefined} onOpenMobileConversation={isMobile ? openSharedConversation : openConversationFromMobileSurface} onOpenBotDetail={isMobile ? openSharedBotDetail : undefined} onOpenMobileBotEditor={isMobile ? openSharedBotEditor : undefined} onOpenUserProfile={isMobile ? openSharedUserProfile : undefined} /> : null}
+            {workspaceView === 'jury' && !isMobile ? <JuryPage /> : null}
+            {workspaceView === 'shop' && !isMobile ? <ShopPage /> : null}
+            {workspaceView === 'level' && !isMobile ? <LevelPage /> : null}
             {!isSettingsRailRoute && workspaceView === 'home' ? <HomePanel currentUser={currentUser} conversations={conversations} isMobile={isMobile} onOpenConversation={isMobile ? openSharedConversation : (conversationId) => setActiveConversationId(conversationId)} onOpenUserProfile={isMobile ? openSharedUserProfile : (_user, userId) => openUserSpace(userId)} /> : null}
             {!isSettingsRailRoute && workspaceView === 'settings' ? <SettingsPanel user={currentUser} isMobile={isMobile} initialTab={settingsInitialTab} initialMobilePage={settingsInitialMobilePage ?? undefined} focusKey={settingsFocusKey} onLogout={handleLogout} onMobileBack={backFromMobileSettings} onMobileDetailActiveChange={handleMobileDetailActiveChange} /> : null}
           </div>
@@ -1509,7 +1541,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
           return <MobilePostDetailPage key={`shared-post-${index}-${page.postId}`} postId={page.postId} currentUser={currentUser} friendUsers={friends.map((friend) => friend.friend ?? friend.user).filter((user): user is User => Boolean(user) && user.id !== currentUser.id)} topicOptions={postTopicsQuery.data ?? []} isMobile transitionStyle={transitionStyle} onClose={isTop ? closeSharedSecondaryPage : () => undefined} onOpenUserSpace={openSharedUserProfile} onOpenPost={openSharedPostDetail} />;
         }
         if (page.type === 'user') {
-          return <MobileUserProfilePage key={`shared-user-${index}-${page.fallbackId}`} user={page.user} fallbackUserId={page.fallbackId} currentUserId={currentUser.id} currentUser={currentUser} transitionStyle={transitionStyle} onOpenUserProfile={openSharedUserProfile} onOpenPost={openSharedPostDetail} onClose={isTop ? closeSharedSecondaryPage : () => undefined} />;
+          return <MobileUserProfilePage key={`shared-user-${index}-${page.fallbackId}`} user={page.user} label={page.user ? undefined : `用户 ${page.fallbackId}`} fallbackUserId={page.fallbackId} currentUserId={currentUser.id} currentUser={currentUser} transitionStyle={transitionStyle} onOpenUserProfile={openSharedUserProfile} onOpenPost={openSharedPostDetail} onClose={isTop ? closeSharedSecondaryPage : () => undefined} />;
         }
         if (page.type === 'onlineUsers') {
           return createPortal(renderMobileOnlineUsersPage(page, isTop, transitionStyle), getKukePortalRoot(), `shared-online-users-${index}`);
@@ -1538,6 +1570,14 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
           const node = <div className={`fixed inset-0 h-screen w-screen overflow-hidden [background:var(--kc-mobile-bg,#f1f3f8)] ${isTop ? 'pointer-events-auto' : 'pointer-events-none'}`} style={{ zIndex: isTop ? 2147483647 : 2147483645, ...transitionStyle }}><div className="kc-native-app h-full w-full"><FavoritesPanel conversations={conversations} currentUser={currentUser} items={bookmarksQuery.data ?? []} isLoading={bookmarksQuery.isLoading} error={bookmarksQuery.error} isMobile onOpenForwardBundle={(message) => setForwardDetailMessage(message)} onMobileBack={isTop ? closeSharedSecondaryPage : undefined} /></div></div>;
           return createPortal(node, getKukePortalRoot(), `shared-favorites-${index}`);
         }
+        if (page.type === 'shop') {
+          const node = <div className={`fixed inset-0 h-screen w-screen overflow-hidden [background:var(--kc-mobile-bg,#f1f3f8)] ${isTop ? 'pointer-events-auto' : 'pointer-events-none'}`} style={{ zIndex: isTop ? 2147483647 : 2147483645, ...transitionStyle }}><div className="kc-native-app h-full w-full"><MobileShopPage onMobileBack={isTop ? closeSharedSecondaryPage : undefined} onOpenCcwBinding={openCcwSettingsFromShop} /></div></div>;
+          return createPortal(node, getKukePortalRoot(), `shared-shop-${index}`);
+        }
+        if (page.type === 'level') {
+          const node = <div className={`fixed inset-0 h-screen w-screen overflow-hidden [background:var(--kc-mobile-bg,#f1f3f8)] ${isTop ? 'pointer-events-auto' : 'pointer-events-none'}`} style={{ zIndex: isTop ? 2147483647 : 2147483645, ...transitionStyle }}><div className="kc-native-app h-full w-full"><MobileLevelPage initialTab={page.tab} onMobileBack={isTop ? closeSharedSecondaryPage : undefined} /></div></div>;
+          return createPortal(node, getKukePortalRoot(), `shared-level-${index}`);
+        }
         if (page.type === 'bot') {
           const node = <div className={`fixed inset-0 h-screen w-screen overflow-hidden [background:var(--kc-mobile-bg,#f1f3f8)] ${isTop ? 'pointer-events-auto' : 'pointer-events-none'}`} style={{ zIndex: isTop ? 2147483647 : 2147483645, ...transitionStyle }}><div className="kc-native-app h-full w-full"><BotDetailPanel botId={page.botId} conversations={conversations} isMobile onBack={isTop ? closeSharedSecondaryPage : undefined} onOpenMobileConversation={openSharedConversation} onOpenUserProfile={openSharedUserProfile} onEdit={(bot) => openSharedBotEditor('edit', bot)} onDeleted={closeSharedSecondaryPage} onKey={() => undefined} /></div></div>;
           return createPortal(node, getKukePortalRoot(), `shared-bot-${index}-${page.botId}`);
@@ -1564,6 +1604,10 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       {globalSearchKeyword !== null ? <GlobalSearchModal currentUser={currentUser} friends={friends} initialKeyword={globalSearchKeyword} mobile={isMobile} onOpenConversation={isMobile ? openConversationFromMobileSurface : undefined} onClose={() => setGlobalSearchKeyword(null)} /> : null}
       {forwardDetailMessage ? <ForwardBundleDetailModal message={forwardDetailMessage} mobile={isMobile} onClose={() => setForwardDetailMessage(null)} /> : null}
       {showCcwBindingPrompt ? <CcwBindingPromptModal mobile={isMobile} onClose={() => setShowCcwBindingPrompt(false)} onOpenBinding={openCcwSettingsFromPrompt} /> : null}
+      <ShopGrantToasts />
+      <LevelUpToasts />
+      <ProfileLikeToasts />
+      <LevelHoverCard />
     </div>
   );
 }

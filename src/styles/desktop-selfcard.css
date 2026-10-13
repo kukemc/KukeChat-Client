@@ -1,0 +1,438 @@
+/* 桌面端：标题栏上可点的「头像 + 昵称」（kwf-self），和点它弹出的「我的资料卡」（ksc-）。
+   卡片的外框、头部、CCW 那一行、底栏沿用别人的资料卡（desktop-modals.css 的 kmd-card*），
+   这里只写浮层的摆法和几行自己的内容。基础样式和取向见 kui.css。 */
+
+/* ───────── 标题栏上的头像按钮 ───────── */
+
+/* 标题栏的标题：里面是一个按钮。放不下时和原来一样先截签名，名字尽量留全 */
+.kwf-self-wrap {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+/* 往左探出 4px 再用内边距补回来：头像还在原来的位置，悬停的底色四边留得一样宽 */
+.kwf-self {
+  display: flex;
+  height: 28px;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  margin-left: -4px;
+  padding: 0 7px 0 4px;
+  border-radius: var(--kui-r-sm);
+  cursor: pointer;
+  transition: background-color 100ms ease;
+}
+
+.kwf-self:hover {
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+}
+
+.kwf-self:active,
+.kwf-self[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--kc-text) 11%, transparent);
+}
+
+/* 头像组件最小一档是 32px，标题栏里再收一号 */
+.kwf-self > :is(img, div):first-child {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  font-size: 11px;
+}
+
+/* ───────── 我的资料卡 ───────── */
+
+/* 铺满窗口根的一层，自己不接鼠标：点卡片外面的那一下照常落到下面的东西上。
+   层级在标题栏（100）和「在线」名单（120）之上，对话框（kui-backdrop）之下 */
+.ksc-layer {
+  position: absolute;
+  z-index: 130;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ksc-card {
+  width: 320px;
+  outline: none;
+  pointer-events: auto;
+  user-select: none;
+  animation: ksc-in 130ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: 20px 0;
+}
+
+@keyframes ksc-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+}
+
+/* 右边放的是我收到的赞（klk-mine，样式在 likes.css）而不是关闭按钮，留白和左边对齐 */
+.ksc-card > .kmd-card-head {
+  padding-right: 16px;
+}
+
+/* 「@用户名 · ID 12345」：用户名放不下时截断，ID 一直留全 */
+.kmd-card-id > .ksc-handle {
+  display: flex;
+  align-items: center;
+  overflow: visible;
+}
+
+.kmd-card-id > .ksc-handle > span {
+  min-width: 0;
+  margin-left: 0;
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+}
+
+.ksc-id {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color 100ms ease;
+}
+
+/* 用户名和 ID 之间的分隔点：单独一个元素，不算在可点的 ID 里（焦点环只圈住 ID） */
+.kmd-card-id > .ksc-handle > i {
+  flex: none;
+  margin: 0 5px;
+  color: var(--kc-subtle);
+  font-style: normal;
+}
+
+/* 复制的小图标平时藏着，指到或聚焦时才出来，不抢这一行的字 */
+.ksc-id > svg {
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.ksc-id:is(:hover, :focus-visible, .is-copied) {
+  color: var(--kc-text);
+}
+
+.ksc-id:is(:hover, :focus-visible, .is-copied) > svg {
+  opacity: 1;
+}
+
+.ksc-id.is-copied > svg {
+  color: var(--kui-ok);
+}
+
+/* 在线状态（在线 / 忙碌 / 自己写的状态）在名字下面的第三行，用的是别人资料卡的那一行（kmd-card-status）；头像右下角还有一个点 */
+
+/* —— 资料行：左边一个小标题，右边是内容 —— */
+
+.ksc-rows {
+  /* 一行的高度：字号调大时跟着长，左边的小标题和右边的第一行字才对得齐 */
+  --ksc-line: max(30px, calc(30px * var(--kui-fs)));
+  display: grid;
+  gap: 3px;
+  padding: 9px 16px 11px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.ksc-row {
+  display: grid;
+  align-items: start;
+  gap: 12px;
+  grid-template-columns: calc(30px * var(--kui-fs)) minmax(0, 1fr);
+}
+
+.ksc-row > dt {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: var(--ksc-line);
+  white-space: nowrap;
+}
+
+.ksc-row > dd {
+  display: flex;
+  min-width: 0;
+  min-height: var(--ksc-line);
+  align-items: center;
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+/* 可点的一行：悬停是一块向两侧探出 6px 的圆角底，和 kui-row 一个做法 */
+.ksc-link {
+  display: flex;
+  width: calc(100% + 12px);
+  min-width: 0;
+  min-height: var(--ksc-line);
+  align-items: center;
+  gap: 7px;
+  margin: 0 -6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.ksc-link:hover {
+  background: var(--kc-hover);
+}
+
+.ksc-link:active {
+  background: var(--kc-active);
+}
+
+#kukechat-root [data-font-scale] .ksc-link {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* 等级：图标串很长时（三个皇冠再带太阳月亮星星）「累计活跃」折到第二行 */
+.ksc-level {
+  flex-wrap: wrap;
+  row-gap: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ksc-level .klv {
+  --klv-s: 15px;
+}
+
+.ksc-level > b {
+  font-weight: 700;
+}
+
+.ksc-level-days {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 明细还没到：占住「累计活跃 N 天」的位置，到了之后这一行不会变宽或折行 */
+.ksc-level-days.ksc-bone {
+  width: 92px;
+  height: 10px;
+  border-radius: 4px;
+}
+
+.ksc-arrow {
+  flex: none;
+  margin-left: auto;
+  color: var(--kc-subtle);
+}
+
+.ksc-link:hover > .ksc-arrow,
+.ksc-level:hover > b {
+  color: var(--kc-accent);
+}
+
+/* 徽章：一排小标签，放不下就折行 */
+.ksc-row > .ksc-badges {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.ksc-badges > .kui-tag {
+  max-width: 100%;
+  cursor: default;
+}
+
+/* 气泡皮肤：前面一小块皮肤本身的底色。底色浅色、深色各一份（SelfCardDesktop 写在内联变量里） */
+.ksc-skin {
+  min-width: 0;
+  gap: 5px;
+}
+
+.ksc-skin > i {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--ksc-skin-light, var(--kc-accent));
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--kc-text) 22%, transparent);
+}
+
+[data-theme='dark'] .ksc-skin > i {
+  background: var(--ksc-skin-dark, var(--ksc-skin-light, var(--kc-accent)));
+}
+
+.ksc-badges > button.ksc-skin {
+  cursor: pointer;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.ksc-badges > button.ksc-skin:hover {
+  background: color-mix(in srgb, var(--kc-text) 12%, transparent);
+  color: var(--kc-text);
+}
+
+#kukechat-root [data-font-scale] button.ksc-skin {
+  font-size: calc(10.5px * var(--kui-fs));
+}
+
+/* 签名：最多两行。上下的留白用外边距：写成内边距的话，被截掉的第三行会从下面那条内边距里露出半截 */
+.ksc-bio {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+
+.ksc-empty {
+  color: var(--kc-subtle);
+}
+
+.ksc-empty > svg {
+  flex: none;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.ksc-empty:is(:hover, :focus-visible) {
+  color: var(--kc-text);
+}
+
+.ksc-empty:is(:hover, :focus-visible) > svg {
+  opacity: 1;
+}
+
+/* CCW：沿用 kmd-card-ccw 的排法，只把整行做成可点的一块 */
+.ksc-link.kmd-card-ccw {
+  width: calc(100% + 12px);
+  gap: 6px;
+}
+
+.ksc-unbound {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--kc-subtle);
+}
+
+#kukechat-root [data-font-scale] .ksc-unbound > .kui-link {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* —— 动态：四格缩略图。骨架、图片、只有条数，三种状态都是这个高度 —— */
+
+.ksc-row[data-row='posts'] > dd {
+  padding: 5px 0 3px;
+}
+
+.ksc-posts {
+  display: grid;
+  width: 100%;
+  height: 56px;
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  text-align: left;
+}
+
+button.ksc-posts {
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ksc-thumb {
+  width: 100%;
+  height: 56px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  object-fit: cover;
+  transition: filter 100ms ease;
+}
+
+button.ksc-posts:hover > img.ksc-thumb {
+  filter: brightness(0.94);
+}
+
+/* 图不满四张时空出来的那几格：写动态一共多少条 */
+.ksc-posts-more {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-muted);
+  transition: background-color 100ms ease;
+}
+
+.ksc-posts-more.is-wide {
+  justify-content: space-between;
+  padding: 0 8px 0 12px;
+}
+
+.ksc-posts-more > span {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  line-height: 1.25;
+}
+
+.ksc-posts-more.is-wide > span {
+  justify-items: start;
+}
+
+.ksc-posts-more b {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--kc-text);
+  font-size: calc(15px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksc-posts-more small {
+  font-size: calc(11px * var(--kui-fs));
+  white-space: nowrap;
+}
+
+.ksc-posts-more > svg {
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+button.ksc-posts:hover > .ksc-posts-more {
+  background: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+button.ksc-posts:hover > .ksc-posts-more > svg {
+  color: var(--kc-accent);
+}
+
+/* 骨架：一块淡底，慢慢地明暗一下 */
+.ksc-bone {
+  display: block;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  animation: ksc-bone 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes ksc-bone {
+  to {
+    opacity: 0.45;
+  }
+}
+
+/* 底栏两个按钮平分；焦点环画在卡片里面，不被滚动容器裁掉 */
+.ksc-card > .kmd-card-actions > .kui-btn:focus-visible {
+  outline-offset: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ksc-card,
+  .ksc-bone {
+    animation: none;
+  }
+}

@@ -28,6 +28,7 @@ export function VirtualConversationList<T extends { id: number }>({
   const listRef = useRef<HTMLDivElement>(null);
   const measuredRowRef = useRef<HTMLDivElement>(null);
   const [rowHeight, setRowHeight] = useState(estimatedRowHeight);
+  const hasMeasuredRef = useRef(false);
   const [viewport, setViewport] = useState<Viewport>({ scrollTop: 0, height: 0, listTop: 0 });
   const anchorRef = useRef<{ id: number; offset: number } | null>(null);
   const itemsRef = useRef(items);
@@ -86,7 +87,13 @@ export function VirtualConversationList<T extends { id: number }>({
     const measure = () => {
       // offsetHeight excludes entrance/press transforms, which must not change virtual coordinates.
       const next = Math.ceil(row.offsetHeight);
-      if (next > 0) setRowHeight((previous) => previous === next ? previous : next);
+      if (next <= 0) return;
+      // Rows may differ by a few pixels (e.g. unread badges). Changing the stride moves `first`
+      // onto a different row, so after the first measurement only allow growth; otherwise two
+      // heights ping-pong synchronously until React aborts with "Maximum update depth exceeded".
+      const firstMeasurement = !hasMeasuredRef.current;
+      hasMeasuredRef.current = true;
+      setRowHeight((previous) => firstMeasurement ? next : Math.max(previous, next));
     };
     measure();
     const observer = new ResizeObserver(measure);

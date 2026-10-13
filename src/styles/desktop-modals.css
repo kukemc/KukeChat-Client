@@ -1,0 +1,1849 @@
+/* 桌面端：全局搜索与各类弹窗（基础样式见 kui.css）。
+   对话框的遮罩、外框、标题栏、底栏是 kui-backdrop / kui-dialog*；这里只补尺寸、正文里的版式，
+   以及三个不是对话框的浮层：搜索面板（kmd-search）、资料卡（kmd-card）、看图（kmd-viewer）。 */
+
+/* ───────── 对话框外壳 ───────── */
+
+.kmd-modal,
+.kmd-search,
+.kmd-card {
+  /* 对话框里凹下去的一块（列表区、聊天记录区）和浮在它上面的块。
+     不用 --kc-chat / --kc-list：整窗背景下它们是半透明的，垫在不透明的对话框上就看不出层次了 */
+  --kmd-well: color-mix(in srgb, var(--kc-text) 4%, var(--kui-raised));
+  --kmd-block: var(--kc-panel);
+  --kmd-hairline: 0 0 0 1px var(--kc-border), 0 1px 1px rgba(18, 22, 38, 0.04);
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+/* 深色下反过来：凹下去的更暗，浮起来的更亮 */
+[data-theme='dark'] :is(.kmd-modal, .kmd-search, .kmd-card) {
+  --kmd-well: color-mix(in srgb, #000000 24%, var(--kui-raised));
+  --kmd-block: color-mix(in srgb, #ffffff 4.5%, var(--kui-raised));
+  --kmd-hairline: 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.kmd-backdrop--raised {
+  z-index: 2147483100;
+}
+
+.kmd-modal--sm {
+  max-width: 420px;
+}
+
+.kmd-modal--md {
+  max-width: 520px;
+}
+
+.kmd-modal--lg {
+  max-width: 640px;
+}
+
+.kmd-modal--xl {
+  max-width: 880px;
+}
+
+/* 列表类的对话框固定高度，内容多少都不跳 */
+.kmd-modal--tall {
+  height: 620px;
+}
+
+.kmd-modal-header--back {
+  padding-left: 9px;
+}
+
+.kmd-modal-title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.kmd-modal-title > span {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-modal-title > small {
+  min-width: 0;
+  flex: 0 10 auto;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-well {
+  background: var(--kmd-well);
+}
+
+/* 正文分成「固定的工具条 + 自己滚动的列表」 */
+.kmd-split {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.kmd-toolbar {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kmd-toolbar .kui-field {
+  flex: 1;
+}
+
+.kmd-pane {
+  min-height: 0;
+  flex: 1;
+  padding: 0 0 8px;
+}
+
+.kmd-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kmd-form > * {
+  flex: none;
+}
+
+.kmd-status--error {
+  color: var(--kui-danger);
+}
+
+/* 空状态：图标、一句话、一句说明 */
+.kmd-empty {
+  height: 100%;
+  align-content: center;
+  gap: 4px;
+}
+
+.kmd-empty > svg {
+  margin-bottom: 8px;
+  color: var(--kc-subtle);
+}
+
+.kmd-empty > strong {
+  color: var(--kc-text);
+  font-size: calc(14px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kmd-empty > span {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kmd-more {
+  margin: 8px 18px 4px;
+  width: auto;
+  color: var(--kc-accent);
+}
+
+.kmd-danger,
+.kmd-danger:hover:not(:disabled) {
+  color: var(--kui-danger);
+}
+
+.kmd-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kui-danger) 10%, transparent);
+}
+
+/* 底栏左侧的一句话：结果、报错、配额 */
+.kmd-foot-note {
+  min-width: 0;
+  margin-right: auto;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.kmd-foot-note.is-error {
+  color: var(--kui-danger);
+}
+
+.kmd-foot-note b {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+/* ───────── 表单 ───────── */
+
+.kmd-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kmd-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.kmd-label > span {
+  flex: none;
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.kmd-hint {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.55;
+}
+
+/* ───────── 可选的行：好友、会话、证据消息 ───────── */
+
+.kmd-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kmd-options--boxed {
+  max-height: 248px;
+  padding: 4px;
+  border-radius: var(--kui-r-md);
+  background: var(--kmd-well);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+.kmd-option {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--kui-r-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.kmd-option:hover {
+  background: var(--kc-hover);
+}
+
+.kmd-option.is-selected,
+.kmd-option.is-selected:hover {
+  background: var(--kui-tint);
+}
+
+.kmd-option.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.kmd-option-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kmd-option-text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-option-text > span:first-child {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.kmd-option-text > span:first-child > .kui-tag {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+.kmd-option-text > span:nth-child(2) {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-radio,
+.kmd-checkbox {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--kc-text) 30%, transparent);
+  color: var(--kui-on-fill);
+}
+
+.kmd-radio {
+  border-radius: 50%;
+}
+
+.kmd-checkbox {
+  border-radius: 4px;
+}
+
+.kmd-option.is-selected .kmd-checkbox {
+  border-color: var(--kui-fill);
+  background: var(--kui-fill);
+}
+
+/* 单选：实心圆环里留一个白点 */
+.kmd-option.is-selected .kmd-radio {
+  border: 5px solid var(--kui-fill);
+  background: var(--kui-on-fill);
+}
+
+.kmd-option:has(input:focus-visible) .kmd-checkbox {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: 1px;
+}
+
+/* ───────── 弹窗里的一条消息：搜索结果、精华消息 ───────── */
+
+.kmd-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 18px;
+  transition: background-color 80ms ease;
+}
+
+.kmd-entry + .kmd-entry {
+  box-shadow: inset 0 1px 0 var(--kc-border);
+}
+
+.kmd-entry.is-clickable {
+  cursor: pointer;
+}
+
+.kmd-entry.is-clickable:hover {
+  background: var(--kc-hover);
+}
+
+.kmd-entry.is-clickable:focus-visible {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: -2px;
+}
+
+.kmd-entry-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.kmd-entry-main > header {
+  display: flex;
+  min-height: 22px;
+  align-items: center;
+  gap: 8px;
+}
+
+.kmd-entry-main > header > span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-entry-main > header > time {
+  flex: none;
+  margin-right: auto;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-entry-content {
+  margin-top: 3px;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* ───────── 群公告 ───────── */
+
+.kmd-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kmd-notice {
+  padding: 13px 16px 15px;
+  border-radius: var(--kui-r-md);
+  background: var(--kmd-block);
+  box-shadow: var(--kmd-hairline);
+}
+
+.kmd-notice > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kmd-notice-meta {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kmd-notice-meta > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.kmd-notice-meta > time {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-notice-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin-right: -6px;
+}
+
+.kmd-notice-actions .kui-icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+.kmd-notice > p {
+  margin-top: 10px;
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.kmd-notice-input {
+  display: block;
+  min-height: 236px;
+}
+
+.kmd-notice-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-notice-options > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--kc-text);
+  cursor: pointer;
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kmd-notice-options > .is-full {
+  color: var(--kui-warn);
+}
+
+/* ───────── 公告中心 ───────── */
+
+.kmd-ann {
+  /* 回应的 emoji 选择器挂在这一层上定位 */
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  padding: 0;
+}
+
+.kmd-ann-list {
+  display: flex;
+  width: 240px;
+  flex: none;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px;
+  background: var(--kmd-well);
+  box-shadow: inset -1px 0 0 var(--kc-border);
+}
+
+.kmd-ann-list > button {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.kmd-ann-list > button:hover {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+.kmd-ann-list > button.is-active {
+  background: var(--kui-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px color-mix(in srgb, var(--kui-fill) 40%, transparent);
+  color: var(--kui-on-fill);
+}
+
+.kmd-ann-list-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  font-size: calc(13px * var(--kui-fs));
+  font-weight: 500;
+}
+
+.kmd-ann-list-title > svg {
+  flex: none;
+  color: var(--kc-accent);
+}
+
+.kmd-ann-list-title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-ann-list time {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-ann-list > .is-active :is(time, svg) {
+  color: color-mix(in srgb, var(--kui-on-fill) 78%, transparent);
+}
+
+.kmd-ann-list > .is-active .kmd-ann-list-title {
+  font-weight: 600;
+}
+
+.kmd-ann-article {
+  min-width: 0;
+  flex: 1;
+  padding: 26px 34px 30px;
+  user-select: text;
+}
+
+.kmd-ann-cover {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  margin-bottom: 22px;
+  border-radius: var(--kui-r-md);
+  box-shadow: var(--kmd-hairline);
+  object-fit: cover;
+}
+
+/* 封面图外面的一层：图没到之前它是一块骨架（kcr-bone），按常见的横幅比例先把位置占住，图本身不参与排版；
+   图到了骨架撤掉，图淡入 */
+.kmd-ann-cover-box {
+  margin-bottom: 22px;
+  border-radius: var(--kui-r-md);
+}
+
+.kmd-ann-cover-box > .kmd-ann-cover {
+  margin-bottom: 0;
+}
+
+.kmd-ann-cover-box.kcr-bone {
+  max-height: 220px;
+  aspect-ratio: 3 / 1;
+}
+
+.kmd-ann-cover-box.kcr-bone > .kmd-ann-cover {
+  position: absolute;
+  height: 100%;
+  inset: 0;
+  opacity: 0;
+}
+
+.kmd-ann-cover-box.is-loaded > .kmd-ann-cover {
+  animation: kcr-fade-in 220ms ease-out both;
+}
+
+.kmd-ann-article > h1 {
+  font-size: calc(22px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.kmd-ann-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--kc-border);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-ann-meta > :is(.kc-avatar-tone, img, div) {
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+}
+
+/* 作者和时间之间的分隔点 */
+.kmd-ann-meta > i {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 正文由 Markdown 组件输出，它自带排版；这里只把字号和圆角收到桌面端的规格 */
+.kmd-md {
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1.8;
+}
+
+.kmd-md p.font-black {
+  margin-top: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.kmd-md :is(img, pre, .rounded-xl) {
+  border-radius: var(--kui-r-sm);
+}
+
+/* 加载、失败、空：整个正文区只有这一块时占满并居中（.kmd-ann 是横排的 flex，不撑开就缩在最左边） */
+.kmd-ann > .kui-empty {
+  flex: 1;
+}
+
+.kmd-empty.is-error > svg {
+  color: var(--kui-danger);
+}
+
+.kmd-ann-retry {
+  margin-top: 12px;
+}
+
+/* 加载中的骨架（AnnouncementSkeleton）。块和流光是名单页的 .kcr-bone，这里只定每一块的大小，
+   让它们落在真内容的位置上：列表项是标题一行 + 日期一行，正文是标题、作者时间、几行字 */
+.kmd-ann-skel-item {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+}
+
+.kmd-ann-bone--line,
+.kmd-ann-bone--date,
+.kmd-ann-bone--text {
+  border-radius: 4px;
+}
+
+.kmd-ann-bone--line {
+  height: 11px;
+  margin: 4px 0 5px;
+}
+
+.kmd-ann-bone--date {
+  width: 76px;
+  height: 9px;
+  margin: 4px 0;
+}
+
+/* 下边距要把真标题那一行剩下的 5px 和作者时间那一行上面的 10px 加在一起写：相邻的上下边距会合并成大的那个 */
+.kmd-ann-bone--title {
+  width: 52%;
+  height: 20px;
+  margin: 4px 0 15px;
+  border-radius: 5px;
+}
+
+.kmd-ann-bone--avatar {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.kmd-ann-meta > .kmd-ann-bone--date {
+  margin: 0;
+}
+
+/* 一行正文占 25px，字在行里居中：骨架条往下挪 7px 才落在字的位置上 */
+.kmd-ann-bone--text {
+  top: 7px;
+  height: 11px;
+  margin-bottom: 14px;
+}
+
+.kmd-ann-bone--gap {
+  display: block;
+  height: 12px;
+}
+
+/* 骨架换成真内容时淡入一次 */
+.kmd-ann-arrive {
+  animation: kcr-fade-in 200ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kmd-ann-arrive,
+  .kmd-ann-cover-box.is-loaded > .kmd-ann-cover,
+  .kmd-ann .kcr-bone::after {
+    animation: none;
+  }
+}
+
+/* 正文下面的回应栏（AnnouncementReactionBar）。和消息下面的回应（.kcd-reaction）是同一种东西：
+   不描边的小块、数字等宽、自己回应过的掺强调色。区别只在底：这里压在对话框的白面上，用凹下去的那个底色。 */
+.kmd-ann-react {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--kc-border);
+  user-select: none;
+}
+
+.kmd-ann-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.kmd-ann-reaction {
+  display: inline-flex;
+  min-width: 28px;
+  height: 26px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: var(--kui-r-sm);
+  background: var(--kmd-well);
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+#kukechat-root [data-font-scale] .kmd-ann-reaction {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kmd-ann-reaction:hover {
+  background: color-mix(in srgb, var(--kc-text) 9%, var(--kui-raised));
+  color: var(--kc-text);
+}
+
+.kmd-ann-reaction.is-mine {
+  background: color-mix(in srgb, var(--kc-accent) 15%, var(--kui-raised));
+  color: var(--kc-accent);
+}
+
+.kmd-ann-reaction.is-mine:hover {
+  background: color-mix(in srgb, var(--kc-accent) 22%, var(--kui-raised));
+}
+
+.kmd-ann-reaction-emoji {
+  font-size: 15px;
+}
+
+/* 还没人用过的快捷 emoji 和「+」：没有底，淡一档，和已有的回应分得开；指上去才浮出来 */
+.kmd-ann-reaction--quick,
+.kmd-ann-reaction--add {
+  width: 28px;
+  padding: 0;
+  background: transparent;
+}
+
+.kmd-ann-reaction--quick > .kmd-ann-reaction-emoji {
+  opacity: 0.62;
+  transition: opacity 120ms ease;
+}
+
+.kmd-ann-reaction--quick:is(:hover, :focus-visible) > .kmd-ann-reaction-emoji {
+  opacity: 1;
+}
+
+.kmd-ann-reaction--add {
+  box-shadow: inset 0 0 0 1px var(--kc-border-strong);
+}
+
+.kmd-ann-reaction--add.is-open {
+  background: var(--kmd-well);
+  color: var(--kc-text);
+}
+
+.kmd-ann-react-notice {
+  margin-top: 8px;
+  color: var(--kui-danger);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 选择器沿用聊天面板的 kcd-popover / kcd-emoji-grid；那边按钮的字号是挂在 .kcd 下面写的，这里补上 */
+#kukechat-root [data-font-scale] .kmd-ann-react-picker .kcd-emoji-grid button {
+  font-size: 20px;
+}
+
+.kmd-ann-react-picker .kcd-emoji-grid button.is-mine {
+  background: color-mix(in srgb, var(--kc-accent) 15%, var(--kui-raised));
+}
+
+/* ───────── 转发 ───────── */
+
+.kmd-forward {
+  display: grid;
+  overflow: hidden;
+  padding: 0;
+  grid-template-columns: minmax(0, 1fr) 236px;
+}
+
+.kmd-forward-pick {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.kmd-forward-pick > .kmd-toolbar {
+  border-bottom: 0;
+  padding-bottom: 6px;
+}
+
+.kmd-forward-pick > .kmd-options {
+  min-height: 0;
+  flex: 1;
+  padding: 2px 10px 10px;
+}
+
+.kmd-forward-send {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--kmd-well);
+  box-shadow: inset 1px 0 0 var(--kc-border);
+}
+
+.kmd-forward-target {
+  display: flex;
+  min-height: 50px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: var(--kui-r-sm);
+  background: var(--kmd-block);
+  box-shadow: var(--kmd-hairline);
+}
+
+.kmd-forward-target.is-empty {
+  justify-content: center;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* 合并转发详情：和聊天记录一样的头像 + 气泡 */
+.kmd-bundle {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kmd-bundle > * {
+  flex: none;
+}
+
+.kmd-bundle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.kmd-bundle-row > :last-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.kmd-bundle-row header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kmd-bundle-row header > span {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-bundle-row header > time {
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-bundle-bubble {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 8px 12px;
+  border-radius: 4px 10px 10px;
+  background: var(--kc-bubble-in);
+  box-shadow: var(--kc-bubble-shadow);
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* ───────── 邀请、推荐加群：对方是谁 ───────── */
+
+.kmd-identity {
+  display: grid;
+  align-items: center;
+  gap: 0 14px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.kmd-identity > div:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kmd-identity strong {
+  font-size: calc(16px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.kmd-identity span {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-identity > p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--kc-border);
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  grid-column: 1 / -1;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kmd-quote {
+  padding: 1px 0 1px 11px;
+  border-left: 2px solid var(--kc-border-strong);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kmd-question {
+  font-weight: 500;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* ───────── 举报 ───────── */
+
+.kmd-report-target {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kmd-report-target > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--kui-danger);
+}
+
+.kmd-report-target > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kmd-report-target strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.kmd-report-target span {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+.kmd-choices {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.kmd-choices > label {
+  display: flex;
+  height: 32px;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm);
+  background: var(--kui-control);
+  cursor: pointer;
+  font-size: calc(13px * var(--kui-fs));
+  transition: border-color 100ms ease, background-color 100ms ease;
+}
+
+.kmd-choices > label:hover {
+  border-color: color-mix(in srgb, var(--kc-text) 28%, transparent);
+}
+
+.kmd-choices > label.is-selected {
+  border-color: var(--kc-accent);
+  background: var(--kui-tint);
+  box-shadow: inset 0 0 0 0.5px var(--kc-accent);
+  font-weight: 500;
+}
+
+.kmd-choices input {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  accent-color: var(--kui-fill);
+}
+
+.kmd-evidence {
+  max-height: 176px;
+}
+
+.kmd-evidence .kmd-option {
+  align-items: flex-start;
+}
+
+.kmd-evidence .kmd-checkbox {
+  margin-top: 2px;
+}
+
+/* 证据消息的正文最多两行，不截成一行 */
+.kmd-evidence .kmd-option-text > span:first-child {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.kmd-shots {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.kmd-shot,
+.kmd-shot-add {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--kui-r-sm);
+  aspect-ratio: 4 / 3;
+}
+
+.kmd-shot {
+  background: var(--kmd-well);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+.kmd-shot > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kmd-shot > button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 5px;
+  background: rgba(14, 16, 24, 0.66);
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.kmd-shot:hover > button,
+.kmd-shot > button:focus-visible {
+  opacity: 1;
+}
+
+.kmd-shot-add {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  border: 1px dashed color-mix(in srgb, var(--kc-text) 26%, transparent);
+  color: var(--kc-muted);
+  cursor: pointer;
+  font-size: calc(12px * var(--kui-fs));
+  transition: border-color 100ms ease, color 100ms ease;
+}
+
+.kmd-shot-add:hover {
+  border-color: var(--kc-accent);
+  color: var(--kc-accent);
+}
+
+.kmd-shot-add.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ───────── 全局搜索面板 ───────── */
+
+/* 不居中：贴着窗口上沿往下弹，结果变多时只往下长 */
+.kmd-search-backdrop {
+  padding-top: clamp(32px, 11vh, 104px);
+  place-items: start center;
+}
+
+.kmd-search {
+  display: flex;
+  width: 100%;
+  max-width: 640px;
+  max-height: min(620px, 100%);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--kui-r-lg);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow-dialog);
+  color: var(--kc-text);
+}
+
+.kmd-search-bar {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 17px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kmd-search-bar-icon {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.kmd-search-bar:focus-within .kmd-search-bar-icon {
+  color: var(--kc-accent);
+}
+
+.kmd-search-bar > input {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  background: transparent;
+  color: var(--kc-text);
+  outline: none;
+}
+
+.kmd-search-bar > input::placeholder {
+  color: var(--kc-subtle);
+}
+
+#kukechat-root [data-font-scale] .kmd-search-bar > input {
+  font-size: calc(15px * var(--kui-fs));
+}
+
+.kmd-search kbd {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--kc-text) 12%, transparent);
+  color: var(--kc-muted);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* 输入框里的字还没提交时出现：提示要按回车，也能直接点 */
+.kmd-search-submit {
+  display: inline-flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 10px;
+  border-radius: 6px;
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+.kmd-search-submit:hover {
+  background: var(--kui-tint);
+}
+
+#kukechat-root [data-font-scale] .kmd-search-submit {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kmd-search-tabs {
+  display: flex;
+  height: 38px;
+  flex: none;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 17px;
+  border-bottom: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+}
+
+.kmd-search-tabs > nav {
+  display: flex;
+  flex: none;
+  gap: 20px;
+}
+
+.kmd-search-tabs button {
+  position: relative;
+  color: var(--kc-muted);
+  transition: color 100ms ease;
+}
+
+.kmd-search-tabs button:hover {
+  color: var(--kc-text);
+}
+
+.kmd-search-tabs button.is-active {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+.kmd-search-tabs button.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 1px 1px 0 0;
+  background: var(--kui-fill);
+  content: '';
+}
+
+#kukechat-root [data-font-scale] .kmd-search-tabs button {
+  font-size: calc(13px * var(--kui-fs));
+}
+
+.kmd-search-scope {
+  min-width: 0;
+  overflow: hidden;
+  align-self: center;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-search-scope b {
+  color: var(--kc-muted);
+  font-weight: 600;
+}
+
+.kmd-search-results {
+  min-height: 96px;
+  flex: 1;
+  padding: 0 8px 10px;
+}
+
+.kmd-search-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 9px 5px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.kmd-search-heading > span + span {
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.kmd-search-note {
+  padding: 4px 9px 6px;
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kmd-search-note.is-error {
+  color: var(--kui-danger);
+}
+
+.kmd-search-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 9px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+}
+
+/* 键盘选中和鼠标划过是同一个状态，所以不另写 :hover */
+.kmd-search-row.is-active {
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+}
+
+.kmd-search-row:disabled {
+  opacity: 0.5;
+}
+
+.kmd-search-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kmd-search-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.kmd-search-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(13.5px * var(--kui-fs));
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-search-line > time {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-search-sub {
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-search-preview,
+.kmd-search-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.kmd-search-desc {
+  margin-top: 1px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kmd-search-preview > span {
+  color: var(--kc-subtle);
+}
+
+.kmd-search mark {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--kc-accent) 20%, transparent);
+  color: var(--kc-text);
+}
+
+.kmd-search-result {
+  margin-top: 1px;
+  color: var(--kc-accent);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kmd-search-result.is-error {
+  color: var(--kui-danger);
+}
+
+/* 行尾的状态（已是好友、待审核……）：不是操作，所以不画成按钮 */
+.kmd-search-state {
+  flex: none;
+  padding: 0 4px;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kmd-search-more {
+  flex: 1;
+  padding: 2px 0;
+  color: var(--kc-accent);
+  font-size: calc(12.5px * var(--kui-fs));
+  text-align: center;
+}
+
+.kmd-search-foot {
+  display: flex;
+  flex: none;
+  gap: 18px;
+  padding: 8px 17px;
+  border-top: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.kmd-search-foot > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.kmd-search-foot kbd:last-of-type {
+  margin-right: 3px;
+}
+
+/* ───────── 资料卡 ───────── */
+
+.kmd-card-layer {
+  position: absolute;
+  z-index: 50;
+  inset: 0;
+}
+
+.kmd-card {
+  position: absolute;
+  width: 304px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+  border-radius: var(--kui-r-lg);
+  background: var(--kui-raised);
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+}
+
+.kmd-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 16px 8px 14px 16px;
+}
+
+.kmd-card-avatar {
+  position: relative;
+  flex: none;
+}
+
+/* 头像右下角的在线点，外面一圈和卡片同色的描边把它从头像上切出来 */
+.kmd-card-avatar > i {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--kc-subtle);
+  box-shadow: 0 0 0 2.5px var(--kui-raised);
+}
+
+.kmd-card-avatar > i.is-online {
+  background: var(--kui-ok);
+}
+
+.kmd-card-id {
+  min-width: 0;
+  flex: 1;
+  padding-top: 3px;
+}
+
+.kmd-card-id > h3 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: calc(16px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.kmd-card-id > p {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-card-id > p > span {
+  margin-left: 7px;
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.kmd-card-id > .kmd-card-status.is-online {
+  color: var(--kui-ok);
+}
+
+.kmd-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 14px;
+}
+
+.kmd-card-tags > .kui-tag {
+  display: inline-block;
+  max-width: 100%;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kmd-card-tags > .kui-tag > svg {
+  display: inline;
+  margin-right: 3px;
+  vertical-align: -2px;
+}
+
+.kmd-card-rows {
+  display: grid;
+  gap: 9px;
+  padding: 12px 16px 13px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kmd-card-rows > div {
+  display: grid;
+  align-items: baseline;
+  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr);
+}
+
+.kmd-card-rows dt {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kmd-card-rows dd {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.kmd-card-rows dd.is-empty {
+  color: var(--kc-subtle);
+}
+
+.kmd-card-ccw {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+
+.kmd-card-ccw > img {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.kmd-card-ccw > span {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-card-ccw > small {
+  min-width: 0;
+  flex: 1 10 auto;
+  overflow: hidden;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kmd-card-ccw > svg {
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+.kmd-card-ccw:hover > :is(span, svg:last-child) {
+  color: var(--kc-accent);
+}
+
+#kukechat-root [data-font-scale] .kmd-card-ccw {
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kmd-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 11px 16px 13px;
+  border-top: 1px solid var(--kc-border);
+  border-radius: 0 0 var(--kui-r-lg) var(--kui-r-lg);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+}
+
+.kmd-card-actions > p {
+  flex-basis: 100%;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+.kmd-card-actions > .kui-btn {
+  flex: 1;
+}
+
+/* ───────── 看图 ───────── */
+
+/* 浅色主题下也是深色的，所以这一段的颜色全部写死，不取主题令牌 */
+.kmd-viewer {
+  position: fixed;
+  z-index: 2147483600;
+  inset: 0;
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  background: rgba(11, 12, 15, 0.94);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: calc(12.5px * var(--kc-font-multiplier, 1));
+  pointer-events: auto;
+  user-select: none;
+}
+
+.kmd-viewer > img {
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  cursor: grab;
+  object-fit: contain;
+  transition: transform 80ms ease-out;
+}
+
+.kmd-viewer > img.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.kmd-viewer-missing {
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.kmd-viewer-btn {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: 7px;
+  color: inherit;
+  font: inherit;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.kmd-viewer-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.13);
+  color: #ffffff;
+}
+
+.kmd-viewer-btn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.kmd-viewer-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.kmd-viewer-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 1px;
+}
+
+/* 压在图片上面的三样：关闭、左右切换、工具条，同一种深色底 + 发丝边 */
+.kmd-viewer-close,
+.kmd-viewer-nav,
+.kmd-viewer-bar,
+.kmd-viewer-hint {
+  position: absolute;
+  background: rgba(30, 32, 38, 0.92);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 20px -8px rgba(0, 0, 0, 0.7);
+}
+
+.kmd-viewer-close {
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+}
+
+.kmd-viewer-nav {
+  top: 50%;
+  width: 36px;
+  height: 48px;
+  margin-top: -24px;
+}
+
+.kmd-viewer-nav.is-previous {
+  left: 14px;
+}
+
+.kmd-viewer-nav.is-next {
+  right: 14px;
+}
+
+.kmd-viewer-close:hover:not(:disabled),
+.kmd-viewer-nav:hover:not(:disabled) {
+  background: rgba(58, 61, 70, 0.96);
+}
+
+.kmd-viewer-bar {
+  bottom: 18px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+}
+
+.kmd-viewer-count {
+  margin-right: 4px;
+  padding: 0 12px 0 9px;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.kmd-viewer-scale {
+  width: auto;
+  min-width: 54px;
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.kmd-viewer-hint {
+  bottom: 70px;
+  left: 50%;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}

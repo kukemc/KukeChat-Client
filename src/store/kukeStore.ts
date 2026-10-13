@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { DEFAULT_THEME_SETTINGS, sanitizeThemeSettings, type ThemeSettings } from '@/theme/themes';
 import { DEFAULT_MOBILE_FEATURE_ORDER, normalizeMobileFeatureOrder, type MobileFeatureId } from '@/mobile/features';
 import type { AccountSuspension, User } from '@/types/api';
+import type { LevelTab } from '@/types/level';
 import { isTauriDesktopApp } from '@/utils/appMode';
 
 export interface Point {
@@ -14,8 +16,20 @@ export interface Size {
   height: number;
 }
 
-export type WorkspaceView = 'chat' | 'contacts' | 'posts' | 'space' | 'favorites' | 'bots' | 'home' | 'teamup' | 'tasks' | 'settings';
+export type WorkspaceView = 'chat' | 'contacts' | 'posts' | 'space' | 'favorites' | 'bots' | 'home' | 'teamup' | 'tasks' | 'jury' | 'shop' | 'level' | 'settings';
 export type TaskCenterScope = 'assigned' | 'watching' | 'created' | 'all' | 'activity';
+/** 风纪页里的板块。板块的名称、分组和可见性在 src/components/jury/sections.ts 登记。 */
+export type JurySection = 'overview' | 'desk' | 'practice' | 'mine' | 'bulletin' | 'handbook' | 'ranking' | 'forum' | 'senior';
+/** 从别处直达风纪页时带的参数：去哪个板块、要不要直接打开某个案件、板块内的页签。 */
+export interface JuryRoute {
+  section: JurySection;
+  caseId?: number | null;
+  tab?: string | null;
+  /** 板块内打开的另一类条目：议事厅的帖子、规则手册里的判例 */
+  itemId?: number | null;
+}
+/** 桌面设置页里能从外面直达的页签（完整列表见 DesktopSettingsPanel）。 */
+export type SettingsEntryTab = 'account' | 'ccw' | 'penalties' | 'reports';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type NotificationMode = 'on' | 'off';
 export type LayoutMode = 'desktop' | 'mobile';
@@ -52,6 +66,7 @@ interface KukeChatState {
   pendingJumpMessage: { conversationId: number; messageId: number } | null;
   workspaceView: WorkspaceView;
   themeMode: ThemeMode;
+  themeSettings: ThemeSettings;
   uiFontScale: UiFontScale;
   layoutMode: LayoutMode;
   layoutModeSource: LayoutModeSource;
@@ -69,6 +84,16 @@ interface KukeChatState {
   pendingTaskCreateConversationId: number | null;
   chatTaskDetailId: number | null;
   taskCenterScope: TaskCenterScope;
+  pendingJuryRoute: JuryRoute | null;
+  pendingSettingsTab: SettingsEntryTab | null;
+  /** 移动布局下有人要求打开商店（那边商店是二级页面，由 ChatDashboard 接住后打开） */
+  pendingShop: boolean;
+  /** 等级页（docs/account-level.md）现在看的页签：我的等级 / 排行榜 */
+  levelTab: LevelTab;
+  /** 桌面布局下等级页是一个没有导航栏入口的工作区，这里记着从哪儿进来的，点返回时回去 */
+  levelReturnView: WorkspaceView;
+  /** 移动布局下有人要求打开等级页（那边它是二级页面，由 ChatDashboard 接住后打开） */
+  pendingLevel: LevelTab | null;
   lastSeenAnnouncementId: number | null;
   openWindow: () => void;
   closeWindow: () => void;
@@ -96,6 +121,8 @@ interface KukeChatState {
   toggleLayoutMode: () => void;
   toggleThemeMode: () => void;
   setThemeMode: (mode: ThemeMode) => void;
+  updateThemeSettings: (patch: Partial<ThemeSettings>) => void;
+  resetThemeSettings: () => void;
   setUiFontScale: (scale: UiFontScale) => void;
   setBrowserNotificationMode: (mode: NotificationMode) => void;
   setSoundNotificationMode: (mode: NotificationMode) => void;
@@ -119,6 +146,19 @@ interface KukeChatState {
   clearPendingTaskCreate: () => void;
   openChatTaskDetail: (taskId: number) => void;
   closeChatTaskDetail: () => void;
+  openJury: (route?: JuryRoute) => void;
+  clearPendingJuryRoute: () => void;
+  openSettingsTab: (tab: SettingsEntryTab) => void;
+  clearPendingSettingsTab: () => void;
+  /** 从别处直达商店：桌面布局切到商店页，移动布局打开商店的二级页面 */
+  openShop: () => void;
+  clearPendingShop: () => void;
+  /** 打开等级页：桌面布局切到等级页，移动布局打开等级的二级页面 */
+  openLevel: (tab?: LevelTab) => void;
+  /** 桌面布局下离开等级页，回到进来之前的那个工作区 */
+  closeLevel: () => void;
+  setLevelTab: (tab: LevelTab) => void;
+  clearPendingLevel: () => void;
   setLastSeenAnnouncementId: (id: number) => void;
 }
 
@@ -126,7 +166,7 @@ const PERSISTED_STATE_NAME = 'kukechat-extension-state';
 const MIN_SIZE: Size = { width: 360, height: 520 };
 const DEFAULT_SIZE: Size = { width: 980, height: 680 };
 const DEFAULT_POSITION: Point = { x: 64, y: 64 };
-type PersistedKukeChatState = Partial<Pick<KukeChatState, 'token' | 'currentUser' | 'position' | 'minimizedPosition' | 'size' | 'themeMode' | 'uiFontScale' | 'layoutMode' | 'layoutModeSource' | 'browserNotificationMode' | 'soundNotificationMode' | 'mobileFeatureOrder' | 'lastSeenAnnouncementId'>>;
+type PersistedKukeChatState = Partial<Pick<KukeChatState, 'token' | 'currentUser' | 'position' | 'minimizedPosition' | 'size' | 'themeMode' | 'themeSettings' | 'uiFontScale' | 'layoutMode' | 'layoutModeSource' | 'browserNotificationMode' | 'soundNotificationMode' | 'mobileFeatureOrder' | 'lastSeenAnnouncementId'>>;
 
 function detectInitialLayoutMode(): LayoutMode {
   if (typeof window === 'undefined') {
@@ -190,6 +230,10 @@ function sanitizePersistedState(value: unknown): PersistedKukeChatState {
 
   if (value.themeMode === 'system' || value.themeMode === 'light' || value.themeMode === 'dark') {
     persistedState.themeMode = value.themeMode;
+  }
+
+  if (isRecord(value.themeSettings)) {
+    persistedState.themeSettings = sanitizeThemeSettings(value.themeSettings);
   }
 
   if (typeof value.uiFontScale === 'number' && Number.isInteger(value.uiFontScale) && value.uiFontScale >= 0 && value.uiFontScale <= 4) {
@@ -297,6 +341,7 @@ export const useKukeStore = create<KukeChatState>()(
       pendingBotId: null,
       workspaceView: 'chat',
       themeMode: 'system',
+      themeSettings: DEFAULT_THEME_SETTINGS,
       uiFontScale: 1,
       layoutMode: detectInitialLayoutMode(),
       layoutModeSource: 'auto',
@@ -312,6 +357,12 @@ export const useKukeStore = create<KukeChatState>()(
       pendingTaskCreateConversationId: null,
       chatTaskDetailId: null,
       taskCenterScope: 'assigned',
+      pendingJuryRoute: null,
+      pendingSettingsTab: null,
+      pendingShop: false,
+      levelTab: 'me',
+      levelReturnView: 'chat',
+      pendingLevel: null,
       lastSeenAnnouncementId: null,
       pendingPostSourceUserSpaceId: null,
       openWindow: () => set({ isOpen: true, isMinimized: false }),
@@ -334,6 +385,10 @@ export const useKukeStore = create<KukeChatState>()(
           visibleConversationId: null,
           pendingJumpMessage: null,
           pendingBotId: null,
+          pendingJuryRoute: null,
+          pendingSettingsTab: null,
+          pendingShop: false,
+          pendingLevel: null,
           workspaceView: 'chat'
         }),
       setUnreadCount: (count) => set({ unreadCount: Math.max(0, count) }),
@@ -351,10 +406,13 @@ export const useKukeStore = create<KukeChatState>()(
         return { pendingJumpMessage: null };
       }),
       setWorkspaceView: (view) => set({ workspaceView: view }),
-      setLayoutMode: (mode) => set({ layoutMode: mode, layoutModeSource: 'manual', isFullscreen: false }),
-      toggleLayoutMode: () => set((state) => ({ layoutMode: state.layoutMode === 'desktop' ? 'mobile' : 'desktop', layoutModeSource: 'manual', isFullscreen: false })),
+      // 风纪页只有桌面布局，商店和等级页在移动布局下是二级页面：切到移动布局时如果正停在它们上面，退回聊天
+      setLayoutMode: (mode) => set((state) => ({ layoutMode: mode, layoutModeSource: 'manual', isFullscreen: false, ...(mode === 'mobile' && (state.workspaceView === 'jury' || state.workspaceView === 'shop' || state.workspaceView === 'level') ? { workspaceView: 'chat' as const } : {}) })),
+      toggleLayoutMode: () => set((state) => ({ layoutMode: state.layoutMode === 'desktop' ? 'mobile' : 'desktop', layoutModeSource: 'manual', isFullscreen: false, ...(state.layoutMode === 'desktop' && (state.workspaceView === 'jury' || state.workspaceView === 'shop' || state.workspaceView === 'level') ? { workspaceView: 'chat' as const } : {}) })),
       toggleThemeMode: () => set((state) => ({ themeMode: state.themeMode === 'dark' ? 'light' : 'dark' })),
       setThemeMode: (mode) => set({ themeMode: mode }),
+      updateThemeSettings: (patch) => set((state) => ({ themeSettings: sanitizeThemeSettings({ ...state.themeSettings, ...patch }) })),
+      resetThemeSettings: () => set({ themeSettings: DEFAULT_THEME_SETTINGS }),
       setUiFontScale: (scale) => set({ uiFontScale: scale }),
       setBrowserNotificationMode: (mode) => set({ browserNotificationMode: mode }),
       setSoundNotificationMode: (mode) => set({ soundNotificationMode: mode }),
@@ -420,6 +478,19 @@ export const useKukeStore = create<KukeChatState>()(
       clearPendingTaskCreate: () => set({ pendingTaskCreateConversationId: null }),
       openChatTaskDetail: (taskId) => set({ chatTaskDetailId: taskId }),
       closeChatTaskDetail: () => set({ chatTaskDetailId: null }),
+      // 移动端还没有风纪页，那边调用时什么都不做
+      openJury: (route) => set((state) => (state.layoutMode === 'mobile' ? {} : { isOpen: true, isMinimized: false, workspaceView: 'jury', pendingJuryRoute: route ?? null })),
+      clearPendingJuryRoute: () => set({ pendingJuryRoute: null }),
+      openSettingsTab: (tab) => set((state) => (state.layoutMode === 'mobile' ? {} : { isOpen: true, isMinimized: false, workspaceView: 'settings', pendingSettingsTab: tab })),
+      clearPendingSettingsTab: () => set({ pendingSettingsTab: null }),
+      openShop: () => set((state) => (state.layoutMode === 'mobile' ? { isOpen: true, isMinimized: false, pendingShop: true } : { isOpen: true, isMinimized: false, workspaceView: 'shop' })),
+      clearPendingShop: () => set({ pendingShop: false }),
+      openLevel: (tab = 'me') => set((state) => (state.layoutMode === 'mobile'
+        ? { isOpen: true, isMinimized: false, pendingLevel: tab }
+        : { isOpen: true, isMinimized: false, workspaceView: 'level', levelTab: tab, levelReturnView: state.workspaceView === 'level' ? state.levelReturnView : state.workspaceView })),
+      closeLevel: () => set((state) => (state.workspaceView === 'level' ? { workspaceView: state.levelReturnView === 'level' ? 'chat' : state.levelReturnView } : {})),
+      setLevelTab: (levelTab) => set({ levelTab }),
+      clearPendingLevel: () => set({ pendingLevel: null }),
       setLastSeenAnnouncementId: (id) => set((state) => ({ lastSeenAnnouncementId: Math.max(id, state.lastSeenAnnouncementId ?? 0) }))
     }),
     {
@@ -444,6 +515,7 @@ export const useKukeStore = create<KukeChatState>()(
         minimizedPosition: state.minimizedPosition,
         size: state.size,
         themeMode: state.themeMode,
+        themeSettings: state.themeSettings,
         uiFontScale: state.uiFontScale,
         layoutMode: state.layoutMode,
         layoutModeSource: state.layoutModeSource,

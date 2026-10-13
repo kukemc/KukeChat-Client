@@ -1,0 +1,2271 @@
+/* 桌面端：风纪（src/components/jury）。基础样式见 kui.css。
+ *
+ * 层次：左边的板块导航是列表层（--kc-list），右边是画布（外层 main 给的 --kc-chat），
+ * 画布上的标题栏和卡片用 --kc-chat-surface（整窗背景下会跟着变半透明）。卡片里不再套卡片，分区靠发丝线和小标题。
+ * 文件顺序：外框与导航 → 通用部件（卡片、状态、数字、小图、表格）→ 证据 → 评审台 → 案件详情与观点区 → 各板块。
+ */
+
+/* ───────── 外框 ───────── */
+
+/* 容器查询的基准。带 container-type 的元素会把 position: fixed 的后代圈在自己里面，
+   所以这个页面里的对话框和看图浮层都要挂到外面去（ReportOpinionModal 用了 portal）。 */
+.kjr-root {
+  height: 100%;
+  min-height: 0;
+  container: kjr / inline-size;
+}
+
+.kjr {
+  --kui-fs: var(--kc-font-multiplier, 1);
+  /* 贴着画布的面：比发丝线还淡的一圈 + 一点落地的影子 */
+  --kjr-edge: var(--kui-shadow-card);
+  /* 票数分布的配色：不违规 / 轻微 / 一般 / 严重 / 弃权。相邻两色在色觉障碍下也分得开（已用校验脚本核对），
+     但颜色从不单独表意：旁边一定有文字图例。深色主题另取一组。 */
+  --kjr-v-none: #0d8f69;
+  --kjr-v-l1: #c98a00;
+  --kjr-v-l2: #e0383e;
+  --kjr-v-l3: #8e1b4a;
+  --kjr-v-abstain: color-mix(in srgb, var(--kc-text) 24%, transparent);
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 208px minmax(0, 1fr);
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kui-fs));
+  line-height: 1.6;
+}
+
+[data-theme='dark'] .kjr {
+  --kjr-v-none: #22a57c;
+  --kjr-v-l1: #bd8b14;
+  --kjr-v-l2: #d63c47;
+  --kjr-v-l3: #a554a8;
+}
+
+/* ───────── 板块导航 ───────── */
+
+.kjr-side {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--kc-border);
+  background: var(--kc-list);
+}
+
+.kjr-side-head {
+  display: flex;
+  height: 52px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 18px;
+}
+
+.kjr-side-head h2 {
+  min-width: 0;
+  flex: 1;
+  font-size: calc(16px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.kjr-nav {
+  min-height: 0;
+  flex: 1;
+  padding: 0 8px 8px;
+}
+
+.kjr-nav-group + .kjr-nav-group {
+  margin-top: 10px;
+}
+
+.kjr-nav-title {
+  padding: 6px 10px 4px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.kjr-nav-item {
+  display: flex;
+  width: 100%;
+  height: 34px;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-top: 1px;
+  padding: 0 10px;
+  border-radius: var(--kui-r-md);
+  color: var(--kc-text);
+  text-align: left;
+  transition: background-color 80ms ease;
+}
+
+.kjr-nav-item > svg {
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.kjr-nav-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kjr-nav-item:hover {
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+}
+
+/* 选中和会话列表一个做法：强调色实底，里面的字和标记全部反白 */
+.kjr-nav-item.is-active {
+  background: var(--kui-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px color-mix(in srgb, var(--kui-fill) 40%, transparent);
+  color: var(--kui-on-fill);
+  font-weight: 600;
+}
+
+.kjr-nav-item.is-active > svg,
+.kjr-nav-item.is-active .kjr-nav-soon {
+  color: color-mix(in srgb, var(--kui-on-fill) 82%, transparent);
+}
+
+.kjr-nav-item.is-active .kui-badge {
+  background: #ffffff;
+  color: var(--kui-unread);
+}
+
+.kjr-nav-soon {
+  flex: none;
+  color: var(--kc-subtle);
+  font-size: calc(11px * var(--kui-fs));
+  font-weight: 400;
+}
+
+#kukechat-root [data-font-scale] .kjr-nav-item {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.kjr-side-foot {
+  flex: none;
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-side-foot .kjr-nav-item {
+  color: var(--kc-muted);
+}
+
+/* ───────── 板块外框 ───────── */
+
+.kjr-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.kjr-head {
+  display: flex;
+  min-height: 52px;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 20px 8px 24px;
+  border-bottom: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+.kjr-head > .kui-icon-btn {
+  margin: 0 -4px 0 -10px;
+}
+
+.kjr-head-title {
+  flex: none;
+  font-size: calc(15.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.kjr-head-sub {
+  min-width: 0;
+  flex: 1 1 120px;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kjr-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.kjr-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.kjr-wrap {
+  display: flex;
+  max-width: 1160px;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  padding: 18px 24px 28px;
+}
+
+/* 评审台把整页交给键盘：焦点落在这一层时快捷键才生效，不画焦点框 */
+.kjr-keyscope {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  outline: none;
+}
+
+.kjr-keyscope > .kjr-main {
+  flex: 1;
+}
+
+/* ───────── 卡片、小标题、文字 ───────── */
+
+.kjr-card {
+  min-width: 0;
+  padding: 16px 18px 18px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kjr-edge);
+}
+
+.kjr-card-head {
+  display: flex;
+  min-height: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+
+.kjr-card-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.kjr-card-aside {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.kjr-card-sep {
+  height: 1px;
+  margin: 16px -18px 14px;
+  background: var(--kc-border);
+}
+
+.kjr-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 14px;
+}
+
+.kjr-btn-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 卡片里的分区小标题：小号加粗 + 字距，右边可以跟一句正文 */
+.kjr-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.kjr-h > span {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.kjr-sub {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kjr-sub--lead {
+  margin-bottom: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-meta {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-text {
+  line-height: 1.7;
+}
+
+.kjr-quiet {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.7;
+}
+
+.kjr-count {
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kjr-quote {
+  padding: 7px 11px;
+  border-left: 2px solid color-mix(in srgb, var(--kc-text) 28%, transparent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kjr-yes {
+  color: var(--kui-ok);
+}
+
+.kjr-no {
+  color: var(--kui-danger);
+}
+
+/* 键帽：快捷键提示 */
+.kjr-key {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--kc-text) 14%, transparent);
+  color: var(--kc-muted);
+  font-family: inherit;
+  font-size: calc(10.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.kui-btn--primary .kjr-key {
+  background: color-mix(in srgb, var(--kui-on-fill) 18%, transparent);
+  box-shadow: none;
+  color: var(--kui-on-fill);
+}
+
+.kui-btn--primary:disabled .kjr-key {
+  display: none;
+}
+
+/* ───────── 空、出错、加载 ───────── */
+
+.kjr-state {
+  display: grid;
+  max-width: 460px;
+  justify-items: center;
+  gap: 4px;
+  margin: 0 auto;
+  padding: 56px 16px;
+  text-align: center;
+}
+
+.kjr-state.is-compact {
+  padding: 22px 12px 8px;
+}
+
+.kjr-state-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  color: var(--kc-muted);
+}
+
+.kjr-state.is-danger .kjr-state-icon {
+  background: color-mix(in srgb, var(--kui-danger) 11%, transparent);
+  color: var(--kui-danger);
+}
+
+.kjr-state-title {
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kjr-state-text {
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.7;
+}
+
+.kjr-state-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.kjr-loading {
+  padding: 56px 16px;
+  color: var(--kc-muted);
+  text-align: center;
+}
+
+.kjr-loading.is-compact {
+  padding: 22px 12px;
+}
+
+/* 「即将开放」的占位页：说明这个板块将来是什么 */
+.kjr-soon {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 44px 8px;
+}
+
+.kjr-soon-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kjr-edge);
+  color: var(--kc-accent);
+}
+
+.kjr-soon-tag {
+  margin-top: 16px;
+}
+
+.kjr-soon h2 {
+  margin-top: 6px;
+  font-size: calc(20px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.kjr-soon-lead {
+  margin-top: 6px;
+  color: var(--kc-text);
+  font-size: calc(14px * var(--kui-fs));
+  line-height: 1.75;
+}
+
+.kjr-soon ul {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--kc-border);
+  color: var(--kc-muted);
+}
+
+.kjr-soon li {
+  position: relative;
+  padding: 3px 0 3px 16px;
+}
+
+.kjr-soon li::before {
+  position: absolute;
+  top: 0.85em;
+  left: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--kc-border-strong);
+  content: '';
+}
+
+.kjr-soon-note {
+  margin-top: 14px;
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* ───────── 数字 ───────── */
+
+.kjr-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 16px 0;
+}
+
+.kjr-stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 16px;
+  border-left: 1px solid var(--kc-border);
+}
+
+.kjr-stat:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.kjr-stat-label {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  letter-spacing: 0.03em;
+}
+
+.kjr-stat-value {
+  font-size: calc(28px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.kjr-stat-value small {
+  margin-left: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.kjr-stat-hint {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* 环形比率和它的标签并排 */
+.kjr-stat--ring {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  column-gap: 12px;
+}
+
+.kjr-stat--ring .kjr-ring {
+  grid-row: span 2;
+}
+
+.kjr-stat--ring .kjr-stat-label {
+  align-self: end;
+}
+
+/* ───────── 小图 ───────── */
+
+.kjr-ring {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.kjr-ring svg {
+  position: absolute;
+  inset: 0;
+}
+
+.kjr-ring-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+.kjr-ring-value {
+  fill: none;
+  stroke: var(--kui-fill);
+  stroke-linecap: round;
+}
+
+.kjr-ring-label {
+  position: relative;
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.kjr-meter {
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--kc-text) 9%, transparent);
+}
+
+.kjr-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--kui-fill);
+}
+
+/* 按天的小柱图：柱子细、间隔 2px，悬停整列加一层底 */
+.kjr-bars-plot {
+  display: flex;
+  height: 64px;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 1px solid var(--kc-border-strong);
+}
+
+.kjr-bars-col {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-end;
+  border-radius: 3px 3px 0 0;
+}
+
+.kjr-bars-col:hover {
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+}
+
+.kjr-bars-bar {
+  display: flex;
+  width: 100%;
+  max-width: 18px;
+  align-items: flex-end;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 3px 3px 0 0;
+  background: color-mix(in srgb, var(--kc-accent) 30%, transparent);
+}
+
+.kjr-bars-part {
+  width: 100%;
+  background: var(--kui-fill);
+}
+
+.kjr-bars-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 5px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-bars-legend {
+  display: flex;
+  gap: 14px;
+  color: var(--kc-muted);
+}
+
+.kjr-bars-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--kc-accent) 30%, transparent);
+}
+
+.kjr-bars-legend i.is-part {
+  background: var(--kui-fill);
+}
+
+/* 按比例分段的横条 + 图例 */
+.kjr-split-bar {
+  display: flex;
+  height: 8px;
+  gap: 2px;
+}
+
+.kjr-split.is-compact .kjr-split-bar {
+  height: 6px;
+}
+
+.kjr-split-seg {
+  min-width: 3px;
+  border-radius: 2px;
+  background: var(--kjr-v-abstain);
+}
+
+.kjr-split-seg.is-none {
+  background: var(--kjr-v-none);
+}
+
+.kjr-split-seg.is-l1 {
+  background: var(--kjr-v-l1);
+}
+
+.kjr-split-seg.is-l2 {
+  background: var(--kjr-v-l2);
+}
+
+.kjr-split-seg.is-l3 {
+  background: var(--kjr-v-l3);
+}
+
+.kjr-split-seg.is-accent {
+  background: var(--kui-fill);
+}
+
+.kjr-split-seg.is-empty {
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kjr-split-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin-top: 7px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kjr-split-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.kjr-split-legend li.is-zero {
+  color: var(--kc-subtle);
+}
+
+.kjr-split-legend i {
+  width: 8px;
+  height: 8px;
+  min-width: 0;
+}
+
+.kjr-split-legend b {
+  color: var(--kc-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kjr-split-legend li.is-zero b {
+  color: var(--kc-subtle);
+  font-weight: 400;
+}
+
+/* ───────── 表格、筛选、翻页 ───────── */
+
+.kjr-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.kjr-filters .kui-select {
+  width: auto;
+  height: 28px;
+}
+
+.kjr-table {
+  display: grid;
+  margin: 0 -8px;
+}
+
+.kjr-tr {
+  display: grid;
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: var(--kui-r-sm);
+  text-align: left;
+}
+
+.kjr-tr > span {
+  min-width: 0;
+}
+
+.kjr-tr + .kjr-tr {
+  box-shadow: 0 -1px 0 var(--kc-border);
+}
+
+button.kjr-tr {
+  cursor: pointer;
+  transition: background-color 80ms ease;
+}
+
+button.kjr-tr:hover {
+  background: var(--kc-hover);
+}
+
+/* 悬停的那一行盖住自己和下一行之间的发丝线，圆角底才完整 */
+button.kjr-tr:hover,
+button.kjr-tr:hover + .kjr-tr {
+  box-shadow: none;
+}
+
+.kjr-th {
+  min-height: 28px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.kjr-tr small {
+  display: block;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.kjr-td-id {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kjr-td-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kjr-td-time {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-td-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 5px;
+}
+
+.kjr-td-tags small {
+  flex-basis: 100%;
+}
+
+.kjr-td-tally small {
+  margin-top: 4px;
+}
+
+.kjr-table--mine .kjr-tr {
+  grid-template-columns: 96px minmax(80px, 1fr) 72px minmax(96px, 0.9fr) 64px 132px;
+}
+
+.kjr-table--public .kjr-tr {
+  grid-template-columns: 96px minmax(96px, 1.2fr) minmax(108px, 0.9fr) minmax(96px, 0.8fr) 84px 132px;
+}
+
+/* 票数下面补的「来源」：只在窄到「来源」一列被收掉时才出现（见文件末尾的容器查询） */
+.kjr-table--public .kjr-td-src {
+  display: none;
+}
+
+.kjr-table--rules .kjr-tr {
+  grid-template-columns: minmax(96px, 1.2fr) minmax(72px, 0.8fr) 64px minmax(96px, 1fr);
+  min-height: 36px;
+}
+
+#kukechat-root [data-font-scale] button.kjr-tr {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.kjr-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--kc-border);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-pager-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ───────── 匿名证据 ───────── */
+
+/* 对话记录：左边一列是代称和时间，右边是内容。没有头像 —— 这里的人没有身份 */
+.kjr-ts {
+  display: grid;
+  gap: 1px;
+}
+
+/* 这两个容器只是为了接住焦点（见 widgets/focus.ts），不是可操作的控件，不画焦点框 */
+.kjr-ts:focus,
+.kjr-vote:focus {
+  outline: none;
+}
+
+.kjr-msg {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding: 7px 12px;
+  border-left: 2px solid transparent;
+  border-radius: 0 6px 6px 0;
+}
+
+.kjr-msg-who {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+.kjr-msg-who span {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kjr-msg-who time,
+.kjr-post header time {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-msg-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kjr-msg-body p,
+.kjr-post p {
+  white-space: pre-wrap;
+}
+
+/* 被举报的那一条：强调色的边线和淡底，上面压一个小标记 */
+.kjr-msg.is-target {
+  margin: 4px 0;
+  padding-top: 9px;
+  padding-bottom: 10px;
+  border-color: var(--kc-accent);
+  background: color-mix(in srgb, var(--kc-accent) 7%, transparent);
+}
+
+.kjr-msg.is-target .kjr-msg-who span {
+  color: var(--kc-accent);
+}
+
+.kjr-msg-flag {
+  display: block;
+  width: fit-content;
+  margin-bottom: 3px;
+  color: var(--kc-accent);
+  font-size: calc(11px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.kjr-msg-note {
+  color: var(--kc-subtle);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-fold {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 4px;
+}
+
+.kjr-fold::before,
+.kjr-fold::after {
+  height: 1px;
+  flex: 1;
+  background: var(--kc-border);
+  content: '';
+}
+
+.kjr-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.kjr-thumb {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kui-r-sm);
+  cursor: zoom-in;
+}
+
+.kjr-thumb img {
+  display: block;
+  max-width: 220px;
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.kjr-post {
+  padding: 10px 14px 12px;
+  border-left: 2px solid var(--kc-accent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--kc-accent) 7%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.kjr-post header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.kjr-withheld {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+/* ───────── 评审台 ───────── */
+
+.kjr-progress {
+  display: inline-grid;
+  width: 96px;
+  flex: none;
+  gap: 3px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  cursor: pointer;
+}
+
+.kjr-flash {
+  flex: none;
+  padding: 7px 24px;
+  border-bottom: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kui-ok) 9%, var(--kc-chat-surface));
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-flash .kui-link {
+  margin-left: 8px;
+}
+
+#kukechat-root [data-font-scale] .kjr-flash .kui-link,
+#kukechat-root [data-font-scale] .kjr-composer-to .kui-link {
+  font-size: inherit;
+}
+
+/* 左边证据随内容滚动，右边的表决面板固定宽度、自己滚动，提交区始终钉在底部 */
+.kjr-desk {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 372px;
+}
+
+.kjr-desk-evidence {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 24px 28px;
+}
+
+.kjr-case-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.kjr-case-head h2 {
+  font-size: calc(18px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.kjr-case-head .kjr-meta {
+  margin-left: auto;
+}
+
+/* 证据本身是一块白面，压在画布上 */
+.kjr-desk-evidence > :is(.kjr-ts, .kjr-post) {
+  padding: 10px;
+  border-radius: var(--kui-r-lg);
+  background: var(--kc-chat-surface);
+  box-shadow: var(--kjr-edge);
+}
+
+.kjr-desk-evidence > .kjr-post {
+  padding: 14px 18px 16px;
+  border-left: 0;
+}
+
+.kjr-vote {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-left: 1px solid var(--kc-border);
+  background: var(--kc-chat-surface);
+}
+
+.kjr-vote-scroll {
+  min-height: 0;
+  flex: 1;
+  padding: 4px 18px 12px;
+}
+
+.kjr-vote-block {
+  padding: 14px 0;
+}
+
+.kjr-vote-block + .kjr-vote-block {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-reasons li {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(24px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.kjr-reasons-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+}
+
+.kjr-reasons-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--kc-text) 38%, transparent);
+}
+
+.kjr-reasons b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kjr-opts {
+  display: grid;
+  gap: 4px;
+}
+
+/* 一个选项一行：键帽、名称和含义、规则里的后果。选中是强调色的描边和淡底 */
+.kjr-opt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 2px 10px;
+  padding: 8px 10px;
+  border-radius: var(--kui-r-md);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  text-align: left;
+  transition: background-color 80ms ease, box-shadow 80ms ease;
+}
+
+.kjr-opt:hover:not(:disabled) {
+  background: var(--kc-hover);
+}
+
+.kjr-opt:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.kjr-opt .kjr-key {
+  margin-top: 2px;
+}
+
+.kjr-opt-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.kjr-opt-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 10px;
+}
+
+.kjr-opt-label {
+  font-weight: 600;
+}
+
+.kjr-opt-hint {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 1.5;
+}
+
+.kjr-opt-effect {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-opt.is-selected {
+  background: color-mix(in srgb, var(--kc-accent) 8%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--kc-accent);
+}
+
+.kjr-opt.is-selected .kjr-key {
+  background: var(--kui-fill);
+  box-shadow: none;
+  color: var(--kui-on-fill);
+}
+
+.kjr-opt.is-selected .kjr-opt-effect {
+  color: var(--kc-muted);
+}
+
+#kukechat-root [data-font-scale] .kjr-opt {
+  font-size: calc(13.5px * var(--kui-fs));
+}
+
+.kjr-vote-foot {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 12px 18px 12px;
+  border-top: 1px solid var(--kc-border);
+  background: color-mix(in srgb, var(--kc-text) 2.5%, transparent);
+}
+
+.kjr-vote-foot .kui-btn--block {
+  height: 34px;
+}
+
+.kjr-confirm {
+  display: grid;
+  gap: 8px;
+}
+
+.kjr-confirm p span {
+  display: block;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kjr-confirm .kjr-btn-row > * {
+  flex: 1;
+}
+
+.kjr-vote-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+}
+
+.kjr-vote-keys i {
+  width: 12px;
+}
+
+/* 没有案件时的两块：说明 + 这段时间可以做什么 */
+.kjr-idle {
+  display: grid;
+  width: 100%;
+  max-width: 560px;
+  gap: 4px;
+  margin: 0 auto;
+}
+
+.kjr-idle .kjr-state {
+  padding-bottom: 28px;
+}
+
+.kjr-todo .kui-row {
+  min-height: 46px;
+}
+
+.kjr-todo .kui-row > svg {
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+/* ───────── 案件详情 ───────── */
+
+.kjr-case {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: 14px;
+}
+
+.kjr-case-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kjr-vs {
+  position: sticky;
+  top: 0;
+  padding-top: 4px;
+  padding-bottom: 6px;
+}
+
+.kjr-vs-block {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0;
+}
+
+.kjr-vs-block + .kjr-vs-block {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-vs-block .kjr-h,
+.kjr-vs-block .kjr-sub {
+  margin-bottom: 0;
+}
+
+.kjr-vs-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.kjr-dl {
+  display: grid;
+  gap: 4px;
+}
+
+.kjr-dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kjr-dl dt {
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.kjr-dl dd {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.kjr-seats {
+  display: inline-flex;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.kjr-seats i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--kc-border-strong);
+}
+
+.kjr-seats i.is-on {
+  background: var(--kui-fill);
+  box-shadow: none;
+}
+
+/* 质控题的培训反馈 */
+.kjr-qc {
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kc-accent);
+}
+
+.kjr-qc.is-ok {
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kui-ok);
+}
+
+.kjr-qc.is-miss {
+  box-shadow: var(--kjr-edge), inset 3px 0 0 var(--kui-danger);
+}
+
+.kjr-qc-compare {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  margin: 14px 0 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--kc-border);
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kjr-qc-compare > div {
+  display: grid;
+  justify-items: start;
+}
+
+.kjr-qc-compare > div > span:last-child {
+  display: flex;
+  gap: 5px;
+}
+
+.kjr-qc-compare > svg {
+  color: var(--kc-subtle);
+}
+
+.kjr-qc.is-ok .kjr-qc-compare > svg {
+  color: var(--kui-ok);
+}
+
+.kjr-qc.is-miss .kjr-qc-compare > svg {
+  color: var(--kui-danger);
+}
+
+.kjr-qc-result {
+  line-height: 1.7;
+}
+
+/* ───────── 观点区 ───────── */
+
+.kjr-opinions {
+  display: grid;
+  gap: 12px;
+}
+
+.kjr-opinions > .kjr-card-head {
+  margin-bottom: 0;
+}
+
+.kjr-composer {
+  display: grid;
+  gap: 8px;
+}
+
+.kjr-composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kjr-composer-to {
+  display: flex;
+  gap: 10px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-thread {
+  padding: 12px 0;
+}
+
+.kjr-thread + .kjr-thread {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-thread:last-child {
+  padding-bottom: 0;
+}
+
+.kjr-thread-reply {
+  margin: 8px 0 0 38px;
+}
+
+.kjr-op {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.kjr-op.is-reply {
+  margin: 10px 0 0 38px;
+}
+
+/* 代号标记：方的、单色的 —— 刻意不像头像 */
+.kjr-op-mark {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kjr-op.is-reply .kjr-op-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: calc(11px * var(--kui-fs));
+}
+
+.kjr-op.is-reply {
+  grid-template-columns: 22px minmax(0, 1fr);
+}
+
+.kjr-op.is-mine .kjr-op-mark {
+  background: color-mix(in srgb, var(--kc-accent) 13%, transparent);
+  color: var(--kc-accent);
+}
+
+.kjr-op-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 6px;
+  line-height: 1.5;
+}
+
+.kjr-op-head b {
+  font-weight: 600;
+}
+
+.kjr-op-head time {
+  margin-left: auto;
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-op-body {
+  margin-top: 2px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kjr-op-to {
+  color: var(--kc-muted);
+}
+
+.kjr-op-gone {
+  margin-top: 2px;
+  color: var(--kc-subtle);
+}
+
+.kjr-op-actions {
+  display: flex;
+  gap: 2px;
+  margin: 3px 0 0 -7px;
+}
+
+.kjr-op-btn {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border-radius: 5px;
+  color: var(--kc-muted);
+  font-variant-numeric: tabular-nums;
+  transition: background-color 80ms ease, color 80ms ease;
+}
+
+.kjr-op-btn:hover:not(:disabled) {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+.kjr-op-btn.is-on {
+  color: var(--kc-accent);
+  font-weight: 600;
+}
+
+.kjr-op-btn.is-danger {
+  color: var(--kui-danger);
+}
+
+.kjr-op-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.kjr-op-btn.is-on:disabled {
+  opacity: 1;
+}
+
+#kukechat-root [data-font-scale] .kjr-op-btn {
+  font-size: calc(12px * var(--kui-fs));
+}
+
+/* 举报观点的对话框（挂在页面外面，所以字号变量自己带） */
+.kjr-report {
+  --kui-fs: var(--kc-font-multiplier, 1);
+  display: grid;
+  gap: 12px;
+}
+
+.kjr-report .kjr-quote {
+  max-height: 96px;
+  overflow: hidden;
+  color: var(--kc-muted);
+}
+
+.kjr-report-reasons {
+  display: grid;
+}
+
+.kjr-report-reason {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  border-radius: var(--kui-r-sm);
+  cursor: pointer;
+}
+
+.kjr-report-reason:hover {
+  background: var(--kc-hover);
+}
+
+.kjr-report-reason input {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  accent-color: var(--kc-accent);
+}
+
+/* ───────── 总览 ───────── */
+
+.kjr-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.kjr-me-headline {
+  font-size: calc(19px * var(--kui-fs));
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  line-height: 1.4;
+}
+
+.kjr-me-text {
+  margin-top: 4px;
+  color: var(--kc-muted);
+  line-height: 1.75;
+}
+
+.kjr-me > .kui-note {
+  margin-top: 12px;
+}
+
+.kjr-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px 18px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-facts dt {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs));
+}
+
+.kjr-facts dd {
+  display: grid;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kjr-facts dd small {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-weight: 400;
+}
+
+/* 申请流程：一串编号的步骤，左边一条线串起来 */
+.kjr-flow {
+  display: grid;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-flow > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.kjr-flow > li:last-child {
+  padding-bottom: 0;
+}
+
+.kjr-flow > li:not(:last-child)::before {
+  position: absolute;
+  top: 24px;
+  bottom: 2px;
+  left: 10.5px;
+  width: 1px;
+  background: var(--kc-border-strong);
+  content: '';
+}
+
+.kjr-flow-mark {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--kc-border-strong);
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.kjr-flow > li.is-done .kjr-flow-mark {
+  background: var(--kui-ok);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.kjr-flow-main {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.kjr-flow-title {
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.kjr-reqs li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.kjr-reqs li.is-ok svg {
+  color: var(--kui-ok);
+}
+
+.kjr-reqs li.is-missing svg {
+  color: var(--kui-danger);
+}
+
+.kjr-reqs small {
+  color: var(--kc-subtle);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-reqs li.is-missing small {
+  color: var(--kui-danger);
+}
+
+.kjr-apply-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.kjr-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 28px;
+}
+
+.kjr-rates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 14px 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-rates > div {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  justify-items: start;
+  gap: 8px;
+}
+
+.kjr-rates p {
+  min-width: 0;
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs));
+  line-height: 1.45;
+}
+
+.kjr-rates p b {
+  display: block;
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kui-fs));
+  font-weight: 600;
+}
+
+.kjr-rates-num {
+  display: grid;
+  height: 56px;
+  align-items: center;
+  font-size: calc(22px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.kjr-community > .kui-note {
+  margin-top: 14px;
+}
+
+.kjr-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px 22px;
+  margin-bottom: 14px;
+}
+
+.kjr-steps li {
+  position: relative;
+  padding-top: 12px;
+  border-top: 2px solid var(--kc-border-strong);
+}
+
+.kjr-steps-no {
+  color: var(--kc-accent);
+  font-size: calc(12px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.kjr-steps-no::before {
+  content: '0';
+}
+
+.kjr-steps-title {
+  margin-top: 1px;
+  font-size: calc(14.5px * var(--kui-fs));
+  font-weight: 700;
+}
+
+.kjr-steps-text {
+  margin-top: 3px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs));
+  line-height: 1.75;
+}
+
+/* ───────── 公示栏、我的评审 ───────── */
+
+.kjr-lead-note {
+  max-width: 760px;
+}
+
+/* ───────── 规则手册 ───────── */
+
+.kjr-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 14px;
+}
+
+.kjr-levels {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.kjr-levels li {
+  display: grid;
+  grid-template-columns: 76px minmax(24px, 1fr) 64px minmax(72px, auto);
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kjr-levels-name b {
+  margin-right: 6px;
+  font-weight: 700;
+}
+
+.kjr-levels-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+}
+
+.kjr-levels-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--kui-danger) 78%, transparent);
+}
+
+.kjr-levels-points {
+  color: var(--kc-muted);
+}
+
+.kjr-levels-penalty {
+  font-weight: 600;
+  text-align: right;
+}
+
+/* 阶梯：一条刻度线，每个门槛一个节点 */
+.kjr-ladder {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  margin-bottom: 16px;
+}
+
+.kjr-ladder li {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  padding: 16px 8px 0 0;
+  border-top: 2px solid color-mix(in srgb, var(--kui-danger) 55%, transparent);
+  font-size: calc(12.5px * var(--kui-fs));
+}
+
+.kjr-ladder-dot {
+  position: absolute;
+  top: -5px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kui-danger);
+}
+
+.kjr-ladder strong {
+  font-size: calc(20px * var(--kui-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.kjr-ladder strong small {
+  margin-left: 3px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs));
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.kjr-doc-list {
+  display: grid;
+  gap: 6px;
+  color: var(--kc-muted);
+  font-size: calc(13px * var(--kui-fs));
+  line-height: 1.7;
+}
+
+.kjr-doc-list li {
+  position: relative;
+  padding-left: 14px;
+}
+
+.kjr-doc-list li::before {
+  position: absolute;
+  top: 0.8em;
+  left: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--kc-border-strong);
+  content: '';
+}
+
+.kjr-doc-list b {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+.kjr-guide {
+  display: grid;
+}
+
+.kjr-guide > div {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 18px;
+  padding: 10px 0;
+}
+
+.kjr-guide > div + div {
+  border-top: 1px solid var(--kc-border);
+}
+
+.kjr-guide > div:first-child {
+  padding-top: 0;
+}
+
+.kjr-guide > div:last-child {
+  padding-bottom: 0;
+}
+
+.kjr-guide dt {
+  font-weight: 600;
+}
+
+.kjr-guide dd {
+  max-width: 720px;
+  color: var(--kc-muted);
+  line-height: 1.75;
+}
+
+/* ───────── 窄窗口 ───────── */
+
+@container kjr (max-width: 1060px) {
+  .kjr {
+    grid-template-columns: 176px minmax(0, 1fr);
+  }
+
+  .kjr-desk {
+    grid-template-columns: minmax(0, 1fr) 328px;
+  }
+
+  .kjr-case {
+    grid-template-columns: minmax(0, 1fr) 272px;
+  }
+
+  .kjr-overview,
+  .kjr-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kjr-wrap,
+  .kjr-desk-evidence {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .kjr-head {
+    padding-left: 18px;
+  }
+
+  .kjr-flash {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .kjr-table--public .kjr-tr > :nth-child(5) {
+    display: none;
+  }
+
+  /* 「来源」一列收掉之后，不是委员表决定案的（管理员裁定、已改判）要在票数下面补一句，否则票数会被读成结论的由来 */
+  .kjr-table--public .kjr-td-src {
+    display: inline;
+  }
+
+  .kjr-table--public .kjr-tr {
+    grid-template-columns: 88px minmax(96px, 1.2fr) minmax(104px, 0.9fr) minmax(88px, 0.8fr) 124px;
+  }
+
+  .kjr-table--mine .kjr-tr {
+    grid-template-columns: 88px minmax(72px, 1fr) 64px minmax(92px, 0.9fr) 56px 124px;
+  }
+}
+
+@container kjr (max-width: 860px) {
+  .kjr-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kjr-case {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kjr-vs {
+    position: static;
+    order: -1;
+  }
+
+  .kjr-guide > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .kjr-desk {
+    grid-template-columns: minmax(0, 1fr) 296px;
+  }
+
+  .kjr-msg {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
+/* 浮窗被拖得很窄（默认 980 宽，最小能到 360）。板块导航收成一列图标，把宽度让给内容：
+   不收的话评审台左边的证据栏只剩一百多像素，一行只放得下两三个字。
+   文字是「看不见但还在」（读屏和按钮的名字仍然是它），鼠标悬停有 title。 */
+@container kjr (max-width: 700px) {
+  .kjr {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .kjr-side-head > * {
+    display: none;
+  }
+
+  .kjr-nav {
+    padding: 0 6px 8px;
+  }
+
+  .kjr-nav-group + .kjr-nav-group {
+    margin-top: 6px;
+  }
+
+  /* 分组标题换成一道分隔线 */
+  .kjr-nav-title {
+    height: 1px;
+    margin: 0 8px 6px;
+    padding: 0;
+    overflow: hidden;
+    background: var(--kc-border);
+    font-size: 0;
+  }
+
+  .kjr-nav-item {
+    position: relative;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+  }
+
+  .kjr-nav-label,
+  .kjr-nav-soon {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    flex: none;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* 还没开放的板块：图标调淡 */
+  .kjr-nav-item:has(.kjr-nav-soon) > svg {
+    opacity: 0.45;
+  }
+
+  .kjr-nav-item .kui-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    font-size: 9.5px;
+  }
+
+  .kjr-side-foot {
+    padding: 6px;
+  }
+
+  .kjr-side-foot .kjr-nav-item > svg:last-child {
+    display: none;
+  }
+
+  .kjr-desk {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+
+  /* 表格的列再怎么收也放不下了：不砍列，让表格自己横向滚动 */
+  .kjr-table--mine,
+  .kjr-table--public {
+    overflow-x: auto;
+  }
+
+  .kjr-table--mine .kjr-tr {
+    min-width: 572px;
+  }
+
+  .kjr-table--public .kjr-tr {
+    min-width: 564px;
+  }
+}
+
+/* 再窄就放不下左右两栏了：评审台改成上面看证据、下面表决，各自滚动 */
+@container kjr (max-width: 540px) {
+  .kjr-desk {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  }
+
+  .kjr-vote {
+    border-top: 1px solid var(--kc-border);
+    border-left: 0;
+  }
+}

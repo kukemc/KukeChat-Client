@@ -1,165 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  createTeamupComment,
-  deleteTeamupComment,
-  getTeamupComments,
-  getTeamupProfile,
-  toggleTeamupCommentLike
-} from '@/api/teamup';
-import { TEAMUP_SHARE_URL, ccwStudentProfileUrl } from '@/config';
-import { acceptFriendRequest, sendFriendRequest } from '@/api/friends';
-import { getConversations } from '@/api/conversations';
-import { shareTeamupProfileToConversation } from '@/api/messages';
-import type { Conversation, MessageMetadata, TeamupProfile, TeamupComment, TeamupShareCardMetadata, User } from '@/types/api';
+import { useState } from 'react';
+import { ccwStudentProfileUrl } from '@/config';
+import type { TeamupComment, TeamupProfile, User } from '@/types/api';
 import { useKukeStore } from '@/store/kukeStore';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { CcwCreationCard } from '@/components/ui/CcwCreationCard';
 import { Markdown } from '@/components/ui/Markdown';
-import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
+import { ImageViewer } from '@/components/ui/ImageViewer';
 import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
 import { openExternalUrl } from '@/utils/openExternalUrl';
-import { CCW_CREATION_URL_PATTERN } from '@/utils/ccwLinks';
 import { formatMessageDateTime } from '@/utils/dateTime';
 import { SKILL_LEVEL_LABEL, skillMeta } from './teamupConstants';
+import { formatCcwCount, profileUser, shareTargetTitle, stripCcwLinks, type CommentThreadData } from './teamupModel';
+import { useTeamupDetail } from './useTeamupDetail';
 import { TeamupBackground } from './TeamupBackground';
 
-// Same landing page the group invite links use; opens KukeChat with the param.
-const TEAMUP_SHARE_BASE = TEAMUP_SHARE_URL;
-
-const TEAMUP_SHARE_PHRASES = [
-  '求组队！我的名片：',
-  '找队友在线等，很急！我的组队名片：',
-  '🎮 寻找搭档中，来看看我的组队名片：',
-  '组队ing～这是我的名片，速来：',
-  '一起来开黑做项目吧！我的名片：',
-  '蹲一个靠谱队友，我的组队名片：'
-];
-
-function teamupShareUrl(profileId: number): string {
-  return `${TEAMUP_SHARE_BASE}?teamup=${profileId}`;
-}
-
-function teamupShareText(profileId: number): string {
-  const phrase = TEAMUP_SHARE_PHRASES[Math.floor(Math.random() * TEAMUP_SHARE_PHRASES.length)];
-  return `${phrase}\n${teamupShareUrl(profileId)}`;
-}
-
-async function copyTeamupShareText(value: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value);
-      return true;
-    }
-  } catch {
-    /* fall through to legacy copy */
-  }
-  try {
-    const textarea = document.createElement('textarea');
-    textarea.value = value;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(textarea);
-    return ok;
-  } catch {
-    return false;
-  }
-}
-
-function cleanIntro(intro: string): string {
-  return intro.replace(CCW_CREATION_URL_PATTERN, ' ').replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-}
-
-function profileUser(profile: TeamupProfile): User {
-  return profile.author ?? { id: profile.user_id, username: `用户 ${profile.user_id}`, nickname: `用户 ${profile.user_id}` };
-}
-
-function formatCompact(value?: number | null): string {
-  if (typeof value !== 'number') {
-    return '-';
-  }
-  if (value >= 10000) {
-    return `${(value / 10000).toFixed(value >= 100000 ? 0 : 1)}w`;
-  }
-  return String(value);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : '请求失败，请稍后再试';
-}
-
-function teamupShareMetadata(profile: TeamupProfile, user: User): MessageMetadata {
-  const card: TeamupShareCardMetadata = {
-    type: 'teamup',
-    profile_id: profile.id,
-    user_id: profile.user_id,
-    name: getDisplayName(user),
-    avatar_url: user.avatar_url ?? null,
-    headline: profile.headline ?? null,
-    status: profile.status,
-    skills: profile.skills.map((item) => item.skill),
-    looking_for: profile.looking_for,
-    creation_count: (profile.ccw_creations ?? []).length,
-    cover_url: profile.background_url ?? null
-  };
-  return { share_card: card };
-}
-
-function conversationTitle(conversation: Conversation, currentUser?: User | null): string {
-  if (conversation.type === 'group') {
-    return conversation.title?.trim() || '群聊';
-  }
-  const other = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser?.id)?.user;
-  return other ? getDisplayName(other) : conversation.title?.trim() || '私聊';
-}
-
-interface CommentThreadData {
-  root: TeamupComment;
-  replies: TeamupComment[];
-}
-
-function buildCommentThreads(comments: TeamupComment[]): CommentThreadData[] {
-  const byId = new Map(comments.map((comment) => [comment.id, comment]));
-  const roots: TeamupComment[] = [];
-  const repliesByRoot = new Map<number, TeamupComment[]>();
-
-  function findRoot(comment: TeamupComment): TeamupComment {
-    let current = comment;
-    const seen = new Set<number>();
-    while (current.parent_id && byId.has(current.parent_id) && !seen.has(current.id)) {
-      seen.add(current.id);
-      const parent = byId.get(current.parent_id);
-      if (!parent) {
-        break;
-      }
-      current = parent;
-    }
-    return current;
-  }
-
-  for (const comment of comments) {
-    if (!comment.parent_id || !byId.has(comment.parent_id)) {
-      roots.push(comment);
-      repliesByRoot.set(comment.id, repliesByRoot.get(comment.id) ?? []);
-      continue;
-    }
-    const root = findRoot(comment);
-    if (root.id === comment.id) {
-      roots.push(comment);
-      repliesByRoot.set(comment.id, repliesByRoot.get(comment.id) ?? []);
-      continue;
-    }
-    const replies = repliesByRoot.get(root.id) ?? [];
-    replies.push(comment);
-    repliesByRoot.set(root.id, replies);
-  }
-
-  return roots.map((root) => ({ root, replies: repliesByRoot.get(root.id) ?? [] }));
-}
+/* 移动端的名片详情页。桌面端另有一套界面（desktop/TeamupDetailDesktop），两边的数据都来自 useTeamupDetail。 */
 
 interface CommentItemProps {
   comment: TeamupComment;
@@ -242,148 +98,18 @@ interface DetailProps {
   onBack: () => void;
   onEdit?: (profile: TeamupProfile) => void;
   onFriendRequested: (profile: TeamupProfile) => void;
-  isMobile?: boolean;
 }
 
-export function TeamupDetailPanel({ profileId, initialProfile, currentUser, isFriend, hasPendingRequest, incomingRequestId, onBack, onEdit, onFriendRequested, isMobile }: DetailProps): JSX.Element {
-  const queryClient = useQueryClient();
+export function TeamupDetailPanel({ profileId, initialProfile, currentUser, isFriend, hasPendingRequest, incomingRequestId, onBack, onEdit, onFriendRequested }: DetailProps): JSX.Element {
   const openUserSpace = useKukeStore((state) => state.openUserSpace);
-  const [commentText, setCommentText] = useState('');
-  const [replyTo, setReplyTo] = useState<TeamupComment | null>(null);
-  const [viewer, setViewer] = useState<ImageViewerState | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareMode, setShareMode] = useState<'menu' | 'forward'>('menu');
-  const [shareTargetId, setShareTargetId] = useState(0);
-  const [shareDone, setShareDone] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
-  const composerRef = useRef<HTMLInputElement | null>(null);
-
-  const profileQuery = useQuery({
-    queryKey: ['teamup', 'profile', profileId],
-    queryFn: () => getTeamupProfile(profileId),
-    initialData: initialProfile ?? undefined
-  });
-  const commentsQuery = useQuery({
-    queryKey: ['teamup', 'comments', profileId],
-    queryFn: () => getTeamupComments(profileId)
-  });
-
-  const profile = profileQuery.data;
-
-  const friendMutation = useMutation({
-    mutationFn: (receiverId: number) => sendFriendRequest(receiverId),
-    onSuccess: (result) => {
-      setActionError(null);
-      // The backend auto-accepts when the other user already invited us, so refresh
-      // friend/conversation state in case we just became friends.
-      if (result?.status === 'accepted') {
-        void queryClient.invalidateQueries({ queryKey: ['friends'] });
-        void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      }
-      if (profile) {
-        onFriendRequested(profile);
-      }
-    },
-    onError: (error) => setActionError(errorMessage(error))
-  });
-
-  const acceptMutation = useMutation({
-    mutationFn: (requestId: number) => acceptFriendRequest(requestId),
-    onSuccess: () => {
-      setActionError(null);
-      void queryClient.invalidateQueries({ queryKey: ['friends'] });
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      if (profile) {
-        onFriendRequested(profile);
-      }
-    },
-    onError: (error) => setActionError(errorMessage(error))
-  });
-
-  const commentMutation = useMutation({
-    mutationFn: (payload: { content: string; parentId?: number }) => createTeamupComment(profileId, { content: payload.content, parent_id: payload.parentId ?? null }),
-    onSuccess: () => {
-      setCommentText('');
-      setReplyTo(null);
-      void queryClient.invalidateQueries({ queryKey: ['teamup', 'comments', profileId] });
-      void queryClient.invalidateQueries({ queryKey: ['teamup', 'profile', profileId] });
-    },
-    onError: (error) => setActionError(errorMessage(error))
-  });
-
-  const likeMutation = useMutation({
-    mutationFn: (commentId: number) => toggleTeamupCommentLike(profileId, commentId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['teamup', 'comments', profileId] })
-  });
-
-  const deleteCommentMutation = useMutation({
-    mutationFn: (commentId: number) => deleteTeamupComment(profileId, commentId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['teamup', 'comments', profileId] });
-      void queryClient.invalidateQueries({ queryKey: ['teamup', 'profile', profileId] });
-    }
-  });
-
-  const conversationsQuery = useQuery({
-    queryKey: ['conversations'],
-    queryFn: getConversations,
-    enabled: shareOpen
-  });
-  const conversations = conversationsQuery.data ?? [];
-
-  const shareMutation = useMutation({
-    mutationFn: () => {
-      if (!profile || !shareTargetId) {
-        throw new Error('请选择一个会话');
-      }
-      return shareTeamupProfileToConversation(shareTargetId, `[组队名片] ${getDisplayName(profileUser(profile))}`, teamupShareMetadata(profile, profileUser(profile)));
-    },
-    onSuccess: () => {
-      setShareDone(true);
-      void queryClient.invalidateQueries({ queryKey: ['messages', shareTargetId] });
-      window.setTimeout(() => {
-        setShareOpen(false);
-        setShareDone(false);
-      }, 900);
-    },
-    onError: (error) => setActionError(errorMessage(error))
-  });
-
-  useEffect(() => {
-    if (shareOpen && !shareTargetId) {
-      setShareTargetId(conversations[0]?.id ?? 0);
-    }
-  }, [shareOpen, conversations, shareTargetId]);
-
-  function openShare(): void {
-    setShareMode('menu');
-    setLinkCopied(false);
-    setShareOpen(true);
-  }
-
-  async function handleCopyShareLink(): Promise<void> {
-    if (!profile) {
-      return;
-    }
-    const ok = await copyTeamupShareText(teamupShareText(profile.id));
-    if (ok) {
-      setLinkCopied(true);
-      window.setTimeout(() => { setLinkCopied(false); setShareOpen(false); }, 1100);
-    } else {
-      setActionError('复制失败，请手动复制链接。');
-    }
-  }
-
-  useEffect(() => {
-    if (replyTo && composerRef.current) {
-      composerRef.current.focus();
-    }
-  }, [replyTo]);
-
-  const galleryImages = useMemo(() => (profile?.image_urls ?? []).map((url) => resolveAssetUrl(url) ?? url), [profile?.image_urls]);
-  const comments = commentsQuery.data ?? [];
-  const threads = useMemo(() => buildCommentThreads(comments), [comments]);
+  const {
+    profile, profileQuery, threads, galleryImages,
+    commentText, setCommentText, replyTo, setReplyTo, composerRef, submitComment,
+    viewer, setViewer, actionError,
+    friendMutation, acceptMutation, commentMutation, likeMutation, deleteCommentMutation,
+    shareOpen, setShareOpen, shareMode, setShareMode, shareTargetId, setShareTargetId, shareDone, linkCopied,
+    openShare, copyShareLink, shareMutation, conversations, conversationsQuery
+  } = useTeamupDetail({ profileId, initialProfile, onFriendRequested });
 
   if (!profile) {
     return (
@@ -394,23 +120,15 @@ export function TeamupDetailPanel({ profileId, initialProfile, currentUser, isFr
   }
 
   const user = profileUser(profile);
-  const displayIntro = cleanIntro(profile.intro);
+  const displayIntro = stripCcwLinks(profile.intro);
   const isSelf = profile.is_self || profile.user_id === currentUser.id;
   const friendlyState = isFriend || profile.is_friend;
   const creations = profile.ccw_creations ?? [];
   const backgroundUrl = profile.background_url ? resolveAssetUrl(profile.background_url) ?? profile.background_url : null;
 
-  function submitComment(): void {
-    const content = commentText.trim();
-    if (!content) {
-      return;
-    }
-    commentMutation.mutate({ content, parentId: replyTo?.id });
-  }
-
   return (
     <section className="kc-teamup-surface flex h-full min-h-0 flex-col overflow-hidden [color:var(--kc-text)]">
-      {backgroundUrl ? <div className="kc-teamup-surface-bg" style={{ backgroundImage: `url(${backgroundUrl})` }} /> : <TeamupBackground variant="soft" />}
+      {backgroundUrl ? <div className="kc-teamup-surface-bg" style={{ backgroundImage: `url(${backgroundUrl})` }} /> : <TeamupBackground />}
       <header className="kc-teamup-detail-glass relative z-10 flex shrink-0 items-center gap-3 border-x-0 border-t-0 px-4 py-3">
         <button type="button" onClick={onBack} className="ghost-button grid h-9 w-9 place-items-center rounded-xl"><Icon name="chevronLeft" className="h-5 w-5" /></button>
         <h2 className="min-w-0 flex-1 truncate text-base font-black">组队名片</h2>
@@ -419,7 +137,7 @@ export function TeamupDetailPanel({ profileId, initialProfile, currentUser, isFr
       </header>
 
       <div className="scroll-soft kc-pc-page-main relative z-10 min-h-0 flex-1 overflow-y-auto">
-        <div className={`mx-auto w-full ${isMobile ? 'max-w-full px-4' : 'max-w-5xl px-6'} pb-8`}>
+        <div className={`mx-auto w-full max-w-full px-4 pb-8`}>
           {/* Header card */}
           <div className="kc-pc-page-hero kc-teamup-detail-glass relative mt-4 overflow-hidden rounded-[24px] p-5 sm:p-6">
             <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-gradient-to-br from-sky-400/20 via-indigo-400/12 to-transparent blur-2xl" />
@@ -551,14 +269,14 @@ export function TeamupDetailPanel({ profileId, initialProfile, currentUser, isFr
                   </div>
                   {user.ccw_bio ? <p className="line-clamp-2 px-4 pb-3 text-xs leading-5 [color:var(--kc-muted)]">{user.ccw_bio}</p> : null}
                   <div className="grid grid-cols-3 border-t text-center text-xs font-bold [border-color:var(--kc-border)]">
-                    <span className="px-2 py-3"><strong className="block text-base [color:var(--kc-text)]">{formatCompact(user.ccw_following_count)}</strong><span className="[color:var(--kc-muted)]">关注</span></span>
-                    <span className="border-x px-2 py-3 [border-color:var(--kc-border)]"><strong className="block text-base [color:var(--kc-text)]">{formatCompact(user.ccw_follower_count)}</strong><span className="[color:var(--kc-muted)]">粉丝</span></span>
-                    <span className="px-2 py-3"><strong className="block text-base [color:var(--kc-text)]">{formatCompact(user.ccw_like_count)}</strong><span className="[color:var(--kc-muted)]">获赞</span></span>
+                    <span className="px-2 py-3"><strong className="block text-base [color:var(--kc-text)]">{formatCcwCount(user.ccw_following_count)}</strong><span className="[color:var(--kc-muted)]">关注</span></span>
+                    <span className="border-x px-2 py-3 [border-color:var(--kc-border)]"><strong className="block text-base [color:var(--kc-text)]">{formatCcwCount(user.ccw_follower_count)}</strong><span className="[color:var(--kc-muted)]">粉丝</span></span>
+                    <span className="px-2 py-3"><strong className="block text-base [color:var(--kc-text)]">{formatCcwCount(user.ccw_like_count)}</strong><span className="[color:var(--kc-muted)]">获赞</span></span>
                   </div>
                   <div className="grid grid-cols-3 border-t text-center text-xs font-bold [border-color:var(--kc-border)]">
-                    <span className="px-2 py-3"><strong className="block text-base [color:var(--kc-text)]">{formatCompact(user.ccw_creation_count)}</strong><span className="[color:var(--kc-muted)]">作品</span></span>
-                    <span className="border-x px-2 py-3 [border-color:var(--kc-border)]"><strong className="block text-base [color:var(--kc-text)]">{formatCompact(user.ccw_favorite_count)}</strong><span className="[color:var(--kc-muted)]">收藏</span></span>
-                    <span className="px-2 py-3"><strong className="block text-base [color:var(--kc-text)]">{formatCompact(user.ccw_view_count)}</strong><span className="[color:var(--kc-muted)]">浏览</span></span>
+                    <span className="px-2 py-3"><strong className="block text-base [color:var(--kc-text)]">{formatCcwCount(user.ccw_creation_count)}</strong><span className="[color:var(--kc-muted)]">作品</span></span>
+                    <span className="border-x px-2 py-3 [border-color:var(--kc-border)]"><strong className="block text-base [color:var(--kc-text)]">{formatCcwCount(user.ccw_favorite_count)}</strong><span className="[color:var(--kc-muted)]">收藏</span></span>
+                    <span className="px-2 py-3"><strong className="block text-base [color:var(--kc-text)]">{formatCcwCount(user.ccw_view_count)}</strong><span className="[color:var(--kc-muted)]">浏览</span></span>
                   </div>
                   {user.ccw_student_oid ? (
                     <div className="p-3">
@@ -615,7 +333,7 @@ export function TeamupDetailPanel({ profileId, initialProfile, currentUser, isFr
         </div>
       </div>
 
-      {viewer ? <ImageViewer viewer={viewer} mobile={isMobile} onClose={() => setViewer(null)} onNavigate={(index) => setViewer((previous) => (previous ? { ...previous, index } : previous))} /> : null}
+      {viewer ? <ImageViewer viewer={viewer} mobile onClose={() => setViewer(null)} onNavigate={(index) => setViewer((previous) => (previous ? { ...previous, index } : previous))} /> : null}
 
       {shareOpen ? (
         <div className="fixed inset-0 z-[90] grid place-items-center bg-black/35 p-4 backdrop-blur-sm" onClick={() => !shareMutation.isPending && setShareOpen(false)}>
@@ -630,7 +348,7 @@ export function TeamupDetailPanel({ profileId, initialProfile, currentUser, isFr
                     <span className="min-w-0 flex-1"><span className="block text-sm font-black [color:var(--kc-text)]">转发组队名片</span><span className="mt-0.5 block text-xs [color:var(--kc-muted)]">选择一个群或联系人发送可点开的名片卡片。</span></span>
                     <Icon name="chevron" className="h-4 w-4 shrink-0 [color:var(--kc-muted)]" />
                   </button>
-                  <button type="button" onClick={() => void handleCopyShareLink()} className="flex w-full items-center gap-3.5 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md [border-color:var(--kc-border)] hover:[background:var(--kc-hover)]">
+                  <button type="button" onClick={() => void copyShareLink()} className="flex w-full items-center gap-3.5 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md [border-color:var(--kc-border)] hover:[background:var(--kc-hover)]">
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl [background:var(--kc-panel-muted)] [color:var(--kc-text)]"><Icon name={linkCopied ? 'check' : 'copy'} className="h-5 w-5" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-sm font-black [color:var(--kc-text)]">{linkCopied ? '已复制到剪贴板' : '复制链接'}</span><span className="mt-0.5 block text-xs [color:var(--kc-muted)]">复制带文案的分享链接，发到任意地方。</span></span>
                   </button>
@@ -645,7 +363,7 @@ export function TeamupDetailPanel({ profileId, initialProfile, currentUser, isFr
                 {!conversationsQuery.isLoading && conversations.length === 0 ? <p className="px-3 py-5 text-center text-sm [color:var(--kc-muted)]">暂无可分享的会话</p> : null}
                 {conversations.map((conversation) => {
                   const active = conversation.id === shareTargetId;
-                  const title = conversationTitle(conversation, currentUser);
+                  const title = shareTargetTitle(conversation, currentUser);
                   return (
                     <button key={conversation.id} type="button" onClick={() => setShareTargetId(conversation.id)} className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition ${active ? '[background:var(--kc-accent-soft)] [color:var(--kc-accent)]' : 'hover:[background:var(--kc-hover)]'}`}>
                       <Avatar label={title} avatarUrl={conversation.avatar_url ?? conversation.direct_user?.avatar_url} size="sm" />
