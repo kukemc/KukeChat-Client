@@ -145,12 +145,15 @@ public class KukeBackgroundRealtimeService extends Service {
     private void startRealtime(Intent intent) {
         explicitlyStopped = false;
         readConfig(intent);
+        // 开机广播用 startForegroundService 拉起本服务。没有登录态时也要先进入前台，
+        // 否则系统会在超时后杀掉整个进程，聊天界面一起消失。
+        startForeground(SERVICE_NOTIFICATION_ID, buildServiceNotification());
         if (token.isEmpty() || wsUrl.isEmpty()) {
+            stopForeground(true);
             stopSelf();
             return;
         }
         updateCachedConversations(prefs.getString(EXTRA_CONVERSATIONS, "[]"));
-        startForeground(SERVICE_NOTIFICATION_ID, buildServiceNotification());
         refreshConversations();
         connectSocket();
     }
