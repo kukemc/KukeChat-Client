@@ -12,9 +12,9 @@ Scratch/CCW 社区扩展 + Windows 桌面端（Tauri）+ Android（Capacitor）�
 | --- | --- | --- |
 | KukeChat-Client | 本仓库（公开） | 客户端三端 |
 | KukeChat-Server | `../KukeChat-Server`（公开） | 后端 API |
-| KukeChat | `../KukeChat`（私有） | 后台管理端 + 运维脚本 |
+| KukeChat | `../KukeChat`（私有） | 后台管理端、部署与运维 |
 
-> `../KukeChat/KukeChat/` 是拆分前的旧副本，**不要在那里改代码**。
+> 客户端只有本仓库这一份。
 
 ## 常用命令
 
