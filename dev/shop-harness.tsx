@@ -18,6 +18,8 @@
  * 红包（假后端在 dev/mocks/redPackets.ts）：view=chat 的群里有各种状态的红包，输入区工具栏上有「发红包」，商店页有「红包记录」。
  *   conv=2（进和阿夸的私聊：只能发普通红包、个数固定 1，自己发的自己不能领）
  *   rpBackend=ok|disabled|missing        rpSendError=…  rpClaimError=…（取值见控制条上的两个下拉框）
+ *   rpPendingBackend=missing（有红包、但没有 GET /red-packets/pending 的旧后端：聊天区右上角的「N 个红包未领」不出现）
+ *   聊天区右上角的「N 个红包未领」：群里默认有三个能领的（最早的那个要往上翻），点一下跳到最早的，再点跳下一个；控制条上的抢、过期、撤回、别人发都会让它跟着变。
  *   rpMany=30（群里再塞 30 个红包，数请求数用）
  *   rpOpen=1（打开页面就点开最新的那个红包）  rpSend=1（打开页面就弹出发红包）  rpRecords=1（打开红包记录）
  * 控制条上「红包」那一组按钮模拟别人发、别人抢、过期、撤回（都会发 red_packet.updated 事件；过期、撤回还会发 shop.balance.changed）。
@@ -673,8 +675,9 @@ function MobileScreen({ view }: { view: View }): JSX.Element {
   );
 }
 
-const RED_PACKET_SELECTS: Array<{ key: 'backend' | 'sendError' | 'claimError'; label: string; options: string[] }> = [
+const RED_PACKET_SELECTS: Array<{ key: 'backend' | 'pendingBackend' | 'sendError' | 'claimError'; label: string; options: string[] }> = [
   { key: 'backend', label: '红包后端', options: ['ok', 'disabled', 'missing'] },
+  { key: 'pendingBackend', label: '待领接口', options: ['ok', 'missing'] },
   { key: 'sendError', label: '发', options: ['none', 'disabled', 'not_member', 'muted', 'ccw_not_bound', 'invalid_amount', 'invalid_count', 'invalid_kind', 'greeting_rejected', 'insufficient_balance', 'daily_limit', 'verification_unavailable', 'server'] },
   { key: 'claimError', label: '抢', options: ['none', 'not_member', 'muted', 'own_packet', 'already_claimed', 'finished', 'expired', 'revoked', 'server'] }
 ];
@@ -1000,7 +1003,7 @@ function Harness(): JSX.Element {
           <label key={key} style={label}>{text}
             <select data-harness={`rp-${key}`} value={redPacketScenario[key]} style={{ font: '12px sans-serif' }} onChange={(event) => {
               Object.assign(redPacketScenario, { [key]: event.target.value });
-              if (key === 'backend') {
+              if (key === 'backend' || key === 'pendingBackend') {
                 reloadRedPackets();
               } else {
                 rerender((value) => value + 1);

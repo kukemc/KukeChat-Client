@@ -16,6 +16,8 @@ import { json, type MockHandler } from './types';
 export interface RedPacketScenario {
   /** ok 正常；disabled 接口在但开关关着（enabled: false）；missing 旧后端，没有这些接口（404） */
   backend: 'ok' | 'disabled' | 'missing';
+  /** GET /red-packets/pending：ok 正常；missing 是有红包、但还没有这个接口的旧后端（/red-packets/{id} 把 pending 当 id，422） */
+  pendingBackend: 'ok' | 'missing';
   /** 发红包时强制返回的错误；none 表示按真实规则来 */
   sendError: 'none' | 'disabled' | 'not_member' | 'muted' | 'ccw_not_bound' | 'invalid_amount' | 'invalid_count' | 'invalid_kind' | 'greeting_rejected' | 'insufficient_balance' | 'daily_limit' | 'verification_unavailable' | 'server';
   /** 抢红包时强制返回的错误 */
@@ -27,6 +29,7 @@ export interface RedPacketScenario {
 
 export const redPacketScenario: RedPacketScenario = {
   backend: 'ok',
+  pendingBackend: 'ok',
   sendError: 'none',
   claimError: 'none',
   limits: { max_total: 500, max_count: 100, min_each: 1, daily_send_limit: 20, expire_hours: 24 },
@@ -297,14 +300,35 @@ export const redPacketState = {
   },
   /** 这个会话里有没有我还能领的红包：会话对象上的 red_packet_pending */
   pending(conversationId: number): boolean {
-    packets.forEach(settle);
-    return [...packets.values()].some((packet) => packet.conversation_id === conversationId && packet.status === 'active' && !packet.claims.some((claim) => claim.userId === meId) && !(packet.senderId === meId && directConversations.has(conversationId)));
+    return claimable(conversationId).length > 0;
   },
   get(packetId: number): Record<string, unknown> | null {
     const packet = packets.get(packetId);
     return packet ? view(packet) : null;
   }
 };
+
+/** 这个会话里我还能领的红包，最早的在前（和 red_packet_pending、GET /pending 一个口径） */
+function claimable(conversationId: number): MockPacket[] {
+  packets.forEach(settle);
+  return [...packets.values()].filter((packet) => packet.conversation_id === conversationId && packet.status === 'active' && !packet.claims.some((claim) => claim.userId === meId) && !(packet.senderId === meId && directConversations.has(conversationId)));
+}
+
+/** GET /red-packets/pending?conversation_id=…：新的在前，最多 20 个，不带金额 */
+function pendingList(conversationId: number): Response {
+  const items = claimable(conversationId).sort((left, right) => right.message_id - left.message_id).slice(0, 20).map((packet) => ({
+    id: packet.id,
+    message_id: packet.message_id,
+    sender_id: packet.senderId,
+    kind: packet.kind,
+    greeting: packet.greeting,
+    count: packet.count,
+    claimed_count: packet.claims.length,
+    expires_at: packet.expires_at,
+    created_at: packet.created_at
+  }));
+  return json({ items });
+}
 
 function send(body: unknown): Response {
   const forced = redPacketScenario.sendError;
@@ -442,6 +466,12 @@ export const redPacketsMock: MockHandler = async ({ path, url, method, body }) =
     }
     const received = all.flatMap((packet) => packet.claims.filter((item) => item.userId === meId).map((item) => ({ amount: item.amount, created_at: item.created_at, red_packet: view(packet) })));
     return json({ items: received.slice(offset, offset + limit), total: received.length, sum: received.reduce((sum, item) => sum + item.amount, 0) });
+  }
+  if (path === '/red-packets/pending' && method === 'GET') {
+    if (redPacketScenario.pendingBackend === 'missing') {
+      return json({ detail: [{ type: 'int_parsing', loc: ['path', 'red_packet_id'], msg: 'Input should be a valid integer' }] }, 422);
+    }
+    return pendingList(Number(url.searchParams.get('conversation_id') ?? 0));
   }
   const claimMatch = path.match(/^\/red-packets\/(\d+)\/claim$/);
   if (claimMatch && method === 'POST') {

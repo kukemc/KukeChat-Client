@@ -134,3 +134,16 @@ export interface RedPacketUpdate {
   count: number;
   status: RedPacketStatus;
 }
+
+/** GET /red-packets/pending?conversation_id=… 的一项：这个会话里我还能领的红包（不带金额）。列表新的在前，最多 20 个。 */
+export interface PendingRedPacket {
+  id: RedPacketId;
+  message_id: number;
+  sender_id: number | null;
+  kind: RedPacketKind;
+  greeting: string;
+  count: number;
+  claimed_count: number;
+  expires_at: string | null;
+  created_at: string;
+}

@@ -1,13 +1,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
 import { ApiError, NetworkError } from '@/api/client';
-import { claimRedPacket, getMyRedPackets, getRedPacket, getRedPacketConfig, sendRedPacket } from '@/api/redPackets';
+import { claimRedPacket, getMyRedPackets, getPendingRedPackets, getRedPacket, getRedPacketConfig, sendRedPacket } from '@/api/redPackets';
 import { applyShopPatch, isShopUnavailable, shopErrorCode, shopErrorDetail, shopKeys } from '@/components/shop/data';
 import { formatCoins } from '@/components/shop/labels';
 import { upsertMessageIntoFirstPage, type MessagesInfiniteData } from '@/realtime/cache';
 import { useModerationStore } from '@/store/moderationStore';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation, Message } from '@/types/api';
-import type { ClaimRedPacketResult, RedPacket, RedPacketBalance, RedPacketConfig, RedPacketDirection, RedPacketId, RedPacketRecordPage, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
+import type { ClaimRedPacketResult, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketConfig, RedPacketDirection, RedPacketId, RedPacketRecordPage, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
 import type { ShopOverview } from '@/types/shop';
 import { normalizeRedPacketUpdate } from '@/api/redPackets';
 import { applyLatestMessageToConversations } from '@/utils/conversations';
@@ -31,6 +31,8 @@ export const redPacketKeys = {
   details: ['red-packets', 'detail'] as const,
   detail: (id: RedPacketId) => ['red-packets', 'detail', String(id)] as const,
   mine: ['red-packets', 'mine'] as const,
+  pendingAll: ['red-packets', 'pending'] as const,
+  pending: (conversationId: number) => ['red-packets', 'pending', conversationId] as const,
   minePage: (direction: RedPacketDirection, limit: number, offset: number) => ['red-packets', 'mine', direction, limit, offset] as const
 };
 
@@ -168,6 +170,7 @@ export function noteRedPacketMessage(queryClient: QueryClient, message: Message)
   if (message.type !== 'red_packet' || message.recalled_at) {
     return;
   }
+  refreshPendingList(queryClient, message.conversation_id);
   const mine = (message.sender_id ?? message.sender?.id) === useKukeStore.getState().currentUser?.id;
   if (mine && conversationOf(queryClient, message.conversation_id)?.type !== 'group') {
     return;
@@ -198,6 +201,80 @@ export function recheckRedPacketPending(queryClient: QueryClient, conversationId
   refreshRedPacketPending(queryClient);
 }
 
+/* ───────── 聊天区右上角的「N 个红包未领」 ─────────
+ * GET /red-packets/pending?conversation_id=…（3.4.1）按会话缓存一份：进会话拉一次（每次进都重拉），之后
+ *   · 来了新的红包消息 → 重拉（服务端才知道我能不能领，比如私聊里自己发的不能）；
+ *   · red_packet.updated：只管列表里有的那个 —— 不再是 active 就当场去掉；还是 active 但领取数变了，可能是我在别的设备上领了，重拉；
+ *     列表里没有的不用管（事件不会让一个红包「变得能领」，新红包走上面的消息）；
+ *   · 我领到了、或者领的时候发现它已经领不了（抢完、过期、撤回、领过了）→ 当场去掉；
+ *   · 断线重连 → 重拉；到点过期 → 提示自己按 expires_at 滤掉。
+ * 旧后端没有这个接口（404 / 422）、我不在这个会话里（403）都是 null：不显示，也不再重试。
+ */
+
+async function fetchPending(conversationId: number): Promise<PendingRedPacket[] | null> {
+  try {
+    return await getPendingRedPackets(conversationId);
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 405 || error.status === 422 || error.status === 501 || error.status === 403)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/** 这个会话里我还能领的红包，新的在前。data 为 null 表示服务端没有这个接口（或我不在会话里），不显示。 */
+export function usePendingRedPackets(conversationId: number, enabled = true): UseQueryResult<PendingRedPacket[] | null> {
+  return useQuery({
+    queryKey: redPacketKeys.pending(conversationId),
+    queryFn: () => fetchPending(conversationId),
+    enabled,
+    retry: false,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    // 接口不在的话，开着的这个会话里也别反复去问
+    refetchOnMount: (query) => query.state.data !== null
+  });
+}
+
+const pendingListTimers = new Map<number, number>();
+
+/** 让某个会话的待领列表重拉一次。短时间里的多次合成一次（热闹的群里红包一个接一个地来、一个接一个地被领）；没开着的会话只是标成过期。 */
+function refreshPendingList(queryClient: QueryClient, conversationId: number): void {
+  if (pendingListTimers.has(conversationId)) {
+    return;
+  }
+  pendingListTimers.set(conversationId, window.setTimeout(() => {
+    pendingListTimers.delete(conversationId);
+    // 拿到过 null（接口不在）的不重拉
+    if (queryClient.getQueryData<PendingRedPacket[] | null>(redPacketKeys.pending(conversationId)) === null) {
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: redPacketKeys.pending(conversationId), exact: true });
+  }, 400));
+}
+
+/** 某个红包领不了了：从所有会话的待领列表里去掉它。 */
+export function dropPendingRedPacket(queryClient: QueryClient, id: RedPacketId): void {
+  queryClient.setQueriesData<PendingRedPacket[] | null>({ queryKey: redPacketKeys.pendingAll }, (current) => (current && current.some((item) => item.id === id) ? current.filter((item) => item.id !== id) : current));
+}
+
+function notePendingUpdate(queryClient: QueryClient, conversationId: number, id: RedPacketId, status: RedPacket['status'], claimedCount: number): void {
+  const list = queryClient.getQueryData<PendingRedPacket[] | null>(redPacketKeys.pending(conversationId));
+  const item = list?.find((entry) => entry.id === id);
+  if (!item) {
+    return;
+  }
+  if (status !== 'active') {
+    dropPendingRedPacket(queryClient, id);
+    return;
+  }
+  if (claimedCount !== item.claimed_count) {
+    queryClient.setQueryData<PendingRedPacket[] | null>(redPacketKeys.pending(conversationId), (current) => current?.map((entry) => (entry.id === id ? { ...entry, claimed_count: claimedCount } : entry)) ?? current);
+    refreshPendingList(queryClient, conversationId);
+  }
+}
+
 /**
  * 实时事件 red_packet.updated：{ id, conversation_id, message_id, claimed_count, count, status }，不带金额。有人领了、抢完、过期、撤回都会推。
  * 只改已经在缓存里的红包（没见过的那些等卡片进视口时再取）；事件比缓存旧（领取数更少、缓存已经不是 active）就不动。
@@ -207,6 +284,7 @@ export function handleRedPacketEvent(queryClient: QueryClient, data: unknown): v
   if (!update) {
     return;
   }
+  notePendingUpdate(queryClient, update.conversation_id, update.id, update.status, update.claimed_count);
   const key = redPacketKeys.detail(update.id);
   const before = queryClient.getQueryData<RedPacket>(key);
   if (!before) {
@@ -239,6 +317,7 @@ export function handleRedPacketEvent(queryClient: QueryClient, data: unknown): v
 export function refreshRedPacketsAfterReconnect(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: redPacketKeys.details, refetchType: 'active' });
   void queryClient.invalidateQueries({ queryKey: redPacketKeys.config });
+  void queryClient.invalidateQueries({ queryKey: redPacketKeys.pendingAll });
 }
 
 /**
@@ -304,6 +383,7 @@ export function useClaimRedPacket(): UseMutationResult<ClaimRedPacketResult, Err
       if (conversationId) {
         recheckRedPacketPending(queryClient, conversationId);
       }
+      dropPendingRedPacket(queryClient, id);
     },
     onError: (error, id) => {
       const code = redPacketErrorCode(error);
@@ -315,6 +395,7 @@ export function useClaimRedPacket(): UseMutationResult<ClaimRedPacketResult, Err
       if (code === 'already_claimed' || code === 'finished' || code === 'expired' || code === 'revoked') {
         const conversationId = queryClient.getQueryData<RedPacket>(redPacketKeys.detail(id))?.conversation_id;
         void queryClient.invalidateQueries({ queryKey: redPacketKeys.detail(id) });
+        dropPendingRedPacket(queryClient, id);
         if (conversationId && conversationOf(queryClient, conversationId)?.red_packet_pending) {
           refreshRedPacketPending(queryClient);
         }

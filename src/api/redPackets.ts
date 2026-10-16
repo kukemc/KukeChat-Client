@@ -1,5 +1,5 @@
 import type { Message, User } from '@/types/api';
-import type { ClaimRedPacketResult, RedPacket, RedPacketBalance, RedPacketClaim, RedPacketConfig, RedPacketDirection, RedPacketId, RedPacketKind, RedPacketRecord, RedPacketRecordPage, RedPacketStatus, RedPacketUpdate, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
+import type { ClaimRedPacketResult, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketClaim, RedPacketConfig, RedPacketDirection, RedPacketId, RedPacketKind, RedPacketRecord, RedPacketRecordPage, RedPacketStatus, RedPacketUpdate, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
 import { apiRequest } from './client';
 import { isRecord } from './normalizers';
 import { DEFAULT_RED_PACKET_GREETING, isRedPacketId as isId } from '@/utils/redPacket';
@@ -181,4 +181,28 @@ export async function getMyRedPackets(direction: RedPacketDirection, limit: numb
   const source = isRecord(response) ? response : {};
   const items = Array.isArray(source.items) ? source.items.map((item, index) => normalizeRecord(item, direction, index)).filter(notNull) : [];
   return { items, total: count(source.total, items.length), sum: count(source.sum) };
+}
+
+function normalizePending(value: unknown): PendingRedPacket | null {
+  if (!isRecord(value) || !isId(value.id) || typeof value.message_id !== 'number' || !Number.isFinite(value.message_id)) {
+    return null;
+  }
+  return {
+    id: value.id,
+    message_id: value.message_id,
+    sender_id: nullableCount(value.sender_id),
+    kind: kindOf(value.kind),
+    greeting: text(value.greeting).trim() || DEFAULT_RED_PACKET_GREETING,
+    count: Math.max(1, count(value.count, 1)),
+    claimed_count: Math.max(0, count(value.claimed_count)),
+    expires_at: nullableText(value.expires_at),
+    created_at: text(value.created_at)
+  };
+}
+
+/** 这个会话里我还能领的红包（3.4.1），新的在前，最多 20 个。旧后端没有这个接口：404 / 422，由调用方当成「不显示」。 */
+export async function getPendingRedPackets(conversationId: number): Promise<PendingRedPacket[]> {
+  const response = await apiRequest<unknown>(`/red-packets/pending?conversation_id=${encodeURIComponent(String(conversationId))}`);
+  const source = isRecord(response) ? response : {};
+  return Array.isArray(source.items) ? source.items.map(normalizePending).filter(notNull) : [];
 }

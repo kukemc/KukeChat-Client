@@ -13,6 +13,7 @@ import type { MessagesInfiniteData } from '../message/types';
 import { MessageRow } from './MessageRow';
 import { cx } from './runtime';
 import { TypingIndicator } from './typing/TypingIndicator';
+import { RedPacketPendingHint } from '@/components/redpacket/RedPacketPendingHint';
 
 /*
  * 消息列表。
@@ -551,6 +552,8 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
         </div>
       </div>
       <TypingIndicator conversationId={conversationId} />
+      {/* 有我还能领的红包：右上角一个小胶囊，点了跳过去（在滚动容器外面，不随消息滚动） */}
+      <RedPacketPendingHint conversationId={conversationId} onJump={jumpToMessage} />
       <button type="button" className={cx('kcd-jump-latest', showJumpToLatest && 'is-visible', newCount > 0 && 'has-new')} onClick={scrollToLatest} tabIndex={showJumpToLatest ? 0 : -1} aria-hidden={!showJumpToLatest}>
         <span className="kcd-jump-latest-arrow" aria-hidden="true" />
         {newCount > 0 ? <><span className="kui-badge">{newCount > 99 ? '99+' : newCount}</span>条新消息</> : '回到最新'}

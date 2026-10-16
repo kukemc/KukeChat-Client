@@ -1080,3 +1080,97 @@
     transition: none !important;
   }
 }
+
+/* ───────── 聊天区右上角的「N 个红包未领」（RedPacketPendingHint）─────────
+   和「回到最新」一家：浮起的墨色字小胶囊，细描边 + 一层很淡的影子；红只留给左边那个小红包图标，不铺底色。
+   挂在 .kcd-list 里（滚动容器外面），在顶栏下面，不挡顶栏的按钮。 */
+
+.krp-pending {
+  --krp-ink: #d5392c;
+  position: absolute;
+  top: 10px;
+  right: 18px;
+  z-index: 6;
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--kc-overlay-surface, var(--kui-raised));
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: opacity 160ms ease, transform 160ms ease, background-color 120ms ease;
+}
+
+[data-theme='dark'] .krp-pending {
+  --krp-ink: #ff8369;
+}
+
+.krp-pending.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.krp-pending:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 4%, var(--kc-overlay-surface, var(--kui-raised)));
+}
+
+.krp-pending:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.krp-pending:disabled {
+  cursor: progress;
+}
+
+.krp-pending:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--kc-text) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.krp-pending-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--krp-ink);
+}
+
+.krp-pending-text b {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 右边一个很小的折角，示意「点了跳过去」 */
+.krp-pending-arrow {
+  width: 5px;
+  height: 5px;
+  margin-left: 1px;
+  border-top: 1.5px solid currentColor;
+  border-right: 1.5px solid currentColor;
+  opacity: 0.45;
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .krp-pending {
+    transform: none;
+    transition: opacity 120ms ease;
+  }
+
+  .krp-pending.is-visible,
+  .krp-pending:active:not(:disabled) {
+    transform: none;
+  }
+}
