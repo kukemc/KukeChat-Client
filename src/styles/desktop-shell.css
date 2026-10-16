@@ -75,6 +75,49 @@
   right: 6px;
 }
 
+/* ───────── 可拖动调宽的边线（会话列表右边、聊天右侧栏左边）─────────
+   一条 8px 宽、看不见的拖动条压在边线上；悬停 / 拖动 / 键盘聚焦时中间那 2px 变成强调色。拖动中全窗口统一显示调宽光标、不选中文字 */
+.ksh-resize {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.ksh-resize--right { right: -4px; }
+.ksh-resize--left { left: -4px; }
+
+.ksh-resize::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  content: '';
+  transition: background-color 140ms ease;
+}
+
+.ksh-resize:hover::after,
+.ksh-resize:focus-visible::after,
+.ksh-resizing .ksh-resize:hover::after {
+  background: color-mix(in srgb, var(--kc-accent) 55%, transparent);
+}
+
+.ksh-resize:focus-visible {
+  outline: none;
+}
+
+.ksh-resizing,
+.ksh-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* ───────── 会话列表栏 ───────── */
 
 .ksh-pane {

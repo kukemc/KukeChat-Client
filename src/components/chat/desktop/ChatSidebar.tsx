@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { PaneResizeHandle } from '@/components/shell/paneSizes';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
@@ -65,6 +66,7 @@ function ChatSidebarInner({ conversation, currentUser, members, directUser, memb
 
   return (
     <aside className="kcd-sidebar">
+      <PaneResizeHandle pane="side" edge="left" label="调整右侧栏宽度" />
       {isGroup ? (
         <button type="button" className="kcd-sidebar-notice" onClick={onOpenAnnouncements} aria-label="查看群公告">
           <span className="kcd-sidebar-title"><Icon name="announcement" className="h-3.5 w-3.5" /><span>群公告</span><Icon name="chevron" className="kcd-sidebar-arrow h-3.5 w-3.5" /></span>

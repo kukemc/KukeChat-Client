@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PaneResizeHandle } from './paneSizes';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateMyConversationSettings } from '@/api/conversations';
@@ -178,6 +179,7 @@ function ConversationPaneInner({ conversations, isLoading, currentUser, onCreate
 
   return (
     <aside ref={rootRef} className="ksh-pane">
+      <PaneResizeHandle pane="list" edge="right" label="调整会话列表宽度" />
       <div className="ksh-pane-header">
         <label className="kui-field ksh-pane-search">
           <Icon name="search" className="h-4 w-4 shrink-0" />

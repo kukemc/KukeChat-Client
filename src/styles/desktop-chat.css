@@ -1642,8 +1642,10 @@
 /* 整栏是一个贴着聊天区右边、从顶到底的面，和顶栏同一层白（整窗背景图下按「材质」里的设置半透明或毛玻璃），左边一条发丝线
    和消息画布分开：列表灰 → 画布 → 白色侧栏。里面不再套卡片，公告和成员两段直接铺在这个面上。 */
 .kcd-sidebar {
+  position: relative;
   display: flex;
-  width: 220px;
+  /* 宽度可以拖动调节（左边缘的 .ksh-resize），值挂在 ChatDashboard 上 */
+  width: var(--kcd-side-w, 220px);
   min-height: 0;
   flex: none;
   flex-direction: column;

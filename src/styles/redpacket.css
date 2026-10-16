@@ -235,8 +235,13 @@
 .krp-stage {
   display: grid;
   width: 100%;
+  /* 高度钉死成遮罩的内容高度、唯一一行是 minmax(0, 1fr)：不然面板里很长的内容（红包领取名单、好友成就墙）
+     会把这一行撑高，面板在撑高的行里居中，就被挤到窗口下方、底边出界。面板自己 max-height: 100% 并在内部滚动 */
+  height: 100%;
   min-height: 0;
   max-height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   /* 点到面板外面的空白要落在遮罩上（关掉弹层） */
   pointer-events: none;

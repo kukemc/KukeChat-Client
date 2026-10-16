@@ -8,7 +8,8 @@
  *   friends  联系人风格的好友列表（名字旁挂徽章）和资料卡上的「友谊」一行，点开是「我们的友谊」弹层
  *   board    排行榜里的「亲密榜」页签
  *   toasts   模拟实时事件：解锁徽章、解锁彩蛋、友谊升级的提示
- * 初始状态可以写在地址里：view=gallery|friends|board|toasts   layout=desktop|mobile   theme=dark   open=好友 id（一进来就打开弹层）
+ *   card     桌面资料卡（UserCardDesktop）里的「友谊」一行；friend=好友 id 换人
+ * 初始状态可以写在地址里：view=gallery|friends|board|toasts|card   layout=desktop|mobile   theme=dark   open=好友 id（一进来就打开弹层）
  *
  * 成就目录（mocks/intimacy-catalog.json）是从后端导出的，后端改了目录要重新导出：
  *   cd ../KukeChat-Server && python -c "…"（同 KukeChat-Server/app/services/intimacy_catalog.py 的 LEVELS / SERIES）
@@ -29,6 +30,7 @@ import { IntimacyHost } from '@/components/intimacy/IntimacyDialog';
 import { IntimacyLeaderboard } from '@/components/intimacy/IntimacyLeaderboard';
 import { IntimacyToasts } from '@/components/intimacy/IntimacyToasts';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { UserCardDesktop } from '@/components/ui/desktop/UserCardDesktop';
 import { ToastHost } from '@/components/ui/toast';
 import { emitRealtimeEvent } from '@/realtime/events';
 import { useKukeStore } from '@/store/kukeStore';
@@ -38,12 +40,13 @@ import { useThemeRootProps } from '@/theme/useTheme';
 import type { BadgeTier } from '@/types/intimacy';
 
 const params = new URLSearchParams(window.location.search);
-type View = 'gallery' | 'friends' | 'board' | 'toasts';
+type View = 'gallery' | 'friends' | 'board' | 'toasts' | 'card';
 const VIEWS: Array<{ id: View; label: string }> = [
   { id: 'gallery', label: '徽章图鉴' },
   { id: 'friends', label: '好友列表 + 弹层' },
   { id: 'board', label: '亲密榜' },
-  { id: 'toasts', label: '提示' }
+  { id: 'toasts', label: '提示' },
+  { id: 'card', label: '资料卡' }
 ];
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } });
@@ -223,6 +226,7 @@ function Harness(): JSX.Element {
             {view === 'board' ? <IntimacyLeaderboard layout={layout} /> : null}
             {view === 'toasts' ? <Toasts /> : null}
           </div>
+          {view === 'card' ? <UserCardDesktop user={(FRIENDS.find((item) => item.user.id === Number(params.get('friend') ?? 5)) ?? FRIENDS[0]).user} onClose={() => undefined} /> : null}
           <IntimacyHost />
         </main>
       </div>

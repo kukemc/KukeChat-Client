@@ -17,6 +17,7 @@ import type { LevelTab } from '@/types/level';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { ConversationList } from './ConversationList';
+import { usePaneSizes } from '@/components/shell/paneSizes';
 import { ConversationPane } from '@/components/shell/ConversationPane';
 import { NavRail } from '@/components/shell/NavRail';
 import { MessagePanel } from './MessagePanel';
@@ -358,6 +359,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const hasOpenTasks = (openTasksQuery.data?.length ?? 0) > 0;
 
   const queryClient = useQueryClient();
+  const paneWidths = usePaneSizes((state) => state.widths);
   const lastSeenAnnouncementId = useKukeStore((state) => state.lastSeenAnnouncementId);
   const setLastSeenAnnouncementId = useKukeStore((state) => state.setLastSeenAnnouncementId);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
@@ -1490,7 +1492,11 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   }
 
   return (
-    <div className={`kc-pc-dashboard relative grid h-full overflow-hidden [background:var(--kc-window)] [color:var(--kc-text)] ${isMobile ? 'kc-mobile-shell grid-cols-1' : showConversationList ? 'grid-cols-[56px_268px_minmax(0,1fr)]' : 'grid-cols-[56px_minmax(0,1fr)]'}`}>
+    <div
+      className={`kc-pc-dashboard relative grid h-full overflow-hidden [background:var(--kc-window)] [color:var(--kc-text)] ${isMobile ? 'kc-mobile-shell grid-cols-1' : showConversationList ? 'grid-cols-[56px_var(--ksh-list-w)_minmax(0,1fr)]' : 'grid-cols-[56px_minmax(0,1fr)]'}`}
+      // 会话列表的宽度可以拖动调节（components/shell/paneSizes.ts），右侧栏的宽度也挂在这里给子孙用
+      style={{ '--ksh-list-w': `${paneWidths.list}px`, '--kcd-side-w': `${paneWidths.side}px` } as CSSProperties}
+    >
       {isMobile ? null : (
         <NavRail
           view={workspaceView}

@@ -12,6 +12,7 @@ export function FriendIntimacyCard({ userId, className, onOpen }: { userId: numb
   if (!bond) {
     return null;
   }
+  const sub = `亲密度 ${bond.intimacy.toLocaleString('zh-CN')} · ${bond.badge_count} 枚徽章 · 排第 ${bond.rank}`;
   return (
     <button
       type="button"
@@ -25,8 +26,12 @@ export function FriendIntimacyCard({ userId, className, onOpen }: { userId: numb
     >
       <span className="kit-row-badge">{bond.badge ? <BadgeGlyph icon={bond.badge.icon} tier={bond.badge.tier} size={28} /> : <Icon name="heart" className="h-4 w-4" />}</span>
       <span className="kit-row-main">
-        <span className="kit-row-title"><b>{bond.level_name}</b><span className="kit-hero-lv">Lv.{bond.level}</span>{bond.new_badges > 0 ? <span className="kit-new">新</span> : null}</span>
-        <span className="kit-row-sub">亲密度 {bond.intimacy.toLocaleString('zh-CN')} · {bond.badge_count} 枚徽章 · 好友里第 {bond.rank}{bond.today_gained > 0 ? ` · 今天 +${bond.today_gained}` : ''}</span>
+        <span className="kit-row-title">
+          <b>{bond.level_name}</b><span className="kit-hero-lv">Lv.{bond.level}</span>{bond.new_badges > 0 ? <span className="kit-new">新</span> : null}
+          {/* 今天涨了多少单独放在标题行右边：统计那一行窄的时候会截断，这个最想一眼看到 */}
+          {bond.today_gained > 0 ? <span className="kit-row-today">今天 +{bond.today_gained}</span> : null}
+        </span>
+        <span className="kit-row-sub" title={sub}>{sub}</span>
       </span>
       <Icon name="chevron" className="kit-row-arrow h-3.5 w-3.5" />
     </button>

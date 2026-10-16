@@ -62,7 +62,7 @@ export function IntimacyDialog({ friendId, onClose }: { friendId: number; onClos
           ) : (
             <>
               <Hero detail={detail} />
-              <div className="kui-segment kit-tabs" role="tablist" aria-label="友谊">
+              <div className="kit-seg kit-tabs" role="tablist" aria-label="友谊">
                 <button type="button" role="tab" aria-selected={tab === 'overview'} className={tab === 'overview' ? 'is-active' : undefined} onClick={() => setTab('overview')}>概览</button>
                 <button type="button" role="tab" aria-selected={tab === 'badges'} className={tab === 'badges' ? 'is-active' : undefined} onClick={() => setTab('badges')}>
                   好友成就<span className="kit-tab-count">{detail.badge_count}/{detail.total_badges}</span>
@@ -91,26 +91,24 @@ function Hero({ detail }: { detail: FriendIntimacyDetail }): JSX.Element {
     <div className="kit-hero" data-intimacy-level={level.level}>
       <div className="kit-pair" aria-hidden="true">
         <Avatar user={me} size="lg" />
-        <span className="kit-pair-heart"><Icon name="heart" className="h-3.5 w-3.5" /></span>
+        <span className="kit-pair-heart"><Icon name="heart" className="h-3 w-3" /></span>
         <Avatar user={detail.friend} size="lg" />
       </div>
       <div className="kit-hero-main">
         <p className="kit-hero-level">
           <b>{level.name}</b>
           <span className="kit-hero-lv">Lv.{level.level}</span>
-          {detail.badge ? <BadgeGlyph icon={detail.badge.icon} tier={detail.badge.tier} size={20} title={detail.badge.name} /> : null}
+          {detail.badge ? <BadgeGlyph icon={detail.badge.icon} tier={detail.badge.tier} size={24} title={detail.badge.name} /> : null}
         </p>
         <div className="kit-bar" role="progressbar" aria-label="亲密度" aria-valuemin={level.threshold} aria-valuemax={level.next_threshold ?? detail.intimacy} aria-valuenow={detail.intimacy}>
           <i style={{ width: `${Math.round(progress * 100)}%` }} />
         </div>
-        <p className="kit-hero-sub">
-          <span>亲密度 <b className="kit-num">{fmt(detail.intimacy)}</b></span>
-          <span>{level.next_threshold !== null ? `离「${level.next_name ?? ''}」还差 ${fmt(level.next_threshold - detail.intimacy)}` : '已经是最高等级了'}</span>
-        </p>
-        <p className="kit-hero-sub">
-          {detail.rank !== null ? <span>在你的 {detail.friend_count} 个好友里排第 <b className="kit-num">{detail.rank}</b></span> : null}
-          <span>成为好友 {fmt(detail.friend_days)} 天</span>
-        </p>
+        <dl className="kit-hero-stats">
+          <div><dt>亲密度</dt><dd>{fmt(detail.intimacy)}</dd></div>
+          <div><dt>{level.next_threshold !== null ? `离「${level.next_name ?? ''}」还差` : '等级'}</dt><dd>{level.next_threshold !== null ? fmt(level.next_threshold - detail.intimacy) : '已是最高'}</dd></div>
+          <div><dt>好友里排名</dt><dd>{detail.rank !== null ? `${detail.rank} / ${detail.friend_count}` : '—'}</dd></div>
+          <div><dt>成为好友</dt><dd>{fmt(detail.friend_days)} 天</dd></div>
+        </dl>
       </div>
     </div>
   );
@@ -155,7 +153,7 @@ function Overview({ detail, friendId, onBadges }: { detail: FriendIntimacyDetail
       </section>
 
       <section className="kit-card" data-intimacy="history">
-        <header className="kit-card-head"><h3>最近 {HISTORY_DAYS} 天</h3></header>
+        <header className="kit-card-head"><h3>最近 {HISTORY_DAYS} 天</h3><span className="kit-quiet kit-spark-legend">互相聊过天</span></header>
         <div className="kit-spark" role="img" aria-label={`最近 ${HISTORY_DAYS} 天每天涨的亲密度`}>
           {days.map((day) => (
             <span key={day.date} className={cx('kit-spark-col', day.mutual && 'is-mutual')} title={`${day.date.slice(5)}：+${day.gained}`}>
@@ -231,7 +229,7 @@ function BadgeWall({ detail, friendId }: { detail: FriendIntimacyDetail; friendI
           <h3>挂在 {friendName} 名字旁</h3>
           {detail.badge ? <span className="kit-display-now"><BadgeGlyph icon={detail.badge.icon} tier={detail.badge.tier} size={18} />{detail.badge.name}</span> : <span className="kit-quiet">现在不挂</span>}
         </header>
-        <div className="kui-segment kit-display-mode" role="radiogroup" aria-label="挂哪一枚">
+        <div className="kit-seg kit-display-mode" role="radiogroup" aria-label="挂哪一枚">
           <button type="button" role="radio" aria-checked={detail.display === 'auto'} className={detail.display === 'auto' ? 'is-active' : undefined} disabled={setBadge.isPending} onClick={() => choose('auto')}>自动</button>
           <button type="button" role="radio" aria-checked={detail.display === 'none'} className={detail.display === 'none' ? 'is-active' : undefined} disabled={setBadge.isPending} onClick={() => choose('none')}>不挂</button>
           <button type="button" role="radio" aria-checked={detail.display !== 'auto' && detail.display !== 'none'} className={detail.display !== 'auto' && detail.display !== 'none' ? 'is-active' : undefined} disabled>指定</button>
@@ -253,7 +251,7 @@ function BadgeWall({ detail, friendId }: { detail: FriendIntimacyDetail; friendI
           return (
             <article key={series.key} className={cx('kit-series', unlocked && 'is-unlocked', !series.revealed && 'is-mystery', isNew && 'is-new', chosen && 'is-chosen')} data-series={series.key}>
               <button type="button" className="kit-series-main" onClick={() => setFocus({ series, level: shown })}>
-                <BadgeGlyph icon={series.icon} tier={shown.tier} size={52} locked={!unlocked} mystery={!series.revealed} />
+                <BadgeGlyph icon={series.icon} tier={shown.tier} size={44} locked={!unlocked} mystery={!series.revealed} />
                 <span className="kit-series-text">
                   <span className="kit-series-name">{series.revealed ? series.name : '隐藏成就'}{isNew ? <span className="kit-new">新</span> : null}</span>
                   <span className="kit-series-level">{unlocked ? top?.name : '未解锁'}<small>{series.level}/{series.max_level}</small></span>
@@ -268,7 +266,7 @@ function BadgeWall({ detail, friendId }: { detail: FriendIntimacyDetail; friendI
               <div className="kit-pips" aria-label="各级">
                 {series.levels.map((level) => (
                   <button key={level.level} type="button" className={cx('kit-pip', level.unlocked_at && 'is-on')} title={level.name ?? '？'} onClick={() => setFocus({ series, level })}>
-                    <BadgeGlyph icon={series.icon} tier={level.tier} size={22} locked={!level.unlocked_at} mystery={!series.revealed} />
+                    <BadgeGlyph icon={series.icon} tier={level.tier} size={20} locked={!level.unlocked_at} mystery={!series.revealed} />
                   </button>
                 ))}
               </div>
@@ -290,7 +288,7 @@ function BadgeFocus({ series, level, onClose }: { series: SeriesView; level: Ser
   return (
     <div className="kit-focus" role="dialog" aria-label={level.name ?? '隐藏成就'} onClick={onClose}>
       <div className={cx('kit-focus-card', unlocked && 'is-unlocked')} onClick={(event) => event.stopPropagation()}>
-        <BadgeGlyph icon={series.icon} tier={level.tier} size={112} locked={!unlocked} mystery={!series.revealed} className="kit-focus-glyph" />
+        <BadgeGlyph icon={series.icon} tier={level.tier} size={96} locked={!unlocked} mystery={!series.revealed} className="kit-focus-glyph" />
         <p className="kit-focus-name">{level.name ?? '？？？'}</p>
         <p className="kit-focus-series">{series.revealed ? `${series.name} · 第 ${level.level} 级` : '隐藏成就'}</p>
         <p className="kit-focus-cond">{conditionText(series, level.threshold)}</p>

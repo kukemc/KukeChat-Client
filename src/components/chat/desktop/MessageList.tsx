@@ -48,8 +48,14 @@ const GROUP_WINDOW_MS = 3 * 60 * 1000;
 const STICK_THRESHOLD_PX = 96;
 /** 离顶部或底部还有这么远就开始加载下一页，尽量在用户滚到头之前把数据备好。 */
 const LOAD_AHEAD_PX = 1200;
-/** 同时保留在 DOM 里的消息行上限。 */
-const MAX_ROWS = 600;
+/** 同时保留在 DOM 里的消息行上限（往上翻历史时）。 */
+const MAX_ROWS = 400;
+/**
+ * 停在底部聊天时只留最近这么多条：超过 BOTTOM_TRIM_AT 就裁到 BOTTOM_KEEP。
+ * 群里聊久了不裁的话 DOM 会一直涨、越聊越卡；裁掉的都在视口上方很远，往上翻会重新从服务端加载。
+ */
+const BOTTOM_TRIM_AT = 200;
+const BOTTOM_KEEP = 150;
 const USER_SCROLL_EVENTS = ['wheel', 'touchmove', 'keydown', 'pointerdown', 'pointerup'] as const;
 
 function isBubbleMessage(message: Message): boolean {
@@ -364,6 +370,11 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
 
   // 行数超出上限时丢掉离视口远的那一头
   useEffect(() => {
+    if (stickRef.current && !contextModeRef.current && growthRef.current !== 'older' && messages.length > BOTTOM_TRIM_AT) {
+      growthRef.current = null;
+      queryClient.setQueryData<MessagesInfiniteData>(['messages', conversationId], singlePage(loadedMessages.slice(-BOTTOM_KEEP)));
+      return;
+    }
     if (messages.length <= MAX_ROWS) {
       return;
     }
