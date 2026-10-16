@@ -732,3 +732,585 @@
 .kgp-files.is-mobile .kgp-file-card {
   width: min(260px, 100%);
 }
+
+/* ───────── 文件夹（Pro+ / MAX，docs/group-plus.md 5.5）─────────
+   文件夹行排在文件上面，图标是实心墨色方块（和文件的浅灰方块一眼分开）；进了文件夹顶部是面包屑。
+   新建 / 重命名 / 删除 / 移动到都是叠在面板上的小对话框，同一套细描边、墨色胶囊。 */
+
+/* 面包屑：返回 · 群文件 › 文件夹名 · 数量 · … */
+.kgp-files-crumbs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin: 0 -6px;
+  padding: 2px 0;
+}
+
+.kgp-files-crumbs .kui-icon-btn {
+  border-radius: 999px;
+  color: var(--kgp-file-sub);
+}
+
+.kgp-files-crumbs .kui-icon-btn:hover {
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-files-crumbs-path {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  font-size: 1.08em;
+}
+
+.kgp-files-crumb {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: var(--kgp-file-sub);
+  font-weight: 500;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.kgp-files-crumb:hover {
+  background: var(--kgp-file-wash);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-files-crumb.is-drop {
+  background: var(--kgp-file-wash-2);
+  box-shadow: inset 0 0 0 1px var(--kgp-file-ink);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-files-crumbs-sep {
+  flex: none;
+  color: var(--kgp-file-faint);
+}
+
+.kgp-files-crumb-current {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgp-files-crumbs-stat {
+  flex: none;
+  color: var(--kgp-file-faint);
+  font-size: 0.9em;
+  font-style: normal;
+}
+
+/* 工具条：搜索 + 新建文件夹 */
+.kgp-files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kgp-files-toolbar .kgp-files-search {
+  min-width: 0;
+  flex: 1;
+}
+
+.kgp-files-search-clear {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-sub);
+}
+
+.kgp-files-search-clear:hover {
+  color: var(--kgp-file-ink);
+}
+
+/* 次要胶囊：细描边，新建文件夹、对话框里的取消 */
+.kgp-files-ghost {
+  display: inline-flex;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line-strong);
+  color: var(--kgp-file-ink);
+  font-size: 0.95em;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.kgp-files-ghost:hover:not(:disabled) {
+  background: var(--kgp-file-wash);
+  box-shadow: inset 0 0 0 1px var(--kgp-file-ink);
+}
+
+.kgp-files-ghost:disabled,
+.kgp-files-cta:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.kgp-files-cta:disabled:hover {
+  opacity: 0.4;
+}
+
+[data-theme='dark'] .kgp-files .kgp-folder-icon,
+[data-theme='dark'] .kgp-files .kgp-folder-glyph:not(.is-root) {
+  background: color-mix(in srgb, var(--kgp-file-ink) 84%, transparent);
+}
+
+.kgp-files-scope {
+  margin: -6px 0 -8px;
+  color: var(--kgp-file-faint);
+  font-size: 0.88em;
+}
+
+.kgp-files-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+/* 文件夹行：整行是一个按钮（打开），右边是「…」和箭头 */
+.kgp-files-folders + .kgp-files-list.is-after-folders {
+  margin-top: -16px;
+}
+
+.kgp-files-folders + .kgp-files-list.is-after-folders > .kgp-files-row:first-child::before {
+  position: absolute;
+  top: 0;
+  right: 10px;
+  left: 64px;
+  height: 1px;
+  background: var(--kgp-file-line);
+  content: '';
+}
+
+.kgp-files-folder {
+  padding: 0 10px 0 0;
+}
+
+.kgp-files-folder-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0 12px 10px;
+  border-radius: 12px 0 0 12px;
+  color: inherit;
+  text-align: left;
+}
+
+.kgp-files-folder-open:focus-visible {
+  outline: 2px solid var(--kgp-file-ink);
+  outline-offset: -2px;
+}
+
+.kgp-files .kgp-folder-icon {
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+}
+
+.kgp-files-folder .kgp-file-sub {
+  color: var(--kgp-file-faint);
+}
+
+.kgp-files-folder-go {
+  margin-left: 2px;
+  color: var(--kgp-file-faint);
+}
+
+.kgp-files-folder.is-menu {
+  background: var(--kgp-file-wash);
+}
+
+.kgp-files-folder.is-menu .kgp-files-row-actions {
+  opacity: 1;
+}
+
+/* 拖文件到文件夹上：墨色细框 + 浅底 */
+.kgp-files-folder.is-drop {
+  background: var(--kgp-file-wash-2);
+  box-shadow: inset 0 0 0 1.5px var(--kgp-file-ink);
+}
+
+.kgp-files-folder.is-drop::before,
+.kgp-files-folder.is-drop + .kgp-files-row::before {
+  opacity: 0;
+}
+
+.kgp-files.is-moving .kgp-files-folders .kgp-files-row:not(.is-drop) {
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line);
+}
+
+.kgp-files-row[draggable='true'] {
+  cursor: grab;
+}
+
+.kgp-files-row.is-dragged {
+  opacity: 0.45;
+}
+
+.kgp-files-row-actions .kui-icon-btn.is-blocked {
+  opacity: 0.4;
+  cursor: help;
+}
+
+/* 搜索结果里文件所在的位置 */
+.kgp-files-where {
+  display: inline-flex;
+  max-width: 160px;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.kgp-files-where:hover {
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+}
+
+.kgp-files-where.is-root {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line);
+  color: var(--kgp-file-sub);
+  font-weight: 500;
+}
+
+.kgp-files-drop-folder {
+  font-weight: 600;
+}
+
+/* 「…」菜单 */
+.kgp-files-menu-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.kgp-folder-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  min-width: 148px;
+  padding: 5px;
+  border-radius: 14px;
+  background: var(--kc-panel, #fff);
+  box-shadow: 0 0 0 1px var(--kgp-file-line), 0 12px 32px rgba(0, 0, 0, 0.14);
+  color: var(--kgp-file-ink);
+}
+
+[data-theme='dark'] .kgp-folder-menu {
+  background: color-mix(in srgb, var(--kc-panel, #1c1c1f) 92%, #fff);
+  box-shadow: 0 0 0 1px var(--kgp-file-line-strong), 0 14px 36px rgba(0, 0, 0, 0.5);
+}
+
+.kgp-folder-menu button {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border-radius: 9px;
+  color: var(--kgp-file-ink);
+  font-size: 0.95em;
+  font-weight: 500;
+  text-align: left;
+}
+
+.kgp-folder-menu button:hover,
+.kgp-folder-menu button:focus-visible {
+  background: var(--kgp-file-wash-2);
+  outline: none;
+}
+
+.kgp-folder-menu button.is-danger {
+  color: var(--kgp-file-danger);
+}
+
+.kgp-folder-menu button.is-danger:hover {
+  background: color-mix(in srgb, var(--kgp-file-danger) 10%, transparent);
+}
+
+/* 叠在面板上的小对话框 */
+.kgp-folder-layer {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  padding: 16px;
+  place-items: center;
+  background: rgba(10, 10, 12, 0.28);
+  animation: kgp-folder-fade 140ms ease both;
+}
+
+[data-theme='dark'] .kgp-folder-layer {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.kgp-files.is-still .kgp-folder-layer,
+.kgp-files.is-still .kgp-folder-dialog {
+  animation: none;
+}
+
+.kgp-folder-dialog {
+  display: grid;
+  width: min(380px, 100%);
+  max-height: min(560px, 100%);
+  gap: 14px;
+  padding: 22px 22px 18px;
+  overflow-y: auto;
+  border-radius: 20px;
+  background: var(--kc-panel, #fff);
+  box-shadow: 0 0 0 1px var(--kgp-file-line), 0 24px 60px rgba(0, 0, 0, 0.18);
+  color: var(--kgp-file-ink);
+  animation: kgp-folder-rise 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+[data-theme='dark'] .kgp-folder-dialog {
+  background: color-mix(in srgb, var(--kc-panel, #1c1c1f) 94%, #fff);
+  box-shadow: 0 0 0 1px var(--kgp-file-line-strong), 0 28px 70px rgba(0, 0, 0, 0.55);
+}
+
+.kgp-folder-dialog h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 1.18em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.kgp-folder-dialog-desc {
+  margin: -6px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--kgp-file-sub);
+  font-size: 0.93em;
+  line-height: 1.6;
+}
+
+.kgp-folder-dialog-desc b {
+  color: var(--kgp-file-ink);
+  font-weight: 600;
+}
+
+.kgp-folder-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.kgp-folder-field {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line-strong);
+  color: var(--kgp-file-faint);
+  transition: box-shadow 120ms ease;
+}
+
+.kgp-folder-field:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--kgp-file-ink);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-folder-field.is-error {
+  box-shadow: inset 0 0 0 1.5px var(--kgp-file-danger);
+}
+
+.kgp-folder-field input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--kgp-file-ink);
+  font: inherit;
+  font-weight: 500;
+  outline: none;
+}
+
+.kgp-folder-field input::placeholder {
+  color: var(--kgp-file-faint);
+  font-weight: 400;
+}
+
+.kgp-folder-field small {
+  flex: none;
+  color: var(--kgp-file-faint);
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kgp-folder-field small.is-over {
+  color: var(--kgp-file-danger);
+}
+
+.kgp-folder-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: -4px 0 0;
+  color: var(--kgp-file-danger);
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.kgp-folder-error .kgp-files-link {
+  color: var(--kgp-file-ink);
+}
+
+.kgp-folder-note {
+  margin: -4px 0 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--kgp-file-wash);
+  color: var(--kgp-file-sub);
+  font-size: 0.9em;
+  line-height: 1.55;
+}
+
+/* 移动到：选项列表 */
+.kgp-folder-options {
+  display: grid;
+  gap: 2px;
+  margin: 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+
+.kgp-folder-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 12px;
+  color: var(--kgp-file-ink);
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+
+.kgp-folder-option:hover:not(:disabled) {
+  background: var(--kgp-file-wash);
+}
+
+.kgp-folder-option:disabled {
+  cursor: default;
+}
+
+.kgp-folder-option:disabled:not(.is-here) {
+  opacity: 0.42;
+}
+
+.kgp-folder-glyph {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+}
+
+.kgp-folder-glyph.is-root {
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-folder-option-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.kgp-folder-option-text b {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgp-folder-option-text small {
+  color: var(--kgp-file-faint);
+  font-size: 0.85em;
+}
+
+.kgp-folder-option em {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line-strong);
+  color: var(--kgp-file-sub);
+  font-size: 0.82em;
+  font-style: normal;
+}
+
+.kgp-folder-option-go {
+  flex: none;
+  color: var(--kgp-file-faint);
+}
+
+@keyframes kgp-folder-fade {
+  from { opacity: 0; }
+}
+
+@keyframes kgp-folder-rise {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+
+/* 移动端：文件夹行不留右侧内边距之外的空，菜单和箭头一直清楚 */
+.kgp-files.is-mobile .kgp-files-folder {
+  padding: 0 4px 0 0;
+}
+
+.kgp-files.is-mobile .kgp-files-folder-open {
+  padding-left: 4px;
+}
+
+.kgp-files.is-mobile .kgp-files-ghost {
+  height: 38px;
+  padding: 0 14px;
+}
+
+.kgp-files.is-mobile .kgp-folder-dialog .kgp-files-cta {
+  flex: 0 1 auto;
+}
+
+.kgp-files.is-mobile .kgp-folder-layer {
+  align-items: end;
+  padding: 0;
+}
+
+.kgp-files.is-mobile .kgp-folder-dialog {
+  width: 100%;
+  padding-bottom: calc(18px + var(--kc-native-safe-bottom, env(safe-area-inset-bottom)));
+  border-radius: 22px 22px 0 0;
+}

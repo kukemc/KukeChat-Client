@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getConversations } from '@/api/conversations';
 import { Avatar } from '@/components/ui/Avatar';
@@ -8,18 +8,23 @@ import { useRedPacketMotion } from '@/components/redpacket/ui';
 import { registerNativeBackHandler } from '@/native/back';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation } from '@/types/api';
-import type { GroupFile } from '@/types/groupPlus';
+import type { GroupFile, GroupFileFolder, GroupFilePage } from '@/types/groupPlus';
 import { formatMessageDateTime } from '@/utils/dateTime';
 import {
-  describeGroupPlusError, isGroupStaff, useDeleteGroupFile, useGroupFiles, useGroupPlusInfo, useGroupPlusPlans, useSetFileDefaultTtl, useSetFilePermanent
+  describeFolderError, describeGroupPlusError, groupPlusErrorCode, isGroupStaff, useCreateGroupFolder, useDeleteGroupFile, useDeleteGroupFolder, useGroupFiles,
+  useGroupPlusInfo, useGroupPlusPlans, useMoveGroupFiles, useRenameGroupFolder, useSetFileDefaultTtl, useSetFilePermanent
 } from '../data';
 import { formatFileSize, formatRemaining, TIER_META, ttlLabel } from '../tier';
 import { useGroupFileUploads } from '../uploads';
 import { useGroupPlusUi } from '../ui';
 import { downloadAndSave, downloadErrorText, fileIconName, fileRules } from './fileUtils';
+import { DeleteFolderDialog, FolderMenu, FolderNameDialog, folderStats, MoveFileDialog } from './FolderParts';
 import { queueGroupUploads } from './queue';
 
 const EMPTY_CONVERSATIONS: Conversation[] = [];
+const EMPTY_FOLDERS: GroupFileFolder[] = [];
+/** 面板里把文件行拖到文件夹行上：dataTransfer 里带的类型（和系统拖进来的 Files 分开） */
+const FILE_DRAG_TYPE = 'application/x-kukechat-group-file';
 
 /** 搜索框防抖：每个字都发请求会把列表闪成空白 */
 function useDebounced<T>(value: T, delay: number): T {
@@ -46,12 +51,21 @@ function expiryLabel(file: GroupFile): string {
   return file.temporary ? `临时 · 还剩 ${left}` : `还剩 ${left}`;
 }
 
+/** 列表回包里和文件夹有关的部分。换文件夹时新列表还没回来，先用上一次的，免得文件夹、按钮闪一下 */
+type FolderMeta = Pick<GroupFilePage, 'folders' | 'folder' | 'folder_limit' | 'can_manage_folders' | 'can_tidy_folders'>;
+
+type FolderDialogState =
+  | { kind: 'create' }
+  | { kind: 'rename'; folder: GroupFileFolder }
+  | { kind: 'delete'; folder: GroupFileFolder }
+  | { kind: 'move'; file: GroupFile };
+
 interface PanelProps {
   conversationId: number;
   mobile: boolean;
 }
 
-/** 面板正文：配额条、上传、文件列表、默认保留时长。桌面弹窗和移动整页共用，差别只在外壳。 */
+/** 面板正文：配额条、上传、文件夹、文件列表、默认保留时长。桌面弹窗和移动整页共用，差别只在外壳。 */
 function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
   const queryClient = useQueryClient();
   const motion = useRedPacketMotion();
@@ -66,11 +80,28 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
 
   const [keyword, setKeyword] = useState('');
   const q = useDebounced(keyword.trim(), 250);
-  const filesQuery = useGroupFiles(conversationId, q, null, true);
+  const searching = q.length > 0;
+  // 现在看的文件夹（null 是根目录）。搜索时跨所有文件夹，不看它，但退出搜索后回到原来的位置
+  const [folderId, setFolderId] = useState<number | null>(null);
+  const filesQuery = useGroupFiles(conversationId, q, null, true, folderId);
   const pages = filesQuery.data?.pages ?? [];
   const files = pages.flatMap((page) => page.items);
   const total = pages[0]?.total ?? 0;
   const quota = info?.files ?? pages[0]?.quota ?? null;
+
+  const lastMeta = useRef<FolderMeta | null>(null);
+  if (pages[0]) {
+    lastMeta.current = pages[0];
+  }
+  const meta = pages[0] ?? lastMeta.current;
+  // 旧服务端的列表没有 folders：没有文件夹功能，界面和以前一样
+  const folderFeature = Array.isArray(meta?.folders);
+  const folders = meta?.folders ?? EMPTY_FOLDERS;
+  const canManage = folderFeature && meta?.can_manage_folders === true;
+  const canTidy = folderFeature && meta?.can_tidy_folders === true;
+  const folderLimit = meta?.folder_limit ?? 50;
+  const currentFolder = folderId === null ? null : (pages[0]?.folder?.id === folderId ? pages[0].folder : null) ?? folders.find((item) => item.id === folderId) ?? null;
+  const inFolder = folderId !== null && !searching;
 
   const uploads = useGroupFileUploads((state) => state.tasks).filter((task) => task.conversationId === conversationId);
   const cancelUpload = useGroupFileUploads((state) => state.cancel);
@@ -80,16 +111,53 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
   const deleteMutation = useDeleteGroupFile(conversationId);
   const permanentMutation = useSetFilePermanent(conversationId);
   const ttlMutation = useSetFileDefaultTtl(conversationId);
+  const createFolderMutation = useCreateGroupFolder(conversationId);
+  const renameFolderMutation = useRenameGroupFolder(conversationId);
+  const deleteFolderMutation = useDeleteGroupFolder(conversationId);
+  const moveMutation = useMoveGroupFiles(conversationId);
 
   const [permanent, setPermanent] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [noticeUpgrade, setNoticeUpgrade] = useState(false);
   const [rowBusy, setRowBusy] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [dialog, setDialog] = useState<FolderDialogState | null>(null);
+  const [dialogError, setDialogError] = useState<{ message: string; upgrade: boolean } | null>(null);
+  const [menuFor, setMenuFor] = useState<number | null>(null);
+  // 正在拖的面板里的文件、悬停在哪个放置目标上（文件夹 id；'root' 是面包屑上的「群文件」）
+  const [draggingFile, setDraggingFile] = useState<GroupFile | null>(null);
+  const [dropTarget, setDropTarget] = useState<number | 'root' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const say = useCallback((text: string | null, upgrade = false): void => {
+    setNotice(text);
+    setNoticeUpgrade(upgrade);
+  }, []);
+
+  // 正在看的文件夹没了（别人删了，实时事件触发重拉后 404 folder_not_found）：回到根目录
+  const listErrorCode = groupPlusErrorCode(filesQuery.error);
+  useEffect(() => {
+    if (folderId !== null && listErrorCode === 'folder_not_found') {
+      setFolderId(null);
+      setMenuFor(null);
+      say('这个文件夹刚被删除了，里面的文件已移回根目录。');
+    }
+  }, [folderId, listErrorCode, say]);
+
+  // 移动端的系统返回键：在文件夹里先回根目录，再交给外层关面板
+  useEffect(() => {
+    if (!mobile || !inFolder) {
+      return undefined;
+    }
+    return registerNativeBackHandler(() => {
+      setFolderId(null);
+      return true;
+    }, 175);
+  }, [mobile, inFolder]);
 
   const state = quota?.state ?? 'locked';
   const canUpload = state === 'active';
-  const hasHistory = total > 0 || q.length > 0;
+  const hasHistory = total > 0 || q.length > 0 || folderId !== null || folders.length > 0;
   const locked = state === 'locked' && !hasHistory && !filesQuery.isLoading;
   const rules = quota ? fileRules(quota) : null;
   const usedRatio = quota && quota.quota_bytes > 0 ? Math.min(1, quota.used_bytes / quota.quota_bytes) : 0;
@@ -99,18 +167,31 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
   const ttlOptions = plans?.file_ttl_options_hours ?? [24, 168, 720];
   const defaultTtl = quota?.default_ttl_hours ?? conversation?.file_default_ttl_hours ?? 24;
   const plusPlan = plans?.tiers.find((tier) => tier.key === 'pro_plus') ?? null;
+  // 降档后（folders_enabled = false）不能传进文件夹：在文件夹里上传的放根目录
+  const foldersWritable = quota?.folders_enabled !== false;
+  const uploadFolder = inFolder && foldersWritable && currentFolder ? currentFolder : null;
 
-  function pick(list: File[]): void {
-    setNotice(quota ? queueGroupUploads(queryClient, conversationId, quota, list, { permanent: staff && permanent }) : '这个群还没有解锁群文件。');
+  function openFolder(id: number | null): void {
+    setMenuFor(null);
+    setFolderId(id);
+    setKeyword('');
+    say(null);
+  }
+
+  function pick(list: File[], target: GroupFileFolder | null = uploadFolder): void {
+    if (list.length === 0) {
+      return;
+    }
+    say(quota ? queueGroupUploads(queryClient, conversationId, quota, list, { permanent: staff && permanent, folderId: target?.id ?? null }) : '这个群还没有解锁群文件。');
   }
 
   async function download(file: GroupFile): Promise<void> {
     setRowBusy(file.id);
-    setNotice(null);
+    say(null);
     try {
       await downloadAndSave(conversationId, file.id, file.name);
     } catch (error) {
-      setNotice(downloadErrorText(error));
+      say(downloadErrorText(error));
       void filesQuery.refetch();
     } finally {
       setRowBusy(null);
@@ -121,13 +202,179 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
     if (!window.confirm(`删除「${file.name}」？删除后文件和配额立即释放，群里已发的文件消息会显示文件已不存在。`)) {
       return;
     }
-    setNotice(null);
-    deleteMutation.mutate(file.id, { onError: (error) => setNotice(describeGroupPlusError(error).message) });
+    say(null);
+    deleteMutation.mutate(file.id, { onError: (error) => say(describeGroupPlusError(error).message) });
   }
 
   function togglePermanent(file: GroupFile): void {
-    setNotice(null);
-    permanentMutation.mutate({ fileId: file.id, permanent: !file.permanent }, { onError: (error) => setNotice(describeGroupPlusError(error).message) });
+    say(null);
+    permanentMutation.mutate({ fileId: file.id, permanent: !file.permanent }, { onError: (error) => say(describeGroupPlusError(error).message) });
+  }
+
+  function openDialog(next: FolderDialogState): void {
+    setMenuFor(null);
+    setDialogError(null);
+    setDialog(next);
+  }
+
+  function closeDialog(): void {
+    setDialog(null);
+    setDialogError(null);
+  }
+
+  function failDialog(error: unknown): void {
+    const failure = describeFolderError(error);
+    setDialogError({ message: failure.message, upgrade: failure.upgrade });
+  }
+
+  function submitName(name: string): void {
+    if (!dialog) {
+      return;
+    }
+    setDialogError(null);
+    if (dialog.kind === 'create') {
+      createFolderMutation.mutate(name, {
+        onSuccess: () => {
+          closeDialog();
+          say(`已新建文件夹「${name}」。`);
+        },
+        onError: failDialog
+      });
+    } else if (dialog.kind === 'rename') {
+      const target = dialog.folder;
+      renameFolderMutation.mutate({ folderId: target.id, name }, {
+        onSuccess: () => {
+          closeDialog();
+          say(`已改名为「${name}」。`);
+        },
+        onError: failDialog
+      });
+    }
+  }
+
+  function confirmDeleteFolder(target: GroupFileFolder): void {
+    setDialogError(null);
+    deleteFolderMutation.mutate(target.id, {
+      onSuccess: (moved) => {
+        closeDialog();
+        if (folderId === target.id) {
+          setFolderId(null);
+        }
+        say(moved > 0 ? `已删除文件夹「${target.name}」，${moved} 个文件移回了根目录。` : `已删除文件夹「${target.name}」。`);
+      },
+      onError: (error) => {
+        if (groupPlusErrorCode(error) === 'folder_not_found') {
+          closeDialog();
+          if (folderId === target.id) {
+            setFolderId(null);
+          }
+          say('这个文件夹已经被删除了。');
+          return;
+        }
+        failDialog(error);
+      }
+    });
+  }
+
+  /** 移动一个文件。fromDialog：从「移动到」对话框发起的，失败时错误写在对话框里 */
+  function move(file: GroupFile, target: number | null, fromDialog: boolean): void {
+    if ((file.folder_id ?? null) === target) {
+      return;
+    }
+    const name = target === null ? '根目录' : folders.find((item) => item.id === target)?.name ?? '文件夹';
+    setDialogError(null);
+    if (!fromDialog) {
+      say(null);
+    }
+    moveMutation.mutate({ fileIds: [file.id], folderId: target }, {
+      onSuccess: () => {
+        if (fromDialog) {
+          closeDialog();
+        }
+        say(target === null ? `「${file.name}」已移回根目录。` : `「${file.name}」已移到「${name}」。`);
+      },
+      onError: (error) => {
+        const failure = describeFolderError(error);
+        if (fromDialog) {
+          setDialogError({ message: failure.message, upgrade: failure.upgrade });
+        } else {
+          say(failure.message, failure.upgrade);
+        }
+      }
+    });
+  }
+
+  /** 这个文件能不能拖进文件夹 / 能不能点「移动到」 */
+  function movable(file: GroupFile): { show: boolean; blocked: string | null } {
+    if (!folderFeature || (!canManage && !canTidy)) {
+      return { show: false, blocked: null };
+    }
+    const inSomeFolder = (file.folder_id ?? null) !== null;
+    // 降档后只能移回根目录：根目录的文件没地方去
+    if (!canManage && !inSomeFolder) {
+      return { show: false, blocked: null };
+    }
+    if (!inSomeFolder && file.expired) {
+      return { show: true, blocked: '已过期的文件不能放进文件夹。' };
+    }
+    if (!inSomeFolder && file.temporary) {
+      return { show: true, blocked: '24 小时临时文件不能放进文件夹，转为永久后就可以移动。' };
+    }
+    if (!inSomeFolder && folders.length === 0) {
+      return { show: true, blocked: '还没有文件夹，先新建一个。' };
+    }
+    return { show: true, blocked: null };
+  }
+
+  function draggable(file: GroupFile): boolean {
+    return !mobile && canManage && !file.temporary && !file.expired && folders.length > 0;
+  }
+
+  function isFileDrag(event: DragEvent): boolean {
+    return draggingFile !== null && event.dataTransfer.types.includes(FILE_DRAG_TYPE);
+  }
+
+  /** 文件夹行 / 面包屑上的放置：面板里拖来的文件 → 移动；系统里拖来的文件 → 直接传进这个文件夹 */
+  function dropHandlers(target: GroupFileFolder | null): Record<string, (event: DragEvent) => void> {
+    const key = target ? target.id : 'root';
+    const acceptsFile = (): boolean => {
+      if (!draggingFile) {
+        return false;
+      }
+      const from = draggingFile.folder_id ?? null;
+      return target === null ? from !== null && (canTidy || canManage) : canManage && from !== target.id;
+    };
+    const acceptsUpload = (event: DragEvent): boolean => target !== null && canUpload && foldersWritable && event.dataTransfer.types.includes('Files');
+    return {
+      onDragOver: (event) => {
+        if ((isFileDrag(event) && acceptsFile()) || acceptsUpload(event)) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.dataTransfer.dropEffect = isFileDrag(event) ? 'move' : 'copy';
+          setDropTarget(key);
+          setDragging(false);
+        }
+      },
+      onDragLeave: (event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setDropTarget((current) => (current === key ? null : current));
+        }
+      },
+      onDrop: (event) => {
+        setDropTarget(null);
+        if (isFileDrag(event) && acceptsFile() && draggingFile) {
+          event.preventDefault();
+          event.stopPropagation();
+          move(draggingFile, target ? target.id : null, false);
+        } else if (acceptsUpload(event)) {
+          event.preventDefault();
+          event.stopPropagation();
+          setDragging(false);
+          pick(Array.from(event.dataTransfer.files), target);
+        }
+        setDraggingFile(null);
+      }
+    };
   }
 
   const upgradeButton = (label: string, focusTier: 'pro' | 'pro_plus' = 'pro_plus'): JSX.Element | null => (staff ? (
@@ -137,7 +384,7 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
   if (infoQuery.isLoading && filesQuery.isLoading) {
     return <ModalStatus>正在加载群文件…</ModalStatus>;
   }
-  if (filesQuery.error && files.length === 0) {
+  if (filesQuery.error && files.length === 0 && listErrorCode !== 'folder_not_found') {
     return (
       <div className="kui-empty">
         <p>群文件加载失败，请稍后重试。</p>
@@ -172,17 +419,38 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
     : !rules.hasSpace
       ? `文件保存 ${rules.tempTtlHours} 小时 · 单个最大 ${formatFileSize(rules.tempMax)}`
       : spaceFull
-        ? `空间已满，新文件存为 ${rules.tempTtlHours} 小时临时文件 · 单个最大 ${formatFileSize(rules.tempMax)}`
+        ? `空间已满，新文件存为 ${rules.tempTtlHours} 小时临时文件${uploadFolder ? '，放在根目录' : ''} · 单个最大 ${formatFileSize(rules.tempMax)}`
         : `新文件保留 ${staff && permanent ? '永久' : ttlLabel(defaultTtl)}，同时在群里发一条文件消息`;
+  const dropTitle = uploadFolder
+    ? <>{mobile ? '上传到' : '把文件拖到这里，放进'}「<span className="kgp-files-drop-folder">{uploadFolder.name}</span>」</>
+    : inFolder && !foldersWritable
+      ? (mobile ? '上传文件（放在根目录）' : '把文件拖到这里（放在根目录）')
+      : (mobile ? '上传文件' : '把文件拖到这里');
+
+  const showFolders = folderFeature && !searching && folderId === null && folders.length > 0;
+  const menuFolder = menuFor === null ? null : folders.find((item) => item.id === menuFor) ?? null;
+  const folderMenu = (folder: GroupFileFolder): JSX.Element | null => (menuFolder?.id === folder.id ? (
+    <FolderMenu
+      canRename={canManage}
+      canDelete={canTidy}
+      onClose={() => setMenuFor(null)}
+      onRename={() => openDialog({ kind: 'rename', folder })}
+      onDelete={() => openDialog({ kind: 'delete', folder })}
+    />
+  ) : null);
+  const hasFolderMenu = canManage || canTidy;
+  const pendingFolderOp = createFolderMutation.isPending || renameFolderMutation.isPending || deleteFolderMutation.isPending;
 
   return (
     <div
-      className={`kgp-files${mobile ? ' is-mobile' : ''}${motion ? '' : ' is-still'}${dragging ? ' is-dragging' : ''}`}
+      className={`kgp-files${mobile ? ' is-mobile' : ''}${motion ? '' : ' is-still'}${dragging ? ' is-dragging' : ''}${draggingFile ? ' is-moving' : ''}`}
       data-files-state={state}
+      data-files-folder={inFolder ? folderId : undefined}
       onDragOver={mobile ? undefined : (event) => {
         if (event.dataTransfer.types.includes('Files')) {
           event.preventDefault();
           setDragging(true);
+          setDropTarget(null);
         }
       }}
       onDragLeave={mobile ? undefined : (event) => {
@@ -191,17 +459,42 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
         }
       }}
       onDrop={mobile ? undefined : (event) => {
-        event.preventDefault();
         setDragging(false);
+        if (!event.dataTransfer.types.includes('Files')) {
+          return;
+        }
+        event.preventDefault();
         pick(Array.from(event.dataTransfer.files));
       }}
     >
+      {inFolder ? (
+        <nav className="kgp-files-crumbs" aria-label="当前位置">
+          <button type="button" className="kui-icon-btn kgp-files-crumbs-back" aria-label="返回群文件根目录" title="返回" onClick={() => openFolder(null)}>
+            <Icon name="chevronLeft" className="h-4 w-4" />
+          </button>
+          <span className="kgp-files-crumbs-path">
+            <button type="button" className={`kgp-files-crumb${dropTarget === 'root' ? ' is-drop' : ''}`} onClick={() => openFolder(null)} {...dropHandlers(null)}>群文件</button>
+            <Icon name="chevron" className="h-3.5 w-3.5 kgp-files-crumbs-sep" />
+            <b className="kgp-files-crumb-current" title={currentFolder?.name}>{currentFolder?.name ?? '文件夹'}</b>
+          </span>
+          {currentFolder ? <em className="kgp-files-crumbs-stat">{folderStats(currentFolder)}</em> : null}
+          {currentFolder && hasFolderMenu ? (
+            <span className="kgp-files-menu-anchor">
+              <button type="button" className="kui-icon-btn" aria-label={`管理文件夹 ${currentFolder.name}`} aria-haspopup="menu" aria-expanded={menuFor === currentFolder.id} onClick={() => setMenuFor((current) => (current === currentFolder.id ? null : currentFolder.id))}>
+                <Icon name="more" className="h-4 w-4" />
+              </button>
+              {folderMenu(currentFolder)}
+            </span>
+          ) : null}
+        </nav>
+      ) : null}
+
       {quota && rules ? (
         rules.hasSpace || !rules.modern ? (
           <section className={`kgp-files-quota${nearFull ? ' is-warn' : ''}`} aria-label="群文件空间">
             <div className="kgp-files-quota-head">
               <span className="kgp-files-quota-num"><b>{formatFileSize(quota.used_bytes)}</b> / {formatFileSize(quota.quota_bytes)}</span>
-              <em>{quota.file_count} 个文件</em>
+              <em>{quota.file_count} 个文件{folderFeature && folders.length > 0 ? ` · ${folders.length} 个文件夹` : ''}</em>
             </div>
             <div className="kgp-files-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(usedRatio * 100)}>
               <span className="kgp-files-bar-fill" style={{ width: `${Math.max(Math.round(usedRatio * 100), quota.used_bytes > 0 ? 1 : 0)}%` }} />
@@ -237,7 +530,7 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
           }} />
           <span className="kgp-files-drop-icon"><Icon name="upload" className="h-5 w-5" /></span>
           <span className="kgp-files-drop-text">
-            <b>{mobile ? '上传文件' : '把文件拖到这里'}</b>
+            <b>{dropTitle}</b>
             <small>{ruleLine}</small>
           </span>
           {staff && rules?.hasSpace && !spaceFull ? (
@@ -250,18 +543,24 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
         </section>
       ) : null}
 
-      {notice ? <p className="kgp-files-notice" role="alert">{notice}</p> : null}
+      {notice ? (
+        <p className="kgp-files-notice" role="alert">
+          {notice}
+          {noticeUpgrade && staff ? <button type="button" className="kgp-files-link" onClick={() => openUpgrade({ conversationId, reason: 'files', focusTier: 'pro_plus' })}>去升级 ›</button> : null}
+        </p>
+      ) : null}
 
       {uploads.length > 0 ? (
         <ul className="kgp-files-tasks" aria-label="上传任务">
           {uploads.map((task) => {
             const ratio = task.size > 0 ? Math.min(1, task.loaded / task.size) : 0;
+            const doneText = task.temporary ? (task.landedInRoot ? '已上传 · 临时文件，放在根目录' : '已上传 · 临时文件') : task.landedInRoot ? '已上传 · 放在根目录' : '已上传';
             return (
               <li key={task.id} className={`kgp-files-task is-${task.status}`}>
                 <div className="kgp-files-task-head">
                   <span className="kgp-files-task-name">{task.name}</span>
                   <span className="kgp-files-task-state">
-                    {task.status === 'uploading' ? `${Math.round(ratio * 100)}%` : task.status === 'done' ? (task.temporary ? '已上传 · 临时文件' : '已上传') : task.status === 'canceled' ? '已取消' : '失败'}
+                    {task.status === 'uploading' ? `${Math.round(ratio * 100)}%` : task.status === 'done' ? doneText : task.status === 'canceled' ? '已取消' : '失败'}
                   </span>
                   {task.status === 'uploading' ? <button type="button" className="kgp-files-btn" onClick={() => cancelUpload(task.id)}>取消</button> : null}
                   {task.status === 'failed' ? <button type="button" className="kgp-files-btn" onClick={() => retryUpload(queryClient, task.id)}>重试</button> : null}
@@ -269,7 +568,7 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
                 </div>
                 {task.status === 'uploading' ? <div className="kgp-files-bar"><span className="kgp-files-bar-fill" style={{ width: `${Math.round(ratio * 100)}%` }} /></div> : null}
                 {task.status === 'failed' && task.error ? (
-                  <p className="kgp-files-task-error" role="alert">{task.error}{task.code === 'quota_exceeded' || task.code === 'file_too_large' ? upgradeButton('去升级') : null}</p>
+                  <p className="kgp-files-task-error" role="alert">{task.error}{task.code === 'quota_exceeded' || task.code === 'file_too_large' || task.code === 'folders_require_plus' ? upgradeButton('去升级') : null}</p>
                 ) : null}
               </li>
             );
@@ -280,30 +579,102 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
       <div className="kgp-files-toolbar">
         <label className="kgp-files-search">
           <Icon name="search" className="h-3.5 w-3.5" />
-          <input value={keyword} placeholder="搜索文件名" aria-label="搜索文件名" onChange={(event) => setKeyword(event.target.value)} />
+          <input value={keyword} placeholder={folderFeature ? '搜索全部文件' : '搜索文件名'} aria-label="搜索文件名" onChange={(event) => setKeyword(event.target.value)} />
+          {keyword ? <button type="button" className="kgp-files-search-clear" aria-label="清除搜索" onClick={() => setKeyword('')}><Icon name="close" className="h-3 w-3" /></button> : null}
         </label>
+        {canManage && folderId === null && !searching ? (
+          <button
+            type="button"
+            className="kgp-files-ghost"
+            disabled={folders.length >= folderLimit}
+            title={folders.length >= folderLimit ? `最多 ${folderLimit} 个文件夹` : '新建文件夹'}
+            onClick={() => openDialog({ kind: 'create' })}
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />新建文件夹
+          </button>
+        ) : null}
       </div>
 
-      {files.length === 0 && !filesQuery.isLoading ? (
+      {searching && folderFeature && files.length > 0 ? <p className="kgp-files-scope">在全部文件夹里找到 {total} 个文件</p> : null}
+
+      {showFolders ? (
+        <ul className="kgp-files-list kgp-files-folders" aria-label="文件夹">
+          {folders.map((folder) => (
+            <li
+              key={folder.id}
+              className={`kgp-files-row kgp-files-folder${dropTarget === folder.id ? ' is-drop' : ''}${menuFor === folder.id ? ' is-menu' : ''}`}
+              onContextMenu={hasFolderMenu ? (event) => {
+                event.preventDefault();
+                setMenuFor(folder.id);
+              } : undefined}
+              {...dropHandlers(folder)}
+            >
+              <button type="button" className="kgp-files-folder-open" aria-label={`打开文件夹 ${folder.name}`} onClick={() => openFolder(folder.id)}>
+                <span className="kgp-file-icon kgp-folder-icon"><Icon name="folder" className="h-5 w-5" /></span>
+                <span className="kgp-files-row-main">
+                  <span className="kgp-file-name" title={folder.name}>{folder.name}</span>
+                  <span className="kgp-file-sub"><span>{folderStats(folder)}</span></span>
+                </span>
+              </button>
+              <div className="kgp-files-row-actions">
+                {hasFolderMenu ? (
+                  <span className="kgp-files-menu-anchor">
+                    <button type="button" className="kui-icon-btn" title="更多" aria-label={`管理文件夹 ${folder.name}`} aria-haspopup="menu" aria-expanded={menuFor === folder.id} onClick={() => setMenuFor((current) => (current === folder.id ? null : folder.id))}>
+                      <Icon name="more" className="h-4 w-4" />
+                    </button>
+                    {folderMenu(folder)}
+                  </span>
+                ) : null}
+                <Icon name="chevron" className="h-4 w-4 kgp-files-folder-go" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {files.length === 0 && !filesQuery.isLoading && !(showFolders && !searching) ? (
         <div className="kgp-files-empty">
           <Icon name="folder" className="h-6 w-6" />
-          <p>{q ? '没有找到匹配的文件。' : '还没有文件，传第一个吧。'}</p>
+          <p>{q ? '没有找到匹配的文件。' : inFolder ? `这个文件夹还是空的${canUpload ? '，传一个进来吧' : ''}。` : '还没有文件，传第一个吧。'}</p>
         </div>
       ) : null}
       {filesQuery.isLoading ? <ModalStatus>正在加载文件…</ModalStatus> : null}
 
-      <ul className="kgp-files-list">
+      <ul className={`kgp-files-list${showFolders && files.length > 0 ? ' is-after-folders' : ''}`}>
         {files.map((file) => {
           const mine = me !== null && file.uploader_id === me.id;
           const canDelete = staff || mine;
           const urgent = !file.permanent && !file.expired && file.expires_at !== null && new Date(file.expires_at).getTime() - Date.now() < 6 * 3_600_000;
           const canPin = staff && (file.permanent || !rules || rules.hasSpace);
+          const moveState = movable(file);
+          const dragOk = draggable(file);
           return (
-            <li key={file.id} className="kgp-files-row">
+            <li
+              key={file.id}
+              className={`kgp-files-row${draggingFile?.id === file.id ? ' is-dragged' : ''}`}
+              draggable={dragOk || undefined}
+              onDragStart={dragOk ? (event) => {
+                event.dataTransfer.setData(FILE_DRAG_TYPE, String(file.id));
+                event.dataTransfer.effectAllowed = 'move';
+                setDraggingFile(file);
+                setMenuFor(null);
+              } : undefined}
+              onDragEnd={dragOk ? () => {
+                setDraggingFile(null);
+                setDropTarget(null);
+              } : undefined}
+            >
               <span className="kgp-file-icon"><Icon name={fileIconName(file.content_type, file.name)} className="h-5 w-5" /></span>
               <div className="kgp-files-row-main">
                 <span className="kgp-file-name" title={file.name}>{file.name}</span>
                 <span className="kgp-file-sub">
+                  {searching && file.folder_id !== undefined ? (
+                    file.folder_id !== null ? (
+                      <button type="button" className="kgp-files-where" title={`打开文件夹 ${file.folder_name ?? ''}`} onClick={() => openFolder(file.folder_id ?? null)}>
+                        <Icon name="folder" className="h-3 w-3" />{file.folder_name ?? '文件夹'}
+                      </button>
+                    ) : <span className="kgp-files-where is-root"><Icon name="home" className="h-3 w-3" />根目录</span>
+                  ) : null}
                   <span>{formatFileSize(file.size)}</span>
                   <span className={`kgp-files-expiry${file.permanent ? ' is-permanent' : ''}${file.temporary ? ' is-temp' : ''}${urgent ? ' is-urgent' : ''}`}>{expiryLabel(file)}</span>
                   <span className="kgp-files-uploader">
@@ -317,6 +688,25 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
                 <button type="button" className="kui-icon-btn" title="下载" aria-label={`下载 ${file.name}`} disabled={rowBusy === file.id || file.expired} onClick={() => void download(file)}>
                   <Icon name={rowBusy === file.id ? 'refresh' : 'download'} className="h-4 w-4" />
                 </button>
+                {moveState.show ? (
+                  <button
+                    type="button"
+                    className={`kui-icon-btn${moveState.blocked ? ' is-blocked' : ''}`}
+                    title={moveState.blocked ?? (canManage ? '移动到…' : '移回根目录')}
+                    aria-label={`移动 ${file.name}`}
+                    aria-disabled={moveState.blocked ? true : undefined}
+                    disabled={moveMutation.isPending}
+                    onClick={() => {
+                      if (moveState.blocked) {
+                        say(moveState.blocked);
+                        return;
+                      }
+                      openDialog({ kind: 'move', file });
+                    }}
+                  >
+                    <Icon name="folder" className="h-4 w-4" />
+                  </button>
+                ) : null}
                 {canPin ? (
                   <button type="button" className={`kui-icon-btn${file.permanent ? ' is-active' : ''}`} title={file.permanent ? '转回限时' : '转为永久'} aria-label={file.permanent ? '转回限时' : '转为永久'} aria-pressed={file.permanent} disabled={permanentMutation.isPending} onClick={() => togglePermanent(file)}>
                     <Icon name="pin" className="h-4 w-4" />
@@ -339,7 +729,7 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
         </button>
       ) : null}
 
-      {staff && state !== 'locked' && (!rules || rules.hasSpace) ? (
+      {staff && state !== 'locked' && (!rules || rules.hasSpace) && !inFolder ? (
         <section className="kgp-files-ttl">
           <div className="kgp-files-ttl-text">
             <h4>默认保留时长</h4>
@@ -349,13 +739,45 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
             {ttlOptions.map((hours) => (
               <button key={hours} type="button" role="radio" aria-checked={defaultTtl === hours} disabled={ttlMutation.isPending} className={defaultTtl === hours ? 'is-active' : undefined} onClick={() => {
                 if (hours !== defaultTtl) {
-                  setNotice(null);
-                  ttlMutation.mutate(hours, { onError: (error) => setNotice(describeGroupPlusError(error).message) });
+                  say(null);
+                  ttlMutation.mutate(hours, { onError: (error) => say(describeGroupPlusError(error).message) });
                 }
               }}>{ttlLabel(hours)}</button>
             ))}
           </div>
         </section>
+      ) : null}
+
+      {dialog?.kind === 'create' || dialog?.kind === 'rename' ? (
+        <FolderNameDialog
+          key={dialog.kind === 'rename' ? `rename-${dialog.folder.id}` : 'create'}
+          mode={dialog.kind}
+          initial={dialog.kind === 'rename' ? dialog.folder.name : ''}
+          busy={pendingFolderOp}
+          error={dialogError?.message ?? null}
+          onUpgrade={dialogError?.upgrade && staff ? () => {
+            closeDialog();
+            openUpgrade({ conversationId, reason: 'files', focusTier: 'pro_plus' });
+          } : null}
+          remaining={dialog.kind === 'create' ? Math.max(0, folderLimit - folders.length) : null}
+          onSubmit={submitName}
+          onClose={closeDialog}
+        />
+      ) : null}
+      {dialog?.kind === 'delete' ? (
+        <DeleteFolderDialog folder={dialog.folder} busy={deleteFolderMutation.isPending} error={dialogError?.message ?? null} onConfirm={() => confirmDeleteFolder(dialog.folder)} onClose={closeDialog} />
+      ) : null}
+      {dialog?.kind === 'move' ? (
+        <MoveFileDialog
+          file={dialog.file}
+          folders={folders}
+          canManage={canManage}
+          canTidy={canTidy}
+          busy={moveMutation.isPending}
+          error={dialogError?.message ?? null}
+          onPick={(target) => move(dialog.file, target, true)}
+          onClose={closeDialog}
+        />
       ) : null}
     </div>
   );
@@ -398,7 +820,7 @@ export function GroupFilesHost(): JSX.Element | null {
   if (!target) {
     return null;
   }
-  // key：换了群就是新的面板，搜索词、勾选都不带过去
+  // key：换了群就是新的面板，搜索词、勾选、所在文件夹都不带过去
   if (!desktop) {
     return <MobileFilesPage key={target.conversationId} conversationId={target.conversationId} onClose={close} />;
   }

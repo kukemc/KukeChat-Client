@@ -2,8 +2,8 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 import { ApiError, NetworkError } from '@/api/client';
 import { updateGroupSettings } from '@/api/conversations';
 import {
-  clearGroupTodo, deleteGroupFile, getFeaturedPage, getGroupFiles, getGroupPlusInfo, getGroupPlusPlans, getGroupPlusRecords, getGroupTodo,
-  normalizeQuote, normalizeTier, normalizeTodo, purchaseGroupPlus, quoteGroupPlus, removeFeaturedById, setGroupFilePermanent, setGroupTodo
+  clearGroupTodo, createGroupFolder, deleteGroupFile, deleteGroupFolder, getFeaturedPage, getGroupFiles, getGroupPlusInfo, getGroupPlusPlans, getGroupPlusRecords, getGroupTodo,
+  moveGroupFiles, normalizeQuote, normalizeTier, normalizeTodo, purchaseGroupPlus, quoteGroupPlus, removeFeaturedById, renameGroupFolder, setGroupFilePermanent, setGroupTodo
 } from '@/api/groupPlus';
 import { isRecord } from '@/api/normalizers';
 import { applyShopPatch, isShopUnavailable, shopErrorCode, shopErrorDetail, shopKeys } from '@/components/shop/data';
@@ -11,7 +11,7 @@ import { formatCoins } from '@/components/shop/labels';
 import { patchConversation } from '@/realtime/cache';
 import type { Conversation } from '@/types/api';
 import type {
-  FeaturedLimitInfo, FeaturedMessagePage, GroupFilePage, GroupPlusInfo, GroupPlusPeriod, GroupPlusPlans, GroupPlusPurchasePayload,
+  FeaturedLimitInfo, FeaturedMessagePage, GroupFileFolder, GroupFileMoveResult, GroupFilePage, GroupPlusInfo, GroupPlusPeriod, GroupPlusPlans, GroupPlusPurchasePayload,
   GroupPlusPurchaseResult, GroupPlusQuote, GroupPlusRecordPage, GroupPlusTier, GroupTodo
 } from '@/types/groupPlus';
 import type { ShopOverview } from '@/types/shop';
@@ -31,7 +31,7 @@ export const groupPlusKeys = {
   records: (conversationId: number, limit: number, offset: number) => ['group-plus', 'records', conversationId, limit, offset] as const,
   recordsOf: (conversationId: number) => ['group-plus', 'records', conversationId] as const,
   files: (conversationId: number) => ['group-files', conversationId] as const,
-  filesPage: (conversationId: number, q: string, uploaderId: number | null) => ['group-files', conversationId, 'list', q, uploaderId] as const,
+  filesPage: (conversationId: number, q: string, uploaderId: number | null, folderId: number | null = null) => ['group-files', conversationId, 'list', q, uploaderId, folderId] as const,
   todo: (conversationId: number) => ['group-todo', conversationId] as const,
   featured: (conversationId: number) => ['featured-messages', conversationId] as const,
   featuredPage: (conversationId: number) => ['featured-messages', conversationId, 'page'] as const
@@ -213,11 +213,15 @@ export function describeGroupPlusError(error: unknown): GroupPlusFailure {
 
 /* ───────── 群文件 ───────── */
 
-/** 群文件列表（分页追加）。locked 且没有历史文件时服务端返回空列表，不是错误。 */
-export function useGroupFiles(conversationId: number, q: string, uploaderId: number | null, enabled: boolean) {
+/**
+ * 群文件列表（分页追加）。locked 且没有历史文件时服务端返回空列表，不是错误。
+ * folderId：看哪个文件夹（null 是根目录）；带了 q / uploaderId 是跨文件夹搜索，不再按文件夹分开缓存。
+ */
+export function useGroupFiles(conversationId: number, q: string, uploaderId: number | null, enabled: boolean, folderId: number | null = null) {
+  const scoped = q || uploaderId ? null : folderId;
   return useInfiniteQuery({
-    queryKey: groupPlusKeys.filesPage(conversationId, q, uploaderId),
-    queryFn: ({ pageParam }) => getGroupFiles(conversationId, { q, uploaderId, limit: 30, offset: pageParam }),
+    queryKey: groupPlusKeys.filesPage(conversationId, q, uploaderId, scoped),
+    queryFn: ({ pageParam }) => getGroupFiles(conversationId, { q, uploaderId, folderId: scoped, limit: 30, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (last: GroupFilePage, pages) => {
       const loaded = pages.reduce((sum, page) => sum + page.items.length, 0);
@@ -248,6 +252,95 @@ export function useSetFilePermanent(conversationId: number) {
       void queryClient.invalidateQueries({ queryKey: groupPlusKeys.info(conversationId) });
     }
   });
+}
+
+/* ───────── 群文件夹（5.5） ───────── */
+
+/** 文件夹相关的写操作之后：列表（含每个文件夹的 file_count / total_size）都重拉 */
+function refreshFiles(queryClient: QueryClient, conversationId: number): void {
+  void queryClient.invalidateQueries({ queryKey: groupPlusKeys.files(conversationId) });
+}
+
+export function useCreateGroupFolder(conversationId: number): UseMutationResult<GroupFileFolder | null, Error, string> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => createGroupFolder(conversationId, name),
+    onSettled: () => refreshFiles(queryClient, conversationId)
+  });
+}
+
+export function useRenameGroupFolder(conversationId: number): UseMutationResult<GroupFileFolder | null, Error, { folderId: number; name: string }> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ folderId, name }) => renameGroupFolder(conversationId, folderId, name),
+    onSettled: () => refreshFiles(queryClient, conversationId)
+  });
+}
+
+export function useDeleteGroupFolder(conversationId: number): UseMutationResult<number, Error, number> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (folderId: number) => deleteGroupFolder(conversationId, folderId),
+    onSettled: () => refreshFiles(queryClient, conversationId)
+  });
+}
+
+export function useMoveGroupFiles(conversationId: number): UseMutationResult<GroupFileMoveResult, Error, { fileIds: number[]; folderId: number | null }> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fileIds, folderId }) => moveGroupFiles(conversationId, fileIds, folderId),
+    onSettled: () => refreshFiles(queryClient, conversationId)
+  });
+}
+
+/** 文件夹名在本地先查一遍（和服务端同一套规则），省一次请求；返回要提示的话，没问题返回 null */
+export function folderNameProblem(raw: string): string | null {
+  const name = raw.trim();
+  if (!name) {
+    return '给文件夹起个名字。';
+  }
+  if ([...name].length > 40) {
+    return '名字最多 40 个字。';
+  }
+  if (/[\\/]/.test(name)) {
+    return '名字里不能有 / 或 \\。';
+  }
+  // 换行、控制字符、零宽等不可见字符
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]/.test(name)) {
+    return '名字里不能有换行或看不见的字符。';
+  }
+  return null;
+}
+
+/** 文件夹相关错误（docs/group-plus.md 5.5 的错误表）的中文说明。upgrade 为 true 时界面可以给「去升级」 */
+export function describeFolderError(error: unknown): { code: string | null; message: string; upgrade: boolean } {
+  const code = groupPlusErrorCode(error);
+  const detail = groupPlusErrorDetail(error);
+  switch (code) {
+    case 'folders_require_plus':
+      return { code, message: '文件夹是 Pro+ 和 MAX 群的功能，升级档位后就能用。', upgrade: true };
+    case 'not_group_staff':
+      return { code, message: '只有群主和管理员可以整理文件夹。', upgrade: false };
+    case 'folder_not_found':
+      return { code, message: '这个文件夹已经不在了，可能刚被删除。', upgrade: false };
+    case 'folder_name_taken':
+      return { code, message: '已经有同名的文件夹了（不区分大小写），换个名字吧。', upgrade: false };
+    case 'folder_limit':
+      return { code, message: `文件夹已经有 ${typeof detail.limit === 'number' ? detail.limit : 50} 个了，删掉不用的再建。`, upgrade: false };
+    case 'invalid_folder_name':
+      return { code, message: '名字要 1–40 个字，不能有换行、/、\\ 或看不见的字符。', upgrade: false };
+    case 'file_not_found':
+      return { code, message: '有文件已经不在了（可能刚被删除），这次一个都没移动。', upgrade: false };
+    case 'file_not_movable': {
+      const temps = Array.isArray(detail.temporary_ids) ? detail.temporary_ids.length : 0;
+      const expired = Array.isArray(detail.expired_ids) ? detail.expired_ids.length : 0;
+      const reason = temps > 0 && expired > 0 ? '临时文件和已过期的文件' : expired > 0 ? '已过期的文件' : '24 小时临时文件';
+      return { code, message: `${reason}不能放进文件夹，这次一个都没移动。`, upgrade: false };
+    }
+    default:
+      return { code, message: describeGroupPlusError(error).message, upgrade: false };
+  }
 }
 
 /** 群主 / 管理员改群文件默认保留时长（只影响之后上传的）。成功后会话对象和档位详情一起跟上。 */
@@ -374,7 +467,8 @@ export function featuredLimitOf(error: unknown): FeaturedLimitInfo | null {
  *   group.plus.updated   档位变了（购买 / 后台赠送 / 取消）：会话列表上的档位、详情、流水、文件、精华上限一起跟上。
  *                        到期降级没有事件，客户端按 plus_expires_at 自己判断（tier.ts 的 effectiveTier）。
  *   group.todo.updated   待办设置 / 替换 / 取消：data.todo 是完整对象或 null，直接换进缓存。
- *   group.file.updated   有人传了 / 删了 / 转了永久：文件列表和用量重拉。
+ *   group.file.updated   有人传了 / 删了 / 转了永久 / 移动了：文件列表（含文件夹的数量、大小）和用量重拉。
+ *   group.file.folders.changed  文件夹新建 / 重命名 / 删除：列表重拉。正在看的文件夹被删了，列表会 404 folder_not_found，面板据此回到根目录。
  */
 export function handleGroupPlusEvent(queryClient: QueryClient, rawType: string, data: unknown): void {
   if (!isRecord(data) || typeof data.conversation_id !== 'number') {
@@ -403,6 +497,10 @@ export function handleGroupPlusEvent(queryClient: QueryClient, rawType: string, 
   if (rawType === 'group.file.updated') {
     void queryClient.invalidateQueries({ queryKey: groupPlusKeys.files(conversationId) });
     void queryClient.invalidateQueries({ queryKey: groupPlusKeys.info(conversationId) });
+    return;
+  }
+  if (rawType === 'group.file.folders.changed') {
+    void queryClient.invalidateQueries({ queryKey: groupPlusKeys.files(conversationId) });
   }
 }
 

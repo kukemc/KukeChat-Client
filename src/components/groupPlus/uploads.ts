@@ -28,11 +28,15 @@ export interface UploadTask {
   temporary: boolean;
   /** 直传存储桶（重试时沿用） */
   direct: boolean;
+  /** 要传进的文件夹（null 是根目录，重试时沿用） */
+  folderId: number | null;
+  /** 想传进文件夹，结果被服务端放到了根目录（变成了临时文件，或者文件夹刚被删了 / 群降档了） */
+  landedInRoot: boolean;
 }
 
 interface UploadState {
   tasks: UploadTask[];
-  start: (queryClient: QueryClient, conversationId: number, file: File, options?: { permanent?: boolean; temporary?: boolean; direct?: boolean }) => void;
+  start: (queryClient: QueryClient, conversationId: number, file: File, options?: { permanent?: boolean; temporary?: boolean; direct?: boolean; folderId?: number | null }) => void;
   cancel: (id: number) => void;
   dismiss: (id: number) => void;
   retry: (queryClient: QueryClient, id: number) => void;
@@ -68,16 +72,20 @@ export const useGroupFileUploads = create<UploadState>((set, get) => ({
     const controller = new AbortController();
     controllers.set(id, controller);
     files.set(id, file);
-    const task: UploadTask = { id, conversationId, name: file.name, size: file.size, loaded: 0, status: 'uploading', error: null, code: null, permanent: options?.permanent === true, temporary: options?.temporary === true, direct: options?.direct === true };
+    const task: UploadTask = { id, conversationId, name: file.name, size: file.size, loaded: 0, status: 'uploading', error: null, code: null, permanent: options?.permanent === true, temporary: options?.temporary === true, direct: options?.direct === true, folderId: options?.folderId ?? null, landedInRoot: false };
     set((state) => ({ tasks: [...state.tasks, task] }));
     const patch = (change: Partial<UploadTask>): void => set((state) => ({ tasks: state.tasks.map((item) => (item.id === id ? { ...item, ...change } : item)) }));
     uploadGroupFile(conversationId, file, {
       permanent: options?.permanent,
+      folderId: options?.folderId ?? null,
       direct: options?.direct,
       signal: controller.signal,
       onProgress: (loaded) => patch({ loaded })
     }).then((result) => {
-      patch({ status: 'done', loaded: file.size, temporary: result.file?.temporary ?? false });
+      const wanted = options?.folderId ?? null;
+      // 旧服务端不回 folder_id（undefined）：不算放错地方
+      const landedInRoot = wanted !== null && result.file !== null && result.file.folder_id === null;
+      patch({ status: 'done', loaded: file.size, temporary: result.file?.temporary ?? false, landedInRoot });
       files.delete(id);
       void queryClient.invalidateQueries({ queryKey: groupPlusKeys.files(conversationId) });
       void queryClient.invalidateQueries({ queryKey: groupPlusKeys.info(conversationId) });
@@ -87,8 +95,8 @@ export const useGroupFileUploads = create<UploadState>((set, get) => ({
         queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', message.conversation_id], (current) => upsertMessageIntoFirstPage(current, message));
         queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyLatestMessageToConversations(current, message, { visibleConversationId: useKukeStore.getState().visibleConversationId }));
       }
-      // 完成的任务留 3 秒再收起，让人看到「已上传」
-      window.setTimeout(() => get().dismiss(id), 3000);
+      // 完成的任务留 3 秒再收起，让人看到「已上传」；被放到根目录的多留一会儿，让人看清楚去了哪
+      window.setTimeout(() => get().dismiss(id), landedInRoot ? 6000 : 3000);
     }, (error: unknown) => {
       if (error instanceof DOMException && error.name === 'AbortError') {
         patch({ status: 'canceled', error: '已取消' });
@@ -113,6 +121,6 @@ export const useGroupFileUploads = create<UploadState>((set, get) => ({
       return;
     }
     get().dismiss(id);
-    get().start(queryClient, task.conversationId, file, { permanent: task.permanent, temporary: task.temporary, direct: task.direct });
+    get().start(queryClient, task.conversationId, file, { permanent: task.permanent, temporary: task.temporary, direct: task.direct, folderId: task.folderId });
   }
 }));

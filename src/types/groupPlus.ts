@@ -60,6 +60,8 @@ export interface GroupFileQuota {
   /** 后端配了私有存储桶：上传、下载直连存储桶，不经过服务器 */
   direct?: boolean;
   temp_ttl_hours?: number;
+  /** 档位能不能用文件夹（有效档位 Pro+ / MAX）。旧服务端没有，保持 undefined */
+  folders_enabled?: boolean;
 }
 
 /** GET /conversations/{cid}/plus */
@@ -168,12 +170,48 @@ export interface GroupFile {
   expired: boolean;
   message_id: number | null;
   download_path: string;
+  /** 所在的文件夹，根目录为 null；旧服务端没有这两项 */
+  folder_id?: number | null;
+  folder_name?: string | null;
+}
+
+/** GroupFileFolderRead：一层文件夹（Pro+ / MAX，docs/group-plus.md 5.5） */
+export interface GroupFileFolder {
+  id: number;
+  conversation_id: number;
+  name: string;
+  /** 里面没过期的文件数、总字节数 */
+  file_count: number;
+  total_size: number;
+  created_by: User | null;
+  created_by_id: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface GroupFilePage {
   items: GroupFile[];
   total: number;
   quota: GroupFileQuota | null;
+  /**
+   * 以下是文件夹功能加进来的，旧服务端没有：folders 为 undefined 时界面和以前一样。
+   * folders 是这个群的全部文件夹（按创建先后），folder 是现在看的那个（根目录 / 搜索为 null）。
+   */
+  folders?: GroupFileFolder[];
+  folder?: GroupFileFolder | null;
+  folder_limit?: number;
+  search?: boolean;
+  /** 能新建、重命名文件夹，把文件移进去（群管 + 档位够） */
+  can_manage_folders?: boolean;
+  /** 能删文件夹、把文件移回根目录（群管，降档后也是 true） */
+  can_tidy_folders?: boolean;
+}
+
+/** POST /files/move 的回包 */
+export interface GroupFileMoveResult {
+  folder_id: number | null;
+  moved: number;
+  items: GroupFile[];
 }
 
 /** 文件消息 metadata.file（type 仍是 text，旧客户端显示 content 里的「[文件] 名（大小）」） */
@@ -311,8 +349,20 @@ export interface GroupPlusUpdatedEvent {
 
 export interface GroupFileUpdatedEvent {
   conversation_id: number;
-  action: 'uploaded' | 'deleted' | 'updated' | string;
+  action: 'uploaded' | 'deleted' | 'updated' | 'moved' | string;
   file_id: number | null;
+  /** uploaded：放进的文件夹；moved：目标文件夹（null = 根目录） */
+  folder_id?: number | null;
+  /** moved：这次移动的全部文件 */
+  file_ids?: number[];
+}
+
+export interface GroupFileFoldersChangedEvent {
+  conversation_id: number;
+  action: 'created' | 'renamed' | 'deleted' | string;
+  folder_id: number;
+  /** deleted：移回根目录的文件数 */
+  moved_to_root?: number;
 }
 
 export interface GroupTodoUpdatedEvent {

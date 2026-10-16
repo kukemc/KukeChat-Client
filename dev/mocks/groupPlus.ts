@@ -22,10 +22,12 @@ export interface PlusScenario {
   uploadError: 'none' | 'quota_exceeded' | 'file_too_large' | 'muted' | 'rate_limited' | 'server';
   /** 设精华时强制返回「已达上限」 */
   featuredFull: boolean;
+  /** 模拟还没有文件夹功能的旧后端：列表不带 folders 等字段 */
+  legacyFolders: boolean;
   delay: number;
 }
 
-export const plusScenario: PlusScenario = { backend: 'ok', staff: true, purchaseError: 'none', uploadError: 'none', featuredFull: false, delay: 200 };
+export const plusScenario: PlusScenario = { backend: 'ok', staff: true, purchaseError: 'none', uploadError: 'none', featuredFull: false, legacyFolders: false, delay: 200 };
 
 type Tier = 'free' | 'pro' | 'pro_plus' | 'max';
 
@@ -52,6 +54,7 @@ const PLANS: Plan[] = [
 ];
 const FILE_MAX = 100 * MB;
 const GRACE_DAYS = 30;
+const FOLDER_LIMIT = 50;
 const DONATE_URL = 'https://www.ccw.site/detail/6650a1b2c3d4e5f6a7b8c9d0';
 
 const planOf = (tier: Tier): Plan => PLANS.find((plan) => plan.key === tier) ?? PLANS[0];
@@ -78,6 +81,16 @@ interface FileRow {
   message_id: number | null;
   /** 空间不够时存的 24 小时临时文件，不占空间 */
   temporary?: boolean;
+  /** 所在的文件夹（5.5），根目录为 null / 不填 */
+  folder_id?: number | null;
+}
+
+interface FolderRow {
+  id: number;
+  name: string;
+  created_by: number;
+  created_at: number;
+  updated_at: number;
 }
 
 interface RecordRow {
@@ -126,6 +139,8 @@ interface GroupState {
   filesGraceUntil: number | null;
   ttl: number;
   files: FileRow[];
+  /** 群文件夹（Pro+ / MAX，一层） */
+  folders: FolderRow[];
   records: RecordRow[];
   todo: TodoRow | null;
   featured: FeaturedRow[];
@@ -137,6 +152,7 @@ interface PlusState {
   history: Map<number, Message[]>;
   nextId: number;
   nextFileId: number;
+  nextFolderId: number;
   nextRecordId: number;
   nextFeaturedId: number;
   pictures: string[];
@@ -148,6 +164,7 @@ export const plusState: PlusState = {
   history: new Map(),
   nextId: 900_000,
   nextFileId: 100,
+  nextFolderId: 20,
   nextRecordId: 10,
   nextFeaturedId: 10,
   pictures: []
@@ -329,10 +346,27 @@ function seedFiles(group: GroupState): void {
     { id: 5, name: '过期的文件.pdf', size: 1 * MB, content_type: 'application/pdf', uploader_id: 2, created_at: now - 5 * DAY, expires_at: now - DAY, message_id: null }
   ];
   group.files = files;
+  // 有群空间的档位（Pro+ / MAX，以及从 Pro+ 掉进宽限期的群）摆几个文件夹，放进去几份文件；再加一个临时文件看「不能移进文件夹」
+  if ((planOf(group.tier).file_quota_bytes ?? 0) > 0) {
+    group.folders = [
+      { id: 1, name: '设计稿', created_by: 1, created_at: now - 9 * DAY, updated_at: now - 9 * DAY },
+      { id: 2, name: '会议纪要', created_by: 2, created_at: now - 6 * DAY, updated_at: now - 6 * DAY },
+      { id: 3, name: '一个名字比较长的文件夹用来看截断效果的', created_by: 1, created_at: now - 2 * DAY, updated_at: now - 2 * DAY }
+    ];
+    files[0].folder_id = 1;
+    files.push(
+      { id: 6, name: '首页-深色.fig', size: 12 * MB, content_type: 'application/octet-stream', uploader_id: 1, created_at: now - 4 * DAY, expires_at: null, message_id: null, folder_id: 1 },
+      { id: 7, name: '图标规范.pdf', size: 2_400_000, content_type: 'application/pdf', uploader_id: 3, created_at: now - 3 * DAY, expires_at: now + 4 * DAY, message_id: null, folder_id: 1 },
+      { id: 8, name: '10 月例会纪要.md', size: 18 * 1024, content_type: 'text/markdown', uploader_id: 2, created_at: now - 6 * DAY, expires_at: null, message_id: null, folder_id: 2 },
+      { id: 9, name: '临时-截图打包.zip', size: 6 * MB, content_type: 'application/zip', uploader_id: 5, created_at: now - 2 * 3_600_000, expires_at: now + 22 * 3_600_000, message_id: null, temporary: true }
+    );
+  } else {
+    group.folders = [];
+  }
 }
 
 function makeGroup(id: number, title: string, tier: Tier, expires: number | null, members: number): GroupState {
-  return { id, title, members, tier, expires, filesTier: null, filesGraceUntil: null, ttl: 24, files: [], records: [], todo: null, featured: [] };
+  return { id, title, members, tier, expires, filesTier: null, filesGraceUntil: null, ttl: 24, files: [], folders: [], records: [], todo: null, featured: [] };
 }
 
 /** 摆好一整套假数据。预览页启动时调一次，pictures 是画好的图片地址（blob: 或 data:）。 */
@@ -437,6 +471,40 @@ export function addRemoteFile(id: number): void {
   group.files.unshift({ id: plusState.nextFileId, name: `新上传的文件-${plusState.nextFileId}.png`, size: 1_572_864, content_type: 'image/png', uploader_id: 2, created_at: now, expires_at: now + group.ttl * 3_600_000, message_id: null });
 }
 
+/** 模拟「别的管理员新建了一个文件夹」：返回新文件夹的 id（预览页的实时事件按钮用） */
+export function addRemoteFolder(id: number): number | null {
+  const group = plusState.groups.get(id);
+  if (!group) {
+    return null;
+  }
+  plusState.nextFolderId += 1;
+  const now = Date.now();
+  group.folders.push({ id: plusState.nextFolderId, name: `别人建的文件夹 ${plusState.nextFolderId}`, created_by: 2, created_at: now, updated_at: now });
+  return plusState.nextFolderId;
+}
+
+/** 模拟「别的管理员删了一个文件夹」：删最后一个（或指定的），里面的文件回根目录。返回 { folderId, moved } */
+export function removeRemoteFolder(id: number, folderId?: number): { folderId: number; moved: number } | null {
+  const group = plusState.groups.get(id);
+  const target = folderId ? group?.folders.find((item) => item.id === folderId) : group?.folders[group.folders.length - 1];
+  if (!group || !target) {
+    return null;
+  }
+  return { folderId: target.id, moved: dropFolder(group, target.id) };
+}
+
+function dropFolder(group: GroupState, folderId: number): number {
+  group.folders = group.folders.filter((item) => item.id !== folderId);
+  let moved = 0;
+  for (const file of group.files) {
+    if (file.folder_id === folderId) {
+      file.folder_id = null;
+      moved += 1;
+    }
+  }
+  return moved;
+}
+
 export function todoOf(id: number): Record<string, unknown> | null {
   const group = plusState.groups.get(id);
   return group ? todoView(group) : null;
@@ -491,8 +559,43 @@ function filesQuota(group: GroupState): Record<string, unknown> {
   const tempMax = tier ? planOf(tier).file_temp_max_bytes ?? 0 : 0;
   return {
     state, tier, grace_until: graceUntil, quota_bytes: quota, used_bytes: used, file_count: live.length, default_ttl_hours: group.ttl,
-    max_file_bytes: state === 'active' ? Math.max(free, tempMax) : 0, free_bytes: free, temp_max_bytes: tier ? tempMax : null, temp_ttl_hours: 24
+    max_file_bytes: state === 'active' ? Math.max(free, tempMax) : 0, free_bytes: free, temp_max_bytes: tier ? tempMax : null, temp_ttl_hours: 24,
+    folders_enabled: state === 'active' && (eff === 'pro_plus' || eff === 'max')
   };
+}
+
+/** 文件夹（5.5）：档位够不够（有效档位 Pro+ / MAX） */
+function foldersEnabled(group: GroupState): boolean {
+  return filesQuota(group).folders_enabled === true;
+}
+
+function folderView(group: GroupState, folder: FolderRow): Record<string, unknown> {
+  const now = Date.now();
+  const inside = group.files.filter((file) => file.folder_id === folder.id && (file.expires_at === null || file.expires_at > now));
+  return {
+    id: folder.id, conversation_id: group.id, name: folder.name, file_count: inside.length, total_size: inside.reduce((sum, file) => sum + file.size, 0),
+    created_by: plusPeople.find((user) => user.id === folder.created_by) ?? null, created_by_id: folder.created_by, created_at: iso(folder.created_at), updated_at: iso(folder.updated_at)
+  };
+}
+
+/** 控制字符、换行、零宽等不可见格式字符 */
+function invisible(char: string): boolean {
+  const code = char.codePointAt(0) ?? 0;
+  return code < 0x20 || (code >= 0x7f && code <= 0x9f) || (code >= 0x200b && code <= 0x200f) || (code >= 0x2028 && code <= 0x202e) || (code >= 0x2060 && code <= 0x2064) || code === 0xfeff;
+}
+
+/** 和服务端同一套名字规则：去首尾空白 1–40 个字，不能有换行 / 控制 / 不可见字符、/、\；同群不区分大小写不重名 */
+function folderNameError(group: GroupState, raw: unknown, selfId: number | null): Response | string {
+  const name = typeof raw === 'string' ? raw.trim() : '';
+  // 换行、控制字符、零宽等不可见字符
+  if (!name || [...name].length > 40 || /[\\/]/.test(name) || [...name].some(invisible)) {
+    return detail('invalid_folder_name', '文件夹名字不合法。', {}, 422);
+  }
+  const key = name.normalize('NFKC').toLowerCase();
+  if (group.folders.some((item) => item.id !== selfId && item.name.normalize('NFKC').toLowerCase() === key)) {
+    return detail('folder_name_taken', '已经有同名的文件夹了。', {}, 409);
+  }
+  return name;
 }
 
 function plusInfo(group: GroupState): Record<string, unknown> {
@@ -514,7 +617,8 @@ function fileView(group: GroupState, file: FileRow): Record<string, unknown> {
   return {
     id: file.id, conversation_id: group.id, name: file.name, size: file.size, content_type: file.content_type, uploader, uploader_id: file.uploader_id,
     created_at: iso(file.created_at), expires_at: file.expires_at === null ? null : iso(file.expires_at), permanent: file.expires_at === null, temporary: file.temporary === true, expired,
-    message_id: file.message_id, download_path: `/api/v1/conversations/${group.id}/files/${file.id}/download`
+    message_id: file.message_id, download_path: `/api/v1/conversations/${group.id}/files/${file.id}/download`,
+    folder_id: file.folder_id ?? null, folder_name: group.folders.find((item) => item.id === file.folder_id)?.name ?? null
   };
 }
 
@@ -750,9 +854,19 @@ export function handleGroupFileUpload(path: string, form: FormData): { status: n
   }
   const permanent = !temporary && form.get('permanent') === 'true' && isStaff();
   const announce = form.get('announce') !== 'false';
+  // 传进文件夹（5.5）：先查档位和文件夹；变成临时文件的放根目录、不报错
+  const folderParam = Number(form.get('folder_id') ?? 0);
+  if (folderParam) {
+    if (!foldersEnabled(group)) {
+      return err(403, 'folders_require_plus', '文件夹需要 Pro+ 或 MAX。', { tier: effective(group) });
+    }
+    if (!group.folders.some((item) => item.id === folderParam)) {
+      return err(404, 'folder_not_found', '文件夹不存在。');
+    }
+  }
   plusState.nextFileId += 1;
   const now = Date.now();
-  const row: FileRow = { id: plusState.nextFileId, name: file.name.slice(0, 120) || 'file', size: file.size, content_type: file.type || 'application/octet-stream', uploader_id: 1, created_at: now, expires_at: permanent ? null : now + (temporary ? 24 : group.ttl) * 3_600_000, message_id: null, temporary };
+  const row: FileRow = { id: plusState.nextFileId, name: file.name.slice(0, 120) || 'file', size: file.size, content_type: file.type || 'application/octet-stream', uploader_id: 1, created_at: now, expires_at: permanent ? null : now + (temporary ? 24 : group.ttl) * 3_600_000, message_id: null, temporary, folder_id: folderParam && !temporary ? folderParam : null };
   let message: Message | null = null;
   if (announce) {
     const sizeText = file.size >= MB ? `${(file.size / MB).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
@@ -1006,13 +1120,114 @@ export const groupPlusMock: MockHandler = async ({ path, url, method, body }) =>
     const uploader = Number(url.searchParams.get('uploader_id') ?? 0);
     const limit = Number(url.searchParams.get('limit') ?? 30);
     const offset = Number(url.searchParams.get('offset') ?? 0);
+    const search = Boolean(q || uploader);
+    // 带了 q / uploader_id 是跨文件夹搜索，folder_id 被忽略；否则不带是根目录，带了是这个文件夹
+    const folderId = search ? 0 : Number(url.searchParams.get('folder_id') ?? 0);
+    const folder = folderId ? group.folders.find((item) => item.id === folderId) : null;
+    if (folderId && !folder) {
+      return detail('folder_not_found', '文件夹不存在。', {}, 404);
+    }
     const now = Date.now();
     // locked 且没有历史文件时返回空；过期的文件默认不返回
     const pool = (quota.state === 'locked' ? [] : group.files)
       .filter((file) => file.expires_at === null || file.expires_at > now)
+      .filter((file) => search || (file.folder_id ?? null) === (folder ? folder.id : null))
       .filter((file) => !q || file.name.toLowerCase().includes(q))
       .filter((file) => !uploader || file.uploader_id === uploader);
-    return json({ items: pool.slice(offset, offset + limit).map((file) => fileView(group, file)), total: pool.length, quota });
+    const folderExtras = plusScenario.legacyFolders ? {} : {
+      folder_id: folder ? folder.id : null, folder: folder ? folderView(group, folder) : null, folders: group.folders.map((item) => folderView(group, item)),
+      folder_limit: FOLDER_LIMIT, search, can_manage_folders: isStaff() && quota.folders_enabled === true, can_tidy_folders: isStaff()
+    };
+    return json({ items: pool.slice(offset, offset + limit).map((file) => fileView(group, file)), total: pool.length, quota, ...folderExtras });
+  }
+
+  // ── 群文件夹（5.5） ──
+  if (rest === '/files/folders') {
+    if (method === 'GET') {
+      return json({ items: group.folders.map((item) => folderView(group, item)), limit: FOLDER_LIMIT, can_manage_folders: isStaff() && foldersEnabled(group), can_tidy_folders: isStaff() });
+    }
+    if (method === 'POST') {
+      if (!isStaff()) {
+        return detail('not_group_staff', '只有群主或管理员可以新建文件夹。', {}, 403);
+      }
+      if (!foldersEnabled(group)) {
+        return detail('folders_require_plus', '文件夹需要 Pro+ 或 MAX。', { tier: effective(group) }, 403);
+      }
+      if (group.folders.length >= FOLDER_LIMIT) {
+        return detail('folder_limit', '文件夹数量已达上限。', { limit: FOLDER_LIMIT }, 409);
+      }
+      const name = folderNameError(group, source.name, null);
+      if (name instanceof Response) {
+        return name;
+      }
+      plusState.nextFolderId += 1;
+      const now = Date.now();
+      const folder: FolderRow = { id: plusState.nextFolderId, name, created_by: 1, created_at: now, updated_at: now };
+      group.folders.push(folder);
+      return json(folderView(group, folder), 201);
+    }
+  }
+  const folderMatch = rest.match(/^\/files\/folders\/(\d+)$/);
+  if (folderMatch) {
+    const folder = group.folders.find((item) => item.id === parseId(folderMatch[1]));
+    if (!isStaff()) {
+      return detail('not_group_staff', '只有群主或管理员可以整理文件夹。', {}, 403);
+    }
+    if (method === 'PATCH' && !foldersEnabled(group)) {
+      return detail('folders_require_plus', '文件夹需要 Pro+ 或 MAX。', { tier: effective(group) }, 403);
+    }
+    if (!folder) {
+      return detail('folder_not_found', '文件夹不存在。', {}, 404);
+    }
+    if (method === 'PATCH') {
+      const name = folderNameError(group, source.name, folder.id);
+      if (name instanceof Response) {
+        return name;
+      }
+      folder.name = name;
+      folder.updated_at = Date.now();
+      return json(folderView(group, folder));
+    }
+    if (method === 'DELETE') {
+      return json({ folder_id: folder.id, moved_to_root: dropFolder(group, folder.id) });
+    }
+  }
+  if (rest === '/files/move' && method === 'POST') {
+    if (!isStaff()) {
+      return detail('not_group_staff', '只有群主或管理员可以移动文件。', {}, 403);
+    }
+    const ids = Array.isArray(source.file_ids) ? [...new Set(source.file_ids.filter((item): item is number => typeof item === 'number'))] : [];
+    if (ids.length === 0 || ids.length > 100) {
+      return json({ detail: [{ msg: 'file_ids 要 1–100 个' }] }, 422);
+    }
+    const target = typeof source.folder_id === 'number' ? source.folder_id : null;
+    if (target !== null) {
+      if (!foldersEnabled(group)) {
+        return detail('folders_require_plus', '文件夹需要 Pro+ 或 MAX。', { tier: effective(group) }, 403);
+      }
+      if (!group.folders.some((item) => item.id === target)) {
+        return detail('folder_not_found', '文件夹不存在。', {}, 404);
+      }
+    }
+    const rows = ids.map((id) => group.files.find((file) => file.id === id));
+    const missing = ids.filter((_id, index) => !rows[index]);
+    if (missing.length > 0) {
+      return detail('file_not_found', '有文件不存在。', { file_ids: missing }, 404);
+    }
+    const now = Date.now();
+    if (target !== null) {
+      const temporaryIds = rows.filter((file) => file?.temporary).map((file) => file?.id);
+      const expiredIds = rows.filter((file) => file && file.expires_at !== null && file.expires_at <= now).map((file) => file?.id);
+      if (temporaryIds.length > 0 || expiredIds.length > 0) {
+        return detail('file_not_movable', '临时文件和已过期的文件不能放进文件夹。', { temporary_ids: temporaryIds, expired_ids: expiredIds }, 422);
+      }
+    }
+    for (const file of rows) {
+      if (file) {
+        file.folder_id = target;
+      }
+    }
+    return json({ folder_id: target, moved: rows.length, items: rows.map((file) => (file ? fileView(group, file) : null)) });
   }
   const fileMatch = rest.match(/^\/files\/(\d+)(\/download)?$/);
   if (fileMatch) {

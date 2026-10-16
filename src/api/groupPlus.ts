@@ -1,6 +1,6 @@
 import type { Message, User } from '@/types/api';
 import type {
-  FeaturedMessageEntry, FeaturedMessagePage, GroupFile, GroupFileMeta, GroupFilePage, GroupFileQuota, GroupFilesState, GroupPlusAction, GroupPlusInfo,
+  FeaturedMessageEntry, FeaturedMessagePage, GroupFile, GroupFileFolder, GroupFileMeta, GroupFileMoveResult, GroupFilePage, GroupFileQuota, GroupFilesState, GroupPlusAction, GroupPlusInfo,
   GroupPlusPeriod, GroupPlusPlans, GroupPlusPurchasePayload, GroupPlusPurchaseResult, GroupPlusQuote, GroupPlusRecord, GroupPlusRecordPage,
   GroupPlusTier, GroupPlusTierPlan, GroupTodo, GroupTodoSnapshot
 } from '@/types/groupPlus';
@@ -110,7 +110,8 @@ export function normalizeFileQuota(value: unknown): GroupFileQuota | null {
       free_bytes: count(value.free_bytes),
       temp_max_bytes: nullableCount(value.temp_max_bytes),
       temp_ttl_hours: count(value.temp_ttl_hours, 24)
-    } : {})
+    } : {}),
+    ...('folders_enabled' in value ? { folders_enabled: value.folders_enabled === true } : {})
   };
 }
 
@@ -268,11 +269,32 @@ export function normalizeGroupFile(value: unknown): GroupFile | null {
     temporary: value.temporary === true,
     expired: value.expired === true,
     message_id: nullableCount(value.message_id),
-    download_path: text(value.download_path)
+    download_path: text(value.download_path),
+    // 文件夹（5.5）：旧服务端没有这两项，保持 undefined
+    ...('folder_id' in value ? { folder_id: nullableCount(value.folder_id), folder_name: nullableText(value.folder_name) } : {})
+  };
+}
+
+export function normalizeGroupFolder(value: unknown): GroupFileFolder | null {
+  if (!isRecord(value) || typeof value.id !== 'number' || typeof value.name !== 'string') {
+    return null;
+  }
+  return {
+    id: value.id,
+    conversation_id: count(value.conversation_id),
+    name: value.name,
+    file_count: count(value.file_count),
+    total_size: count(value.total_size),
+    created_by: userOf(value.created_by),
+    created_by_id: nullableCount(value.created_by_id),
+    created_at: text(value.created_at),
+    updated_at: text(value.updated_at)
   };
 }
 
 export interface GroupFileQuery {
+  /** 看哪个文件夹；null / 不传是根目录。带了 q / uploaderId 就是跨文件夹搜索，服务端忽略它 */
+  folderId?: number | null;
   q?: string;
   uploaderId?: number | null;
   limit?: number;
@@ -287,6 +309,9 @@ export async function getGroupFiles(conversationId: number, query: GroupFileQuer
   if (query.uploaderId) {
     params.set('uploader_id', String(query.uploaderId));
   }
+  if (query.folderId) {
+    params.set('folder_id', String(query.folderId));
+  }
   params.set('limit', String(query.limit ?? 30));
   if (query.offset) {
     params.set('offset', String(query.offset));
@@ -294,7 +319,39 @@ export async function getGroupFiles(conversationId: number, query: GroupFileQuer
   const response = await apiRequest<unknown>(`/conversations/${conversationId}/files?${params.toString()}`);
   const source = isRecord(response) ? response : {};
   const items = Array.isArray(source.items) ? source.items.map(normalizeGroupFile).filter(notNull) : [];
-  return { items, total: count(source.total, items.length), quota: normalizeFileQuota(source.quota) };
+  const page: GroupFilePage = { items, total: count(source.total, items.length), quota: normalizeFileQuota(source.quota) };
+  // 文件夹（5.5）：旧服务端没有 folders，整组字段都不填，界面按没有文件夹画
+  if (Array.isArray(source.folders)) {
+    page.folders = source.folders.map(normalizeGroupFolder).filter(notNull);
+    page.folder = normalizeGroupFolder(source.folder);
+    page.folder_limit = count(source.folder_limit, 50);
+    page.search = source.search === true;
+    page.can_manage_folders = source.can_manage_folders === true;
+    page.can_tidy_folders = source.can_tidy_folders === true;
+  }
+  return page;
+}
+
+export async function createGroupFolder(conversationId: number, name: string): Promise<GroupFileFolder | null> {
+  return normalizeGroupFolder(await apiRequest<unknown>(`/conversations/${conversationId}/files/folders`, { method: 'POST', body: { name } }));
+}
+
+export async function renameGroupFolder(conversationId: number, folderId: number, name: string): Promise<GroupFileFolder | null> {
+  return normalizeGroupFolder(await apiRequest<unknown>(`/conversations/${conversationId}/files/folders/${folderId}`, { method: 'PATCH', body: { name } }));
+}
+
+/** 删文件夹：里面的文件移回根目录，不删文件本身。返回移回去的文件数 */
+export async function deleteGroupFolder(conversationId: number, folderId: number): Promise<number> {
+  const response = await apiRequest<unknown>(`/conversations/${conversationId}/files/folders/${folderId}`, { method: 'DELETE' });
+  return isRecord(response) ? count(response.moved_to_root) : 0;
+}
+
+/** 批量移动：folderId 为 null 是移回根目录。要么全部移动，要么一个都不动 */
+export async function moveGroupFiles(conversationId: number, fileIds: number[], folderId: number | null): Promise<GroupFileMoveResult> {
+  const response = await apiRequest<unknown>(`/conversations/${conversationId}/files/move`, { method: 'POST', body: { file_ids: fileIds, folder_id: folderId } });
+  const source = isRecord(response) ? response : {};
+  const items = Array.isArray(source.items) ? source.items.map(normalizeGroupFile).filter(notNull) : [];
+  return { folder_id: nullableCount(source.folder_id), moved: count(source.moved, items.length), items };
 }
 
 export async function getGroupFileUsage(conversationId: number): Promise<GroupFileQuota | null> {
@@ -352,12 +409,12 @@ function uploadResult(response: unknown): UploadGroupFileResult {
  * 返回 null 表示这条路走不通、应该退回经后端上传：后端没开直传（409 direct_upload_unavailable）、旧后端没有这个接口、
  * 或者 PUT 时网络 / 跨域失败（存储桶没配 CORS）。其余错误（空间、禁言、大小）照常抛出。
  */
-async function uploadDirect(conversationId: number, file: File, options: { announce?: boolean; permanent?: boolean; onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal }): Promise<UploadGroupFileResult | null> {
+async function uploadDirect(conversationId: number, file: File, options: { announce?: boolean; permanent?: boolean; folderId?: number | null; onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal }): Promise<UploadGroupFileResult | null> {
   let ticket: UploadTicket | null;
   try {
     ticket = normalizeTicket(await apiRequest<unknown>(`/conversations/${conversationId}/files/uploads`, {
       method: 'POST',
-      body: { name: file.name, size: file.size, content_type: file.type || null, permanent: options.permanent === true }
+      body: { name: file.name, size: file.size, content_type: file.type || null, permanent: options.permanent === true, ...(options.folderId ? { folder_id: options.folderId } : {}) }
     }));
   } catch (error) {
     if (errorCode(error) === 'direct_upload_unavailable' || routeMissing(error)) {
@@ -391,7 +448,7 @@ async function uploadDirect(conversationId: number, file: File, options: { annou
  * 上传一个文件。announce 默认 true：在群里落一条文件消息（受发言限频约束，被拒时整个上传回滚）。
  * direct（FileQuota.direct）为 true 时先走直传，走不通再退回经后端的 multipart 上传。
  */
-export async function uploadGroupFile(conversationId: number, file: File, options: { announce?: boolean; permanent?: boolean; direct?: boolean; onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal } = {}): Promise<UploadGroupFileResult> {
+export async function uploadGroupFile(conversationId: number, file: File, options: { announce?: boolean; permanent?: boolean; folderId?: number | null; direct?: boolean; onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal } = {}): Promise<UploadGroupFileResult> {
   if (options.direct) {
     const direct = await uploadDirect(conversationId, file, options);
     if (direct) {
@@ -404,6 +461,10 @@ export async function uploadGroupFile(conversationId: number, file: File, option
   form.append('announce', String(options.announce !== false));
   if (options.permanent) {
     form.append('permanent', 'true');
+  }
+  // 传进文件夹（5.5）；空间满了变成临时文件时服务端放根目录，以返回的 file.folder_id 为准
+  if (options.folderId) {
+    form.append('folder_id', String(options.folderId));
   }
   return uploadResult(await uploadFormWithProgress<unknown>(`/conversations/${conversationId}/files`, form, options.onProgress, options.signal));
 }

@@ -584,7 +584,7 @@ export function useRealtime(enabled: boolean): void {
         }
         // 群升级、群待办、群文件（docs/group-plus.md 第 4 节）：缓存怎么跟上写在 components/groupPlus/data.ts。
         // 购买人的余额变动走上面的 shop.balance.changed（reason 为 group_plus）
-        if (event.rawType === 'group.plus.updated' || event.rawType === 'group.todo.updated' || event.rawType === 'group.file.updated') {
+        if (event.rawType === 'group.plus.updated' || event.rawType === 'group.todo.updated' || event.rawType === 'group.file.updated' || event.rawType === 'group.file.folders.changed') {
           handleGroupPlusEvent(queryClient, event.rawType, event.data);
         }
         // 账号等级（docs/account-level.md 第 4 节）：我升级了。缓存怎么跟上写在 components/level/data.ts

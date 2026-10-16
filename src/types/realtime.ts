@@ -29,6 +29,7 @@ export type RealtimeEventType =
   | 'group.plus.updated'
   | 'group.todo.updated'
   | 'group.file.updated'
+  | 'group.file.folders.changed'
   | 'group.member.level_updated'
   | 'group.member.left'
   | 'group.member.removed'
