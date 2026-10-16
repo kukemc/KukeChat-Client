@@ -1112,6 +1112,8 @@ export interface Conversation {
   created_at?: string;
   updated_at?: string;
   unread_count?: number;
+  /** 我在这个会话里读到的最后一条消息（成员表上的 last_read_message_id）。聊天区据此精确定位「以下是新消息」；后端没给时退回按 unread_count 从末尾往前数 */
+  last_read_message_id?: number | null;
   member_count?: number;
   last_message?: Message | null;
   members?: ConversationMember[];

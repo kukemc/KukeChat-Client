@@ -20,6 +20,8 @@ export interface ChatRowActions {
   quote: (message: Message) => void;
   forward: (message: Message) => void;
   toggleSelected: (message: Message) => void;
+  /** 多选模式下把锚点（最近点选的那条）到这条之间能选的都选上：Shift + 点选和「选到这里」 */
+  selectRange: (message: Message) => void;
   toggleReaction: (message: Message, emoji: string) => void;
   openReactionPicker: (event: React.MouseEvent<HTMLElement>, message: Message) => void;
   openImages: (images: string[], index: number) => void;

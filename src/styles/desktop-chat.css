@@ -226,6 +226,8 @@
 #kukechat-root .kcd .kcd-chip,
 #kukechat-root .kcd .kcd-reaction,
 #kukechat-root .kcd .kcd-jump-latest,
+#kukechat-root .kcd .kcd-range-pick,
+#kukechat-root .kcd .kcd-unread-hint,
 #kukechat-root .kcd .kcd-plus-one {
   font-size: calc(12px * var(--kcd-fs));
 }
@@ -517,6 +519,60 @@
 .kcd-row.is-selected .kcd-check {
   border-color: var(--kui-fill);
   background: var(--kui-fill);
+}
+
+/* 拖动刷选途中：不选文字，指针统一成「正在刷」 */
+.kcd-scroller.is-brushing {
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.kcd-scroller.is-brushing .kcd-row.is-selecting {
+  cursor: inherit;
+}
+
+/* 「选到这里」：悬停在没选中的行上才露出来的描边小胶囊，和勾选框顶边对齐。
+   绝对定位不占布局；别人的消息贴在行的最右边，自己的消息（气泡在右）贴在勾选框旁边 */
+.kcd-range-pick {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 0;
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  padding: 0 11px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: 999px;
+  background: var(--kui-raised);
+  color: var(--kc-text);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(4px);
+  transition: opacity 140ms ease, transform 140ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  user-select: none;
+}
+
+.kcd-row.is-mine .kcd-range-pick {
+  right: auto;
+  left: 28px;
+  transform: translateX(-4px);
+}
+
+.kcd-row:hover .kcd-range-pick,
+.kcd-range-pick:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.kcd-range-pick:hover {
+  border-color: var(--kui-fill);
+  background: var(--kui-fill);
+  color: var(--kui-on-fill);
 }
 
 .kcd-avatar-slot {
@@ -1014,6 +1070,128 @@
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+}
+
+/* 聊天区右上角的浮动提示栈：「↑ N 条新消息」在上，「N 个红包未领」在下，右对齐、上下排开不重叠。
+   栈本身不接指针，按钮自己在可见时才接。淡出中的那个脱离排布，不在栈里留一块空位 */
+.kcd-float-hints {
+  position: absolute;
+  z-index: 6;
+  top: 10px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.kcd-float-hints .krp-pending {
+  position: relative;
+  top: auto;
+  right: auto;
+}
+
+.kcd-float-hints .krp-pending:not(.is-visible),
+.kcd-unread-hint:not(.is-visible) {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* 「↑ N 条新消息」：和红包提示同一种浮起的墨色字胶囊，细描边 + 很淡的影子，不上颜色 */
+.kcd-unread-hint {
+  position: relative;
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--kc-overlay-surface, var(--kui-raised));
+  box-shadow: var(--kui-shadow);
+  color: var(--kc-text);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: opacity 160ms ease, transform 160ms ease, background-color 120ms ease;
+}
+
+.kcd-unread-hint.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.kcd-unread-hint:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 4%, var(--kc-overlay-surface, var(--kui-raised)));
+}
+
+.kcd-unread-hint:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.kcd-unread-hint:disabled {
+  cursor: progress;
+}
+
+.kcd-unread-hint:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--kc-text) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.kcd-unread-hint b {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 朝上的细箭头：一根竖线加一个折角 */
+.kcd-unread-hint-arrow {
+  position: relative;
+  width: 8px;
+  height: 11px;
+  flex: none;
+}
+
+.kcd-unread-hint-arrow::before,
+.kcd-unread-hint-arrow::after {
+  position: absolute;
+  left: 50%;
+  content: '';
+}
+
+.kcd-unread-hint-arrow::before {
+  top: 1px;
+  bottom: 0;
+  width: 1.5px;
+  margin-left: -0.75px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.kcd-unread-hint-arrow::after {
+  top: 1px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-top: 1.5px solid currentColor;
+  border-left: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kcd-unread-hint,
+  .kcd-unread-hint.is-visible,
+  .kcd-unread-hint:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 /* 有新消息时按钮本身不变色，新消息的条数是里面一个和别处一样的红色未读数 */

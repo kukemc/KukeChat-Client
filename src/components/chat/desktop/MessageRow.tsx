@@ -50,6 +50,7 @@ import { PollCard } from './polls/PollCard';
 import { pollOf } from './polls/pollCache';
 import { PokeNotice } from './poke/PokeNotice';
 import { cx, useChatRow, type ChatRowActions, type ChatRowContextValue } from './runtime';
+import { isSelectableMessage } from './selection';
 
 export interface MessageRowProps {
   message: Message;
@@ -61,6 +62,8 @@ export interface MessageRowProps {
   unreadBefore: boolean;
   selected: boolean;
   selectMode: boolean;
+  /** 多选模式下已经选了至少一条：没选中的行悬停时出现「选到这里」 */
+  canPickRange: boolean;
   highlighted: boolean;
   poked: boolean;
   /** 非空时在气泡外侧显示「+1」复读按钮 */
@@ -367,7 +370,7 @@ function Dividers({ message, showTime, unreadBefore }: { message: Message; showT
   );
 }
 
-function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, selectMode, highlighted, poked, repeatText, repeatDisabled }: MessageRowProps): JSX.Element {
+function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, selectMode, canPickRange, highlighted, poked, repeatText, repeatDisabled }: MessageRowProps): JSX.Element {
   const context = useChatRow();
   const { actions, currentUser } = context;
   const skinSettings = useSkinSettings();
@@ -410,9 +413,23 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
         className={cx('kcd-row', mine && 'is-mine', grouped && 'is-grouped', fresh && 'is-fresh', selectMode && 'is-selecting', selected && 'is-selected', highlighted && 'is-highlighted')}
         onContextMenu={(event) => actions.openMessageMenu(event, message)}
         onDoubleClick={selectMode ? undefined : () => actions.quote(message)}
-        onClick={selectMode ? () => actions.toggleSelected(message) : undefined}
+        onClick={selectMode ? (event) => (event.shiftKey ? actions.selectRange(message) : actions.toggleSelected(message)) : undefined}
+        // Shift + 点选是范围选择，别让浏览器顺手把中间的文字也选上
+        onMouseDown={selectMode ? (event) => {
+          if (event.shiftKey) {
+            event.preventDefault();
+          }
+        } : undefined}
       >
         {selectMode ? <span className="kcd-check" role="checkbox" aria-checked={selected} aria-label="选择消息">{selected ? <Icon name="check" className="h-3 w-3" /> : null}</span> : null}
+        {selectMode && canPickRange && !selected && isSelectableMessage(message) ? (
+          <button type="button" className="kcd-range-pick" title="从上次点选的消息一直选到这条（Shift + 点选同效）" onClick={(event) => {
+            event.stopPropagation();
+            actions.selectRange(message);
+          }}>
+            选到这里
+          </button>
+        ) : null}
         <div className="kcd-avatar-slot">
           {grouped ? (
             <time className="kcd-gutter-time">{formatClockTime(message.created_at)}</time>

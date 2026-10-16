@@ -44,6 +44,7 @@ import { useTodoMenu } from '@/components/groupPlus/todo/useTodoMenu';
 import { usePollRealtime } from './polls/usePollRealtime';
 import { ChatRowContext, cx, readPreference, useEvent, writePreference, type ChatRowActions, type ChatRowContextValue } from './runtime';
 import { useChatMutations } from './useChatMutations';
+import { isSelectableMessage, paintRange, toastSelectionLimit } from './selection';
 
 export interface DesktopChatPanelProps {
   conversations: Conversation[];
@@ -130,6 +131,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   const dragDepthRef = useRef(0);
   const avatarTapRef = useRef<{ userId: number; at: number; timer: number | null } | null>(null);
   const selectMode = selectedIds !== null;
+  /** 范围选择的锚点：最近一次点选（选上或取消）的那条。Shift + 点选、「选到这里」都从它算起。 */
+  const selectAnchorRef = useRef<number | null>(null);
 
   const mutations = useChatMutations({
     conversationId,
@@ -322,6 +325,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     quote: (message) => actionsRef.current.quote(message),
     forward: (message) => actionsRef.current.forward(message),
     toggleSelected: (message) => actionsRef.current.toggleSelected(message),
+    selectRange: (message) => actionsRef.current.selectRange(message),
     toggleReaction: (message, emoji) => actionsRef.current.toggleReaction(message, emoji),
     openReactionPicker: (event, message) => actionsRef.current.openReactionPicker(event, message),
     openImages: (images, index) => actionsRef.current.openImages(images, index),
@@ -392,9 +396,10 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     },
     toggleSelected: (message) => {
       // 多选出来是要合并转发的，红包、礼物不能转发，所以选不上
-      if (message.recalled_at || message.type === 'system' || isRedPacketMessage(message) || isGiftMessage(message)) {
+      if (!isSelectableMessage(message)) {
         return;
       }
+      selectAnchorRef.current = message.id;
       setSelectedIds((current) => {
         const next = new Set(current ?? []);
         if (!next.delete(message.id)) {
@@ -408,6 +413,35 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         mutations.reaction.mutate({ messageId: message.id, emoji });
       }
       setReactionPicker(null);
+    },
+    selectRange: (message) => {
+      if (!isSelectableMessage(message)) {
+        return;
+      }
+      const current = selectedIds ?? new Set<number>();
+      const loaded = listRef.current?.getMessages() ?? [];
+      const target = loaded.findIndex((item) => item.id === message.id);
+      // 锚点被裁出了已加载范围（或者还没点过），就从离目标最近的一条已选消息算起
+      let anchor = loaded.findIndex((item) => item.id === selectAnchorRef.current);
+      if (anchor < 0) {
+        let best = Number.POSITIVE_INFINITY;
+        loaded.forEach((item, index) => {
+          if (current.has(item.id) && Math.abs(index - target) < best) {
+            best = Math.abs(index - target);
+            anchor = index;
+          }
+        });
+      }
+      if (target < 0 || anchor < 0) {
+        actionsRef.current.toggleSelected(message);
+        return;
+      }
+      const { next, truncated } = paintRange(current, loaded, anchor, target, true);
+      if (truncated) {
+        toastSelectionLimit();
+      }
+      selectAnchorRef.current = message.id;
+      setSelectedIds(next);
     },
     openReactionPicker: (event, message) => {
       event.preventDefault();
@@ -458,6 +492,10 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   const handleCreateTask = useEvent(() => setTaskComposerOpen(true));
   const handleOpenTaskCenter = useEvent(() => openTaskCenter('assigned'));
   const handleOpenPenalties = useEvent(() => setShowPenalties(true));
+  const handleBrush = useEvent((next: ReadonlySet<number>, lastId: number) => {
+    selectAnchorRef.current = lastId;
+    setSelectedIds(next);
+  });
   const handleOpenAnnouncements = useEvent(() => setPanel('announcements'));
   const handleSidebarOpenUser = useEvent((element: HTMLElement, user: User | null | undefined, member: ConversationMember | null) => {
     const userId = member ? memberUserId(member) : user?.id;
@@ -553,7 +591,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         {isGroup ? <GroupTodoBar conversation={conversation} canManage={isAdmin} onJump={(messageId) => void listRef.current?.jumpToMessage(messageId)} /> : null}
 
         <ChatRowContext.Provider value={rowContext}>
-          <MessageList ref={listRef} conversation={conversation} currentUserId={currentUser.id} selectMode={selectMode} selectedIds={selectedIds ?? EMPTY_SELECTION} sending={sending} />
+          <MessageList ref={listRef} conversation={conversation} currentUserId={currentUser.id} selectMode={selectMode} selectedIds={selectedIds ?? EMPTY_SELECTION} sending={sending} onBrush={handleBrush} />
         </ChatRowContext.Provider>
 
         {error ? (
@@ -638,7 +676,10 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
           }}
           onForward={actionsRef.current.forward}
           onBookmark={(message) => mutations.bookmark.mutate(message.id)}
-          onMultiSelect={(message) => setSelectedIds(new Set([message.id]))}
+          onMultiSelect={(message) => {
+            selectAnchorRef.current = message.id;
+            setSelectedIds(new Set([message.id]));
+          }}
           onQuote={quoteMessage}
           onFeature={(message) => mutations.feature.mutate(message.id)}
           todoAction={todoMenu(messageMenu.message)}

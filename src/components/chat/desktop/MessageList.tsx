@@ -13,6 +13,7 @@ import type { MessagesInfiniteData } from '../message/types';
 import { MessageRow } from './MessageRow';
 import { cx } from './runtime';
 import { TypingIndicator } from './typing/TypingIndicator';
+import { paintRange, toastSelectionLimit } from './selection';
 import { RedPacketPendingHint } from '@/components/redpacket/RedPacketPendingHint';
 
 /*
@@ -41,6 +42,8 @@ interface MessageListProps {
   selectMode: boolean;
   selectedIds: ReadonlySet<number>;
   sending: boolean;
+  /** 拖动刷选时给出整份新的选中集合；lastId 是刷到的最后一条，作为下一次范围选择的锚点 */
+  onBrush: (next: ReadonlySet<number>, lastId: number) => void;
 }
 
 /** 同一个人在这个时间窗内连续发言时合并头像和昵称。 */
@@ -57,7 +60,35 @@ const MAX_ROWS = 400;
  */
 const BOTTOM_TRIM_AT = 200;
 const BOTTOM_KEEP = 150;
+/** 进入会话时未读至少这么多条，才在右上角给「↑ N 条新消息」 */
+const UNREAD_HINT_MIN = 10;
+/** 跳到第一条未读时，它那一行的顶边离视口顶部留这么多 */
+const UNREAD_TOP_OFFSET_PX = 12;
+/** 没有已读位置、只能按未读数往前数时，最多往前拉这么多页（再早的就跳到能拿到的最早一条） */
+const UNREAD_FETCH_MAX_PAGES = 20;
 const USER_SCROLL_EVENTS = ['wheel', 'touchmove', 'keydown', 'pointerdown', 'pointerup'] as const;
+/** 按下后移动超过这么多才算拖动刷选；没到就是一次普通点击 */
+const BRUSH_START_PX = 4;
+/** 拖到离列表上下边缘这么近就开始自动滚动，越靠外滚得越快 */
+const BRUSH_EDGE_PX = 56;
+const BRUSH_MAX_SPEED_PX = 22;
+/** 这些地方按下不起刷：按钮、链接、气泡内容各有自己的点击 */
+const BRUSH_EXCLUDE = 'button, a, input, textarea, select, [contenteditable="true"], .kcd-content, .kcd-reactions';
+
+interface BrushState {
+  pointerId: number;
+  startId: number;
+  startY: number;
+  /** 刷过的消息统一设成这个状态：按下的那条原来没选就是 true */
+  value: boolean;
+  /** 起刷那一刻的选中集合；范围缩回来时，退出范围的消息恢复成这里的状态 */
+  base: ReadonlySet<number>;
+  active: boolean;
+  clientY: number;
+  lastKey: string;
+  toasted: boolean;
+  frame: number | null;
+}
 
 function isBubbleMessage(message: Message): boolean {
   return message.type !== 'system' && !message.recalled_at;
@@ -127,7 +158,7 @@ class AnchorKeeper extends Component<AnchorKeeperProps, Record<string, never>, A
   }
 }
 
-const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(function MessageList({ conversation, currentUserId, selectMode, selectedIds, sending }, ref) {
+const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(function MessageList({ conversation, currentUserId, selectMode, selectedIds, sending, onBrush }, ref) {
   const conversationId = conversation.id;
   const queryClient = useQueryClient();
   const visibleConversationId = useKukeStore((state) => state.visibleConversationId);
@@ -174,21 +205,52 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   const userScrollUntilRef = useRef(0);
   /** 下一次内容提交后要居中显示的消息（跳转用）。 */
   const pendingCenterRef = useRef<number | null>(null);
+  /** 上面那条跳转是要把目标（连同它上方的分隔线）放到视口顶部，而不是居中（跳到第一条未读用） */
+  const pendingAlignTopRef = useRef(false);
   /** 刚跳转完的一小段时间里，目标附近的图片陆续加载会把它挤走，这期间持续把它对回中间。 */
-  const centerLockRef = useRef<{ messageId: number; until: number } | null>(null);
+  const centerLockRef = useRef<{ messageId: number; until: number; top?: boolean } | null>(null);
   /** 列表从空变为有内容时落到最底部（首次进入、回到最新）。 */
   const needsInitialBottomRef = useRef(true);
   /** 最近一次翻页的方向，决定超出上限时丢哪一头。 */
   const growthRef = useRef<'older' | 'newer' | null>(null);
 
-  // 进入会话时的未读数只取一次，用来在首条未读消息前画分隔线
-  const unreadRef = useRef<{ count: number; resolved: boolean; firstUnreadId: number | null }>({ count: Math.max(0, conversation.unread_count ?? 0), resolved: false, firstUnreadId: null });
-  if (!unreadRef.current.resolved && messages.length > 0) {
-    const { count } = unreadRef.current;
-    unreadRef.current.resolved = true;
-    unreadRef.current.firstUnreadId = count > 0 && count < messages.length ? messages[messages.length - count].id : null;
+  // 进入会话时的未读数和已读位置只取一次（之后读掉了也不变），用来在首条未读消息前画「以下是新消息」。
+  // 有 last_read_message_id 时按它精确定位；拿不到就退回按未读数从末尾往前数。
+  const unreadRef = useRef<{ count: number; lastReadId: number | null; resolved: boolean; knownId: number | null } | null>(null);
+  if (unreadRef.current === null) {
+    const lastReadId = conversation.last_read_message_id ?? conversation.members?.find((member) => member.user_id === currentUserId)?.last_read_message_id ?? null;
+    unreadRef.current = { count: Math.max(0, conversation.unread_count ?? 0), lastReadId, resolved: false, knownId: null };
   }
-  const firstUnreadId = unreadRef.current.firstUnreadId;
+  const unreadEntry = unreadRef.current;
+  if (!unreadEntry.resolved && messages.length > 0) {
+    unreadEntry.resolved = true;
+    if (unreadEntry.lastReadId === null && unreadEntry.count > 0 && unreadEntry.count < messages.length) {
+      unreadEntry.knownId = messages[messages.length - unreadEntry.count].id;
+    }
+  }
+  const firstUnreadId = useMemo(() => {
+    if (unreadEntry.count <= 0 || messages.length === 0) {
+      return null;
+    }
+    if (unreadEntry.knownId !== null) {
+      return messages.some((message) => message.id === unreadEntry.knownId) ? unreadEntry.knownId : null;
+    }
+    const lastReadId = unreadEntry.lastReadId;
+    // 最早一条已加载的都比已读位置新，说明第一条未读还在更上面，没加载到
+    if (lastReadId === null || messages[0].id > lastReadId) {
+      return null;
+    }
+    return messages.find((message) => message.id > lastReadId)?.id ?? null;
+    // unreadEntry 的字段只在跳转前改，跳转一定会换一份 messages
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+  const firstUnreadIdRef = useRef(firstUnreadId);
+  firstUnreadIdRef.current = firstUnreadId;
+  // 「↑ N 条新消息」：未读够多、分隔线还没进过视口时显示；跳过去或自己滚到分隔线后就不再出现
+  const [unreadHintDone, setUnreadHintDone] = useState(() => unreadEntry.count < UNREAD_HINT_MIN);
+  const [unreadJumping, setUnreadJumping] = useState(false);
+  const unreadHintDoneRef = useRef(unreadHintDone);
+  unreadHintDoneRef.current = unreadHintDone;
 
   const rowMeta = useMemo(() => messages.map((message, position) => {
     const previous = messages[position - 1];
@@ -237,16 +299,22 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     }
   }, []);
 
-  /** 把一条消息滚到视口中间。自己算位置而不用 scrollIntoView：后者会连带滚动扩展所在的宿主页面。 */
-  const centerOn = useCallback((messageId: number): void => {
+  /**
+   * 把一条消息滚到视口中间；top 为 true 时改成把它所在的整行（含上方的分隔线）放到视口顶部附近。
+   * 自己算位置而不用 scrollIntoView：后者会连带滚动扩展所在的宿主页面。
+   */
+  const centerOn = useCallback((messageId: number, top = false): void => {
     const scroller = scrollerRef.current;
-    const target = scroller?.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    const row = scroller?.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    const target = top ? row?.closest<HTMLElement>('.kcd-item') ?? row : row;
     if (!scroller || !target) {
       return;
     }
     const scrollerRect = scroller.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
-    scroller.scrollTop += targetRect.top - scrollerRect.top - (scroller.clientHeight - targetRect.height) / 2;
+    scroller.scrollTop += top
+      ? targetRect.top - scrollerRect.top - UNREAD_TOP_OFFSET_PX
+      : targetRect.top - scrollerRect.top - (scroller.clientHeight - targetRect.height) / 2;
   }, []);
 
   const loadOlder = (): void => {
@@ -307,6 +375,18 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     if (contextModeRef.current && distance < LOAD_AHEAD_PX) {
       void loadersRef.current.loadNewerContext();
     }
+    if (!unreadHintDoneRef.current) {
+      // 用户自己滚到了分隔线那里（它进过视口），胶囊就不用再提醒了
+      const divider = scroller.querySelector<HTMLElement>('.kcd-unread-divider');
+      if (divider) {
+        const rect = divider.getBoundingClientRect();
+        const box = scroller.getBoundingClientRect();
+        if (rect.bottom > box.top && rect.top < box.bottom) {
+          unreadHintDoneRef.current = true;
+          setUnreadHintDone(true);
+        }
+      }
+    }
   }, []);
 
   /** 记一笔「用户正在操作滚动」。滚轮、触摸、键盘和拖滚动条都会走到这里。 */
@@ -334,7 +414,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     const observer = new ResizeObserver(() => {
       const lock = centerLockRef.current;
       if (lock && performance.now() < lock.until) {
-        centerOn(lock.messageId);
+        centerOn(lock.messageId, lock.top);
         return;
       }
       // 上下文模式下列表底部不是真正的「最新」，不能自动跟到底，否则会一路连锁加载到头
@@ -354,11 +434,13 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     }
     const target = pendingCenterRef.current;
     if (target !== null && messages.some((message) => message.id === target)) {
+      const top = pendingAlignTopRef.current;
       pendingCenterRef.current = null;
+      pendingAlignTopRef.current = false;
       needsInitialBottomRef.current = false;
       stickRef.current = false;
-      centerOn(target);
-      centerLockRef.current = { messageId: target, until: performance.now() + 1200 };
+      centerOn(target, top);
+      centerLockRef.current = { messageId: target, until: performance.now() + 1200, top };
       highlight(target);
       return;
     }
@@ -413,6 +495,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   }, [contextEdgeId, conversationId, pinToBottom, queryClient]);
 
   const jumpToMessage = useCallback(async (messageId: number) => {
+    pendingAlignTopRef.current = false;
     if (messagesRef.current.some((message) => message.id === messageId)) {
       stickRef.current = false;
       centerOn(messageId);
@@ -440,6 +523,76 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   }, [centerOn, conversationId, highlight, queryClient]);
 
   useImperativeHandle(ref, () => ({ jumpToMessage, scrollToLatest, getMessages: () => messagesRef.current }), [jumpToMessage, scrollToLatest]);
+
+  /** 用一份上下文替换列表，并在提交后把 targetId 放到视口顶部、高亮（跳到第一条未读用）。 */
+  const showContextAtTop = useCallback((contextMessages: Message[], targetId: number) => {
+    const contextPage = Array.from(new Map(contextMessages.map((message) => [message.id, message])).values()).sort((left, right) => left.id - right.id);
+    stickRef.current = false;
+    pendingCenterRef.current = targetId;
+    pendingAlignTopRef.current = true;
+    growthRef.current = null;
+    setContextEdgeId(contextPage[contextPage.length - 1].id);
+    queryClient.setQueryData<MessagesInfiniteData>(['messages', conversationId], singlePage(contextPage));
+  }, [conversationId, queryClient]);
+
+  /** 点「↑ N 条新消息」：跳到第一条未读，分隔线停在视口顶部附近。 */
+  const jumpToFirstUnread = useCallback(async () => {
+    if (unreadJumping) {
+      return;
+    }
+    const loadedId = firstUnreadIdRef.current;
+    if (loadedId !== null) {
+      setUnreadHintDone(true);
+      stickRef.current = false;
+      centerOn(loadedId, true);
+      centerLockRef.current = { messageId: loadedId, until: performance.now() + 1200, top: true };
+      highlight(loadedId);
+      return;
+    }
+    const entry = unreadRef.current;
+    if (!entry) {
+      return;
+    }
+    setUnreadJumping(true);
+    try {
+      if (entry.lastReadId !== null) {
+        // 跳到已读位置附近：往前带几条作为上文，往后一页，分隔线自然画在两者之间
+        const lastReadId = entry.lastReadId;
+        const contextMessages = await getMessageContext(conversationId, lastReadId, { before: 6, after: MESSAGE_PAGE_SIZE });
+        const first = contextMessages.filter((message) => message.id > lastReadId).sort((left, right) => left.id - right.id)[0];
+        if (!first) {
+          toast.error('没找到第一条未读消息，可能已被撤回或清除。');
+          return;
+        }
+        setUnreadHintDone(true);
+        showContextAtTop(contextMessages, first.id);
+        return;
+      }
+      // 没有已读位置：从最新往前按页拉，数够未读条数，拿到能拿到的最早一条未读
+      let pool: Message[] = contextModeRef.current ? [] : messagesRef.current.slice();
+      let more = true;
+      for (let page = 0; more && pool.length < entry.count && page < UNREAD_FETCH_MAX_PAGES; page += 1) {
+        const older = await getMessages(conversationId, { beforeId: pool[0]?.id, limit: MESSAGE_PAGE_SIZE });
+        more = older.length >= MESSAGE_PAGE_SIZE;
+        pool = [...older.filter((message) => !pool.some((item) => item.id === message.id)), ...pool].sort((left, right) => left.id - right.id);
+        if (older.length === 0) {
+          break;
+        }
+      }
+      const first = pool[Math.max(0, pool.length - entry.count)];
+      if (!first) {
+        return;
+      }
+      entry.knownId = first.id;
+      const position = pool.indexOf(first);
+      setUnreadHintDone(true);
+      showContextAtTop(pool.slice(Math.max(0, position - 6), position + MESSAGE_PAGE_SIZE), first.id);
+    } catch {
+      toast.error('加载未读消息失败，请稍后重试。');
+    } finally {
+      setUnreadJumping(false);
+    }
+  }, [centerOn, conversationId, highlight, showContextAtTop, unreadJumping]);
 
   // 不在底部时累计新消息数，显示在「回到最新」按钮上
   const seenNewestIdRef = useRef<number | null>(null);
@@ -505,13 +658,179 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     };
   }, [clearPendingJumpMessage, conversationId, jumpToMessage, messagesLoading, pendingJumpMessage]);
 
+  // ---- 多选模式下的拖动刷选 ----
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  const brushRef = useRef<BrushState | null>(null);
+  const [brushing, setBrushing] = useState(false);
+
+  /** 指针所在高度对应的那条消息（夹在列表可视区内，拖出列表外也按最上 / 最下一条算）。 */
+  const messageIdAtY = useCallback((clientY: number): number | null => {
+    const scroller = scrollerRef.current;
+    const content = contentRef.current;
+    if (!scroller || !content) {
+      return null;
+    }
+    const rect = scroller.getBoundingClientRect();
+    const y = Math.min(Math.max(clientY, rect.top + 1), rect.bottom - 1);
+    const items = content.querySelectorAll<HTMLElement>('.kcd-item');
+    if (items.length === 0) {
+      return null;
+    }
+    let low = 0;
+    let high = items.length - 1;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (items[middle].getBoundingClientRect().bottom <= y) low = middle + 1;
+      else high = middle;
+    }
+    const id = Number(items[low].querySelector<HTMLElement>('[data-message-id]')?.dataset.messageId);
+    return Number.isFinite(id) ? id : null;
+  }, []);
+
+  const paintBrush = useCallback((brush: BrushState): void => {
+    const currentId = messageIdAtY(brush.clientY);
+    const list = messagesRef.current;
+    const from = list.findIndex((message) => message.id === brush.startId);
+    const to = currentId === null ? -1 : list.findIndex((message) => message.id === currentId);
+    if (from < 0 || to < 0) {
+      return;
+    }
+    // 用 id 而不是下标做去重键：往上刷到顶加载了更早的消息，下标会整体后移
+    const key = `${brush.startId}:${currentId}:${list.length}`;
+    if (key === brush.lastKey) {
+      return;
+    }
+    brush.lastKey = key;
+    const { next, truncated } = paintRange(brush.base, list, from, to, brush.value);
+    if (truncated && !brush.toasted) {
+      brush.toasted = true;
+      toastSelectionLimit();
+    }
+    onBrush(next, list[to].id);
+  }, [messageIdAtY, onBrush]);
+
+  /** 每帧：靠近边缘就滚一点，然后按指针当前位置重新算一遍范围。 */
+  const brushTick = useCallback((): void => {
+    const brush = brushRef.current;
+    const scroller = scrollerRef.current;
+    if (!brush || !brush.active || !scroller) {
+      return;
+    }
+    const rect = scroller.getBoundingClientRect();
+    let speed = 0;
+    if (brush.clientY < rect.top + BRUSH_EDGE_PX) {
+      speed = -Math.min(1, (rect.top + BRUSH_EDGE_PX - brush.clientY) / BRUSH_EDGE_PX);
+    } else if (brush.clientY > rect.bottom - BRUSH_EDGE_PX) {
+      speed = Math.min(1, (brush.clientY - (rect.bottom - BRUSH_EDGE_PX)) / BRUSH_EDGE_PX);
+    }
+    if (speed !== 0) {
+      scroller.scrollTop += Math.round(speed * BRUSH_MAX_SPEED_PX) || Math.sign(speed);
+    }
+    paintBrush(brush);
+    brush.frame = window.requestAnimationFrame(brushTick);
+  }, [paintBrush]);
+
+  const endBrush = useCallback((): void => {
+    const brush = brushRef.current;
+    brushRef.current = null;
+    if (!brush) {
+      return;
+    }
+    if (brush.frame !== null) {
+      window.cancelAnimationFrame(brush.frame);
+    }
+    if (brush.active) {
+      setBrushing(false);
+      // 刷完松手会紧跟一个 click，落在起点那一行上就会把它又切回去，吞掉这一次
+      const swallow = (event: MouseEvent): void => {
+        event.stopPropagation();
+        event.preventDefault();
+      };
+      window.addEventListener('click', swallow, { capture: true, once: true });
+      window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectMode) {
+      endBrush();
+      return;
+    }
+    const onMove = (event: PointerEvent): void => {
+      const brush = brushRef.current;
+      if (!brush || event.pointerId !== brush.pointerId) {
+        return;
+      }
+      brush.clientY = event.clientY;
+      if (!brush.active) {
+        if (Math.abs(event.clientY - brush.startY) < BRUSH_START_PX) {
+          return;
+        }
+        brush.active = true;
+        setBrushing(true);
+        window.getSelection()?.removeAllRanges();
+        brush.frame = window.requestAnimationFrame(brushTick);
+      }
+    };
+    const onUp = (event: PointerEvent): void => {
+      if (brushRef.current && event.pointerId === brushRef.current.pointerId) {
+        endBrush();
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('blur', endBrush);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('blur', endBrush);
+      endBrush();
+    };
+  }, [brushTick, endBrush, selectMode]);
+
+  const handleBrushStart = (event: React.PointerEvent<HTMLDivElement>): void => {
+    if (!selectMode || event.button !== 0 || event.shiftKey || event.pointerType === 'touch') {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    // 勾选框那一列、行里的空白处才起刷；勾选框是 span，不在排除列表里
+    if (target.closest(BRUSH_EXCLUDE)) {
+      return;
+    }
+    const row = target.closest('.kcd-item')?.querySelector<HTMLElement>('.kcd-row[data-message-id]');
+    const startId = Number(row?.dataset.messageId);
+    if (!row || !Number.isFinite(startId)) {
+      return;
+    }
+    // 不让这次按下开始选文字；click 照常触发，没拖动时还是一次普通点选
+    event.preventDefault();
+    brushRef.current = {
+      pointerId: event.pointerId,
+      startId,
+      startY: event.clientY,
+      value: !selectedIdsRef.current.has(startId),
+      base: selectedIdsRef.current,
+      active: false,
+      clientY: event.clientY,
+      lastKey: '',
+      toasted: false,
+      frame: null
+    };
+  };
+
   const showJumpToLatest = !atBottom || contextEdgeId !== null;
   const lastPosition = messages.length - 1;
+  // 刷选途中不出「选到这里」，免得按钮在指针下面一闪一闪
+  const canPickRange = selectMode && selectedIds.size > 0 && !brushing;
   const state = messagesLoading ? 'loading' : messagesQuery.isError && messages.length === 0 ? 'error' : messages.length === 0 ? 'empty' : 'ready';
+  const showUnreadHint = !unreadHintDone && state === 'ready';
 
   return (
     <div className="kcd-list">
-      <div ref={scrollerRef} className="kcd-scroller" onScroll={handleScroll}>
+      <div ref={scrollerRef} className={cx('kcd-scroller', brushing && 'is-brushing')} onScroll={handleScroll} onPointerDown={handleBrushStart}>
         {state === 'loading' ? <div className="kcd-list-state"><span className="kcd-spinner" aria-hidden="true" />正在加载消息…</div> : null}
         {state === 'error' ? (
           <div className="kcd-list-state">
@@ -538,6 +857,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
                   unreadBefore={meta.unreadBefore}
                   selected={selectedIds.has(message.id)}
                   selectMode={selectMode}
+                  canPickRange={canPickRange}
                   highlighted={highlightId === message.id}
                   poked={senderId !== null && pokedUserIds.includes(senderId)}
                   repeatText={position === lastPosition ? repeatText : null}
@@ -552,8 +872,24 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
         </div>
       </div>
       <TypingIndicator conversationId={conversationId} />
-      {/* 有我还能领的红包：右上角一个小胶囊，点了跳过去（在滚动容器外面，不随消息滚动） */}
-      <RedPacketPendingHint conversationId={conversationId} onJump={jumpToMessage} />
+      {/* 右上角的浮动提示，上下排：「↑ N 条新消息」在上，「N 个红包未领」在下（都在滚动容器外面，不随消息滚动） */}
+      <div className="kcd-float-hints">
+        {unreadEntry.count >= UNREAD_HINT_MIN ? (
+          <button
+            type="button"
+            className={cx('kcd-unread-hint', showUnreadHint && 'is-visible')}
+            onClick={() => void jumpToFirstUnread()}
+            disabled={unreadJumping}
+            tabIndex={showUnreadHint ? 0 : -1}
+            aria-hidden={!showUnreadHint}
+            title="跳到第一条未读消息"
+          >
+            <span className="kcd-unread-hint-arrow" aria-hidden="true" />
+            <span><b>{unreadEntry.count > 999 ? '999+' : unreadEntry.count}</b> 条新消息</span>
+          </button>
+        ) : null}
+        <RedPacketPendingHint conversationId={conversationId} onJump={jumpToMessage} />
+      </div>
       <button type="button" className={cx('kcd-jump-latest', showJumpToLatest && 'is-visible', newCount > 0 && 'has-new')} onClick={scrollToLatest} tabIndex={showJumpToLatest ? 0 : -1} aria-hidden={!showJumpToLatest}>
         <span className="kcd-jump-latest-arrow" aria-hidden="true" />
         {newCount > 0 ? <><span className="kui-badge">{newCount > 99 ? '99+' : newCount}</span>条新消息</> : '回到最新'}
