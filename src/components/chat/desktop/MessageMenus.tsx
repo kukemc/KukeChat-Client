@@ -5,7 +5,9 @@ import { isGiftMessage } from '@/utils/gift';
 import { isRedPacketMessage } from '@/utils/redPacket';
 import { groupFileMetaOf } from '@/api/groupPlus';
 import { clampOverlayPosition } from '../message/chatDom';
-import { FULL_REACTION_EMOJIS, QUICK_REACTION_EMOJIS, REACTION_PICKER_HEIGHT, REACTION_PICKER_WIDTH } from '../message/constants';
+import { QUICK_REACTION_EMOJIS } from '../message/constants';
+import { ReactionPickerPanel } from './reactions/ReactionPickerPanel';
+import { readRecentReactions, rememberReaction } from './reactions/reactionRecent';
 
 /** 菜单的大致尺寸，用来把它夹在面板范围内。 */
 const MENU_WIDTH = 200;
@@ -43,6 +45,14 @@ export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, o
   // 红包、礼物、群文件消息不能转发（服务端对带文件的合并转发整个拒绝），也不进多选（多选是为了合并转发）
   const redPacket = isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) !== null;
   const position = clampOverlayPosition(menu, MENU_WIDTH, MENU_HEIGHT, overlayRoot);
+  // 快捷回应：最近用过的排前面，不够 6 个用默认的补
+  const quickReactions = [...new Set([...readRecentReactions(), ...QUICK_REACTION_EMOJIS])].slice(0, QUICK_REACTION_EMOJIS.length);
+  const react = (emoji: string): void => {
+    if (!message.reactions?.some((reaction) => reaction.emoji === emoji && reaction.reacted_by_me)) {
+      rememberReaction(emoji);
+    }
+    onReact(message, emoji);
+  };
   const run = (action: () => void) => () => {
     action();
     onClose();
@@ -54,8 +64,8 @@ export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, o
         {!recalled && !system ? (
           <>
             <div className="kcd-menu-reactions">
-              {QUICK_REACTION_EMOJIS.map((emoji) => (
-                <button key={emoji} type="button" onClick={run(() => onReact(message, emoji))} aria-label={`回应 ${emoji}`}>{emoji}</button>
+              {quickReactions.map((emoji) => (
+                <button key={emoji} type="button" onClick={run(() => react(emoji))} aria-label={`回应 ${emoji}`}>{emoji}</button>
               ))}
               <button type="button" onClick={(event) => onMoreReactions(event, message)} aria-label="更多表情回应"><Icon name="plus" className="h-3.5 w-3.5" /></button>
             </div>
@@ -80,22 +90,7 @@ export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, o
   );
 }
 
+/** 「添加表情回应」面板，实现在 reactions/ReactionPickerPanel.tsx。 */
 export function ReactionPicker({ picker, overlayRoot, onPick, onClose }: { picker: ReactionPickerState; overlayRoot: HTMLElement | null; onPick: (message: Message, emoji: string) => void; onClose: () => void }): JSX.Element {
-  const position = clampOverlayPosition(picker, REACTION_PICKER_WIDTH, REACTION_PICKER_HEIGHT, overlayRoot);
-  return (
-    <MenuLayer onClose={onClose} className="absolute inset-0 z-50">
-      <div onMouseDown={(event) => event.stopPropagation()} style={position} className="kcd-popover kcd-reaction-picker scroll-soft">
-        <div className="kcd-reaction-picker-quick">
-          {QUICK_REACTION_EMOJIS.map((emoji) => (
-            <button key={emoji} type="button" onClick={() => onPick(picker.message, emoji)} aria-label={`回应 ${emoji}`}>{emoji}</button>
-          ))}
-        </div>
-        <div className="kcd-emoji-grid kcd-emoji-grid--dense">
-          {FULL_REACTION_EMOJIS.map((emoji) => (
-            <button key={emoji} type="button" onClick={() => onPick(picker.message, emoji)} aria-label={`回应 ${emoji}`}>{emoji}</button>
-          ))}
-        </div>
-      </div>
-    </MenuLayer>
-  );
+  return <ReactionPickerPanel picker={picker} overlayRoot={overlayRoot} onPick={onPick} onClose={onClose} />;
 }

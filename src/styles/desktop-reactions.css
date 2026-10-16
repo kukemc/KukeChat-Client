@@ -1,0 +1,134 @@
+/*
+ * 「添加表情回应」面板（components/chat/desktop/reactions/ReactionPickerPanel.tsx）。
+ * 固定宽高（和组件里的 PICKER_WIDTH / PICKER_HEIGHT 一致），顶部分类页签，下面整块滚动。
+ * 面板本身只用墨色灰阶和细描边，彩色只留给表情；页签上的代表表情去色，选中时才恢复颜色。
+ */
+.kcrp-picker {
+  display: flex;
+  width: 352px;
+  height: 388px;
+  max-height: calc(100% - 16px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--kc-border);
+}
+
+.kcrp-tabs {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 7px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kcrp-tab {
+  position: relative;
+  display: grid;
+  width: 34px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  border-radius: 8px;
+  line-height: 1;
+  transition: background-color 120ms ease;
+}
+
+.kcrp-tab-icon {
+  filter: grayscale(1);
+  opacity: 0.42;
+  transition: filter 140ms ease, opacity 140ms ease;
+}
+
+.kcrp-tab:hover {
+  background: var(--kc-hover);
+}
+
+.kcrp-tab:hover .kcrp-tab-icon {
+  opacity: 0.75;
+}
+
+.kcrp-tab.is-active .kcrp-tab-icon {
+  filter: none;
+  opacity: 1;
+}
+
+/* 选中的页签下面一道墨色短线，和设置页的分段标签同一种语气 */
+.kcrp-tab.is-active::after {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--kc-text);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.kcrp-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 8px 10px;
+}
+
+.kcrp-title {
+  margin: 0;
+  padding: 12px 6px 6px;
+  color: var(--kc-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.kcrp-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.kcrp-grid button {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 9px;
+  line-height: 1;
+  transition: background-color 90ms ease, transform 90ms ease;
+}
+
+.kcrp-grid button:hover {
+  background: var(--kc-hover);
+}
+
+.kcrp-grid button:active {
+  transform: scale(0.9);
+}
+
+/* 自己已经回应过的：细描边圈出来，再点是取消 */
+.kcrp-grid button.is-mine {
+  background: var(--kc-hover);
+  box-shadow: inset 0 0 0 1px var(--kc-border-strong);
+}
+
+.kcrp-grid button:focus-visible,
+.kcrp-tab:focus-visible {
+  outline: 2px solid var(--kc-text);
+  outline-offset: -2px;
+}
+
+#kukechat-root .kcrp-picker .kcrp-grid button,
+#kukechat-root .kcrp-picker .kcrp-tab {
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+#kukechat-root .kcrp-picker .kcrp-grid button {
+  font-size: 23px;
+}
+
+#kukechat-root .kcrp-picker .kcrp-tab {
+  font-size: 17px;
+}
