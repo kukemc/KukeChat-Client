@@ -430,22 +430,26 @@ let linkUnsupported = false;
  * 后端不给直链、或者直链取不回来（存储桶没配跨域），退回带鉴权的 /download（经后端转发）。
  * 文件过期、不存在、没有权限这类错误照常抛出。
  */
-export async function downloadGroupFile(conversationId: number, fileId: number): Promise<Blob> {
-  const proxied = (): Promise<Blob> => apiDownloadBlob(`/conversations/${conversationId}/files/${fileId}/download`);
+/** 几分钟有效的签名直链；后端不给（没开直传 / 旧后端）时返回 null。过期、不存在、没权限照常抛出 */
+export async function getGroupFileLink(conversationId: number, fileId: number): Promise<string | null> {
   if (linkUnsupported) {
-    return proxied();
+    return null;
   }
-  let url: string | null = null;
   try {
     const response = await apiRequest<unknown>(`/conversations/${conversationId}/files/${fileId}/link`);
-    url = isRecord(response) && typeof response.url === 'string' ? response.url : null;
+    return isRecord(response) && typeof response.url === 'string' ? response.url : null;
   } catch (error) {
     if (errorCode(error) === 'direct_download_unavailable' || routeMissing(error)) {
       linkUnsupported = true;
-      return proxied();
+      return null;
     }
     throw error;
   }
+}
+
+export async function downloadGroupFile(conversationId: number, fileId: number): Promise<Blob> {
+  const proxied = (): Promise<Blob> => apiDownloadBlob(`/conversations/${conversationId}/files/${fileId}/download`);
+  const url = await getGroupFileLink(conversationId, fileId);
   if (!url) {
     return proxied();
   }

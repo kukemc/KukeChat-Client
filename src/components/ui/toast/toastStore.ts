@@ -82,6 +82,8 @@ interface ToastStoreState {
   items: ToastItem[];
   push: (message: string, options?: ToastOptions) => number;
   dismiss: (key: number) => void;
+  /** 原地改一条提示（进度这类），不计重复次数、不重新计时 */
+  update: (key: number, patch: Partial<Pick<ToastItem, 'message' | 'tone' | 'subtitle' | 'actions' | 'duration'>>) => void;
   /** 开始收起动画，动画放完由宿主组件调用 remove */
   startExit: (key: number) => void;
   remove: (key: number) => void;
@@ -146,6 +148,7 @@ export const useToastStore = create<ToastStoreState>((set) => ({
     return returnKey;
   },
   dismiss: (key) => set((state) => ({ items: state.items.filter((item) => item.key !== key) })),
+  update: (key, patch) => set((state) => ({ items: state.items.map((item) => (item.key === key ? { ...item, ...patch } : item)) })),
   startExit: (key) => set((state) => ({ items: state.items.map((item) => (item.key === key ? { ...item, exiting: true } : item)) })),
   remove: (key) => set((state) => ({ items: state.items.filter((item) => item.key !== key) })),
   // 鼠标移开时换一个新的 stamp：计时从头开始
@@ -172,6 +175,7 @@ export const toast = {
   error: (message: string, options?: ToastOptions): number => useToastStore.getState().push(message, { ...options, tone: 'error' }),
   /** 手动收掉一条（拿到的是 show 返回的 key） */
   dismiss: (key: number): void => useToastStore.getState().dismiss(key),
+  update: (key: number, patch: Parameters<ToastStoreState['update']>[1]): void => useToastStore.getState().update(key, patch),
   /** 全部收掉 */
   clear: (): void => useToastStore.getState().clear()
 };

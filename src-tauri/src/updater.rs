@@ -59,7 +59,7 @@ struct Metadata {
     pc_version: Option<String>,
 }
 
-fn agent() -> ureq::Agent {
+pub(crate) fn agent() -> ureq::Agent {
     // Per-read timeout instead of a total one: a 5 MB installer on a slow link must not be killed at 120 s.
     ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(10))
@@ -76,7 +76,7 @@ fn metadata_url(from_frontend: Option<String>) -> Option<String> {
         .filter(|value| http_url(value).is_some())
 }
 
-fn http_url(value: &str) -> Option<&str> {
+pub(crate) fn http_url(value: &str) -> Option<&str> {
     let value = value.trim();
     (value.starts_with("https://") || value.starts_with("http://")).then_some(value)
 }

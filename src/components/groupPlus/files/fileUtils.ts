@@ -1,5 +1,7 @@
 import { ApiError } from '@/api/client';
-import { downloadGroupFile } from '@/api/groupPlus';
+import { downloadGroupFile, getGroupFileLink } from '@/api/groupPlus';
+import { toast } from '@/components/ui/toast';
+import { isTauriDesktopApp } from '@/utils/appMode';
 import type { IconName } from '@/components/ui/Icon';
 import type { GroupFileQuota } from '@/types/groupPlus';
 import { parseApiDate } from '@/utils/dateTime';
@@ -55,7 +57,55 @@ export function saveBlob(blob: Blob, name: string): void {
 }
 
 export async function downloadAndSave(conversationId: number, fileId: number, name: string): Promise<void> {
-  saveBlob(await downloadGroupFile(conversationId, fileId), name);
+  if (isTauriDesktopApp()) {
+    const url = await getGroupFileLink(conversationId, fileId);
+    if (url) {
+      await desktopDownload(`${conversationId}-${fileId}-${Date.now()}`, url, name);
+      return;
+    }
+  }
+  const tip = toast.info(`正在下载「${name}」`, { duration: 600_000, dedupe: false });
+  try {
+    saveBlob(await downloadGroupFile(conversationId, fileId), name);
+  } finally {
+    toast.dismiss(tip);
+  }
+  toast.success(`「${name}」已开始保存`, { subtitle: '保存在浏览器的下载位置' });
+}
+
+function formatBytes(bytes: number): string {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+/**
+ * 桌面端：交给原生代码直接写进系统「下载」文件夹（src-tauri/src/downloads.rs），提示里显示进度，
+ * 完成后给「在文件夹中显示」。WebView2 的 a[download] 会静默落盘，用户会以为点了没反应。
+ */
+async function desktopDownload(id: string, url: string, name: string): Promise<void> {
+  const [{ invoke }, { listen }] = await Promise.all([import('@tauri-apps/api/core'), import('@tauri-apps/api/event')]);
+  const tip = toast.info(`正在下载「${name}」`, { subtitle: '准备中…', duration: 600_000, dedupe: false });
+  const unlisten = await listen<{ id: string; downloaded: number; total: number | null }>('kukechat-file-download-progress', (event) => {
+    if (event.payload.id !== id) {
+      return;
+    }
+    const { downloaded, total } = event.payload;
+    toast.update(tip, { subtitle: total ? `${Math.floor((downloaded / total) * 100)}% · ${formatBytes(downloaded)} / ${formatBytes(total)}` : formatBytes(downloaded) });
+  });
+  let path: string;
+  try {
+    path = await invoke<string>('desktop_download_file', { id, url, name });
+  } catch (error) {
+    toast.dismiss(tip);
+    throw new Error(typeof error === 'string' ? error : '下载失败，稍后再试。');
+  } finally {
+    unlisten();
+  }
+  toast.dismiss(tip);
+  const savedName = path.split(/[\\/]/).pop() ?? name;
+  toast.success(`已保存「${savedName}」`, {
+    subtitle: '在「下载」文件夹里',
+    actions: [{ label: '在文件夹中显示', onClick: () => void invoke('desktop_reveal_download', { path }).catch(() => toast.error('文件已不在下载文件夹里')) }]
+  });
 }
 
 /** 下载失败的说法：已过期、文件已被删、没有权限都要说清，其余直接用服务端的话。 */

@@ -1,3 +1,4 @@
+mod downloads;
 mod updater;
 
 use std::{
@@ -96,7 +97,7 @@ pub fn run() {
             }
             _ => {}
         })
-        .invoke_handler(tauri::generate_handler![open_external_url, flash_tray_for_message, updater::desktop_update_check, updater::desktop_update_download, updater::desktop_update_cancel, updater::desktop_update_install, get_desktop_autostart_enabled, set_desktop_autostart_enabled])
+        .invoke_handler(tauri::generate_handler![open_external_url, flash_tray_for_message, updater::desktop_update_check, updater::desktop_update_download, updater::desktop_update_cancel, updater::desktop_update_install, downloads::desktop_download_file, downloads::desktop_reveal_download, get_desktop_autostart_enabled, set_desktop_autostart_enabled])
         .run(tauri::generate_context!())
         .expect("error while running KukeChat desktop app");
 }
