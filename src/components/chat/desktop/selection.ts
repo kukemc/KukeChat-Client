@@ -13,7 +13,8 @@ export const MAX_SELECTED_MESSAGES = 100;
 
 /** 多选出来是要合并转发的：撤回的、系统提示、红包、礼物都选不上。 */
 export function isSelectableMessage(message: Message): boolean {
-  return !message.recalled_at && message.type !== 'system' && !isRedPacketMessage(message) && !isGiftMessage(message);
+  // 还没发出去的本地消息（负数 id）不进多选
+  return message.id > 0 && !message.recalled_at && message.type !== 'system' && !isRedPacketMessage(message) && !isGiftMessage(message);
 }
 
 export interface PaintResult {

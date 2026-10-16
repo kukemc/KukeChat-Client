@@ -20,6 +20,7 @@ import { messageMentionKind } from '@/utils/mentions';
 import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead, UnifiedNotificationList } from '@/types/api';
 import { requestDesktopAttention } from '@/utils/desktopAttention';
 import { applyCreatedMessageToConversations, recordReceivedMessage, shouldAlertIncomingMessage, patchConversation, patchMemberPages, patchMemberPresence, patchMembers, patchMessageInPages, patchUserPresence, upsertMessageIntoFirstPage } from './cache';
+import { settleFromRealtime } from '@/components/chat/message/pendingSend';
 import type { MessagesInfiniteData, ConversationMembersPageData } from './cache';
 import { canAlertConversation, isConversationBlocked, notifyConnectionReady, notifyIncomingMessage, notifyMemberJoined, notifyMemberLeft } from '@/utils/notifications';
 
@@ -285,6 +286,8 @@ export function useRealtime(enabled: boolean): void {
             }
             queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyCreatedMessageToConversations(current, message, currentVisibleConversationId, !shouldIncrementUnread, messageMentionKind(message, currentUser?.id)));
             queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', conversationId], (current) => upsertMessageIntoFirstPage(current, message));
+            // 自己乐观发送的那条先从推送回来了：按 client_nonce 对上本地消息
+            settleFromRealtime(message);
             // 来了一个我能领的红包：会话列表上标「[有红包]」
             noteRedPacketMessage(queryClient, message);
             // 来了一条礼物消息、而且这个会话正开着：卡片上的小动画和聊天区 / 全屏的动效播一次（翻历史不会走到这里）

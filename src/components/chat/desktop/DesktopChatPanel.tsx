@@ -44,6 +44,8 @@ import { useTodoMenu } from '@/components/groupPlus/todo/useTodoMenu';
 import { usePollRealtime } from './polls/usePollRealtime';
 import { ChatRowContext, cx, readPreference, useEvent, writePreference, type ChatRowActions, type ChatRowContextValue } from './runtime';
 import { useChatMutations } from './useChatMutations';
+import { PendingMessageMenu, type PendingMenuState } from './PendingMessage';
+import { enqueueSend, isLocalMessage } from '../message/pendingSend';
 import { isSelectableMessage, paintRange, toastSelectionLimit } from './selection';
 
 export interface DesktopChatPanelProps {
@@ -112,6 +114,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   const composerRef = useRef<ComposerHandle | null>(null);
   const [error, setError] = useState('');
   const [messageMenu, setMessageMenu] = useState<MessageMenuState | null>(null);
+  /** 还没发出去的本地消息的右键菜单（只有重发、删除） */
+  const [pendingMenu, setPendingMenu] = useState<PendingMenuState | null>(null);
   const [memberMenu, setMemberMenu] = useState<MemberMenuTarget | null>(null);
   const [reactionPicker, setReactionPicker] = useState<ReactionPickerState | null>(null);
   const [userCard, setUserCard] = useState<CardState | null>(null);
@@ -144,7 +148,6 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     },
     onPoked: () => listRef.current?.scrollToLatest()
   });
-  const sending = mutations.send.isPending;
 
   const outgoingFriendRequestsQuery = useQuery({ queryKey: ['friend-requests', 'outgoing'], queryFn: getOutgoingFriendRequests, staleTime: 15_000 });
 
@@ -236,6 +239,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
 
   function closeFloating(): void {
     setMessageMenu(null);
+    setPendingMenu(null);
     setMemberMenu(null);
     setReactionPicker(null);
   }
@@ -246,13 +250,13 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   }
 
   function send(variables: SendMessageVariables): void {
-    // 自己发消息时总是回到最新并贴底
+    // 自己发消息时总是回到最新并贴底。乐观发送：先在列表末尾显示，再在后台上传、发送（message/pendingSend.ts）
     listRef.current?.scrollToLatest();
-    mutations.send.mutate(variables);
+    enqueueSend(queryClient, conversationId, currentUser, variables);
   }
 
   function quoteMessage(message: Message): void {
-    if (message.recalled_at || message.type === 'system') {
+    if (message.recalled_at || message.type === 'system' || isLocalMessage(message)) {
       return;
     }
     const senderId = message.sender_id ?? message.sender?.id;
@@ -313,6 +317,12 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     setUserCard(null);
     setMemberMenu(null);
     setReactionPicker(null);
+    if (isLocalMessage(message)) {
+      setMessageMenu(null);
+      setPendingMenu({ message, ...pointInContainer(event.clientX, event.clientY, overlayRootRef.current) });
+      return;
+    }
+    setPendingMenu(null);
     setMessageMenu({ message, clickedImageUrl: clickedImageUrl ?? null, ...pointInContainer(event.clientX, event.clientY, overlayRootRef.current) });
   });
 
@@ -390,7 +400,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     openUser: (element, userId, name) => openUserCardAt(element, userId === currentUser.id ? currentUser : resolveKnownUser(memberByUserId.get(userId)?.user, userId, friends), name),
     quote: quoteMessage,
     forward: (message) => {
-      if (!message.recalled_at && !isRedPacketMessage(message) && !isGiftMessage(message)) {
+      if (!message.recalled_at && !isLocalMessage(message) && !isRedPacketMessage(message) && !isGiftMessage(message)) {
         setForwardIds([message.id]);
       }
     },
@@ -409,7 +419,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
       });
     },
     toggleReaction: (message, emoji) => {
-      if (!message.recalled_at) {
+      if (!message.recalled_at && !isLocalMessage(message)) {
         mutations.reaction.mutate({ messageId: message.id, emoji });
       }
       setReactionPicker(null);
@@ -447,6 +457,9 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
       event.preventDefault();
       event.stopPropagation();
       setMessageMenu(null);
+      if (isLocalMessage(message)) {
+        return;
+      }
       setReactionPicker({ message, ...elementAnchorInContainer(event.currentTarget, overlayRootRef.current, 0) });
     },
     openImages: (images, index) => {
@@ -472,11 +485,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
           .catch((interactionError: unknown) => setError(interactionError instanceof Error ? interactionError.message : '机器人回调发送失败'));
       }
     },
-    repeat: (content) => {
-      if (!sending) {
-        send({ content, type: 'text' });
-      }
-    },
+    repeat: (content) => send({ content, type: 'text' }),
     // 桌面端外层不传 onOpenPost：没有就走全局跳转（切到动态页并打开这条），否则点分享卡片没反应
     openPost: onOpenPost ?? openPostInSpace
   };
@@ -591,7 +600,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         {isGroup ? <GroupTodoBar conversation={conversation} canManage={isAdmin} onJump={(messageId) => void listRef.current?.jumpToMessage(messageId)} /> : null}
 
         <ChatRowContext.Provider value={rowContext}>
-          <MessageList ref={listRef} conversation={conversation} currentUserId={currentUser.id} selectMode={selectMode} selectedIds={selectedIds ?? EMPTY_SELECTION} sending={sending} onBrush={handleBrush} />
+          <MessageList ref={listRef} conversation={conversation} currentUserId={currentUser.id} selectMode={selectMode} selectedIds={selectedIds ?? EMPTY_SELECTION} onBrush={handleBrush} />
         </ChatRowContext.Provider>
 
         {error ? (
@@ -622,7 +631,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
             isGroup={isGroup}
             currentRole={currentRole}
             members={members}
-            sending={sending}
+            sending={false}
             canCreateTask={canCreateTask}
             isTaskAssistantChat={isTaskAssistantChat}
             canSendRedPacket={!isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot)}
@@ -659,6 +668,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         />
       ) : null}
 
+      {pendingMenu ? <PendingMessageMenu menu={pendingMenu} overlayRoot={overlayRootRef.current} onClose={() => setPendingMenu(null)} /> : null}
       {messageMenu ? (
         <MessageMenu
           menu={messageMenu}

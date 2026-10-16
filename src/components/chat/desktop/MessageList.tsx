@@ -10,6 +10,7 @@ import { parseApiDate } from '@/utils/dateTime';
 import { MESSAGE_PAGE_SIZE } from '../message/constants';
 import { repeatableContentOf, senderOf, shouldShowTimeDivider } from '../message/messageMeta';
 import type { MessagesInfiniteData } from '../message/types';
+import { messageRowKey, usePendingEntries } from '../message/pendingSend';
 import { MessageRow } from './MessageRow';
 import { cx } from './runtime';
 import { TypingIndicator } from './typing/TypingIndicator';
@@ -41,7 +42,6 @@ interface MessageListProps {
   currentUserId: number;
   selectMode: boolean;
   selectedIds: ReadonlySet<number>;
-  sending: boolean;
   /** 拖动刷选时给出整份新的选中集合；lastId 是刷到的最后一条，作为下一次范围选择的锚点 */
   onBrush: (next: ReadonlySet<number>, lastId: number) => void;
 }
@@ -158,7 +158,7 @@ class AnchorKeeper extends Component<AnchorKeeperProps, Record<string, never>, A
   }
 }
 
-const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(function MessageList({ conversation, currentUserId, selectMode, selectedIds, sending, onBrush }, ref) {
+const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(function MessageList({ conversation, currentUserId, selectMode, selectedIds, onBrush }, ref) {
   const conversationId = conversation.id;
   const queryClient = useQueryClient();
   const visibleConversationId = useKukeStore((state) => state.visibleConversationId);
@@ -181,13 +181,23 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   const [contextEdgeId, setContextEdgeId] = useState<number | null>(null);
   const [loadingNewer, setLoadingNewer] = useState(false);
   const loadingNewerRef = useRef(false);
+  // 乐观发送的本地消息（还没确认、或者确认了但真消息还没进缓存的）接在最新一条后面；看历史片段时不接
+  const pendingEntries = usePendingEntries(conversationId);
   const messages = useMemo(() => {
+    if (contextEdgeId === null) {
+      if (pendingEntries.length === 0) {
+        return loadedMessages;
+      }
+      const loadedIds = new Set(loadedMessages.map((message) => message.id));
+      const pending = pendingEntries.filter((entry) => entry.serverId === null || !loadedIds.has(entry.serverId)).map((entry) => entry.message);
+      return pending.length > 0 ? [...loadedMessages, ...pending] : loadedMessages;
+    }
     // 边界消息还没进缓存（状态先于数据提交的那一帧）就先不过滤，免得列表闪空
-    if (contextEdgeId === null || !loadedMessages.some((message) => message.id === contextEdgeId)) {
+    if (!loadedMessages.some((message) => message.id === contextEdgeId)) {
       return loadedMessages;
     }
     return loadedMessages.filter((message) => message.id <= contextEdgeId);
-  }, [contextEdgeId, loadedMessages]);
+  }, [contextEdgeId, loadedMessages, pendingEntries]);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const contextModeRef = useRef(false);
@@ -569,7 +579,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
         return;
       }
       // 没有已读位置：从最新往前按页拉，数够未读条数，拿到能拿到的最早一条未读
-      let pool: Message[] = contextModeRef.current ? [] : messagesRef.current.slice();
+      let pool: Message[] = contextModeRef.current ? [] : messagesRef.current.filter((message) => message.id > 0);
       let more = true;
       for (let page = 0; more && pool.length < entry.count && page < UNREAD_FETCH_MAX_PAGES; page += 1) {
         const older = await getMessages(conversationId, { beforeId: pool[0]?.id, limit: MESSAGE_PAGE_SIZE });
@@ -850,7 +860,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
               const senderId = senderIdOf(message);
               return (
                 <MessageRow
-                  key={message.id}
+                  key={messageRowKey(message)}
                   message={message}
                   showTime={meta.showTime}
                   grouped={meta.grouped}
@@ -861,7 +871,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
                   highlighted={highlightId === message.id}
                   poked={senderId !== null && pokedUserIds.includes(senderId)}
                   repeatText={position === lastPosition ? repeatText : null}
-                  repeatDisabled={sending}
+                  repeatDisabled={false}
                 />
               );
             })}

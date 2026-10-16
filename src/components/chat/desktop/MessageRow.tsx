@@ -51,6 +51,8 @@ import { PollCard } from './polls/PollCard';
 import { pollOf } from './polls/pollCache';
 import { PokeNotice } from './poke/PokeNotice';
 import { cx, useChatRow, type ChatRowActions, type ChatRowContextValue } from './runtime';
+import { PendingImageSpinner, PendingSideStatus } from './PendingMessage';
+import { isLocalMessage, localPreviewFor } from '../message/pendingSend';
 import { isSelectableMessage } from './selection';
 
 export interface MessageRowProps {
@@ -161,7 +163,8 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
 
   if (message.type === 'image') {
     const original = resolveAssetUrl(message.content);
-    const preview = resolveMessageImagePreviewUrl(message.content);
+    // 刚发出去的图继续用本地那份（不重新下载、不闪）
+    const preview = localPreviewFor(message.content) ?? resolveMessageImagePreviewUrl(message.content);
     const sticker = isStickerMessage(message);
     if (!original || !preview) {
       return { node: <span className="kcd-image-missing">图片不可用</span>, bare: false };
@@ -176,6 +179,7 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
           onContextMenu={(event) => actions.openMessageMenu(event, message, message.content)}
         >
           <ChatImage src={preview} alt={sticker ? '表情包' : '聊天图片'} variant={sticker ? 'sticker' : 'single'} />
+          {isLocalMessage(message) ? <PendingImageSpinner message={message} /> : null}
         </button>
       )
     };
@@ -253,7 +257,7 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
           <div className={cx('kcd-image-grid', images.length === 1 && 'kcd-image-grid--single')}>
             {images.map((imageUrl, index) => {
               const original = resolveAssetUrl(imageUrl);
-              const preview = resolveMessageImagePreviewUrl(imageUrl);
+              const preview = localPreviewFor(imageUrl) ?? resolveMessageImagePreviewUrl(imageUrl);
               return original && preview ? (
                 <button
                   key={`${imageUrl}-${index}`}
@@ -263,6 +267,7 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
                   onContextMenu={(event) => actions.openMessageMenu(event, message, imageUrl)}
                 >
                   <ChatImage src={preview} alt="聊天图片" variant="grid" />
+                  {isLocalMessage(message) ? <PendingImageSpinner message={message} /> : null}
                 </button>
               ) : <span key={`${imageUrl}-${index}`} className="kcd-image-missing">图片不可用</span>;
             })}
@@ -407,6 +412,8 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
   const bubbleSkin = body.bare ? null : skin;
   const bookmarked = Boolean(message.bookmarked_by_me);
   const featured = Boolean(message.featured);
+  // 乐观发送的本地消息（还没确认）：不出操作条，旁边显示发送状态
+  const local = isLocalMessage(message);
   // 领接龙红包时自动发出的那句话：气泡旁边标一个小小的「接龙」
   const chained = redPacketChainOf(message) !== null;
 
@@ -470,6 +477,7 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
               ) : null}
             </div>
             <div className="kcd-side" onDoubleClick={(event) => event.stopPropagation()}>
+              {local ? <PendingSideStatus message={message} /> : null}
               {chained ? <span className="kcd-chain-mark" title="领取接龙红包时自动发出">接龙</span> : null}
               {repeatText ? (
                 <button type="button" className="kcd-plus-one" title="跟着复读一句" disabled={repeatDisabled} onClick={(event) => {
@@ -480,7 +488,7 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
                 </button>
               ) : null}
             </div>
-            {selectMode ? null : (
+            {selectMode || local ? null : (
               <div className="kcd-toolbar" role="toolbar" aria-label="消息操作" onDoubleClick={(event) => event.stopPropagation()}>
                 <button type="button" title="表情回应" onClick={(event) => actions.openReactionPicker(event, message)}><Icon name="emoji" className="h-4 w-4" /></button>
                 <button type="button" title="引用" onClick={() => actions.quote(message)}><Icon name="quote" className="h-4 w-4" /></button>

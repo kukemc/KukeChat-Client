@@ -199,10 +199,11 @@ function normalizeBookmarkedMessages(value: unknown, conversations: Conversation
   return items;
 }
 
-export async function sendMessage(conversationId: number, content: string, type: MessageType = 'text', metadata?: MessageMetadata): Promise<Message> {
+/** clientNonce：乐观发送的本地标记，服务器在返回和 message.created 里原样带回（docs/chat-features.md 第 11 节） */
+export async function sendMessage(conversationId: number, content: string, type: MessageType = 'text', metadata?: MessageMetadata, clientNonce?: string): Promise<Message> {
   return apiRequest<Message>(`/conversations/${conversationId}/messages`, {
     method: 'POST',
-    body: { content, type, metadata }
+    body: clientNonce ? { content, type, metadata, client_nonce: clientNonce } : { content, type, metadata }
   });
 }
 

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { blockTemporaryConversation, closeTemporaryConversation, createDirectConversation, pokeMember } from '@/api/conversations';
 import { pokeOptionsQuery } from '@/api/users';
 import { sendFriendRequest } from '@/api/friends';
-import { addFavoriteSticker, deleteMessageLocal, forwardMessageBundle, recallMessage, sendMessage, toggleMessageBookmark, toggleMessageFeature, toggleMessageReaction, uploadMessageImage, uploadMessageVoice } from '@/api/messages';
+import { addFavoriteSticker, deleteMessageLocal, forwardMessageBundle, recallMessage, toggleMessageBookmark, toggleMessageFeature, toggleMessageReaction } from '@/api/messages';
 import { createReport } from '@/api/reports';
 import { toast } from '@/components/ui/toast';
 import { patchMessageInPages, upsertMessageIntoFirstPage } from '@/realtime/cache';
@@ -14,17 +14,6 @@ import { applyLatestMessageToConversations } from '@/utils/conversations';
 import { apiErrorCode, describePokeError } from '@/utils/poke';
 import { reportFeaturedLimit } from '../message/featuredLimit';
 import type { MessagesInfiniteData, SendMessageVariables } from '../message/types';
-
-function describeSendError(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
-  if (/20 messages|per minute|429/i.test(message)) {
-    return '发送太频繁了，每分钟最多发送 20 条消息。';
-  }
-  if (/3MB|413|too large/i.test(message)) {
-    return /voice|语音/i.test(message) ? '语音不能超过 2MB。' : '图片压缩后不能超过 3MB（GIF 保留原图，原图不能超过 3MB）。';
-  }
-  return message || '发送失败，请稍后重试。';
-}
 
 interface ChatMutationOptions {
   conversationId: number;
@@ -47,27 +36,6 @@ export function useChatMutations({ conversationId, setError, onFriendRequested, 
     queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', message.conversation_id], (current) => upsertMessageIntoFirstPage(current, message));
     queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyLatestMessageToConversations(current, message, { visibleConversationId: conversationId }));
   };
-
-  const send = useMutation({
-    mutationFn: async ({ content, type, metadata, files, voiceFile, voiceDurationMs, voiceWaveform }: SendMessageVariables) => {
-      if (type === 'voice' && voiceFile) {
-        const uploaded = await uploadMessageVoice(voiceFile);
-        return sendMessage(conversationId, uploaded.url, 'voice', {
-          ...(metadata ?? {}),
-          voice: { duration_ms: voiceDurationMs, content_type: uploaded.content_type ?? voiceFile.type, size: voiceFile.size, waveform: voiceWaveform }
-        });
-      }
-      const uploadedImages = await Promise.all((files ?? []).map(async (file) => (await uploadMessageImage(file)).url));
-      if (uploadedImages.length === 1 && !content.trim() && type === 'image') {
-        return sendMessage(conversationId, uploadedImages[0], 'image', metadata);
-      }
-      const nextMetadata: MessageMetadata | undefined = uploadedImages.length > 0 ? { ...(metadata ?? {}), images: uploadedImages } : metadata;
-      return sendMessage(conversationId, content, type, nextMetadata);
-    },
-    onSuccess: upsertMessage,
-    // 被禁言时输入框会换成锁定提示，不再额外弹错误条
-    onError: (error) => setError(absorbMuteError(error) ? '' : describeSendError(error))
-  });
 
   const poke = useMutation({
     mutationFn: ({ userId, action }: { userId: number; action?: string }) => pokeMember(conversationId, userId, action),
@@ -217,5 +185,5 @@ export function useChatMutations({ conversationId, setError, onFriendRequested, 
     }
   });
 
-  return { send, poke, recall, deleteLocal, bookmark, feature, forward, reaction, favoriteSticker, direct, closeTemporary, blockTemporary, friendRequest, report };
+  return { poke, recall, deleteLocal, bookmark, feature, forward, reaction, favoriteSticker, direct, closeTemporary, blockTemporary, friendRequest, report };
 }

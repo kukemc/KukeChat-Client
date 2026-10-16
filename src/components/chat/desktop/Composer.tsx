@@ -13,6 +13,7 @@ import { BotCommandHint } from './BotCommandHint';
 import { BotCommandPanel, botCommandOptions } from './BotCommandPanel';
 import { activeMentionQuery, composerText, focusAtEnd, insertMentionToken, insertText, readMentions, removeLeadingCommand, removeTokenBeforeCaret, selectionRange, type MentionQuery } from './composerDom';
 import { EmojiPanel } from './emojis/EmojiPanel';
+import { ImageSendDialog, MAX_IMAGES_PER_MESSAGE } from './dialogs/ImageSendDialog';
 import { formatMuteEnd, useMuteStatus } from '@/store/moderationStore';
 import { matchBotCommandInput } from '@/utils/botCommands';
 import { PollComposerButton } from './polls/PollComposerButton';
@@ -73,7 +74,9 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
   // 参数提示看的是已经上屏的文字：组词期间编辑器里是带空格的拼音，按它数参数个数会让提示条来回跳
   const [committedText, setCommittedText] = useState('');
   const [quote, setQuote] = useState<MessageQuoteMetadata | null>(null);
+  // 选好、拖进来、粘贴进来的图先进「发送图片」确认框（ImageSendDialog），点发送才发
   const [stagedImages, setStagedImages] = useState<StagedImage[]>([]);
+  const [imageNotice, setImageNotice] = useState('');
   const [stagedVoice, setStagedVoice] = useState<StagedVoice | null>(null);
   const [mention, setMention] = useState<MentionQuery | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
@@ -223,16 +226,55 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
     }
     const oversized = images.filter((file) => file.size > (/^(image\/jpeg|image\/png|image\/webp)$/i.test(file.type) ? MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES : MAX_IMAGE_UPLOAD_BYTES));
     const valid = images.filter((file) => !oversized.includes(file));
-    setError(oversized.length > 0
-      ? `JPEG/PNG/WEBP 原图不能超过 12MB，GIF 及其他图片原图不能超过 3MB；压缩后不能超过 3MB。已忽略：${oversized.map((file) => `${file.name} (${formatBytes(file.size)})`).join('、')}`
-      : '');
-    if (valid.length === 0) {
+    const already = stagedRef.current.stagedImages.length;
+    const room = Math.max(0, MAX_IMAGES_PER_MESSAGE - already);
+    const accepted = valid.slice(0, room);
+    const notes: string[] = [];
+    if (oversized.length > 0) {
+      notes.push(`JPEG/PNG/WEBP 原图不能超过 12MB，GIF 及其他图片原图不能超过 3MB；压缩后不能超过 3MB。已忽略：${oversized.map((file) => `${file.name} (${formatBytes(file.size)})`).join('、')}`);
+    }
+    if (valid.length > room) {
+      notes.push(`一次最多发送 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出的 ${valid.length - room} 张没有加进来。`);
+    }
+    const note = notes.join(' ');
+    if (accepted.length === 0) {
+      // 确认框还没开：提示放到输入框上方；开着就放在框里
+      if (already > 0) {
+        setImageNotice(note);
+      } else {
+        setError(note);
+      }
       return;
     }
+    setError('');
+    setImageNotice(note);
     setStagedImages((current) => [
       ...current,
-      ...valid.map((file, index) => ({ id: `${Date.now()}-${current.length + index}-${file.name}`, file, previewUrl: URL.createObjectURL(file) }))
+      ...accepted.map((file, index) => ({ id: `${Date.now()}-${current.length + index}-${file.name}`, file, previewUrl: URL.createObjectURL(file) }))
     ]);
+  }
+
+  function clearStagedImages(): void {
+    setImageNotice('');
+    setStagedImages((current) => {
+      current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      return [];
+    });
+  }
+
+  /** 确认框里点了「发送」：图（和说明）合成一条消息，带上输入框里正在引用的那条。 */
+  function sendStagedImages(caption: string): void {
+    const files = stagedImages.map((item) => item.file);
+    if (files.length === 0 || mute.muted) {
+      return;
+    }
+    const metadata: MessageMetadata = {};
+    if (quote) metadata.quote = quote;
+    const nextMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
+    setQuote(null);
+    clearStagedImages();
+    setError('');
+    onSend({ content: caption, type: files.length === 1 && !caption ? 'image' : 'text', metadata: nextMetadata, files });
     editorRef.current?.focus({ preventScroll: true });
   }
 
@@ -612,16 +654,7 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
             <button type="button" aria-label="取消引用" onMouseDown={(event) => event.preventDefault()} onClick={() => setQuote(null)}><Icon name="close" className="h-3 w-3" /></button>
           </div>
         ) : null}
-        {stagedImages.length > 0 ? (
-          <div className="kcd-staged-images">
-            {stagedImages.map((image) => (
-              <div key={image.id} className="kcd-staged-image">
-                <img src={image.previewUrl} alt={image.file.name || '待发送图片'} />
-                <button type="button" aria-label="移除图片" onClick={() => removeStagedImage(image.id)}><Icon name="close" className="h-3 w-3" /></button>
-              </div>
-            ))}
-          </div>
-        ) : null}
+        {stagedImages.length > 0 ? <ImageSendDialog images={stagedImages} notice={imageNotice} onAdd={stageFiles} onRemove={removeStagedImage} onCancel={clearStagedImages} onSend={sendStagedImages} /> : null}
         {stagedVoice ? <StagedVoicePreview voice={stagedVoice} onRemove={clearStagedVoice} /> : null}
         <div className="kcd-editor-wrap">
           {!text && !quote ? <span className="kcd-editor-placeholder">{isGroup ? '发消息，@ 可以提醒群成员' : '发消息'}</span> : null}

@@ -158,11 +158,25 @@ async function start(): Promise<void> {
       return json(pool.slice(-limit));
     }
     if (listMatch) {
-      const body = JSON.parse(String(init?.body ?? '{}')) as { content?: string; type?: Message['type']; metadata?: Message['metadata'] };
+      const body = JSON.parse(String(init?.body ?? '{}')) as { content?: string; type?: Message['type']; metadata?: Message['metadata']; client_nonce?: string };
+      // 乐观发送的预览：window.__harness.send = { delayMs, fail } 控制发送接口多慢、要不要报错
+      const sendControl = (window as unknown as { __harness?: { send?: { delayMs?: number; fail?: boolean } } }).__harness?.send;
+      if (sendControl?.delayMs) {
+        await new Promise((resolve) => window.setTimeout(resolve, sendControl.delayMs));
+      }
+      if (sendControl?.fail) {
+        return new Response(JSON.stringify({ detail: 'Message content was blocked by moderation' }), { status: 422, headers: { 'Content-Type': 'application/json' } });
+      }
       nextId += 1;
-      const message = { id: nextId, conversation_id: Number(listMatch[1]), sender_id: me.id, sender: me, type: body.type ?? 'text', content: body.content ?? '', metadata: body.metadata, created_at: new Date().toISOString() } as Message;
+      const message = { id: nextId, conversation_id: Number(listMatch[1]), sender_id: me.id, sender: me, type: body.type ?? 'text', content: body.content ?? '', metadata: body.metadata, created_at: new Date().toISOString(), client_nonce: body.client_nonce ?? null } as Message;
       history[message.conversation_id].push(message);
       return json(message);
+    }
+    if (path === '/uploads/message-image' && method === 'POST') {
+      const uploadControl = (window as unknown as { __harness?: { send?: { uploadDelayMs?: number } } }).__harness?.send;
+      await new Promise((resolve) => window.setTimeout(resolve, uploadControl?.uploadDelayMs ?? 600));
+      const uploaded = history[1].find((item) => item.type === 'image')?.content ?? '';
+      return json({ url: uploaded });
     }
     const contextMatch = path.match(/^\/conversations\/(\d+)\/messages\/(\d+)\/context$/);
     if (contextMatch) {

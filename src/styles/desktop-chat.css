@@ -2161,3 +2161,192 @@
     animation: none;
   }
 }
+
+/* ───────── 乐观发送：发送中 / 发送失败（message/pendingSend.ts、desktop/PendingMessage.tsx） ───────── */
+
+/* 灰色细线小转圈：只有一圈 1.5px 的弧，克制，不抢气泡的视线 */
+.kcd-send-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin: 0 6px;
+  border: 1.5px solid color-mix(in srgb, var(--kc-text) 14%, transparent);
+  border-top-color: color-mix(in srgb, var(--kc-text) 52%, transparent);
+  border-radius: 50%;
+  animation: kcd-spin 800ms linear infinite;
+}
+
+/* 图上的转圈：右下角一枚半透明的小圆片垫着，深浅图上都看得清 */
+.kcd-media {
+  position: relative;
+}
+
+.kcd-media-pending {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(17, 17, 17, 0.46);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.kcd-media-pending .kcd-send-spinner {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  border-color: rgba(255, 255, 255, 0.28);
+  border-top-color: rgba(255, 255, 255, 0.92);
+}
+
+.kcd-send-failed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 6px;
+  padding: 2px 4px;
+  border-radius: var(--kui-r-sm);
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kcd-fs, 1));
+  white-space: nowrap;
+}
+
+.kcd-send-failed:hover {
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-text);
+}
+
+.kcd-send-failed-mark {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kui-danger);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ───────── 发送图片确认框（dialogs/ImageSendDialog.tsx） ───────── */
+
+.kcd-imgsend .kui-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kcd-imgsend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kcd-imgsend-cell,
+.kcd-imgsend-add {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.kcd-imgsend-cell {
+  background: var(--kc-panel-muted);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+.kcd-imgsend-cell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kcd-imgsend-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(17, 17, 17, 0.62);
+  color: #ffffff;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: background-color 100ms ease;
+}
+
+.kcd-imgsend-remove:hover {
+  background: rgba(17, 17, 17, 0.86);
+}
+
+.kcd-imgsend-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px dashed var(--kc-border-strong);
+  color: var(--kc-muted);
+  font-size: 12px;
+  transition: border-color 100ms ease, color 100ms ease, background-color 100ms ease;
+}
+
+.kcd-imgsend-add:hover {
+  border-color: color-mix(in srgb, var(--kc-text) 40%, transparent);
+  background: color-mix(in srgb, var(--kc-text) 3%, transparent);
+  color: var(--kc-text);
+}
+
+.kcd-imgsend-caption {
+  width: 100%;
+}
+
+.kcd-imgsend-note {
+  margin: 0 auto 0 0;
+  min-width: 0;
+  color: var(--kc-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.kcd-imgsend-note.is-error {
+  margin: -6px 0 0;
+  color: var(--kui-danger);
+}
+
+/* 墨色胶囊：主按钮不用主题色，用正文的墨色（暗色下自然反过来） */
+.kui-btn.kcd-imgsend-pill {
+  min-width: 76px;
+  height: 32px;
+  padding: 0 18px;
+  border-radius: 999px;
+}
+
+.kui-btn--primary.kcd-imgsend-pill {
+  border-color: var(--kc-text);
+  background: var(--kc-text);
+  box-shadow: none;
+  color: var(--kc-panel);
+}
+
+.kui-btn--primary.kcd-imgsend-pill:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--kc-text) 86%, transparent);
+  background: color-mix(in srgb, var(--kc-text) 86%, transparent);
+}
+
+.kui-btn--primary.kcd-imgsend-pill:disabled {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  color: var(--kc-subtle);
+}
