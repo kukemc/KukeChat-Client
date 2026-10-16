@@ -218,7 +218,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   // 有 last_read_message_id 时按它精确定位；拿不到就退回按未读数从末尾往前数。
   const unreadRef = useRef<{ count: number; lastReadId: number | null; resolved: boolean; knownId: number | null } | null>(null);
   if (unreadRef.current === null) {
-    const lastReadId = conversation.last_read_message_id ?? conversation.members?.find((member) => member.user_id === currentUserId)?.last_read_message_id ?? null;
+    const lastReadId = conversation.my_last_read_message_id ?? conversation.members?.find((member) => member.user_id === currentUserId)?.last_read_message_id ?? null;
     unreadRef.current = { count: Math.max(0, conversation.unread_count ?? 0), lastReadId, resolved: false, knownId: null };
   }
   const unreadEntry = unreadRef.current;
