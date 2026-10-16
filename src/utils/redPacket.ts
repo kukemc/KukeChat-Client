@@ -1,4 +1,4 @@
-import type { Message } from '@/types/api';
+import type { Message, User } from '@/types/api';
 import type { RedPacketId, RedPacketMeta } from '@/types/redPacket';
 
 /**
@@ -8,6 +8,8 @@ import type { RedPacketId, RedPacketMeta } from '@/types/redPacket';
 
 export const DEFAULT_RED_PACKET_GREETING = '恭喜发财';
 export const RED_PACKET_GREETING_MAX = 30;
+/** 接龙口令最长几个字（docs/red-packets.md 3.6.1） */
+export const RED_PACKET_CHAIN_MAX = 30;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -24,7 +26,29 @@ export function normalizeRedPacketMeta(value: unknown): RedPacketMeta | null {
   }
   const count = typeof value.count === 'number' && Number.isFinite(value.count) ? Math.max(1, Math.floor(value.count)) : 1;
   const greeting = typeof value.greeting === 'string' ? value.greeting.trim() : '';
-  return { id: value.id, kind: value.kind === 'lucky' ? 'lucky' : 'normal', greeting: greeting || DEFAULT_RED_PACKET_GREETING, count };
+  const meta: RedPacketMeta = { id: value.id, kind: value.kind === 'lucky' ? 'lucky' : 'normal', greeting: greeting || DEFAULT_RED_PACKET_GREETING, count };
+  // 接龙、专属的那几项只在是的时候才有（普通红包的 metadata 和以前一样）
+  const chainText = typeof value.chain_text === 'string' ? value.chain_text.trim() : '';
+  if (chainText) {
+    meta.chain_text = chainText;
+  }
+  if (typeof value.target_user_id === 'number' && Number.isInteger(value.target_user_id) && value.target_user_id > 0) {
+    meta.target_user_id = value.target_user_id;
+    meta.target = isRecord(value.target) && typeof value.target.id === 'number' ? value.target as unknown as User : null;
+  }
+  return meta;
+}
+
+/** 这是不是给别人的专属红包（我领不了）。不是专属红包、或者就是给我的，都是 false。 */
+export function isExclusiveForOther(meta: Pick<RedPacketMeta, 'target_user_id'> | null | undefined, meId: number | null | undefined): boolean {
+  const target = meta?.target_user_id ?? null;
+  return target !== null && target !== meId;
+}
+
+/** 领取接龙红包时自动发出的那条消息指向的红包 id；不是这种消息是 null。 */
+export function redPacketChainOf(message: Pick<Message, 'type' | 'metadata'> | null | undefined): RedPacketId | null {
+  const chain = message?.type === 'text' ? message.metadata?.red_packet_chain : null;
+  return isRecord(chain) && isRedPacketId(chain.red_packet_id) ? chain.red_packet_id : null;
 }
 
 export function isRedPacketMessage(message: Pick<Message, 'type'> | null | undefined): boolean {
@@ -59,6 +83,8 @@ export function redPacketPreview(message: Message | null | undefined): string | 
   if (!message || message.type !== 'red_packet') {
     return null;
   }
-  const greeting = normalizeRedPacketMeta(message.metadata?.red_packet)?.greeting ?? DEFAULT_RED_PACKET_GREETING;
-  return `[红包] ${greeting}`;
+  const meta = normalizeRedPacketMeta(message.metadata?.red_packet);
+  const greeting = meta?.greeting ?? DEFAULT_RED_PACKET_GREETING;
+  const label = meta?.target_user_id ? (meta.chain_text ? '专属接龙红包' : '专属红包') : meta?.chain_text ? '接龙红包' : '红包';
+  return `[${label}] ${greeting}`;
 }

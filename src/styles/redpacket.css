@@ -978,6 +978,310 @@
   color: var(--ksp-m-muted, var(--kc-muted));
 }
 
+/* ───────── 接龙红包、专属红包（docs/red-packets.md 3.6） ───────── */
+
+/* 卡片上的口令：一枚小小的「接龙」签 + 那句话，一行放不下就截断 */
+.krp-card-chain {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  margin-top: 1px;
+  color: rgba(255, 242, 216, 0.92);
+  font-size: calc(12px * var(--krp-fs));
+}
+
+.krp-card-chain b {
+  flex: none;
+  padding: 0 4px;
+  border: 1px solid rgba(255, 226, 160, 0.6);
+  border-radius: 4px;
+  color: var(--krp-gold-hi);
+  font-size: calc(10.5px * var(--krp-fs));
+  font-weight: 600;
+  line-height: 15px;
+}
+
+.krp-card-chain span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.krp-card.is-dim .krp-card-chain {
+  color: rgba(150, 56, 45, 0.86);
+}
+
+.krp-card.is-dim .krp-card-chain b {
+  border-color: rgba(150, 56, 45, 0.3);
+  color: #96382d;
+}
+
+[data-theme='dark'] .krp-card.is-dim .krp-card-chain {
+  color: rgba(241, 211, 201, 0.82);
+}
+
+[data-theme='dark'] .krp-card.is-dim .krp-card-chain b {
+  border-color: rgba(241, 211, 201, 0.3);
+  color: #f1d3c9;
+}
+
+.krp-card-kind {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 给别人的专属红包：还没领，但我领不了 —— 不褪色，「仅 xxx 可领」那行稍微淡一点 */
+.krp-card.is-reserved .krp-card-state {
+  color: rgba(255, 242, 216, 0.74);
+}
+
+/* 红包正面（「开」下面那一截）：接龙红包先说一声领了会发什么 */
+.krp-envelope-chain {
+  max-width: 100%;
+  padding: 3px 12px;
+  border: 1px solid rgba(255, 226, 160, 0.42);
+  border-radius: 12px;
+  color: rgba(255, 242, 216, 0.92);
+  font-size: calc(12px * var(--krp-fs));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* 领取详情顶上：给谁的专属红包、接龙口令 */
+.krp-detail-extra {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 10px;
+  margin-top: 2px;
+  color: rgba(255, 242, 216, 0.8);
+  font-size: calc(11.5px * var(--krp-fs));
+  overflow-wrap: anywhere;
+}
+
+/* 发红包面板里的两种玩法：一行一项，左边名字和一句说明，右边开关 / 选人 */
+.krp-modes {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.krp-mode {
+  display: flex;
+  min-height: 48px;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid var(--kc-border-strong, var(--kc-border));
+  border-radius: 10px;
+  background: var(--kui-control, var(--kc-panel));
+  cursor: default;
+}
+
+label.krp-mode {
+  cursor: pointer;
+}
+
+.krp-mode-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.krp-mode-title {
+  font-weight: 500;
+}
+
+.krp-mode-hint {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--krp-fs));
+}
+
+.krp-mode-pick {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  padding: 0 6px 0 10px;
+  border-radius: 999px;
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--krp-fs));
+  font-weight: 500;
+  transition: background-color 100ms ease;
+}
+
+.krp-mode-pick:hover {
+  background: var(--kc-hover);
+}
+
+.krp-mode-target {
+  display: flex;
+  min-width: 0;
+  max-width: 58%;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.krp-mode-person {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px 0 4px;
+  border: 1px solid var(--kc-border-strong, var(--kc-border));
+  border-radius: 999px;
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--krp-fs));
+  font-weight: 500;
+  transition: background-color 100ms ease;
+}
+
+.krp-mode-person:hover {
+  background: var(--kc-hover);
+}
+
+.krp-mode-person span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.krp-mode-clear {
+  flex: none;
+}
+
+.krp-mode-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: -2px;
+}
+
+/* 专属红包把种类和个数定死了：看得见但点不动 */
+.krp-kinds.is-locked button {
+  cursor: not-allowed;
+}
+
+.krp-kinds.is-locked button:not(.is-active) {
+  opacity: 0.45;
+}
+
+.krp-row.is-locked {
+  background: color-mix(in srgb, var(--kc-text) 4%, transparent);
+  cursor: not-allowed;
+}
+
+.krp-row.is-locked .krp-row-input {
+  color: var(--kc-muted);
+  cursor: not-allowed;
+  -webkit-text-fill-color: currentColor;
+}
+
+/* 选专属红包的领取人（样子和送礼的「送给谁」一样） */
+.krp-pick-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 14px 0;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-muted);
+}
+
+#kukechat-root [data-font-scale] .krp-pick-search input,
+.krp-pick-search input {
+  min-width: 0;
+  height: 34px;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--krp-fs));
+  outline: none;
+}
+
+.krp-pick-note {
+  flex: none;
+  padding: 6px 16px 4px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--krp-fs));
+}
+
+.krp-pick {
+  display: grid;
+  padding: 0 6px 4px;
+}
+
+#kukechat-root [data-font-scale] .krp-pick-row,
+.krp-pick-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--krp-fs));
+  text-align: left;
+}
+
+.krp-pick-row:hover,
+.krp-pick-row.is-active {
+  background: var(--kc-hover);
+}
+
+.krp-pick-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.krp-pick-go {
+  flex: none;
+  color: var(--kc-subtle, var(--kc-muted));
+}
+
+.krp-pick-row.is-active .krp-pick-go {
+  color: var(--kc-text);
+}
+
+/* 领接龙红包时自动发出的那条消息：气泡旁边一个很小的「接龙」 */
+.kcd-chain-mark {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border: 1px solid var(--kc-border-strong, var(--kc-border));
+  border-radius: 4px;
+  color: var(--kc-muted);
+  font-size: 10.5px;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.kcd-side .kcd-chain-mark + * {
+  margin-left: 6px;
+}
+
 /* ───────── 移动布局 ───────── */
 
 [data-layout='mobile'] .krp-backdrop {

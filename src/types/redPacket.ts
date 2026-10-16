@@ -16,7 +16,16 @@ export interface RedPacketMeta {
   kind: RedPacketKind;
   greeting: string;
   count: number;
+  /** 接龙口令：领取时自动以领取人的身份发出这句话（3.6.1）。不是接龙红包没有这一项 */
+  chain_text?: string | null;
+  /** 专属红包给谁（3.6.2）。只有目标本人能领 */
+  target_user_id?: number | null;
+  /** 专属红包的目标，发的时候的快照 */
+  target?: User | null;
 }
+
+/** 服务端支持的玩法（GET /red-packets/config 的 features）。旧服务端没有这个字段，当成空列表 */
+export type RedPacketFeature = 'chain' | 'exclusive';
 
 export interface RedPacketClaim {
   user: User;
@@ -31,6 +40,11 @@ export interface RedPacket {
   kind: RedPacketKind;
   greeting: string;
   sender: User | null;
+  /** 接龙口令；不是接龙红包为 null */
+  chain_text: string | null;
+  /** 专属红包给谁；不是专属红包为 null */
+  target_user_id: number | null;
+  target: User | null;
   conversation_id: number;
   message_id: number;
   /** 总金额。只有我已领、我是发的人、或红包已不是 active 时才有，否则为 null（claimed_amount、claims 同理） */
@@ -66,6 +80,8 @@ export interface RedPacketConfig {
   enabled: boolean;
   limits: RedPacketLimits;
   sent_today: number;
+  /** 服务端支持的玩法；旧服务端没有这个字段时是空列表，界面上不出现新选项 */
+  features: RedPacketFeature[];
 }
 
 /** POST /red-packets 的请求体。normal 的 amount 是单个金额，lucky 的 amount 是总额。 */
@@ -75,6 +91,10 @@ export interface SendRedPacketPayload {
   amount: number;
   count: number;
   greeting: string;
+  /** 接龙口令（1–30 字，不能换行）。不是接龙红包就不带 */
+  chain_text?: string;
+  /** 专属红包的目标。只能在群里用，kind 必须是 normal、count 为 1 */
+  target_user_id?: number;
 }
 
 /**
@@ -95,6 +115,8 @@ export interface ClaimRedPacketResult {
   amount: number;
   red_packet: RedPacket | null;
   balance: RedPacketBalance;
+  /** 接龙红包：领取时以我的身份自动发出的那条消息；其它红包为 null。同一条还会从 message.created 推过来，按 id 去重 */
+  message: Message | null;
 }
 
 export type RedPacketDirection = 'sent' | 'received';
@@ -146,4 +168,6 @@ export interface PendingRedPacket {
   claimed_count: number;
   expires_at: string | null;
   created_at: string;
+  chain_text: string | null;
+  target_user_id: number | null;
 }

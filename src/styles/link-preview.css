@@ -1,0 +1,156 @@
+/* ───────── 外站链接卡片（前缀 kc-bili-）─────────
+   消息里 B 站视频链接下面的卡片（components/chat/message/BilibiliVideoCard.tsx）。
+   和 CCW 作品卡片一个路数：主题的面、字、线，细描边，不加大阴影；B 站的粉色只留给角落里那个小小的「bilibili」。 */
+
+.kc-bili-cards {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.kc-bili-cards:empty {
+  display: none;
+}
+
+.kc-bili-card {
+  --kc-bili-pink: #fb7299;
+  display: flex;
+  width: 360px;
+  max-width: 100%;
+  min-width: 0;
+  gap: 10px;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--kc-border) 85%, transparent);
+  border-radius: 12px;
+  background: var(--kc-panel);
+  color: var(--kc-text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kc-bili-card:hover {
+  border-color: var(--kc-border-strong, var(--kc-border));
+  background: color-mix(in srgb, var(--kc-panel) 92%, var(--kc-text) 3%);
+}
+
+.kc-bili-card:focus-visible {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: 2px;
+}
+
+.kc-bili-cover {
+  position: relative;
+  display: block;
+  width: 128px;
+  flex: none;
+  align-self: flex-start;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kc-bili-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kc-bili-cover-empty {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: var(--kc-muted);
+}
+
+.kc-bili-duration {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.kc-bili-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 1px 2px 0 0;
+}
+
+.kc-bili-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.kc-bili-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: 11.5px;
+  line-height: 16px;
+}
+
+.kc-bili-owner {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc-bili-up {
+  flex: none;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 11px;
+  opacity: 0.8;
+}
+
+.kc-bili-views {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kc-bili-brand {
+  flex: none;
+  margin-left: auto;
+  color: var(--kc-bili-pink);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+[data-layout='mobile'] .kc-bili-cover {
+  width: 112px;
+}

@@ -7,7 +7,7 @@ import type { User } from '@/types/api';
 import type { RedPacket, RedPacketStatus } from '@/types/redPacket';
 import { parseApiDate } from '@/utils/dateTime';
 import { describeClaimError, redPacketErrorCode, useClaimRedPacket, useRedPacket } from './data';
-import { useRedPacketExpired } from './RedPacketCard';
+import { redPacketTargetName, useRedPacketExpired } from './RedPacketCard';
 import { RedPacketLayer } from './RedPacketLayer';
 import { useRedPacketMotion, useRedPacketUi, type RedPacketTarget } from './ui';
 
@@ -65,6 +65,8 @@ function summaryText(packet: RedPacket, expired: boolean, mine: boolean): string
  *   领取详情     我抢到多少、谁抢了多少、手气最佳、已领几个、多久抢完。领过的、自己在私聊里发的，点开直接是它
  * 点「开」之后「开」字转起来，拿到结果再换成领取详情；抢完、过期、领过了都落到各自的画面上，不弹报错。
  * 能不能领只看红包自己的状态，不看总开关：开关关掉只是不能发新的，已经发出去的照常能领。
+ * 给别人的专属红包（包括我发给别人的）领不了：点开直接是领取详情，按钮换成「专属红包，仅 xxx 可领」。
+ * 接龙红包在正面提前说一声：领了会以我的名义发出口令。
  */
 export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetail = false, onClose }: { target: RedPacketTarget; isGroup: boolean; currentUser: User; /** 直接看领取详情，不经过「开」的那一面（从红包记录里点开） */ initialDetail?: boolean; onClose: () => void }): JSX.Element {
   const { meta } = target;
@@ -102,7 +104,12 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
   const ownDirect = mine && !isGroup;
   const ended: Exclude<RedPacketStatus, 'active'> | null = packet && packet.status !== 'active' ? packet.status : expired ? 'expired' : endedBy;
   const claimed = packet?.my_claim ?? null;
-  const showDetail = !opening && (wantDetail || Boolean(claimed) || ownDirect);
+  const targetId = meta.target_user_id ?? packet?.target_user_id ?? null;
+  const forMe = targetId !== null && targetId === currentUser.id;
+  const forOther = targetId !== null && !forMe;
+  const targetName = redPacketTargetName(meta, packet);
+  const chainText = meta.chain_text ?? packet?.chain_text ?? null;
+  const showDetail = !opening && (wantDetail || Boolean(claimed) || ownDirect || forOther);
   // 领取名单看不看得到：我领过、我发的、或者已经不是 active
   const canSeeClaims = Boolean(packet && (packet.claims !== null || claimed || mine || ended));
 
@@ -146,6 +153,10 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
         } else if (code === 'already_claimed' || code === 'own_packet') {
           // 其实领过了 / 是自己在私聊里发的：直接看详情
           setWantDetail(true);
+        } else if (code === 'not_target') {
+          // 是给别人的专属红包（手头的数据没跟上）：红包状态重取之后会自己换成「仅 xxx 可领」
+          setError(describeClaimError(failure).message);
+          setWantDetail(true);
         } else {
           setError(describeClaimError(failure).message);
         }
@@ -156,15 +167,21 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
   const closeButton = <button type="button" className="krp-close" aria-label="关闭" disabled={opening} onClick={onClose}><Icon name="close" className="h-4 w-4" /></button>;
 
   if (showDetail) {
-    const kindText = isGroup ? (meta.kind === 'lucky' ? '拼手气红包' : '普通红包') : null;
+    const kindText = targetId !== null ? '专属红包' : isGroup ? (meta.kind === 'lucky' ? '拼手气红包' : '普通红包') : null;
     return (
       <RedPacketLayer label="红包领取详情" onClose={onClose}>
         <section className="krp-panel krp-detail" data-red-packet-view="detail" data-status={ended ?? 'active'}>
           <header className="krp-detail-head">
             {closeButton}
             <span className="krp-detail-avatar"><Avatar user={sender} size="md" /></span>
-            <p className="krp-detail-from">{senderName} 的红包{kindText ? <span className="krp-chip">{kindText}</span> : null}</p>
+            <p className="krp-detail-from">{senderName} 的红包{kindText ? <span className="krp-chip">{kindText}</span> : null}{chainText ? <span className="krp-chip">接龙</span> : null}</p>
             <p className="krp-detail-greeting">{packet?.greeting ?? meta.greeting}</p>
+            {targetId !== null || chainText ? (
+              <p className="krp-detail-extra" data-red-packet="detail-extra">
+                {targetId !== null ? <span>{forMe ? '给你的专属红包' : `给 ${targetName} 的专属红包`}</span> : null}
+                {chainText ? <span>接龙口令「{chainText}」</span> : null}
+              </p>
+            ) : null}
           </header>
           <div className="krp-detail-body kui-scroll">
             {claimed ? (
@@ -176,6 +193,11 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
               <div className="krp-amount" data-red-packet="own-amount">
                 {packet.total !== null ? <p className="krp-amount-number"><b>{formatCoins(packet.total)}</b><span>币</span></p> : null}
                 <p className="krp-amount-note">{packet.status === 'finished' ? '对方已领取' : ended ? ENDED_TEXT[ended] : '等待对方领取'}</p>
+              </div>
+            ) : forOther && !ended ? (
+              <div className="krp-amount" data-red-packet="reserved">
+                <button type="button" className="krp-btn-red" disabled data-action="reserved">专属红包，仅 {targetName} 可领</button>
+                {error ? <p className="krp-amount-note" role="alert">{error}</p> : null}
               </div>
             ) : ended ? (
               <div className="krp-amount" data-red-packet="ended"><p className="krp-amount-note is-strong">{ENDED_TEXT[ended]}</p></div>
@@ -191,7 +213,7 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
                 {query.error ? <>领取详情没有加载出来。<button type="button" className="krp-link" onClick={() => void refetch()}>重试</button></> : '加载中…'}
               </p>
             ) : !canSeeClaims || packet.claims === null ? (
-              <p className="krp-empty">领取之后才能看到大家的手气。</p>
+              <p className="krp-empty">{forOther ? `${targetName} 领取之后才能看到金额。` : '领取之后才能看到大家的手气。'}</p>
             ) : packet.claims.length === 0 ? (
               <p className="krp-empty">{ended ? '没有人领取。' : '还没有人领取。'}</p>
             ) : (
@@ -224,7 +246,7 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
       <section className={cx('krp-envelope', ended && 'is-ended', opening && 'is-opening')} data-red-packet-view="face" data-status={ended ?? 'active'}>
         {closeButton}
         <span className="krp-envelope-avatar"><Avatar user={sender} size="lg" /></span>
-        <p className="krp-envelope-from">{senderName} 发出的红包</p>
+        <p className="krp-envelope-from">{forMe ? `${senderName} 给你的专属红包` : `${senderName} 发出的红包`}</p>
         <p className="krp-envelope-greeting">{ended ? ENDED_TEXT[ended] : packet?.greeting ?? meta.greeting}</p>
         {canOpen ? (
           <button type="button" className="krp-open" data-action="open-red-packet" disabled={opening} aria-label="开红包" onClick={open}>
@@ -232,6 +254,7 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
           </button>
         ) : null}
         <div className="krp-envelope-foot">
+          {chainText && !ended ? <p className="krp-envelope-chain" data-red-packet="chain-hint">接龙红包：领取后会以你的名义发出「{chainText}」</p> : null}
           {error ? <p className="krp-envelope-error" role="alert">{error}</p> : null}
           {loading ? <p className="krp-envelope-hint" role="status">正在看看还有没有…</p> : null}
           {!packet && query.error ? <p className="krp-envelope-error" role="alert">红包没有加载出来。<button type="button" className="krp-link" onClick={() => void refetch()}>重试</button></p> : null}

@@ -2,11 +2,19 @@ import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cx } from '@/components/chat/desktop/runtime';
 import { formatCoins } from '@/components/shop/labels';
-import type { Message } from '@/types/api';
+import { getDisplayName } from '@/components/ui/Avatar';
+import { useKukeStore } from '@/store/kukeStore';
+import type { Message, User } from '@/types/api';
 import type { RedPacket, RedPacketMeta } from '@/types/redPacket';
 import { parseApiDate } from '@/utils/dateTime';
 import { isRedPacketExpired, recheckRedPacketPending, useRedPacket } from './data';
 import { useRedPacketUi } from './ui';
+
+/** 专属红包的目标怎么称呼：消息上的快照 > 红包状态里的；都没有就是「Ta」 */
+export function redPacketTargetName(meta: Pick<RedPacketMeta, 'target'> | null | undefined, packet?: Pick<RedPacket, 'target'> | null): string {
+  const target: User | null | undefined = meta?.target ?? packet?.target;
+  return getDisplayName(target, 'Ta');
+}
 
 function stop(event: SyntheticEvent): void {
   event.stopPropagation();
@@ -53,9 +61,9 @@ export function useRedPacketExpired(packet: RedPacket | undefined): boolean {
   return packet ? isRedPacketExpired(packet, now) : false;
 }
 
-type CardState = 'open' | 'waiting' | 'claimed' | 'finished' | 'expired' | 'revoked';
+type CardState = 'open' | 'waiting' | 'reserved' | 'claimed' | 'finished' | 'expired' | 'revoked';
 
-const STATE_TEXT: Record<Exclude<CardState, 'claimed'>, string> = {
+const STATE_TEXT: Record<Exclude<CardState, 'claimed' | 'reserved'>, string> = {
   open: '领取红包',
   waiting: '等待对方领取',
   finished: '已被领完',
@@ -63,9 +71,9 @@ const STATE_TEXT: Record<Exclude<CardState, 'claimed'>, string> = {
   revoked: '已撤回'
 };
 
-function cardState(packet: RedPacket | undefined, expired: boolean, mine: boolean, isGroup: boolean): CardState {
+function cardState(packet: RedPacket | undefined, expired: boolean, mine: boolean, isGroup: boolean, forOther: boolean): CardState {
   if (!packet) {
-    return mine && !isGroup ? 'waiting' : 'open';
+    return forOther ? 'reserved' : mine && !isGroup ? 'waiting' : 'open';
   }
   if (packet.my_claim) {
     return 'claimed';
@@ -79,13 +87,17 @@ function cardState(packet: RedPacket | undefined, expired: boolean, mine: boolea
   if (expired) {
     return 'expired';
   }
+  // 给别人的专属红包：还在等那个人领（发的人自己也领不了）
+  if (forOther) {
+    return 'reserved';
+  }
   // 私聊里自己发的红包自己不能领
   return mine && !isGroup ? 'waiting' : 'open';
 }
 
 /**
  * 聊天里的一张红包卡片，桌面和移动的消息列表共用。
- * 不变的部分（祝福语、种类、个数）来自消息上的 `metadata.red_packet`；状态（可领 / 我已领 / 已抢完 / 已过期 / 已撤回）
+ * 不变的部分（祝福语、种类、个数、接龙口令、专属给谁）来自消息上的 `metadata.red_packet`；状态（可领 / 我已领 / 已抢完 / 已过期 / 已撤回）
  * 来自按 id 缓存的 GET /red-packets/{id}，进入视口才取第一次，之后由 red_packet.updated 事件更新（见 data.ts）。
  * 点开交给 RedPacketHost 画弹层。
  */
@@ -107,11 +119,20 @@ export function RedPacketCard({ message, meta, mine, isGroup }: { message: Messa
       recheckRedPacketPending(queryClient, conversationId);
     }
   }, [conversationId, expired, packet, queryClient]);
-  const state = cardState(packet, expired, mine, isGroup);
+  const meId = useKukeStore((state) => state.currentUser?.id ?? null);
+  const targetId = meta.target_user_id ?? packet?.target_user_id ?? null;
+  const forMe = targetId !== null && targetId === meId;
+  const forOther = targetId !== null && !forMe;
+  const targetName = redPacketTargetName(meta, packet);
+  const chainText = meta.chain_text ?? packet?.chain_text ?? null;
+  const state = cardState(packet, expired, mine, isGroup, forOther);
   const dim = state === 'claimed' || state === 'finished' || state === 'expired' || state === 'revoked';
   const count = packet?.count ?? meta.count;
-  const stateText = state === 'claimed' ? `已领取 ${formatCoins(packet?.my_claim?.amount ?? 0)} 币` : state === 'finished' && count === 1 ? '已被领取' : STATE_TEXT[state];
-  const kindText = isGroup ? (meta.kind === 'lucky' ? '拼手气红包' : '普通红包') : '红包';
+  const stateText = state === 'claimed' ? `已领取 ${formatCoins(packet?.my_claim?.amount ?? 0)} 币`
+    : state === 'reserved' ? `仅 ${targetName} 可领`
+    : state === 'finished' && count === 1 ? (targetId !== null ? `${targetName} 已领取` : '已被领取')
+    : STATE_TEXT[state];
+  const kindText = targetId !== null ? (forMe ? '给你的专属红包' : `给 ${targetName} 的专属红包`) : isGroup ? (meta.kind === 'lucky' ? '拼手气红包' : '普通红包') : '红包';
 
   return (
     <button
@@ -120,7 +141,9 @@ export function RedPacketCard({ message, meta, mine, isGroup }: { message: Messa
       className={cx('krp-card', dim && 'is-dim', `is-${state}`)}
       data-red-packet={String(meta.id)}
       data-state={state}
-      aria-label={`红包：${meta.greeting}，${stateText}`}
+      data-chain={chainText ? '' : undefined}
+      data-exclusive={targetId !== null ? (forMe ? 'me' : 'other') : undefined}
+      aria-label={`${kindText}：${meta.greeting}${chainText ? `，接龙口令「${chainText}」` : ''}，${stateText}`}
       onClick={(event) => {
         event.stopPropagation();
         open({ meta, conversationId: message.conversation_id, sender: message.sender ?? null });
@@ -132,11 +155,12 @@ export function RedPacketCard({ message, meta, mine, isGroup }: { message: Messa
         <span className="krp-seal" aria-hidden="true"><i>福</i></span>
         <span className="krp-card-text">
           <span className="krp-card-greeting">{meta.greeting}</span>
+          {chainText ? <span className="krp-card-chain" title="领取时会自动发出这句话"><b>接龙</b><span>{chainText}</span></span> : null}
           <span className="krp-card-state">{stateText}</span>
         </span>
       </span>
       <span className="krp-card-foot">
-        <span>{kindText}</span>
+        <span className="krp-card-kind">{kindText}</span>
         {packet && count > 1 ? <span className="krp-card-progress">{Math.min(packet.claimed_count, count)}/{count}</span> : null}
       </span>
     </button>

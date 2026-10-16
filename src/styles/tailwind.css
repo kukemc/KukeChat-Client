@@ -39,6 +39,7 @@
 @import './group-todo.css';
 @import './chat-search.css';
 @import './app-update.css';
+@import './link-preview.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

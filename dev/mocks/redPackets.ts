@@ -1,5 +1,6 @@
 import { isRecord } from '@/api/normalizers';
 import type { Message, User } from '@/types/api';
+import type { RedPacketMeta } from '@/types/redPacket';
 import { shopScenario } from './shop';
 import { json, type MockHandler } from './types';
 
@@ -11,6 +12,11 @@ import { json, type MockHandler } from './types';
  * 和契约对齐的几处：回包里的 balance 是商店那种余额对象；GET /mine 发出的每一项是红包对象（多一个 refunded_amount），
  * 收到的是 { amount, created_at, red_packet }；关着总开关（backend: disabled）只是不能发，已经发出去的照常能领。
  * 会话对象上的 red_packet_pending 由 redPacketState.pending 算，预览页在返回会话列表时带上。
+ *
+ * 接龙 / 专属（3.6）：config 的 features 由 scenario.features 决定（none 是还不认识它们的旧后端）；
+ * 领到接龙红包时以领取人的身份落一条带 metadata.red_packet_chain 的文字消息，回包里带着它，
+ * 同一条再通过 setup 给的 onLive 推一次（模拟 message.created 的回声，客户端要按 id 去重）；
+ * 别人领的接龙红包也一样走 onLive。scenario.groupMuted 模拟「我在这个群里被禁言」：领接龙红包得到 muted_in_group。
  */
 
 export interface RedPacketScenario {
@@ -19,9 +25,13 @@ export interface RedPacketScenario {
   /** GET /red-packets/pending：ok 正常；missing 是有红包、但还没有这个接口的旧后端（/red-packets/{id} 把 pending 当 id，422） */
   pendingBackend: 'ok' | 'missing';
   /** 发红包时强制返回的错误；none 表示按真实规则来 */
-  sendError: 'none' | 'disabled' | 'not_member' | 'muted' | 'ccw_not_bound' | 'invalid_amount' | 'invalid_count' | 'invalid_kind' | 'greeting_rejected' | 'insufficient_balance' | 'daily_limit' | 'verification_unavailable' | 'server';
+  sendError: 'none' | 'disabled' | 'not_member' | 'muted' | 'ccw_not_bound' | 'invalid_amount' | 'invalid_count' | 'invalid_kind' | 'greeting_rejected' | 'chain_text_rejected' | 'invalid_target' | 'insufficient_balance' | 'daily_limit' | 'verification_unavailable' | 'server';
   /** 抢红包时强制返回的错误 */
-  claimError: 'none' | 'not_member' | 'muted' | 'own_packet' | 'already_claimed' | 'finished' | 'expired' | 'revoked' | 'server';
+  claimError: 'none' | 'not_member' | 'muted' | 'not_target' | 'own_packet' | 'muted_in_group' | 'already_claimed' | 'finished' | 'expired' | 'revoked' | 'server';
+  /** config.features：all 两种新玩法都有；none 是还没有接龙 / 专属的旧后端（不带这个字段） */
+  features: 'all' | 'none';
+  /** 我在群里被禁言（或群开了全员禁言）：普通红包照常能领，接龙红包领不了（muted_in_group） */
+  groupMuted: boolean;
   limits: { max_total: number; max_count: number; min_each: number; daily_send_limit: number; expire_hours: number };
   sentToday: number;
   delay: number;
@@ -32,6 +42,8 @@ export const redPacketScenario: RedPacketScenario = {
   pendingBackend: 'ok',
   sendError: 'none',
   claimError: 'none',
+  features: 'all',
+  groupMuted: false,
   limits: { max_total: 500, max_count: 100, min_each: 1, daily_send_limit: 20, expire_hours: 24 },
   sentToday: 2,
   delay: 260
@@ -63,6 +75,10 @@ interface MockPacket {
   finished_at: string | null;
   /** 过期、撤回时退回给发的人的 */
   refunded: number;
+  /** 接龙口令；不是接龙红包是 null */
+  chainText: string | null;
+  /** 专属红包给谁；不是专属红包是 null */
+  targetId: number | null;
 }
 
 /** 拼手气的分法（二倍均值）：每一份在 [min, 剩余平均的两倍] 里随机，保证后面的人至少还有 min。 */
@@ -80,6 +96,7 @@ export function splitLucky(total: number, count: number, min: number): number[] 
 }
 
 const packets = new Map<number, MockPacket>();
+const seededChains: Message[] = [];
 const users = new Map<number, User>();
 const directConversations = new Set<number>();
 let meId = 1;
@@ -87,6 +104,8 @@ let nextPacketId = 700;
 let nextMessageId = 9000;
 /** 新的红包消息交给谁（预览页把它放进会话的历史里） */
 let deliver: (message: Message) => void = () => undefined;
+/** 实时推给在线成员的消息（message.created）：接龙红包被领时自动发出的那句话 */
+let live: (message: Message) => void = () => undefined;
 
 /** 发过哪些红包请求，给自动化脚本核对用（一屏很多红包时数请求数） */
 export const redPacketRequests: Array<{ method: string; path: string; body: unknown }> = [];
@@ -149,6 +168,9 @@ function view(packet: MockPacket, viewerId = meId): Record<string, unknown> {
     expires_at: packet.expires_at,
     created_at: packet.created_at,
     finished_at: packet.finished_at,
+    chain_text: packet.chainText,
+    target_user_id: packet.targetId,
+    target: packet.targetId === null ? null : userOf(packet.targetId),
     claims: open ? packet.claims.map((claim) => ({ user: userOf(claim.userId), amount: claim.amount, created_at: claim.created_at, is_luckiest: claim === luckiest })) : null
   };
 }
@@ -156,6 +178,43 @@ function view(packet: MockPacket, viewerId = meId): Record<string, unknown> {
 /** 实时事件 red_packet.updated 的 data（不带金额） */
 function updateOf(packet: MockPacket): Record<string, unknown> {
   return { id: packet.id, conversation_id: packet.conversation_id, message_id: packet.message_id, claimed_count: packet.claims.length, count: packet.count, status: packet.status };
+}
+
+/** 兜底文字（给旧客户端、会话列表、通知），和服务端一样按玩法区分 */
+function fallbackContent(packet: MockPacket): string {
+  const target = packet.targetId === null ? null : userOf(packet.targetId);
+  const name = target ? target.nickname || target.username : '';
+  const label = packet.targetId !== null ? (packet.chainText ? '专属接龙红包' : '专属红包') : packet.chainText ? '接龙红包' : '红包';
+  return `[${label}] ${target ? `给 ${name}：` : ''}${packet.greeting}（更新到新版才能领取）`;
+}
+
+/** metadata.red_packet：接龙 / 专属的那几项只在是的时候才有 */
+function metaOf(packet: MockPacket): RedPacketMeta {
+  const meta: RedPacketMeta = { id: packet.id, kind: packet.kind, greeting: packet.greeting, count: packet.count };
+  if (packet.chainText) {
+    meta.chain_text = packet.chainText;
+  }
+  if (packet.targetId !== null) {
+    meta.target_user_id = packet.targetId;
+    meta.target = userOf(packet.targetId);
+  }
+  return meta;
+}
+
+/** 领接龙红包时以领取人的身份自动发出的那条文字消息 */
+function chainMessageOf(packet: MockPacket, userId: number, createdAt: string): Message {
+  nextMessageId += 1;
+  return {
+    id: nextMessageId,
+    conversation_id: packet.conversation_id,
+    sender_id: userId,
+    sender: userOf(userId),
+    type: 'text',
+    content: packet.chainText ?? '',
+    metadata: { red_packet_chain: { red_packet_id: packet.id } },
+    created_at: createdAt,
+    sender_level: ((userId * 7) % 30) + 1
+  } as Message;
 }
 
 function messageOf(packet: MockPacket): Message {
@@ -166,8 +225,8 @@ function messageOf(packet: MockPacket): Message {
     sender: userOf(packet.senderId),
     type: 'red_packet',
     // 给旧客户端的兜底文字
-    content: `[红包] ${packet.greeting}（当前版本不支持，请更新客户端后领取）`,
-    metadata: { red_packet: { id: packet.id, kind: packet.kind, greeting: packet.greeting, count: packet.count } },
+    content: fallbackContent(packet),
+    metadata: { red_packet: metaOf(packet) },
     created_at: packet.created_at,
     sender_level: ((packet.senderId * 7) % 30) + 1
   } as Message;
@@ -184,6 +243,10 @@ interface CreateOptions {
   /** 多少分钟之前发的 */
   minutesAgo?: number;
   messageId?: number;
+  /** 接龙口令 */
+  chainText?: string;
+  /** 专属红包给谁 */
+  targetUserId?: number;
 }
 
 function create(options: CreateOptions): MockPacket {
@@ -206,7 +269,9 @@ function create(options: CreateOptions): MockPacket {
     created_at: new Date(createdAt).toISOString(),
     expires_at: new Date(createdAt + redPacketScenario.limits.expire_hours * 3600_000).toISOString(),
     finished_at: null,
-    refunded: 0
+    refunded: 0,
+    chainText: options.chainText?.trim() || null,
+    targetId: options.targetUserId ?? null
   };
   packets.set(packet.id, packet);
   return packet;
@@ -232,18 +297,20 @@ function take(packet: MockPacket, userId: number, secondsAfter?: number): MockCl
 
 /** 预览页用：直接摆布红包的状态，返回值是该跟着发的 red_packet.updated 事件 data */
 export const redPacketState = {
-  setup(options: { me: number; people: User[]; direct: number[]; onMessage: (message: Message) => void }): void {
+  setup(options: { me: number; people: User[]; direct: number[]; onMessage: (message: Message) => void; onLive?: (message: Message) => void }): void {
     meId = options.me;
     options.people.forEach((user) => users.set(user.id, user));
     options.direct.forEach((id) => directConversations.add(id));
     deliver = options.onMessage;
+    live = options.onLive ?? (() => undefined);
   },
-  /** 造一个红包（不扣币，不发消息），返回它的消息对象，放进历史里 */
+  /** 造一个红包（不扣币，不发消息），返回它的消息对象，放进历史里。接龙红包被 claimedBy 领过的那几句话见 seedChain */
   seed(options: CreateOptions & { claimedBy?: number[]; status?: 'expired' | 'revoked' }): Message {
     // 摆出来的初始状态不动余额：余额以地址参数 / 控制条给的为准
     const spent = shopScenario.spent;
     const packet = create(options);
     (options.claimedBy ?? []).forEach((userId, index) => take(packet, userId, 4 + index * 7));
+    seededChains.push(...(packet.chainText ? packet.claims.map((item) => chainMessageOf(packet, item.userId, item.created_at)) : []));
     shopScenario.spent = spent;
     if (options.status === 'expired') {
       packet.expires_at = new Date(Date.now() - 60_000).toISOString();
@@ -252,6 +319,10 @@ export const redPacketState = {
       end(packet, 'revoked');
     }
     return messageOf(packet);
+  },
+  /** 上次 seed 出来的接龙红包里，领过的人自动发出的那几句话（取走就清空），预览页把它们接在红包消息后面 */
+  seedChain(): Message[] {
+    return seededChains.splice(0, seededChains.length);
   },
   /** 别人发来一个红包：返回消息对象（预览页自己把它推进缓存） */
   receive(options: CreateOptions): Message {
@@ -269,9 +340,18 @@ export const redPacketState = {
     if (!packet || packet.status !== 'active') {
       return null;
     }
-    const candidate = [...users.keys()].find((id) => id !== meId && id !== packet.senderId && !packet.claims.some((claim) => claim.userId === id))
+    // 专属红包只有目标本人能领（目标是我就让我自己去领）
+    if (packet.targetId === meId || (packet.targetId !== null && packet.claims.length > 0)) {
+      return null;
+    }
+    const candidate = packet.targetId ?? [...users.keys()].find((id) => id !== meId && id !== packet.senderId && !packet.claims.some((claim) => claim.userId === id))
       ?? 1000 + packet.claims.length;
-    take(packet, candidate);
+    const taken = take(packet, candidate);
+    if (taken && packet.chainText) {
+      const message = chainMessageOf(packet, candidate, taken.created_at);
+      deliver(message);
+      live(message);
+    }
     return updateOf(packet);
   },
   expire(packetId: number): Record<string, unknown> | null {
@@ -311,7 +391,7 @@ export const redPacketState = {
 /** 这个会话里我还能领的红包，最早的在前（和 red_packet_pending、GET /pending 一个口径） */
 function claimable(conversationId: number): MockPacket[] {
   packets.forEach(settle);
-  return [...packets.values()].filter((packet) => packet.conversation_id === conversationId && packet.status === 'active' && !packet.claims.some((claim) => claim.userId === meId) && !(packet.senderId === meId && directConversations.has(conversationId)));
+  return [...packets.values()].filter((packet) => packet.conversation_id === conversationId && packet.status === 'active' && !packet.claims.some((claim) => claim.userId === meId) && !(packet.senderId === meId && directConversations.has(conversationId)) && !(packet.targetId !== null && packet.targetId !== meId));
 }
 
 /** GET /red-packets/pending?conversation_id=…：新的在前，最多 20 个，不带金额 */
@@ -325,7 +405,10 @@ function pendingList(conversationId: number): Response {
     count: packet.count,
     claimed_count: packet.claims.length,
     expires_at: packet.expires_at,
-    created_at: packet.created_at
+    created_at: packet.created_at,
+    chain_text: packet.chainText,
+    target_user_id: packet.targetId,
+    target: packet.targetId === null ? null : userOf(packet.targetId)
   }));
   return json({ items });
 }
@@ -343,6 +426,10 @@ function send(body: unknown): Response {
   const count = typeof source.count === 'number' ? source.count : NaN;
   const greeting = typeof source.greeting === 'string' ? source.greeting : '';
   const direct = directConversations.has(conversationId);
+  const rawChain = source.chain_text;
+  const chainText = typeof rawChain === 'string' ? rawChain.trim() : '';
+  const rawTarget = source.target_user_id;
+  const targetId = rawTarget === undefined || rawTarget === null ? null : rawTarget;
 
   if (forced === 'disabled' || redPacketScenario.backend === 'disabled') {
     return fail(403, 'disabled', '红包功能未开放');
@@ -356,10 +443,15 @@ function send(body: unknown): Response {
   if (forced === 'ccw_not_bound' || !shopScenario.bound) {
     return fail(403, 'ccw_not_bound', '还没有绑定 CCW 账号');
   }
-  if (forced === 'invalid_kind' || kind === null || (direct && kind !== 'normal')) {
+  // 专属红包：私聊里不能发（在 invalid_kind 之前判断），目标要是群里的人、不是自己、不是机器人
+  if (forced === 'invalid_target' || (targetId !== null && (direct || typeof targetId !== 'number' || !Number.isInteger(targetId) || targetId < 1 || targetId === meId || !users.has(targetId) || users.get(targetId)?.is_bot))) {
+    const reason = forced === 'invalid_target' ? 'not_member' : direct ? 'direct' : typeof targetId !== 'number' || !Number.isInteger(targetId) || targetId < 1 ? 'invalid' : targetId === meId ? 'self' : !users.has(targetId) ? 'not_member' : 'bot';
+    return fail(422, 'invalid_target', '专属红包的目标不对', { reason });
+  }
+  if (forced === 'invalid_kind' || kind === null || (direct && kind !== 'normal') || (targetId !== null && kind !== 'normal')) {
     return fail(422, 'invalid_kind', '红包种类不对');
   }
-  if (forced === 'invalid_count' || !Number.isInteger(count) || count < 1 || count > limits.max_count || (direct && count !== 1)) {
+  if (forced === 'invalid_count' || !Number.isInteger(count) || count < 1 || count > limits.max_count || ((direct || targetId !== null) && count !== 1)) {
     return fail(422, 'invalid_count', '红包个数不对');
   }
   const total = kind === 'normal' ? amount * count : amount;
@@ -368,6 +460,19 @@ function send(body: unknown): Response {
   }
   if (forced === 'greeting_rejected' || greeting.length > 30 || /违规/.test(greeting)) {
     return fail(422, 'greeting_rejected', '祝福语没有通过审核');
+  }
+  // 口令：不是字符串、有换行、超过 30 字、没过审核（这里拿「违规」两个字模拟）
+  if (rawChain !== undefined && rawChain !== null && typeof rawChain !== 'string') {
+    return fail(422, 'chain_text_rejected', '接龙口令格式不对');
+  }
+  if (typeof rawChain === 'string' && /[\r\n\u2028\u2029]/.test(rawChain)) {
+    return fail(422, 'chain_text_rejected', '接龙口令不能换行');
+  }
+  if (chainText.length > 30) {
+    return fail(422, 'chain_text_rejected', '接龙口令最多 30 个字');
+  }
+  if (forced === 'chain_text_rejected' || /违规/.test(chainText)) {
+    return fail(422, 'chain_text_rejected', '接龙口令没有通过审核，换一句试试');
   }
   if (forced === 'daily_limit' || redPacketScenario.sentToday >= limits.daily_send_limit) {
     return fail(429, 'daily_limit', '今天发红包的次数用完了');
@@ -384,7 +489,7 @@ function send(body: unknown): Response {
     }
     return fail(402, 'insufficient_balance', '金币不够', { balance: actual, shortfall: total - actual });
   }
-  const packet = create({ senderId: meId, conversationId, kind, amount, count, greeting });
+  const packet = create({ senderId: meId, conversationId, kind, amount, count, greeting, chainText: chainText || undefined, targetUserId: targetId ?? undefined });
   shopScenario.spent += total;
   redPacketScenario.sentToday += 1;
   const message = messageOf(packet);
@@ -408,8 +513,14 @@ function claim(packet: MockPacket | undefined): Response {
   if (forced === 'muted') {
     return fail(403, 'muted', '你已被禁言');
   }
+  if (forced === 'not_target' || (packet.targetId !== null && packet.targetId !== meId)) {
+    return fail(403, 'not_target', '这是给别人的专属红包');
+  }
   if (forced === 'own_packet' || (packet.senderId === meId && directConversations.has(packet.conversation_id))) {
     return fail(403, 'own_packet', '不能领自己发的红包');
+  }
+  if (forced === 'muted_in_group' || (packet.chainText && redPacketScenario.groupMuted && !directConversations.has(packet.conversation_id))) {
+    return fail(403, 'muted_in_group', '你在这个群里被禁言了，领不了接龙红包');
   }
   if (forced === 'already_claimed' || packet.claims.some((item) => item.userId === meId)) {
     // 强制「已经领过」时把它做成真的：我其实在别的设备上领过了
@@ -438,7 +549,15 @@ function claim(packet: MockPacket | undefined): Response {
   if (!taken) {
     return fail(410, 'finished', '红包已经被抢完了');
   }
-  return json({ amount: taken.amount, red_packet: view(packet), balance: balancePayload() });
+  // 接龙红包：同一个事务里以我的身份发出口令；回包带着它，稍后 message.created 再推一次（客户端按 id 去重）
+  let message: Message | null = null;
+  if (packet.chainText) {
+    message = chainMessageOf(packet, meId, taken.created_at);
+    deliver(message);
+    const echo = message;
+    window.setTimeout(() => live(echo), 150);
+  }
+  return json({ amount: taken.amount, red_packet: view(packet), balance: balancePayload(), message });
 }
 
 export const redPacketsMock: MockHandler = async ({ path, url, method, body }) => {
@@ -451,7 +570,7 @@ export const redPacketsMock: MockHandler = async ({ path, url, method, body }) =
     return json({ detail: 'Not Found' }, 404);
   }
   if (path === '/red-packets/config' && method === 'GET') {
-    return json({ enabled: redPacketScenario.backend === 'ok', limits: redPacketScenario.limits, sent_today: redPacketScenario.sentToday });
+    return json({ enabled: redPacketScenario.backend === 'ok', limits: redPacketScenario.limits, sent_today: redPacketScenario.sentToday, ...(redPacketScenario.features === 'all' ? { features: ['chain', 'exclusive'] } : {}) });
   }
   if (path === '/red-packets' && method === 'POST') {
     return send(body);

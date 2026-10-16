@@ -1,5 +1,5 @@
 import type { Message, User } from '@/types/api';
-import type { ClaimRedPacketResult, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketClaim, RedPacketConfig, RedPacketDirection, RedPacketId, RedPacketKind, RedPacketRecord, RedPacketRecordPage, RedPacketStatus, RedPacketUpdate, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
+import type { ClaimRedPacketResult, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketClaim, RedPacketConfig, RedPacketDirection, RedPacketFeature, RedPacketId, RedPacketKind, RedPacketRecord, RedPacketRecordPage, RedPacketStatus, RedPacketUpdate, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
 import { apiRequest } from './client';
 import { isRecord } from './normalizers';
 import { DEFAULT_RED_PACKET_GREETING, isRedPacketId as isId } from '@/utils/redPacket';
@@ -40,6 +40,19 @@ function userOf(value: unknown): User | null {
   return isRecord(value) && typeof value.id === 'number' ? value as unknown as User : null;
 }
 
+/** 专属红包的目标 id：正整数才算 */
+function targetIdOf(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function chainTextOf(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function messageOf(value: unknown): Message | null {
+  return isRecord(value) && typeof value.id === 'number' && typeof value.conversation_id === 'number' ? value as unknown as Message : null;
+}
+
 function normalizeClaim(value: unknown): RedPacketClaim | null {
   const user = isRecord(value) ? userOf(value.user) : null;
   if (!isRecord(value) || !user) {
@@ -62,6 +75,9 @@ export function normalizeRedPacket(value: unknown): RedPacket | null {
     kind: kindOf(value.kind),
     greeting: text(value.greeting).trim() || DEFAULT_RED_PACKET_GREETING,
     sender: userOf(value.sender),
+    chain_text: chainTextOf(value.chain_text),
+    target_user_id: targetIdOf(value.target_user_id),
+    target: userOf(value.target),
     conversation_id: count(value.conversation_id),
     message_id: count(value.message_id),
     total: nullableCount(value.total),
@@ -108,6 +124,8 @@ function normalizeBalance(value: unknown): RedPacketBalance {
 /** 契约里的默认上限，回包里缺哪一项就用哪一项的默认值。 */
 const DEFAULT_LIMITS = { max_total: 500, max_count: 100, min_each: 1, daily_send_limit: 20, expire_hours: 24 };
 
+const FEATURES: readonly RedPacketFeature[] = ['chain', 'exclusive'];
+
 export async function getRedPacketConfig(): Promise<RedPacketConfig> {
   const response = await apiRequest<unknown>('/red-packets/config');
   const source = isRecord(response) ? response : {};
@@ -122,14 +140,16 @@ export async function getRedPacketConfig(): Promise<RedPacketConfig> {
       daily_send_limit: positive(limits.daily_send_limit, DEFAULT_LIMITS.daily_send_limit),
       expire_hours: positive(limits.expire_hours, DEFAULT_LIMITS.expire_hours)
     },
-    sent_today: Math.max(0, count(source.sent_today))
+    sent_today: Math.max(0, count(source.sent_today)),
+    // 旧服务端没有这个字段：当成空列表，不认识的玩法丢掉
+    features: Array.isArray(source.features) ? FEATURES.filter((feature) => (source.features as unknown[]).includes(feature)) : []
   };
 }
 
 export async function sendRedPacket(payload: SendRedPacketPayload): Promise<SendRedPacketResult> {
   const response = await apiRequest<unknown>('/red-packets', { method: 'POST', body: payload });
   const source = isRecord(response) ? response : {};
-  const message = isRecord(source.message) && typeof source.message.id === 'number' && typeof source.message.conversation_id === 'number' ? source.message as unknown as Message : null;
+  const message = messageOf(source.message);
   return { red_packet: normalizeRedPacket(source.red_packet), message, balance: normalizeBalance(source.balance) };
 }
 
@@ -144,7 +164,7 @@ export async function getRedPacket(id: RedPacketId): Promise<RedPacket> {
 export async function claimRedPacket(id: RedPacketId): Promise<ClaimRedPacketResult> {
   const response = await apiRequest<unknown>(`/red-packets/${encodeURIComponent(String(id))}/claim`, { method: 'POST' });
   const source = isRecord(response) ? response : {};
-  return { amount: count(source.amount), red_packet: normalizeRedPacket(source.red_packet), balance: normalizeBalance(source.balance) };
+  return { amount: count(source.amount), red_packet: normalizeRedPacket(source.red_packet), balance: normalizeBalance(source.balance), message: messageOf(source.message) };
 }
 
 /**
@@ -196,7 +216,9 @@ function normalizePending(value: unknown): PendingRedPacket | null {
     count: Math.max(1, count(value.count, 1)),
     claimed_count: Math.max(0, count(value.claimed_count)),
     expires_at: nullableText(value.expires_at),
-    created_at: text(value.created_at)
+    created_at: text(value.created_at),
+    chain_text: chainTextOf(value.chain_text),
+    target_user_id: targetIdOf(value.target_user_id)
   };
 }
 

@@ -18,7 +18,7 @@ import { resolveAssetUrl } from '@/utils/assetUrl';
 import { formatClockTime, formatMessageDateTime, formatMessageDividerTime, parseApiDate } from '@/utils/dateTime';
 import { pokeActionLabel, pokeInfoOf } from '@/utils/poke';
 import { giftOf, isGiftMessage } from '@/utils/gift';
-import { isRedPacketMessage, redPacketOf } from '@/utils/redPacket';
+import { isRedPacketMessage, redPacketChainOf, redPacketOf } from '@/utils/redPacket';
 import {
   botMarkdownContent,
   botShareCardOf,
@@ -41,6 +41,7 @@ import {
   teamupShareCardOf,
   userShareCardOf
 } from '../message/messageMeta';
+import { BilibiliVideoCards } from '../message/BilibiliVideoCard';
 import { CcwCreationCards, renderMentionedText } from '../message/messageText';
 import { renderBotElementContent, renderSafeBotMarkdown } from '../message/botMarkdown';
 import { VoiceMessageBubble } from '../message/VoiceMessage';
@@ -246,6 +247,7 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
             <>
               <div className={cx('kcd-text', !structured && 'kcd-text--pre')}>{renderTextContent(message, context)}</div>
               <CcwCreationCards previews={ccwCreationPreviewsFromMetadata(message.metadata)} />
+              {message.type === 'text' ? <BilibiliVideoCards text={message.content} /> : null}
             </>
           ) : null}
           <div className={cx('kcd-image-grid', images.length === 1 && 'kcd-image-grid--single')}>
@@ -276,6 +278,7 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
       <>
         <div className="kcd-text kcd-text--pre">{renderTextContent(message, context)}</div>
         {message.content ? <CcwCreationCards previews={ccwCreationPreviewsFromMetadata(message.metadata)} /> : null}
+        {message.type === 'text' && message.content ? <BilibiliVideoCards text={message.content} /> : null}
       </>
     )
   };
@@ -404,6 +407,8 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
   const bubbleSkin = body.bare ? null : skin;
   const bookmarked = Boolean(message.bookmarked_by_me);
   const featured = Boolean(message.featured);
+  // 领接龙红包时自动发出的那句话：气泡旁边标一个小小的「接龙」
+  const chained = redPacketChainOf(message) !== null;
 
   return (
     <div className={cx('kcd-item', grouped && 'kcd-item--grouped')}>
@@ -465,6 +470,7 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
               ) : null}
             </div>
             <div className="kcd-side" onDoubleClick={(event) => event.stopPropagation()}>
+              {chained ? <span className="kcd-chain-mark" title="领取接龙红包时自动发出">接龙</span> : null}
               {repeatText ? (
                 <button type="button" className="kcd-plus-one" title="跟着复读一句" disabled={repeatDisabled} onClick={(event) => {
                   event.stopPropagation();

@@ -22,6 +22,10 @@
  *   聊天区右上角的「N 个红包未领」：群里默认有三个能领的（最早的那个要往上翻），点一下跳到最早的，再点跳下一个；控制条上的抢、过期、撤回、别人发都会让它跟着变。
  *   rpMany=30（群里再塞 30 个红包，数请求数用）
  *   rpOpen=1（打开页面就点开最新的那个红包）  rpSend=1（打开页面就弹出发红包）  rpRecords=1（打开红包记录）
+ *   接龙 / 专属红包：群里末尾有接龙红包（领过的人自动发出的口令带「接龙」标记）、给我的专属红包、给别人的专属红包、专属 + 接龙。
+ *   rpFeatures=none（还没有接龙 / 专属的旧后端：发红包面板里不出现新选项）  rpGroupMuted=1（我在群里被禁言：领接龙红包得到 muted_in_group）
+ *   rpOpenId=<红包 id>（打开页面就点开这个红包）
+ * B 站视频卡片：群里有几条带 B 站链接的消息（BV、av、m.bilibili.com、b23.tv、拿不到的、不是视频的），假接口在这里的 installFetch。
  * 控制条上「红包」那一组按钮模拟别人发、别人抢、过期、撤回（都会发 red_packet.updated 事件；过期、撤回还会发 shop.balance.changed）。
  * 会话列表上的「[有红包]」在 view=app 里看（桌面是左边的列表，layout=mobile 是会话页）：别人发一个 → 置上；抢掉 / 过期 / 撤回到一个不剩 → 摘掉。
  * 假后端返回会话列表时按当时的红包状态带上 red_packet_pending。
@@ -225,6 +229,11 @@ async function buildHistory(): Promise<Message[]> {
   say(me, '嗯');
   say(aqua, '晚安，好梦', { bookmarked_by_me: true } as Partial<Message>);
   say(mint, '一起去看樱花吧');
+  // B 站视频链接：两个能拿到的（封面是 B 站图床上的真图，看防盗链）、一个短链、一个拿不到的（502，不画卡片）、一个不是视频的
+  say(aqua, '这首歌循环一天了 https://www.bilibili.com/video/BV1GJ411x7h7?spm_id_from=333.337 ，好听');
+  say(long, 'm.bilibili.com/video/av170001 老视频了，弹幕很多');
+  say(mint, '短链也行 https://b23.tv/kuke123 。还有个打不开的 https://www.bilibili.com/video/BV1xx411c7mD');
+  say(candy, 'UP 主主页不是视频：https://space.bilibili.com/2');
 
   // 红包：每种状态一个。seed 只造数据、不扣币；消息对象由假后端给（type、metadata.red_packet、兜底的 content）
   const packet = (options: Parameters<typeof redPacketState.seed>[0]): void => {
@@ -240,6 +249,20 @@ async function buildHistory(): Promise<Message[]> {
   packet({ senderId: mint.id, conversationId: 1, kind: 'normal', amount: 8, count: 10, greeting: '普通红包，每人 8 币', claimedBy: [aqua.id, long.id], minutesAgo: 6 });
   say(aqua, '发个红包庆祝一下新版本');
   packet({ senderId: aqua.id, conversationId: 1, kind: 'lucky', amount: 120, count: 10, greeting: '新版本上线，大家辛苦啦，祝福语写得特别特别长看看两行截断', claimedBy: [mint.id, long.id, candy.id], minutesAgo: 2 });
+  // 接龙、专属（docs/red-packets.md 3.6）。接龙红包被领过的那几句话由假后端给，接在红包后面
+  const chained = (options: Parameters<typeof redPacketState.seed>[0]): void => {
+    packet(options);
+    redPacketState.seedChain().forEach((message) => {
+      id += 1;
+      minute += 1;
+      messages.push({ ...message, id, created_at: new Date(start + minute * 45_000).toISOString() });
+    });
+  };
+  chained({ senderId: aqua.id, conversationId: 1, kind: 'lucky', amount: 60, count: 6, greeting: '接龙红包，领了自动发口令', chainText: '谢谢阿夸老板', claimedBy: [mint.id, long.id], minutesAgo: 2 });
+  packet({ senderId: mint.id, conversationId: 1, kind: 'normal', amount: 18, count: 1, greeting: '生日快乐呀', targetUserId: me.id, minutesAgo: 2 });
+  packet({ senderId: aqua.id, conversationId: 1, kind: 'normal', amount: 10, count: 1, greeting: '上次的积木教程，谢啦', targetUserId: long.id, minutesAgo: 1 });
+  chained({ senderId: candy.id, conversationId: 1, kind: 'normal', amount: 6, count: 1, greeting: '专属的接龙红包', chainText: '收到，谢谢糖糖', targetUserId: me.id, minutesAgo: 1 });
+  packet({ senderId: me.id, conversationId: 1, kind: 'normal', amount: 20, count: 1, greeting: '我发给阿夸的专属红包', targetUserId: aqua.id, minutesAgo: 1 });
   // 礼物：礼物 ×N、带留言、送头像框（限时）、送气泡（永久）、送给我的。seed 只造数据、不扣币
   const present = (options: Parameters<typeof giftState.seed>[0]): void => {
     id += 1;
@@ -277,6 +300,17 @@ async function buildHistory(): Promise<Message[]> {
   directPacket({ senderId: me.id, conversationId: 2, kind: 'normal', amount: 6, count: 1, greeting: '对方已经领了', claimedBy: [aqua.id], minutesAgo: 4 });
   return messages;
 }
+
+/** B 站视频卡片的假数据。封面用 B 站图床上的真图：看不带 Referer 能不能显示出来 */
+const BILIBILI_VIDEOS = [
+  { match: /BV1GJ411x7h7|av80433022/i, data: { bvid: 'BV1GJ411x7h7', aid: 80433022, title: '【官方 MV】Never Gonna Give You Up - Rick Astley', cover: 'https://i1.hdslb.com/bfs/archive/5242750857121e05146d5d5b13a47a2a6dd36e98.jpg', owner_name: '索尼音乐中国', duration: 213, views: 91234567, danmaku: 132000, url: 'https://www.bilibili.com/video/BV1GJ411x7h7' } },
+  { match: /av170001/i, data: { bvid: 'BV17x411w7KC', aid: 170001, title: '【MV】保加利亚妖王AZIS视频合辑，标题写得长一点看看两行之后是怎么截断的', cover: 'https://i2.hdslb.com/bfs/archive/1ada8c32a9d168e4b2ee3e010f24789ba3353785.jpg', owner_name: '冰封.虾子', duration: 772, views: 66021, danmaku: 9821, url: 'https://www.bilibili.com/video/BV17x411w7KC' } },
+  // 短链：封面拿不到（看占位）
+  { match: /b23\.tv\/kuke123/i, data: { bvid: 'BV1uv411q7Mv', aid: null, title: 'Scratch 三百个克隆体不掉帧的碰撞检测', cover: 'https://i0.hdslb.com/bfs/archive/not-a-real-cover-for-kukechat-preview.jpg', owner_name: '一个名字特别特别长的 UP 主用来测试截断', duration: 3725, views: 1234, danmaku: 12, url: 'https://www.bilibili.com/video/BV1uv411q7Mv' } }
+];
+
+/** 发过哪些 B 站卡片请求（给脚本核对「同一个链接只问一次」） */
+const bilibiliRequests: string[] = [];
 
 /** 两个会话的消息都在这一个数组里，按 conversation_id 分 */
 const harnessHistory: Message[] = [];
@@ -335,6 +369,29 @@ function installFetch(history: Message[]): void {
     }
     if (path === '/conversations') {
       return respond(conversationsNow());
+    }
+    // 群成员（发专属红包时选人）：第一页，和按名字搜
+    const memberList = path.match(/^\/conversations\/(\d+)\/members(\/search)?$/);
+    if (memberList && method === 'GET') {
+      const pool = Number(memberList[1]) === 2 ? members.slice(0, 2) : members;
+      const needle = (url.searchParams.get('q') ?? url.searchParams.get('search') ?? '').trim().toLowerCase();
+      const found = needle ? pool.filter((member) => [member.user?.nickname ?? '', member.user?.username ?? ''].some((value) => value.toLowerCase().includes(needle))) : pool;
+      return memberList[2] ? respond(found) : respond({ items: found, total: found.length, limit: 50, offset: 0, has_more: false });
+    }
+    // B 站视频卡片（GET /link-preview/bilibili?url=…）：两个能拿到的、一个短链，其余 422 / 502
+    if (path === '/link-preview/bilibili' && method === 'GET') {
+      await new Promise((resolve) => window.setTimeout(resolve, 320));
+      bilibiliRequests.push(url.searchParams.get('url') ?? '');
+      const target = url.searchParams.get('url') ?? '';
+      const fail = (status: number, code: string, message: string): Response => new Response(JSON.stringify({ detail: { code, message } }), { status, headers: { 'Content-Type': 'application/json' } });
+      const video = BILIBILI_VIDEOS.find((item) => item.match.test(target));
+      if (video) {
+        return respond(video.data);
+      }
+      if (/BV1xx411c7mD/.test(target)) {
+        return fail(502, 'preview_unavailable', '暂时拿不到这个视频的信息');
+      }
+      return fail(422, 'unsupported_link', '不是 B 站视频链接');
     }
     // 个人空间、资料卡取资料：带上心意值和生日
     const profileMatch = path.match(/^\/users\/(\d+)$/);
@@ -675,11 +732,12 @@ function MobileScreen({ view }: { view: View }): JSX.Element {
   );
 }
 
-const RED_PACKET_SELECTS: Array<{ key: 'backend' | 'pendingBackend' | 'sendError' | 'claimError'; label: string; options: string[] }> = [
+const RED_PACKET_SELECTS: Array<{ key: 'backend' | 'pendingBackend' | 'sendError' | 'claimError' | 'features'; label: string; options: string[] }> = [
   { key: 'backend', label: '红包后端', options: ['ok', 'disabled', 'missing'] },
   { key: 'pendingBackend', label: '待领接口', options: ['ok', 'missing'] },
-  { key: 'sendError', label: '发', options: ['none', 'disabled', 'not_member', 'muted', 'ccw_not_bound', 'invalid_amount', 'invalid_count', 'invalid_kind', 'greeting_rejected', 'insufficient_balance', 'daily_limit', 'verification_unavailable', 'server'] },
-  { key: 'claimError', label: '抢', options: ['none', 'not_member', 'muted', 'own_packet', 'already_claimed', 'finished', 'expired', 'revoked', 'server'] }
+  { key: 'sendError', label: '发', options: ['none', 'disabled', 'not_member', 'muted', 'ccw_not_bound', 'invalid_amount', 'invalid_count', 'invalid_kind', 'greeting_rejected', 'chain_text_rejected', 'invalid_target', 'insufficient_balance', 'daily_limit', 'verification_unavailable', 'server'] },
+  { key: 'claimError', label: '抢', options: ['none', 'not_member', 'muted', 'not_target', 'own_packet', 'muted_in_group', 'already_claimed', 'finished', 'expired', 'revoked', 'server'] },
+  { key: 'features', label: '新玩法', options: ['all', 'none'] }
 ];
 
 /** 别人发来一个红包：和真的一样，消息进历史、进缓存 */
@@ -1003,7 +1061,7 @@ function Harness(): JSX.Element {
           <label key={key} style={label}>{text}
             <select data-harness={`rp-${key}`} value={redPacketScenario[key]} style={{ font: '12px sans-serif' }} onChange={(event) => {
               Object.assign(redPacketScenario, { [key]: event.target.value });
-              if (key === 'backend' || key === 'pendingBackend') {
+              if (key === 'backend' || key === 'pendingBackend' || key === 'features') {
                 reloadRedPackets();
               } else {
                 rerender((value) => value + 1);
@@ -1026,6 +1084,10 @@ function Harness(): JSX.Element {
           }
         }}>最新的 5 秒后过期</button>
         <button type="button" style={button} data-harness="rp-revoke" onClick={() => withLatest((id) => redPacketState.revoke(id))}>最新的被撤回</button>
+        <button type="button" style={button} data-harness="rp-group-muted" onClick={() => {
+          redPacketScenario.groupMuted = !redPacketScenario.groupMuted;
+          rerender((value) => value + 1);
+        }}>群内禁言：{redPacketScenario.groupMuted ? '开' : '关'}</button>
         <label style={label}>今天已发<input type="number" data-harness="rp-sent-today" value={redPacketScenario.sentToday} style={{ width: 44, font: '12px sans-serif' }} onChange={(event) => {
           redPacketScenario.sentToday = Number(event.target.value) || 0;
           reloadRedPackets();
@@ -1162,7 +1224,8 @@ async function start(): Promise<void> {
     }
   };
   RED_PACKET_SELECTS.forEach(({ key, options }) => pickRedPacket(key, `rp${key[0].toUpperCase()}${key.slice(1)}`, options));
-  redPacketState.setup({ me: me.id, people, direct: [2], onMessage: (message) => harnessHistory.push(message) });
+  redPacketState.setup({ me: me.id, people, direct: [2], onMessage: (message) => harnessHistory.push(message), onLive: (message) => deliverMessage(message) });
+  redPacketScenario.groupMuted = flag('rpGroupMuted');
 
   // 限时商品：expiring=frame.angel:2 表示我拥有并装备着「天使」，还剩 2 天
   const expiring = params.get('expiring');
@@ -1234,7 +1297,7 @@ async function start(): Promise<void> {
   useShopPrefs.setState({ showOthersSkins: params.get('others') !== '0' });
   useThemeStore.setState({ performance: flag('perf') });
   queryClient.setQueryData(['conversations'], conversationsNow());
-  Object.assign(window, { __shop: { scenario: shopScenario, state: shopState, requests: shopRequests, store: useKukeStore, prefs: useShopPrefs, queryClient, emit, redPacket: { scenario: redPacketScenario, state: redPacketState, requests: redPacketRequests, ui: useRedPacketUi }, gift: { scenario: giftScenario, state: giftState, requests: giftRequests, ui: useGiftUi, receive: receiveGift, play: playEffect }, birthday: { scenario: birthdayScenario, state: birthdayState, requests: birthdayRequests } } });
+  Object.assign(window, { __shop: { scenario: shopScenario, state: shopState, requests: shopRequests, store: useKukeStore, prefs: useShopPrefs, queryClient, emit, redPacket: { scenario: redPacketScenario, state: redPacketState, requests: redPacketRequests, ui: useRedPacketUi }, bilibiliRequests, gift: { scenario: giftScenario, state: giftState, requests: giftRequests, ui: useGiftUi, receive: receiveGift, play: playEffect }, birthday: { scenario: birthdayScenario, state: birthdayState, requests: birthdayRequests } } });
   if (params.get('giftSend') === '1') {
     const conversationId = params.get('conv') === '2' ? 2 : 1;
     useGiftUi.getState().openSend({ toUser: params.get('giftTo') ? giftState.user(Number(params.get('giftTo'))) : conversationId === 1 ? null : giftState.user(2), candidates: conversationId === 1 ? members : null, conversationId: params.get('giftProfile') === '1' ? null : conversationId, itemSku: params.get('giftItem') ?? undefined });
@@ -1243,6 +1306,14 @@ async function start(): Promise<void> {
   if (giftFx) {
     // 等聊天面板挂上来（visibleConversationId 有值）再排进队列
     window.setTimeout(() => (giftFx === '2' ? playEffect(2, 'cake', '蛋糕', 3) : giftFx === 'castle' ? playEffect(3, 'castle', '城堡') : giftFx === 'generic' ? playEffect(3, 'crown', '皇冠', 5) : playEffect(3, 'rocket', '火箭')), 900);
+  }
+  const openId = Number(params.get('rpOpenId'));
+  if (openId) {
+    const found = harnessHistory.find((message) => redPacketOf(message)?.id === openId);
+    const meta = redPacketOf(found);
+    if (found && meta) {
+      useRedPacketUi.getState().open({ meta, conversationId: found.conversation_id, sender: found.sender ?? null });
+    }
   }
   if (params.get('rpOpen') === '1') {
     // 点开当前会话里最新的那个红包（和点卡片是同一个入口）

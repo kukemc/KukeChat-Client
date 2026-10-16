@@ -428,6 +428,8 @@ export interface MessageMetadata {
   poll?: import('./polls').Poll;
   /** type 为 red_packet 的消息带的红包信息，只有不会变的字段 */
   red_packet?: import('./redPacket').RedPacketMeta;
+  /** 领取接龙红包时自动发出的那条文字消息带的：指向那个红包。只能由领取产生（docs/red-packets.md 3.6.1） */
+  red_packet_chain?: { red_packet_id: number };
   /** type 为 gift 的消息带的礼物信息：谁收、送的什么、留言。用之前过 utils/gift.ts 的 normalizeGiftMeta */
   gift?: import('./gift').GiftMeta;
   [key: string]: unknown;

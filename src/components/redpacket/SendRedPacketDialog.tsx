@@ -4,12 +4,16 @@ import { useRefreshBalance, useShop } from '@/components/shop/data';
 import { describeRefreshError, formatCoins } from '@/components/shop/labels';
 import { Icon } from '@/components/ui/Icon';
 import { CoinIcon } from '@/components/ui/CoinIcon';
-import type { RedPacketKind, RedPacketLimits } from '@/types/redPacket';
+import { Avatar } from '@/components/ui/Avatar';
+import { useKukeStore } from '@/store/kukeStore';
+import type { ConversationMember } from '@/types/api';
+import type { RedPacketKind, RedPacketLimits, SendRedPacketPayload } from '@/types/redPacket';
 import { openExternalUrl } from '@/utils/openExternalUrl';
-import { DEFAULT_RED_PACKET_GREETING, RED_PACKET_GREETING_MAX } from '@/utils/redPacket';
-import { describeSendError, useRedPacketConfig, useSendRedPacket } from './data';
+import { DEFAULT_RED_PACKET_GREETING, RED_PACKET_CHAIN_MAX, RED_PACKET_GREETING_MAX } from '@/utils/redPacket';
+import { describeSendError, useRedPacketConfig, useRedPacketFeatures, useSendRedPacket } from './data';
 import { RedPacketLayer } from './RedPacketLayer';
 import { RedPacketRecords } from './RedPacketRecords';
+import { RedPacketTargetPicker, type RedPacketTargetChoice } from './RedPacketTargetPicker';
 import { openCcwBinding } from './ui';
 
 const KINDS: Array<{ value: RedPacketKind; label: string; hint: string }> = [
@@ -24,7 +28,7 @@ function wholeNumber(value: string): number | null {
 }
 
 interface Problem {
-  field: 'amount' | 'count' | 'limit';
+  field: 'amount' | 'count' | 'limit' | 'chain';
   text: string;
 }
 
@@ -55,13 +59,25 @@ function validate(kind: RedPacketKind, amountText: string, countText: string, am
   return null;
 }
 
+/** 口令只能一行：粘贴进来的换行折成空格（服务端见到换行会拒：chain_text_rejected） */
+function singleLine(value: string): string {
+  return value.replace(/[\r\n\u2028\u2029]+/g, ' ');
+}
+
 /**
  * 发红包。群里可以选拼手气 / 普通，私聊只有普通、个数固定 1。
+ * 群里还有两种玩法（服务端 config.features 里有才出现，可以一起用）：
+ *   专属   选一个群成员，只有他能领；选了之后种类固定为普通、个数固定为 1
+ *   接龙   打开后填一句口令，谁领了就自动以谁的身份把这句话发到群里
  * 总额、现在的余额、发完剩多少随着输入实时算出来；超过上限、余额不够都当场说，不等接口报错。
  * 余额不够给「去投币」（和商店的充值是同一个地方）；没绑定 CCW 账号时整个表单换成去绑定的引导。
  */
-export function SendRedPacketDialog({ conversationId, isGroup, onCreated, onClose }: { conversationId: number; isGroup: boolean; onCreated?: () => void; onClose: () => void }): JSX.Element {
+export function SendRedPacketDialog({ conversationId, isGroup, members = [], onCreated, onClose }: { conversationId: number; isGroup: boolean; /** 手头的群成员，专属红包选人时先列它们 */ members?: ConversationMember[]; onCreated?: () => void; onClose: () => void }): JSX.Element {
   const config = useRedPacketConfig().data;
+  const features = useRedPacketFeatures();
+  const meId = useKukeStore((state) => state.currentUser?.id ?? 0);
+  const canChain = isGroup && features.chain;
+  const canExclusive = isGroup && features.exclusive;
   // 开着弹窗的时候开关被关掉了，或者连的服务端根本没有红包：表单留着，说明发不了
   const closed = config === null || config?.enabled === false;
   const shop = useShop().data;
@@ -75,14 +91,25 @@ export function SendRedPacketDialog({ conversationId, isGroup, onCreated, onClos
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [donated, setDonated] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
+  const [chainOn, setChainOn] = useState(false);
+  const [chainText, setChainText] = useState('');
+  const [target, setTarget] = useState<RedPacketTargetChoice | null>(null);
+  const [picking, setPicking] = useState(false);
 
+  // 专属红包：种类固定为普通、个数固定为 1（服务端也只接受这样：invalid_kind / invalid_count）
+  const exclusive = canExclusive && target !== null;
+  const chain = canChain && chainOn;
+  const effectiveKind: RedPacketKind = exclusive ? 'normal' : kind;
+  const fixedCount = !isGroup || exclusive;
   const balance = shop?.balance ?? null;
   const bound = balance?.bound ?? false;
   const amount = wholeNumber(amountText);
-  const count = isGroup ? wholeNumber(countText) : 1;
-  const total = amount === null || count === null ? null : kind === 'normal' ? amount * count : amount;
+  const count = fixedCount ? 1 : wholeNumber(countText);
+  const total = amount === null || count === null ? null : effectiveKind === 'normal' ? amount * count : amount;
   const limits = config?.limits ?? null;
-  const problem = limits ? validate(kind, amountText, isGroup ? countText : '1', amount, count, limits) : null;
+  // 开了接龙就得有口令（空口令服务端当成没开，那就不是接龙红包了）
+  const chainMissing = chain && !chainText.trim();
+  const problem = limits ? validate(effectiveKind, amountText, fixedCount ? '1' : countText, amount, count, limits) : null;
   const dailyLeft = config ? Math.max(0, config.limits.daily_send_limit - config.sent_today) : null;
   const dailyUsedUp = dailyLeft === 0;
   // 余额不够：手头算出来的，或者服务端刚说的（它扣之前重新核实过）。服务端说了之后，直到余额或金额有变化都按不够算
@@ -108,17 +135,31 @@ export function SendRedPacketDialog({ conversationId, isGroup, onCreated, onClos
   }
 
   function submit(): void {
-    if (send.isPending || !config || closed || amount === null || count === null || problem || short || unbound || dailyUsedUp) {
+    if (send.isPending || !config || closed || amount === null || count === null || problem || chainMissing || short || unbound || dailyUsedUp) {
       return;
     }
     setFailure(null);
-    send.mutate({ conversation_id: conversationId, kind, amount, count, greeting: greeting.trim() }, {
+    const payload: SendRedPacketPayload = { conversation_id: conversationId, kind: effectiveKind, amount, count, greeting: greeting.trim() };
+    if (chain) {
+      payload.chain_text = chainText.trim();
+    }
+    if (exclusive && target) {
+      payload.target_user_id = target.user.id;
+    }
+    send.mutate(payload, {
       onSuccess: () => {
         // 先回到最新再关：列表贴着底，新消息才会跟着露出来
         onCreated?.();
         onClose();
       },
-      onError: (error) => setFailure(describeSendError(error))
+      onError: (error) => {
+        const described = describeSendError(error);
+        setFailure(described);
+        // 选的人不能当目标了（退群了之类）：清掉，让他重新选
+        if (described.code === 'invalid_target') {
+          setTarget(null);
+        }
+      }
     });
   }
 
@@ -130,6 +171,23 @@ export function SendRedPacketDialog({ conversationId, isGroup, onCreated, onClos
 
   if (recordsOpen) {
     return <RedPacketRecords onClose={() => setRecordsOpen(false)} />;
+  }
+
+  if (picking && canExclusive) {
+    return (
+      <RedPacketTargetPicker
+        conversationId={conversationId}
+        meId={meId}
+        members={members}
+        selectedId={target?.user.id ?? null}
+        onPick={(choice) => {
+          edit(() => setTarget(choice));
+          setPicking(false);
+        }}
+        onBack={() => setPicking(false)}
+        onClose={onClose}
+      />
+    );
   }
 
   const header = (
@@ -162,7 +220,8 @@ export function SendRedPacketDialog({ conversationId, isGroup, onCreated, onClos
   }
 
   const after = balance && total !== null ? balance.balance - total : null;
-  const ready = Boolean(config) && !closed && amount !== null && count !== null && !problem && !short && !dailyUsedUp;
+  const ready = Boolean(config) && !closed && amount !== null && count !== null && !problem && !chainMissing && !short && !dailyUsedUp;
+  const kindHint = exclusive ? '专属红包只能是普通红包，个数固定为 1 个' : KINDS.find((item) => item.value === kind)?.hint;
   return (
     <RedPacketLayer label="发红包" onClose={onClose} locked={send.isPending}>
       <form className="krp-panel" data-red-packet-view="send" data-state={short ? 'short' : 'form'} onSubmit={(event) => {
@@ -173,22 +232,22 @@ export function SendRedPacketDialog({ conversationId, isGroup, onCreated, onClos
         <div className="krp-panel-body kui-scroll">
           {isGroup ? (
             <div className="krp-field">
-              <div className="kui-segment krp-kinds" role="radiogroup" aria-label="红包种类">
-                {KINDS.map((item) => <button key={item.value} type="button" role="radio" aria-checked={kind === item.value} className={cx(kind === item.value && 'is-active')} onClick={() => edit(() => setKind(item.value))}>{item.label}</button>)}
+              <div className={cx('kui-segment krp-kinds', exclusive && 'is-locked')} role="radiogroup" aria-label="红包种类" aria-disabled={exclusive}>
+                {KINDS.map((item) => <button key={item.value} type="button" role="radio" disabled={exclusive} aria-checked={effectiveKind === item.value} className={cx(effectiveKind === item.value && 'is-active')} onClick={() => edit(() => setKind(item.value))}>{item.label}</button>)}
               </div>
-              <p className="krp-field-hint">{KINDS.find((item) => item.value === kind)?.hint}</p>
+              <p className="krp-field-hint" data-red-packet="kind-hint">{kindHint}</p>
             </div>
           ) : null}
 
           <label className={cx('krp-row', problem?.field === 'amount' && 'is-bad')}>
-            <span className="krp-row-label">{kind === 'lucky' ? '总金额' : isGroup ? '单个金额' : '金额'}</span>
+            <span className="krp-row-label">{effectiveKind === 'lucky' ? '总金额' : isGroup && !exclusive ? '单个金额' : '金额'}</span>
             <input className="krp-row-input" data-field="amount" inputMode="numeric" autoComplete="off" autoFocus value={amountText} maxLength={7} placeholder="0" aria-invalid={problem?.field === 'amount'} onChange={(event) => edit(() => setAmountText(event.target.value.replace(/[^\d]/g, '')))} />
             <span className="krp-row-unit">币</span>
           </label>
           {isGroup ? (
-            <label className={cx('krp-row', problem?.field === 'count' && 'is-bad')}>
+            <label className={cx('krp-row', problem?.field === 'count' && 'is-bad', exclusive && 'is-locked')} title={exclusive ? '专属红包只能发 1 个' : undefined}>
               <span className="krp-row-label">红包个数</span>
-              <input className="krp-row-input" data-field="count" inputMode="numeric" autoComplete="off" value={countText} maxLength={4} placeholder={limits ? `最多 ${limits.max_count}` : '1'} aria-invalid={problem?.field === 'count'} onChange={(event) => edit(() => setCountText(event.target.value.replace(/[^\d]/g, '')))} />
+              <input className="krp-row-input" data-field="count" inputMode="numeric" autoComplete="off" value={exclusive ? '1' : countText} disabled={exclusive} maxLength={4} placeholder={limits ? `最多 ${limits.max_count}` : '1'} aria-invalid={problem?.field === 'count'} onChange={(event) => edit(() => setCountText(event.target.value.replace(/[^\d]/g, '')))} />
               <span className="krp-row-unit">个</span>
             </label>
           ) : null}
@@ -198,13 +257,58 @@ export function SendRedPacketDialog({ conversationId, isGroup, onCreated, onClos
             <span className="krp-row-unit">{greeting.length}/{RED_PACKET_GREETING_MAX}</span>
           </label>
 
+          {canChain || canExclusive ? (
+            <div className="krp-modes" data-red-packet="modes">
+              {canExclusive ? (
+                <div className={cx('krp-mode', exclusive && 'is-on')} data-red-packet-mode="exclusive">
+                  <span className="krp-mode-text">
+                    <span className="krp-mode-title">专属</span>
+                    <span className="krp-mode-hint">只有选中的那个人能领</span>
+                  </span>
+                  {target ? (
+                    <span className="krp-mode-target" data-red-packet="target" data-user={target.user.id}>
+                      <button type="button" className="krp-mode-person" title="换一个人" onClick={() => setPicking(true)}>
+                        <Avatar user={target.user} size="sm" />
+                        <span>{target.name}</span>
+                      </button>
+                      <button type="button" className="kui-icon-btn krp-mode-clear" aria-label="取消专属" title="取消专属" onClick={() => edit(() => setTarget(null))}><Icon name="close" className="h-3.5 w-3.5" /></button>
+                    </span>
+                  ) : (
+                    <button type="button" className="krp-mode-pick" data-action="pick-red-packet-target" onClick={() => setPicking(true)}>选择成员<Icon name="chevron" className="h-3.5 w-3.5" /></button>
+                  )}
+                </div>
+              ) : null}
+              {canChain ? (
+                <>
+                  <label className={cx('krp-mode', chain && 'is-on')} data-red-packet-mode="chain">
+                    <span className="krp-mode-text">
+                      <span className="krp-mode-title">接龙</span>
+                      <span className="krp-mode-hint">领取的人会自动发出一句口令</span>
+                    </span>
+                    <input type="checkbox" role="switch" className="kui-switch" data-field="chain" aria-label="接龙" checked={chainOn} onChange={(event) => edit(() => setChainOn(event.target.checked))} />
+                  </label>
+                  {chain ? (
+                    <div className="krp-mode-extra">
+                      <label className="krp-row krp-row--text">
+                        <span className="krp-row-label">口令</span>
+                        <input className="krp-row-input" data-field="chain-text" value={chainText} maxLength={RED_PACKET_CHAIN_MAX} autoFocus placeholder="比如：谢谢老板" onChange={(event) => edit(() => setChainText(singleLine(event.target.value)))} />
+                        <span className="krp-row-unit">{chainText.length}/{RED_PACKET_CHAIN_MAX}</span>
+                      </label>
+                      <p className="krp-field-hint">领取时会自动发出这句话</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
           {problem ? <p className="kui-note kui-note--danger" role="alert" data-red-packet="problem">{problem.text}</p> : null}
           {closed ? <p className="kui-note kui-note--danger" role="alert" data-red-packet="closed">红包功能现在关着，暂时发不了。</p> : null}
           {dailyUsedUp && config ? <p className="kui-note kui-note--danger" role="alert" data-red-packet="daily-limit">今天已经发了 {config.sent_today} 个红包，到每天 {config.limits.daily_send_limit} 个的上限了，明天再来。</p> : null}
 
           <div className="krp-total" data-red-packet="total">
             <p className="krp-total-number"><b>{total !== null ? formatCoins(total) : '0'}</b><span>币</span></p>
-            <p className="krp-total-note">{kind === 'normal' && isGroup && amount !== null && count !== null ? `${formatCoins(amount)} 币 × ${count} 个` : '红包总额'}</p>
+            <p className="krp-total-note">{exclusive && target ? `给 ${target.name} 的专属红包` : effectiveKind === 'normal' && isGroup && amount !== null && count !== null ? `${formatCoins(amount)} 币 × ${count} 个` : '红包总额'}</p>
           </div>
 
           <dl className="krp-bill">

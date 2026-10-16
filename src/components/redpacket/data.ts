@@ -7,11 +7,12 @@ import { upsertMessageIntoFirstPage, type MessagesInfiniteData } from '@/realtim
 import { useModerationStore } from '@/store/moderationStore';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation, Message } from '@/types/api';
-import type { ClaimRedPacketResult, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketConfig, RedPacketDirection, RedPacketId, RedPacketRecordPage, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
+import type { ClaimRedPacketResult, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketConfig, RedPacketDirection, RedPacketFeature, RedPacketId, RedPacketRecordPage, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
 import type { ShopOverview } from '@/types/shop';
 import { normalizeRedPacketUpdate } from '@/api/redPackets';
 import { applyLatestMessageToConversations } from '@/utils/conversations';
 import { parseApiDate } from '@/utils/dateTime';
+import { isExclusiveForOther, normalizeRedPacketMeta } from '@/utils/redPacket';
 
 /**
  * 红包的数据层：缓存 key、查询、发和抢之后怎么就地更新缓存、实时事件怎么处理。
@@ -86,6 +87,12 @@ export function useRedPacketConfig(enabled = true): UseQueryResult<RedPacketConf
 /** 「发红包」的入口要不要出现：确实拿到了配置、并且开着才出现；404、还没拿到、请求失败、enabled 为 false 都不出现。 */
 export function useRedPacketEnabled(enabled = true): boolean {
   return useRedPacketConfig(enabled).data?.enabled === true;
+}
+
+/** 服务端支持哪些新玩法（接龙、专属）。旧服务端的 config 里没有 features，两样都是 false，发红包界面上不出现新选项。 */
+export function useRedPacketFeatures(enabled = true): Record<RedPacketFeature, boolean> {
+  const features = useRedPacketConfig(enabled).data?.features ?? [];
+  return { chain: features.includes('chain'), exclusive: features.includes('exclusive') };
 }
 
 /** 红包记录的入口要不要出现：服务端有红包接口就出现，哪怕现在关着（以前发的、抢的还在）。 */
@@ -165,13 +172,18 @@ function refreshRedPacketPending(queryClient: QueryClient): void {
   }, 600);
 }
 
-/** 收到一条新消息：是红包、而且我能领（私聊里自己发的不能），就把会话标成「有红包」。 */
+/** 收到一条新消息：是红包、而且我能领（私聊里自己发的不能、给别人的专属红包不能），就把会话标成「有红包」。 */
 export function noteRedPacketMessage(queryClient: QueryClient, message: Message): void {
   if (message.type !== 'red_packet' || message.recalled_at) {
     return;
   }
+  const me = useKukeStore.getState().currentUser?.id;
+  // 给别人的专属红包：我领不了，「有红包」和待领列表都不算它（服务端的口径也一样）
+  if (isExclusiveForOther(normalizeRedPacketMeta(message.metadata?.red_packet), me)) {
+    return;
+  }
   refreshPendingList(queryClient, message.conversation_id);
-  const mine = (message.sender_id ?? message.sender?.id) === useKukeStore.getState().currentUser?.id;
+  const mine = (message.sender_id ?? message.sender?.id) === me;
   if (mine && conversationOf(queryClient, message.conversation_id)?.type !== 'group') {
     return;
   }
@@ -193,6 +205,7 @@ export function recheckRedPacketPending(queryClient: QueryClient, conversationId
     && !isRedPacketExpired(packet, now)
     && !packet.my_claim
     && !(conversation.type !== 'group' && packet.sender?.id === me)
+    && !isExclusiveForOther(packet, me)
   ));
   if (stillClaimable) {
     return;
@@ -366,7 +379,11 @@ export function useSendRedPacket(): UseMutationResult<SendRedPacketResult, Error
   });
 }
 
-/** 抢红包。成功：红包状态和余额都换成回包里的。失败的那几种（抢完、过期、领过了）由弹层重取状态后各自给结果页。 */
+/**
+ * 抢红包。成功：红包状态和余额都换成回包里的。失败的那几种（抢完、过期、领过了）由弹层重取状态后各自给结果页。
+ * 接龙红包领到时，服务端以我的身份发了一条消息（回包里的 message）：和发普通消息一样直接写进缓存；
+ * 同一条随后还会从 message.created 推过来，写缓存是按 id 合并的，不会出现两条。
+ */
 export function useClaimRedPacket(): UseMutationResult<ClaimRedPacketResult, Error, RedPacketId> {
   const queryClient = useQueryClient();
   return useMutation({
@@ -384,12 +401,22 @@ export function useClaimRedPacket(): UseMutationResult<ClaimRedPacketResult, Err
         recheckRedPacketPending(queryClient, conversationId);
       }
       dropPendingRedPacket(queryClient, id);
+      const message = result.message;
+      if (message) {
+        queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', message.conversation_id], (current) => upsertMessageIntoFirstPage(current, message));
+        queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyLatestMessageToConversations(current, message, { visibleConversationId: message.conversation_id }));
+      }
     },
     onError: (error, id) => {
       const code = redPacketErrorCode(error);
-      // 领红包只看平台禁言（群内禁言不影响领），所以这里的 muted 一定带 muted_until
+      // 平台禁言带 muted_until；接龙红包在群里被禁言是另一个码（muted_in_group），不动平台的禁言状态
       if (code === 'muted') {
         absorbPacketMute(error);
+      }
+      // 给别人的专属红包（手头的缓存里可能还没有目标是谁）：重取一次，卡片和弹层改成「仅 xxx 可领」；它不该算在我的待领里
+      if (code === 'not_target') {
+        void queryClient.invalidateQueries({ queryKey: redPacketKeys.detail(id) });
+        dropPendingRedPacket(queryClient, id);
       }
       // 手头的状态过期了（已经抢完、过期、被撤回、其实领过）：重取，弹层和卡片跟着变；会话上的「有红包」也可能该摘了
       if (code === 'already_claimed' || code === 'finished' || code === 'expired' || code === 'revoked') {
@@ -452,9 +479,14 @@ export function describeSendError(error: unknown): RedPacketFailure {
     case 'invalid_amount':
       return { code, message: '金额不对：要是正整数，并且在上限以内。' };
     case 'invalid_count':
-      return { code, message: '个数不对：要是正整数，并且在上限以内（私聊只能发 1 个）。' };
+      return { code, message: '个数不对：要是正整数，并且在上限以内（私聊和专属红包只能发 1 个）。' };
     case 'invalid_kind':
-      return { code, message: '这里不能发这种红包（私聊只能发普通红包）。' };
+      return { code, message: '这里不能发这种红包（私聊和专属红包只能发普通红包）。' };
+    case 'chain_text_rejected':
+      // 有换行、超过 30 字、没通过审核都是这个码；是哪一种服务端的 message 里写了
+      return { code, message: serverMessage(error) ?? '接龙口令没有通过审核，换一句试试。这次没有扣币。' };
+    case 'invalid_target':
+      return { code, message: invalidTargetText(detail.reason) };
     case 'greeting_rejected':
       // 超过 30 字、或者没通过文本审核，都是这个码；是哪一种服务端的 message 里写了，直接用它
       return { code, message: serverMessage(error) ?? '祝福语没有通过审核，换一句试试。' };
@@ -473,6 +505,21 @@ export function describeSendError(error: unknown): RedPacketFailure {
   }
 }
 
+function invalidTargetText(reason: unknown): string {
+  switch (reason) {
+    case 'direct':
+      return '私聊里不能发专属红包。';
+    case 'self':
+      return '专属红包不能指定给自己。';
+    case 'not_member':
+      return '这个人已经不在群里了，换一个人试试。';
+    case 'bot':
+      return '不能给机器人发专属红包。';
+    default:
+      return '专属红包的领取人不对，重新选一下。';
+  }
+}
+
 /** 抢红包失败该怎么说。抢完、过期、被撤回、领过了这几种有自己的结果页，这里只管剩下的。关着总开关不影响领，所以没有 disabled。 */
 export function describeClaimError(error: unknown): RedPacketFailure {
   const code = redPacketErrorCode(error);
@@ -484,8 +531,12 @@ export function describeClaimError(error: unknown): RedPacketFailure {
     case 'not_found':
       return { code, message: '这个红包不存在了。' };
     case 'muted':
-      // 领红包只看平台禁言，群内禁言不影响领
+      // 领红包只看平台禁言，群内禁言不影响领（接龙红包除外，见 muted_in_group）
       return { code, message: '你的账号正在禁言中，不能领红包。' };
+    case 'not_target':
+      return { code, message: '这是给别人的专属红包，你领不了。' };
+    case 'muted_in_group':
+      return { code, message: '这是接龙红包，领了要在群里发言。你在这个群里被禁言了（或者群开了全员禁言），暂时领不了。' };
     default:
       return { code, message: fallbackText(error, '没有领到，稍后再试。') };
   }

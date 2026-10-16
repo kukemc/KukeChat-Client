@@ -569,7 +569,7 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
           }
         }}><Icon name="atSign" className="h-[18px] w-[18px]" /></button> : null}
         <PollComposerButton conversationId={conversationId} onCreated={onOwnMessageSent} />
-        {canSendRedPacket ? <RedPacketComposerButton conversationId={conversationId} isGroup={isGroup} variant="desktop" onCreated={onOwnMessageSent} /> : null}
+        {canSendRedPacket ? <RedPacketComposerButton conversationId={conversationId} isGroup={isGroup} members={members} variant="desktop" onCreated={onOwnMessageSent} /> : null}
         {canSendRedPacket ? <GiftComposerButton conversationId={conversationId} isGroup={isGroup} members={members} directUser={directUser} variant="desktop" onCreated={onOwnMessageSent} onMembersNeeded={onMembersNeeded} /> : null}
         {botCommands.length > 0 ? <button type="button" className={cx('kcd-tool', openBotPanel && 'is-active')} title="机器人指令" aria-label="机器人指令" aria-expanded={Boolean(openBotPanel)} onMouseDown={(event) => {
           // 面板的上下键和回车是输入框接的，焦点不能被按钮拿走；也不让这次按下被面板当成「点了外面」
