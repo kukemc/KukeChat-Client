@@ -1,0 +1,734 @@
+/* ───────── 群文件（前缀 kgp-file- / kgp-files-）─────────
+   文件卡片（聊天、精华、收藏、合并转发里）和群文件面板。桌面弹窗与移动整页共用一套，移动的差异在文件末尾。
+   视觉和群升级面板同一套黑白灰阶（墨色 + 半透明灰）；警示色只用在「快满 / 快过期 / 失败」。 */
+
+.kgp-file-card,
+.kgp-files {
+  --kgp-file-fs: var(--kc-font-multiplier, 1);
+  --kgp-file-ink: var(--kc-text);
+  --kgp-file-on-ink: var(--kc-panel, #ffffff);
+  --kgp-file-sub: color-mix(in srgb, var(--kc-text) 58%, transparent);
+  --kgp-file-faint: color-mix(in srgb, var(--kc-text) 42%, transparent);
+  --kgp-file-line: color-mix(in srgb, var(--kc-text) 10%, transparent);
+  --kgp-file-line-strong: color-mix(in srgb, var(--kc-text) 22%, transparent);
+  --kgp-file-wash: color-mix(in srgb, var(--kc-text) 4.5%, transparent);
+  --kgp-file-wash-2: color-mix(in srgb, var(--kc-text) 7.5%, transparent);
+  --kgp-file-warn: #b4610c;
+  --kgp-file-danger: #d1343a;
+}
+
+[data-theme='dark'] .kgp-file-card,
+[data-theme='dark'] .kgp-files {
+  --kgp-file-warn: #f0ad5a;
+  --kgp-file-danger: #ff8086;
+}
+
+/* ───────── 聊天里的卡片 ───────── */
+
+.kgp-file-card {
+  display: flex;
+  width: 260px;
+  max-width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--kgp-file-line);
+  border-radius: clamp(10px, var(--kc-radius, 12px), 14px);
+  background: var(--kc-panel);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kgp-file-fs));
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.kgp-file-card:hover:not(:disabled) {
+  background: var(--kc-hover);
+}
+
+.kgp-file-card.is-compact {
+  width: 100%;
+  padding: 6px 10px;
+}
+
+.kgp-file-card.is-expired {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.kgp-file-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-file-card.is-expired .kgp-file-icon {
+  background: var(--kc-panel-muted);
+  color: var(--kc-muted);
+}
+
+.kgp-file-main,
+.kgp-files-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kgp-file-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgp-file-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kgp-file-fs));
+}
+
+.kgp-file-error {
+  color: var(--kgp-file-danger);
+  font-size: calc(11.5px * var(--kgp-file-fs));
+}
+
+.kgp-file-action {
+  flex: none;
+  color: var(--kc-muted);
+}
+
+.kgp-file-spin {
+  animation: kgp-file-spin 0.9s linear infinite;
+}
+
+@keyframes kgp-file-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ───────── 面板 ─────────
+   和群升级面板同一套克制的黑白（令牌在文件开头）：灰底条带放用量，虚线细框是上传区，文件列表用细分隔线，
+   操作图标平时是灰的，悬停整行才清楚；红色只在删除悬停时出现，警示色只在「快满 / 快过期 / 失败」。 */
+
+.kgp-files-modal {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 24px 24px;
+}
+
+.kgp-files {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--kgp-file-ink);
+  font-size: calc(13.5px * var(--kgp-file-fs));
+}
+
+.kgp-files > * {
+  flex: none;
+}
+
+/* 用量条带 */
+.kgp-files-quota {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--kgp-file-wash);
+}
+
+.kgp-files-quota-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  line-height: 1;
+}
+
+.kgp-files-quota-num {
+  color: var(--kgp-file-sub);
+}
+
+.kgp-files-quota-num b {
+  color: var(--kgp-file-ink);
+  font-size: 1.45em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.kgp-files-quota-head em {
+  color: var(--kgp-file-faint);
+  font-size: 0.92em;
+  font-style: normal;
+}
+
+.kgp-files-bar {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--kgp-file-wash-2);
+}
+
+.kgp-files-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--kgp-file-ink);
+  transition: width 0.2s ease;
+}
+
+.kgp-files-quota.is-warn .kgp-files-bar-fill {
+  background: var(--kgp-file-warn);
+}
+
+.kgp-files.is-still .kgp-files-bar-fill {
+  transition: none;
+}
+
+.kgp-files-hint {
+  margin: 0;
+  color: var(--kgp-file-sub);
+  font-size: 0.92em;
+  line-height: 1.55;
+}
+
+.kgp-files-link {
+  justify-self: start;
+  color: var(--kgp-file-ink);
+  font-size: 0.92em;
+  font-weight: 600;
+}
+
+.kgp-files-link:hover {
+  text-decoration: underline;
+}
+
+.kgp-files-grace {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--kgp-file-warn) 9%, transparent);
+  color: var(--kgp-file-ink);
+  line-height: 1.55;
+}
+
+.kgp-files-grace > span {
+  flex: 1;
+}
+
+/* 上传区：一圈虚线细框，拖文件进来时实线 + 浅底 */
+.kgp-files-drop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px 16px 18px;
+  border: 1px dashed var(--kgp-file-line-strong);
+  border-radius: 16px;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.kgp-files.is-dragging .kgp-files-drop {
+  border-style: solid;
+  border-color: var(--kgp-file-ink);
+  background: var(--kgp-file-wash);
+}
+
+.kgp-files-drop-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-files-drop-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.kgp-files-drop-text b {
+  font-weight: 600;
+}
+
+.kgp-files-drop-text small {
+  color: var(--kgp-file-sub);
+  font-size: 0.9em;
+}
+
+.kgp-files-check {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  color: var(--kgp-file-sub);
+  font-size: 0.92em;
+  cursor: pointer;
+}
+
+/* 墨色胶囊：选择文件、去升级、去续费 */
+.kgp-files-cta {
+  display: inline-flex;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+  font-size: 0.95em;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity 120ms ease, transform 80ms ease;
+}
+
+.kgp-files-cta:hover { opacity: 0.86; }
+.kgp-files-cta:active { transform: scale(0.98); }
+
+.kgp-files-btn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--kgp-file-sub);
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+.kgp-files-btn:hover {
+  background: var(--kgp-file-wash);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-files-notice {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--kgp-file-wash);
+  color: var(--kgp-file-ink);
+  font-size: 0.92em;
+  line-height: 1.55;
+}
+
+/* 上传任务 */
+.kgp-files-tasks,
+.kgp-files-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kgp-files-tasks {
+  gap: 8px;
+}
+
+.kgp-files-task {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line);
+}
+
+.kgp-files-task.is-failed {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kgp-file-danger) 35%, transparent);
+}
+
+.kgp-files-task-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kgp-files-task-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgp-files-task-state {
+  color: var(--kgp-file-sub);
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kgp-files-task-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--kgp-file-danger);
+  font-size: 0.9em;
+}
+
+.kgp-files-task-error .kgp-files-cta {
+  height: 28px;
+  padding: 0 12px;
+}
+
+/* 搜索 */
+.kgp-files-search {
+  display: flex;
+  height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--kgp-file-wash);
+  color: var(--kgp-file-faint);
+  transition: box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.kgp-files-search:focus-within {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line-strong);
+}
+
+.kgp-files-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--kgp-file-ink);
+  font: inherit;
+  outline: none;
+}
+
+.kgp-files-search input::placeholder {
+  color: var(--kgp-file-faint);
+}
+
+.kgp-files-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 0;
+  color: var(--kgp-file-faint);
+}
+
+.kgp-files-empty p {
+  margin: 0;
+}
+
+/* 文件列表：细分隔线，整行悬停是一块圆角浅底 */
+.kgp-files-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 -10px;
+  padding: 12px 10px;
+  border-radius: 12px;
+  transition: background-color 120ms ease;
+}
+
+/* 分隔线从文件名那一列开始（图标 40 + 间距 14 + 内边距 10），悬停的那一行上下都不画 */
+.kgp-files-row + .kgp-files-row::before {
+  position: absolute;
+  top: 0;
+  right: 10px;
+  left: 64px;
+  height: 1px;
+  background: var(--kgp-file-line);
+  content: '';
+}
+
+.kgp-files-row:hover {
+  background: var(--kgp-file-wash);
+}
+
+.kgp-files-row:hover::before,
+.kgp-files-row:hover + .kgp-files-row::before {
+  opacity: 0;
+}
+
+.kgp-files-row .kgp-file-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.kgp-files-row-main .kgp-file-name {
+  font-weight: 600;
+}
+
+.kgp-files-row-main .kgp-file-sub {
+  gap: 2px 10px;
+  color: var(--kgp-file-faint);
+  font-size: 0.88em;
+}
+
+.kgp-files-uploader {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 160px;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgp-files-uploader .kc-avatar,
+.kgp-files-uploader > :first-child:not(:only-child) {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  font-size: 9px;
+}
+
+.kgp-files-expiry {
+  color: var(--kgp-file-sub);
+}
+
+.kgp-files-expiry.is-permanent {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+  font-size: 0.92em;
+  font-weight: 600;
+}
+
+.kgp-files-expiry.is-temp {
+  padding: 1px 7px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line-strong);
+}
+
+.kgp-files-expiry.is-urgent {
+  color: var(--kgp-file-warn);
+  font-weight: 600;
+}
+
+.kgp-files-row-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  color: var(--kgp-file-faint);
+  opacity: 0.55;
+  transition: opacity 120ms ease;
+}
+
+.kgp-files-row:hover .kgp-files-row-actions,
+.kgp-files-row:focus-within .kgp-files-row-actions {
+  opacity: 1;
+}
+
+.kgp-files-row-actions .kui-icon-btn {
+  border-radius: 999px;
+  color: var(--kgp-file-sub);
+}
+
+.kgp-files-row-actions .kui-icon-btn:hover:not(:disabled) {
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-files-row-actions .kui-icon-btn.is-active {
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+}
+
+.kgp-files-row-actions .kgp-files-del:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kgp-file-danger) 10%, transparent);
+  color: var(--kgp-file-danger);
+}
+
+.kgp-files-more {
+  height: 40px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line);
+  color: var(--kgp-file-sub);
+  font-weight: 500;
+}
+
+.kgp-files-more:hover:not(:disabled) {
+  background: var(--kgp-file-wash);
+  color: var(--kgp-file-ink);
+}
+
+/* 默认保留时长：左边说明，右边分段 */
+.kgp-files-ttl {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 18px;
+  border-top: 1px solid var(--kgp-file-line);
+}
+
+.kgp-files-ttl-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.kgp-files-ttl h4 {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.kgp-files-ttl p {
+  margin: 0;
+  color: var(--kgp-file-faint);
+  font-size: 0.88em;
+}
+
+.kgp-files-seg {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--kgp-file-wash-2);
+}
+
+.kgp-files-seg button {
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--kgp-file-sub);
+  font-size: 0.92em;
+  font-weight: 500;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.kgp-files-seg button.is-active {
+  background: var(--kc-panel, #fff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: var(--kgp-file-ink);
+  font-weight: 600;
+}
+
+[data-theme='dark'] .kgp-files-seg button.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+
+/* 未解锁 */
+.kgp-files-lock {
+  align-items: center;
+  gap: 10px;
+  padding: 40px 12px 28px;
+  text-align: center;
+}
+
+.kgp-files-lock h3 {
+  margin: 8px 0 0;
+  font-size: 1.45em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.kgp-files-lock p {
+  max-width: 360px;
+  margin: 0;
+  color: var(--kgp-file-sub);
+  line-height: 1.6;
+}
+
+.kgp-files-lock-icon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border-radius: 18px;
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-files-lock-list {
+  display: grid;
+  width: min(380px, 100%);
+  margin: 12px 0 8px;
+  padding: 4px 18px;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px var(--kgp-file-line);
+  list-style: none;
+}
+
+.kgp-files-lock-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.kgp-files-lock-list li + li {
+  border-top: 1px solid var(--kgp-file-line);
+}
+
+.kgp-files-lock-list strong {
+  font-weight: 600;
+}
+
+.kgp-files-lock-list span {
+  color: var(--kgp-file-sub);
+  font-size: 0.92em;
+}
+
+/* 移动：整页里不再有弹窗内边距；操作图标一直清楚（没有悬停） */
+.kgp-files.is-mobile {
+  padding: 0 0 8px;
+}
+
+.kgp-files.is-mobile .kgp-files-row {
+  margin: 0;
+  padding: 12px 4px;
+}
+
+.kgp-files.is-mobile .kgp-files-row-actions {
+  opacity: 1;
+}
+
+.kgp-files.is-mobile .kgp-files-drop {
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+
+/* 手机上说明占满第一行，开关和按钮挪到第二行，按钮撑满剩下的宽度 */
+.kgp-files.is-mobile .kgp-files-drop-text {
+  flex-basis: calc(100% - 54px);
+}
+
+.kgp-files.is-mobile .kgp-files-cta {
+  height: 40px;
+  flex: 1;
+  justify-content: center;
+}
+
+.kgp-files.is-mobile .kgp-files-ttl {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.kgp-files.is-mobile .kgp-file-card {
+  width: min(260px, 100%);
+}

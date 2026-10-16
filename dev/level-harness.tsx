@@ -283,7 +283,8 @@ function notificationData(): ContactsData {
 function Cards({ layout }: { layout: 'desktop' | 'mobile' }): JSX.Element {
   const me = useKukeStore((state) => state.currentUser) ?? meBase;
   const [card, setCard] = useState<User | null>(null);
-  const samples = [me, others[0], others[3], others[4], others[5], others[2], { id: 404, username: 'ghost', nickname: '不存在的用户（404）', account_level: 9 } as User];
+  // 第二个人今天过生日、收到过礼物：资料卡上看生日那一行和统计行里的心意值
+  const samples = [me, { ...others[0], charm: 128, birthday: { month: 5, day: 7, year: 2008 }, is_birthday_today: true }, others[3], others[4], others[5], others[2], { id: 404, username: 'ghost', nickname: '不存在的用户（404）', account_level: 9 } as User];
   const box: CSSProperties = { padding: 14, borderRadius: 10, background: 'var(--kc-panel)' };
   return (
     <div className="kui kui-scroll" data-harness="cards" style={{ position: 'relative', height: '100%', padding: '4px 24px 32px', background: 'var(--kc-chat)', color: 'var(--kc-text)', fontSize: 13.5, overflowY: 'auto' }}>

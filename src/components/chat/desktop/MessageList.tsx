@@ -2,6 +2,7 @@ import { Component, forwardRef, memo, useCallback, useEffect, useImperativeHandl
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getMessageContext, getMessages } from '@/api/messages';
 import { subscribePoke } from '@/realtime/poke';
+import { toast } from '@/components/ui/toast';
 import { useKukeStore } from '@/store/kukeStore';
 import { markConversationReadLocally } from '@/store/readMarks';
 import type { Conversation, Message } from '@/types/api';
@@ -10,7 +11,7 @@ import { MESSAGE_PAGE_SIZE } from '../message/constants';
 import { repeatableContentOf, senderOf, shouldShowTimeDivider } from '../message/messageMeta';
 import type { MessagesInfiniteData } from '../message/types';
 import { MessageRow } from './MessageRow';
-import { cx, type ShowToast } from './runtime';
+import { cx } from './runtime';
 import { TypingIndicator } from './typing/TypingIndicator';
 
 /*
@@ -39,7 +40,6 @@ interface MessageListProps {
   selectMode: boolean;
   selectedIds: ReadonlySet<number>;
   sending: boolean;
-  showToast: ShowToast;
 }
 
 /** 同一个人在这个时间窗内连续发言时合并头像和昵称。 */
@@ -120,7 +120,7 @@ class AnchorKeeper extends Component<AnchorKeeperProps, Record<string, never>, A
   }
 }
 
-const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(function MessageList({ conversation, currentUserId, selectMode, selectedIds, sending, showToast }, ref) {
+const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(function MessageList({ conversation, currentUserId, selectMode, selectedIds, sending }, ref) {
   const conversationId = conversation.id;
   const queryClient = useQueryClient();
   const visibleConversationId = useKukeStore((state) => state.visibleConversationId);
@@ -270,7 +270,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
       // 不足一页说明已经接上最新消息，退出上下文模式
       setContextEdgeId(newer.length < MESSAGE_PAGE_SIZE ? null : newer[newer.length - 1].id);
     } catch {
-      showToast('加载更新消息失败，请稍后重试。', 'error');
+      toast.error('加载更新消息失败，请稍后重试。');
     } finally {
       loadingNewerRef.current = false;
       setLoadingNewer(false);
@@ -412,11 +412,11 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     try {
       contextMessages = await getMessageContext(conversationId, messageId, { before: 25, after: 25 });
     } catch {
-      showToast('已找到该消息，但无法加载它所在的上下文窗口。', 'error');
+      toast.error('已找到该消息，但无法加载它所在的上下文窗口。');
       return;
     }
     if (!contextMessages.some((message) => message.id === messageId)) {
-      showToast('已找到该消息，但该消息对当前账号不可见或已被清除。', 'error');
+      toast.error('已找到该消息，但该消息对当前账号不可见或已被清除。');
       return;
     }
     const contextPage = Array.from(new Map(contextMessages.map((message) => [message.id, message])).values()).sort((left, right) => left.id - right.id);
@@ -425,7 +425,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     growthRef.current = null;
     setContextEdgeId(contextPage[contextPage.length - 1].id);
     queryClient.setQueryData<MessagesInfiniteData>(['messages', conversationId], singlePage(contextPage));
-  }, [centerOn, conversationId, highlight, queryClient, showToast]);
+  }, [centerOn, conversationId, highlight, queryClient]);
 
   useImperativeHandle(ref, () => ({ jumpToMessage, scrollToLatest, getMessages: () => messagesRef.current }), [jumpToMessage, scrollToLatest]);
 

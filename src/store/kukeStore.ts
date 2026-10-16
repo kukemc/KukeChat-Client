@@ -16,7 +16,9 @@ export interface Size {
   height: number;
 }
 
-export type WorkspaceView = 'chat' | 'contacts' | 'posts' | 'space' | 'favorites' | 'bots' | 'home' | 'teamup' | 'tasks' | 'jury' | 'shop' | 'level' | 'settings';
+export type WorkspaceView = 'chat' | 'contacts' | 'posts' | 'space' | 'favorites' | 'bots' | 'home' | 'teamup' | 'tasks' | 'jury' | 'shop' | 'level' | 'ranking' | 'settings';
+/** 排行榜页（components/ranking）的页签：活跃榜、心意榜、风纪榜 */
+export type RankingBoard = 'level' | 'charm' | 'intimacy' | 'jury';
 export type TaskCenterScope = 'assigned' | 'watching' | 'created' | 'all' | 'activity';
 /** 风纪页里的板块。板块的名称、分组和可见性在 src/components/jury/sections.ts 登记。 */
 export type JurySection = 'overview' | 'desk' | 'practice' | 'mine' | 'bulletin' | 'handbook' | 'ranking' | 'forum' | 'senior';
@@ -88,12 +90,18 @@ interface KukeChatState {
   pendingSettingsTab: SettingsEntryTab | null;
   /** 移动布局下有人要求打开商店（那边商店是二级页面，由 ChatDashboard 接住后打开） */
   pendingShop: boolean;
+  /** 打开商店后要直接亮出来的那件商品（sku）：从「去装扮」「去续期」之类的入口进来时有值，商店页用过就清掉 */
+  shopFocusSku: string | null;
   /** 等级页（docs/account-level.md）现在看的页签：我的等级 / 排行榜 */
   levelTab: LevelTab;
   /** 桌面布局下等级页是一个没有导航栏入口的工作区，这里记着从哪儿进来的，点返回时回去 */
   levelReturnView: WorkspaceView;
   /** 移动布局下有人要求打开等级页（那边它是二级页面，由 ChatDashboard 接住后打开） */
   pendingLevel: LevelTab | null;
+  /** 排行榜页现在看的是哪个榜 */
+  rankingBoard: RankingBoard;
+  /** 移动布局下有人要求打开排行榜（那边它是二级页面，由 ChatDashboard 接住后打开） */
+  pendingRanking: RankingBoard | null;
   lastSeenAnnouncementId: number | null;
   openWindow: () => void;
   closeWindow: () => void;
@@ -153,12 +161,19 @@ interface KukeChatState {
   /** 从别处直达商店：桌面布局切到商店页，移动布局打开商店的二级页面 */
   openShop: () => void;
   clearPendingShop: () => void;
+  /** 打开商店并直达某一件商品（切到它的类别、打开它的试穿面板） */
+  openShopItem: (sku: string) => void;
+  clearShopFocus: () => void;
   /** 打开等级页：桌面布局切到等级页，移动布局打开等级的二级页面 */
   openLevel: (tab?: LevelTab) => void;
   /** 桌面布局下离开等级页，回到进来之前的那个工作区 */
   closeLevel: () => void;
   setLevelTab: (tab: LevelTab) => void;
   clearPendingLevel: () => void;
+  /** 打开排行榜并停在某个榜上：桌面布局切到排行榜工作区（导航栏里有它），移动布局打开排行榜的二级页面 */
+  openRanking: (board?: RankingBoard) => void;
+  setRankingBoard: (board: RankingBoard) => void;
+  clearPendingRanking: () => void;
   setLastSeenAnnouncementId: (id: number) => void;
 }
 
@@ -360,9 +375,12 @@ export const useKukeStore = create<KukeChatState>()(
       pendingJuryRoute: null,
       pendingSettingsTab: null,
       pendingShop: false,
+      shopFocusSku: null,
       levelTab: 'me',
       levelReturnView: 'chat',
       pendingLevel: null,
+      rankingBoard: 'level',
+      pendingRanking: null,
       lastSeenAnnouncementId: null,
       pendingPostSourceUserSpaceId: null,
       openWindow: () => set({ isOpen: true, isMinimized: false }),
@@ -388,7 +406,9 @@ export const useKukeStore = create<KukeChatState>()(
           pendingJuryRoute: null,
           pendingSettingsTab: null,
           pendingShop: false,
+          shopFocusSku: null,
           pendingLevel: null,
+          pendingRanking: null,
           workspaceView: 'chat'
         }),
       setUnreadCount: (count) => set({ unreadCount: Math.max(0, count) }),
@@ -407,8 +427,8 @@ export const useKukeStore = create<KukeChatState>()(
       }),
       setWorkspaceView: (view) => set({ workspaceView: view }),
       // 风纪页只有桌面布局，商店和等级页在移动布局下是二级页面：切到移动布局时如果正停在它们上面，退回聊天
-      setLayoutMode: (mode) => set((state) => ({ layoutMode: mode, layoutModeSource: 'manual', isFullscreen: false, ...(mode === 'mobile' && (state.workspaceView === 'jury' || state.workspaceView === 'shop' || state.workspaceView === 'level') ? { workspaceView: 'chat' as const } : {}) })),
-      toggleLayoutMode: () => set((state) => ({ layoutMode: state.layoutMode === 'desktop' ? 'mobile' : 'desktop', layoutModeSource: 'manual', isFullscreen: false, ...(state.layoutMode === 'desktop' && (state.workspaceView === 'jury' || state.workspaceView === 'shop' || state.workspaceView === 'level') ? { workspaceView: 'chat' as const } : {}) })),
+      setLayoutMode: (mode) => set((state) => ({ layoutMode: mode, layoutModeSource: 'manual', isFullscreen: false, ...(mode === 'mobile' && (state.workspaceView === 'jury' || state.workspaceView === 'shop' || state.workspaceView === 'level' || state.workspaceView === 'ranking') ? { workspaceView: 'chat' as const } : {}) })),
+      toggleLayoutMode: () => set((state) => ({ layoutMode: state.layoutMode === 'desktop' ? 'mobile' : 'desktop', layoutModeSource: 'manual', isFullscreen: false, ...(state.layoutMode === 'desktop' && (state.workspaceView === 'jury' || state.workspaceView === 'shop' || state.workspaceView === 'level' || state.workspaceView === 'ranking') ? { workspaceView: 'chat' as const } : {}) })),
       toggleThemeMode: () => set((state) => ({ themeMode: state.themeMode === 'dark' ? 'light' : 'dark' })),
       setThemeMode: (mode) => set({ themeMode: mode }),
       updateThemeSettings: (patch) => set((state) => ({ themeSettings: sanitizeThemeSettings({ ...state.themeSettings, ...patch }) })),
@@ -485,12 +505,22 @@ export const useKukeStore = create<KukeChatState>()(
       clearPendingSettingsTab: () => set({ pendingSettingsTab: null }),
       openShop: () => set((state) => (state.layoutMode === 'mobile' ? { isOpen: true, isMinimized: false, pendingShop: true } : { isOpen: true, isMinimized: false, workspaceView: 'shop' })),
       clearPendingShop: () => set({ pendingShop: false }),
-      openLevel: (tab = 'me') => set((state) => (state.layoutMode === 'mobile'
+      openShopItem: (sku) => set((state) => (state.layoutMode === 'mobile' ? { isOpen: true, isMinimized: false, pendingShop: true, shopFocusSku: sku } : { isOpen: true, isMinimized: false, workspaceView: 'shop', shopFocusSku: sku })),
+      clearShopFocus: () => set({ shopFocusSku: null }),
+      // 活跃榜搬进了排行榜页：要看「排行榜」页签的调用方直接去排行榜的活跃榜
+      openLevel: (tab = 'me') => set((state) => (tab === 'board'
+        ? (state.layoutMode === 'mobile' ? { isOpen: true, isMinimized: false, pendingRanking: 'level' as const } : { isOpen: true, isMinimized: false, workspaceView: 'ranking' as const, rankingBoard: 'level' as const })
+        : state.layoutMode === 'mobile'
         ? { isOpen: true, isMinimized: false, pendingLevel: tab }
         : { isOpen: true, isMinimized: false, workspaceView: 'level', levelTab: tab, levelReturnView: state.workspaceView === 'level' ? state.levelReturnView : state.workspaceView })),
       closeLevel: () => set((state) => (state.workspaceView === 'level' ? { workspaceView: state.levelReturnView === 'level' ? 'chat' : state.levelReturnView } : {})),
       setLevelTab: (levelTab) => set({ levelTab }),
       clearPendingLevel: () => set({ pendingLevel: null }),
+      openRanking: (board) => set((state) => (state.layoutMode === 'mobile'
+        ? { isOpen: true, isMinimized: false, pendingRanking: board ?? state.rankingBoard }
+        : { isOpen: true, isMinimized: false, workspaceView: 'ranking', rankingBoard: board ?? state.rankingBoard })),
+      setRankingBoard: (rankingBoard) => set({ rankingBoard }),
+      clearPendingRanking: () => set({ pendingRanking: null }),
       setLastSeenAnnouncementId: (id) => set((state) => ({ lastSeenAnnouncementId: Math.max(id, state.lastSeenAnnouncementId ?? 0) }))
     }),
     {

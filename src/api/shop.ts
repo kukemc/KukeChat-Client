@@ -1,5 +1,7 @@
+import type { User } from '@/types/api';
 import type { ShopBalance, ShopCategory, ShopItem, ShopOverview, ShopPurchasePage, ShopPurchaseRecord, ShopPurchaseResult, ShopTag } from '@/types/shop';
 import { parseApiDate } from '@/utils/dateTime';
+import { durationDaysOf, isExpired } from '@/utils/shopExpiry';
 import { apiRequest } from './client';
 import { isRecord } from './normalizers';
 
@@ -30,8 +32,10 @@ export function normalizeShopItem(value: unknown): ShopItem | null {
     return null;
   }
   const owned = value.owned === true;
-  const obtainable = value.obtainable === 'buy' || value.obtainable === 'level' || value.obtainable === 'locked' || value.obtainable === 'owned' ? value.obtainable : owned ? 'owned' : 'locked';
+  const obtainable = value.obtainable === 'buy' || value.obtainable === 'level' || value.obtainable === 'locked' || value.obtainable === 'owned' || value.obtainable === 'renew' ? value.obtainable : owned ? 'owned' : 'locked';
   const availableUntil = typeof value.available_until === 'string' ? value.available_until : null;
+  // 到期时间只在「我拥有、而且还没到期」时有意义；已经过了的（服务端现场判断之前的那一瞬间）当成没有
+  const expiresAt = owned && typeof value.expires_at === 'string' && value.expires_at && !isExpired(value.expires_at, Date.now()) ? value.expires_at : null;
   return {
     id: value.id,
     sku: value.sku,
@@ -44,6 +48,8 @@ export function normalizeShopItem(value: unknown): ShopItem | null {
     preview_text: text(value.preview_text),
     tag: TAGS.find((tag) => tag === value.tag) ?? null,
     available_until: availableUntil,
+    duration_days: durationDaysOf(value.duration_days),
+    expires_at: expiresAt,
     owned,
     equipped: value.equipped === true,
     obtainable,
@@ -52,9 +58,11 @@ export function normalizeShopItem(value: unknown): ShopItem | null {
   };
 }
 
+const BALANCE_EXTRAS = ['red_packet_sent', 'red_packet_received', 'red_packet_refunded', 'gift_spent', 'group_plus_spent', 'granted'] as const;
+
 export function normalizeShopBalance(value: unknown): ShopBalance {
   const source = isRecord(value) ? value : {};
-  return {
+  const balance: ShopBalance = {
     bound: source.bound === true,
     donated: count(source.donated),
     spent: count(source.spent),
@@ -62,6 +70,14 @@ export function normalizeShopBalance(value: unknown): ShopBalance {
     verified_at: typeof source.verified_at === 'string' ? source.verified_at : null,
     stale: source.stale === true
   };
+  // 红包、礼物的几项明细：服务端给了才有（旧后端没有）
+  for (const key of BALANCE_EXTRAS) {
+    const extra = source[key];
+    if (typeof extra === 'number' && Number.isFinite(extra)) {
+      balance[key] = extra;
+    }
+  }
+  return balance;
 }
 
 export function normalizeEquipped(value: unknown): Record<string, string | null> {
@@ -135,7 +151,10 @@ function normalizeRecord(value: unknown): ShopPurchaseRecord | null {
     source: text(value.source, 'purchase'),
     created_at: text(value.created_at),
     revoked_at: typeof value.revoked_at === 'string' && value.revoked_at ? value.revoked_at : null,
-    refunded: value.refunded === true
+    refunded: value.refunded === true,
+    duration_days: durationDaysOf(value.duration_days),
+    expires_at: typeof value.expires_at === 'string' && value.expires_at ? value.expires_at : null,
+    from_user: isRecord(value.from_user) && typeof value.from_user.id === 'number' ? value.from_user as unknown as User : null
   };
 }
 

@@ -1,0 +1,412 @@
+/* ───────── 群待办（前缀 kgt-）─────────
+   聊天顶部的待办卡片（桌面 kcd 面板、移动 kc-mobile-panel 里都用）和「查看全文」面板。
+   卡片浮在消息区顶上（面板底色 + 细描边 + 轻投影），不再是一整条铺满的色带。图标是灰底墨色，只有主操作用强调色。
+   展开：第一行图标、标题、设置人和时间，操作按钮靠右；第二行发送人和摘要。移动布局把操作挪到最下面一行。
+   颜色全走主题令牌；强调色用 --kc-accent，深色下自动跟着主题走。 */
+
+.kgt {
+  --kgt-fs: var(--kc-font-multiplier, 1);
+  --kgt-accent: var(--kc-accent, #2f6fed);
+  position: relative;
+  z-index: 2;
+  flex: none;
+  margin: 10px 16px 6px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--kc-text) 9%, transparent);
+  border-radius: 12px;
+  background: var(--kc-panel, #ffffff);
+  box-shadow: 0 1px 2px rgba(16, 20, 32, 0.04), 0 8px 20px -14px rgba(16, 20, 32, 0.28);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kgt-fs));
+  line-height: 1.45;
+}
+
+.kgt.is-recalled {
+  --kgt-accent: var(--kc-muted);
+}
+
+[data-theme='dark'] .kgt {
+  border-color: color-mix(in srgb, var(--kc-text) 12%, transparent);
+  box-shadow: 0 8px 22px -14px rgba(0, 0, 0, 0.7);
+}
+
+.kgt--mobile {
+  margin: 8px 12px 0;
+  border-radius: 14px;
+}
+
+.kgt.is-fresh {
+  animation: kgt-in 0.32s ease-out;
+}
+
+@keyframes kgt-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.kgt-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  color: var(--kc-text);
+}
+
+.kgt-icon--sm {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+
+/* 收起：一行 */
+.kgt-line {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 13px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.kgt-line:hover {
+  background: color-mix(in srgb, var(--kc-text) 3%, transparent);
+}
+
+.kgt-line strong,
+.kgt-head strong {
+  flex: none;
+  font-weight: 700;
+}
+
+.kgt-line-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--kc-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgt-caret {
+  flex: none;
+  color: var(--kc-muted);
+  transform: rotate(90deg);
+  transition: transform 160ms ease;
+}
+
+.kgt-caret.is-open {
+  transform: rotate(-90deg);
+}
+
+/* 展开 */
+.kgt-main {
+  display: grid;
+  grid-template-areas:
+    'icon head actions fold'
+    'icon body body body';
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 2px 10px;
+  padding: 12px 10px 13px 14px;
+}
+
+.kgt-main > .kgt-icon {
+  grid-area: icon;
+  align-self: start;
+}
+
+.kgt-head {
+  display: flex;
+  min-width: 0;
+  grid-area: head;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kgt-meta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kgt-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgt-actions {
+  display: flex;
+  grid-area: actions;
+  align-items: center;
+  gap: 6px;
+}
+
+.kgt-fold {
+  display: grid;
+  grid-area: fold;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.kgt-fold:hover {
+  background: var(--kc-hover, color-mix(in srgb, var(--kc-text) 6%, transparent));
+}
+
+.kgt-body {
+  display: block;
+  min-width: 0;
+  grid-area: body;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kgt-body:hover:not(:disabled) .kgt-text {
+  color: var(--kgt-accent);
+}
+
+.kgt-body:disabled {
+  color: var(--kc-muted);
+  cursor: default;
+}
+
+.kgt-sender {
+  color: var(--kc-muted);
+  font-weight: 500;
+}
+
+/* 摘要最多两行：服务端的 summary 本来就只有前 60 个字，这里只是防止换行很多时撑高 */
+.kgt-text {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: calc(13.5px * var(--kgt-fs));
+  transition: color 120ms ease;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.kgt-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kgt-fs));
+}
+
+.kgt-confirm > span {
+  margin-right: 2px;
+}
+
+/* 小按钮：主操作是强调色浅底，取消待办平时是灰字，悬停才变红 */
+.kgt-btn {
+  display: inline-flex;
+  height: 26px;
+  align-items: center;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--kc-text) 6%, transparent);
+  color: var(--kc-text);
+  font-size: calc(12px * var(--kgt-fs));
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.kgt-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kc-text) 10%, transparent);
+}
+
+.kgt-btn--primary {
+  background: color-mix(in srgb, var(--kgt-accent) 11%, transparent);
+  color: var(--kgt-accent);
+}
+
+.kgt-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kgt-accent) 17%, transparent);
+}
+
+.kgt-btn--quiet {
+  background: transparent;
+  color: var(--kc-muted);
+}
+
+.kgt-btn--quiet:hover:not(:disabled) {
+  background: rgba(229, 56, 63, 0.08);
+  color: #e5383f;
+}
+
+.kgt-btn--danger {
+  background: #e5383f;
+  color: #ffffff;
+}
+
+.kgt-btn--danger:hover:not(:disabled) {
+  background: #d22f36;
+}
+
+.kgt-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+[data-theme='dark'] .kgt-btn--quiet:hover:not(:disabled) {
+  background: rgba(255, 107, 112, 0.12);
+  color: #ff6b70;
+}
+
+/* 移动：操作挪到最下面一行，按钮大一点 */
+.kgt--mobile .kgt-main {
+  grid-template-areas:
+    'icon head fold'
+    'icon body body'
+    'icon actions actions';
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  row-gap: 4px;
+}
+
+.kgt--mobile .kgt-actions {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+.kgt--mobile .kgt-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 9px;
+}
+
+/* ───── 查看全文 ───── */
+
+.kgt-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--kc-text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.kgt-detail-note,
+.kgt-detail-by {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--kc-panel-muted);
+  color: var(--kc-muted);
+  font-size: 12px;
+}
+
+.kgt-detail-by {
+  padding: 0;
+  background: transparent;
+}
+
+.kgt-detail-who {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+
+.kgt-detail-who time {
+  color: var(--kc-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.kgt-detail-text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.kgt-detail-empty {
+  margin: 0;
+  color: var(--kc-muted);
+}
+
+.kgt-detail-image {
+  max-width: 100%;
+  border-radius: 10px;
+}
+
+/* 移动整页 */
+.kgt-m-page {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  display: flex;
+  flex-direction: column;
+  background: var(--kc-mobile-chat, var(--kc-window));
+  color: var(--kc-text);
+}
+
+.kgt-m-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: max(44px, env(safe-area-inset-top)) 12px 10px;
+}
+
+.kgt-m-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.kgt-m-head button,
+.kgt-m-head span {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+}
+
+.kgt-m-main {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px calc(env(safe-area-inset-bottom) + 24px);
+}
+
+.kgt-m-foot {
+  margin-top: 20px;
+}
+
+.kgt-m-danger {
+  width: 100%;
+  height: 44px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--kc-panel);
+  color: #e5383f;
+  font-weight: 700;
+}

@@ -106,7 +106,11 @@ function compareConversation(left: Conversation, right: Conversation): number {
   return pinned || conversationActivityTime(right) - conversationActivityTime(left) || right.id - left.id;
 }
 
-export function applyCreatedMessageToConversations(current: Conversation[] | undefined, message: Message, visibleConversationId: number | null, isDuplicate = false): Conversation[] | undefined {
+/**
+ * mention：这条消息对我来说是不是 @（utils/mentions.ts 的 messageMentionKind，调用方算好传进来）。
+ * 会话上的 mention_pending 跟着未读数走：正开着的会话（马上会被标已读）不置，免得闪一下；重复送达、自己发的（isDuplicate）不动；点名比 @全体 优先。
+ */
+export function applyCreatedMessageToConversations(current: Conversation[] | undefined, message: Message, visibleConversationId: number | null, isDuplicate = false, mention: 'me' | 'all' | null = null): Conversation[] | undefined {
   if (!current) return current;
   const index = current.findIndex((item) => item.id === message.conversation_id);
   if (index < 0) return current;
@@ -114,9 +118,12 @@ export function applyCreatedMessageToConversations(current: Conversation[] | und
   const currentMessage = previous.last_message;
   const isLatest = !currentMessage || message.id >= currentMessage.id;
   const unreadCount = visibleConversationId === previous.id ? 0 : isDuplicate ? previous.unread_count : (previous.unread_count ?? 0) + 1;
-  if (!isLatest && previous.unread_count === unreadCount) return current;
+  const previousMention = previous.mention_pending ?? null;
+  const mentionPending = visibleConversationId === previous.id ? null : isDuplicate || !mention || previousMention === 'me' ? previousMention : mention;
+  if (!isLatest && previous.unread_count === unreadCount && previousMention === mentionPending) return current;
   const next: Conversation = {
     ...previous,
+    ...(mentionPending !== previousMention ? { mention_pending: mentionPending } : null),
     last_message: isLatest ? (currentMessage?.id === message.id ? { ...currentMessage, ...message } : message) : currentMessage,
     unread_count: unreadCount,
     updated_at: isLatest ? message.created_at || previous.updated_at : previous.updated_at

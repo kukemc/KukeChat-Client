@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateMyConversationSettings } from '@/api/conversations';
 import { createGroupInvite } from '@/api/invites';
@@ -6,7 +7,10 @@ import { conversationTitle, currentMessageSetting, isConversationPinned, lastMes
 import { TypingPreview } from '@/components/chat/desktop/typing/TypingIndicator';
 import { copyText } from '@/components/chat/message/chatDom';
 import { VirtualConversationList } from '@/components/chat/VirtualConversationList';
+import { ConversationPrefixes } from '@/components/chat/ConversationPrefixes';
 import { Avatar } from '@/components/ui/Avatar';
+import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
+import { conversationTier } from '@/components/groupPlus/tier';
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuSurface, MenuLayer } from '@/components/ui/ContextMenu';
 import { Icon } from '@/components/ui/Icon';
 import { useKukeStore } from '@/store/kukeStore';
@@ -56,13 +60,14 @@ const ConversationRow = memo(function ConversationRow({ conversation, currentUse
   const peer = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
   return (
     <button type="button" className={`ksh-conv${active ? ' is-active' : ''}${pinned ? ' is-pinned' : ''}`} onClick={() => onSelect(conversation)} onContextMenu={(event) => onContextMenu(event, conversation)}>
-      {conversation.type === 'group' ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} /> : <Avatar user={peer} label={title} />}
+      {conversation.type === 'group' ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} plusTier={conversationTier(conversation)} /> : <Avatar user={peer} label={title} />}
       <span className="ksh-conv-main">
         <span className="ksh-conv-line">
-          <span className="ksh-conv-title">{title}</span>
+          <span className="ksh-conv-title"><span className="ksh-conv-name">{title}</span><PlusTierTag tier={conversationTier(conversation)} />{conversation.type === 'direct' ? <FriendBadgeMark userId={peer?.id} size={15} /> : null}</span>
           <time className="ksh-conv-time">{formatClockTime(conversation.updated_at)}</time>
         </span>
         <span className="ksh-conv-line">
+          <ConversationPrefixes conversation={conversation} />
           <span className="ksh-conv-preview"><TypingPreview conversationId={conversation.id} direct={conversation.type === 'direct'}>{lastMessagePreview(conversation)}</TypingPreview></span>
           {conversation.pending_join_request_count ? <span className="kui-tag kui-tag--accent">待审 {conversation.pending_join_request_count}</span> : null}
           {quiet ? <Icon name={isConversationBlocked(conversation) ? 'close' : 'bellOff'} className="ksh-conv-quiet" /> : null}

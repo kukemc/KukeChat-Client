@@ -11,6 +11,11 @@ import { createReport } from '@/api/reports';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation, ConversationMember, Friendship, GroupJoinRequest, GroupLeaderboardPeriod, GroupLeaderboardType, JoinMode, MemberRole, Message, MessageMetadata, UpdateConversationProfilePayload, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload, User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { groupPlusErrorCode } from '@/components/groupPlus/data';
+import { useGroupPlusUi } from '@/components/groupPlus/ui';
+import { GroupPlusInfoBlock } from '@/components/groupPlus/upgrade/PlusInfoBlock';
+import { PlusCornerBadge, PlusTierTag } from '@/components/groupPlus/PlusBadge';
+import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon } from '@/components/ui/Icon';
 import { UserCard } from '@/components/ui/UserCard';
 import { MobileUserProfilePage, type ProfileAction } from '@/components/ui/MobileUserProfilePage';
@@ -246,6 +251,8 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
   const [shareForwardKind, setShareForwardKind] = useState<ShareForwardKind>('group');
   const [copied, setCopied] = useState(false);
   const [errorText, setErrorText] = useState('');
+  // 邀请时服务端说群满员了（409 group_full）：提示后面带「去升级」
+  const [inviteFull, setInviteFull] = useState(false);
   const [locallyPendingFriendIds, setLocallyPendingFriendIds] = useState<Set<number>>(() => new Set());
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [leaderboardType, setLeaderboardType] = useState<GroupLeaderboardType>('activity');
@@ -670,7 +677,14 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
       setErrorText('');
       invalidateConversationData(variables.conversationId);
     },
-    onError: () => setErrorText('邀请失败，请稍后重试。')
+    onError: (error) => {
+      if (groupPlusErrorCode(error) === 'group_full') {
+        setInviteFull(true);
+        setErrorText(error.message || '群人数已经达到上限，不能再邀请新成员了。');
+        return;
+      }
+      setErrorText('邀请失败，请稍后重试。');
+    }
   });
 
   const removeMutation = useMutation({
@@ -1256,9 +1270,18 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     const title = conversation.title || '群聊';
     const avatarUrl = resolveThumbnailUrl(conversation.avatar_url);
     if (avatarUrl) {
-      return <img src={avatarUrl} alt={title} className="h-14 w-14 rounded-2xl border object-cover [border-color:var(--kc-border)]" />;
+      return withPlusBadge(<img src={avatarUrl} alt={title} className="h-14 w-14 rounded-2xl border object-cover [border-color:var(--kc-border)]" />);
     }
-    return <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border text-lg font-semibold [background:var(--kc-accent-soft)] [border-color:var(--kc-border)] [color:var(--kc-accent)]">{title.trim().slice(0, 1) || '群'}</div>;
+    return withPlusBadge(<div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border text-lg font-semibold [background:var(--kc-accent-soft)] [border-color:var(--kc-border)] [color:var(--kc-accent)]">{title.trim().slice(0, 1) || '群'}</div>);
+  }
+
+  /** 付费群在头像右下角叠档位角标；免费群原样返回，不多套一层 */
+  function withPlusBadge(node: JSX.Element): JSX.Element {
+    const tier = conversationTier(conversation);
+    if (tier === 'free') {
+      return node;
+    }
+    return <span className="kgp-avatar kgp-avatar--lg inline-block shrink-0">{node}<PlusCornerBadge tier={tier} /></span>;
   }
 
   function renderMemberButton(member: ConversationMember, compact = false): JSX.Element {
@@ -1472,13 +1495,15 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
           <div className="flex items-center gap-3">
             {renderConversationAvatar()}
             <div className="min-w-0 flex-1">
-              <h3 className="truncate text-base font-semibold">{conversation.title || '未命名群聊'} ({memberCount})</h3>
+              <h3 className="truncate text-base font-semibold">{conversation.title || '未命名群聊'} ({memberCount})<PlusTierTag tier={conversationTier(conversation)} /></h3>
               <p className="mt-1 truncate text-xs [color:var(--kc-muted)]">群号 {conversation.id} · {memberCount}名成员 · {conversation.category?.trim() || '未设置'}</p>
               {conversation.description?.trim() ? <p className="mt-1 line-clamp-2 text-xs leading-5 [color:var(--kc-muted)]">{conversation.description}</p> : null}
             </div>
             <button type="button" onClick={shareConversation} className="rounded-full border px-3 py-1.5 text-xs font-semibold transition [border-color:var(--kc-border)] [color:var(--kc-accent)] hover:[background:var(--kc-hover)]">{copied ? '已复制' : '分享'}</button>
           </div>
         </DrawerCard>
+
+        <div className="mt-4"><GroupPlusInfoBlock conversation={conversation} canManage={canManageGroup} /></div>
 
         {renderCheckinCard()}
 
@@ -1791,6 +1816,13 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
                   );
                 })}
               </div>
+              {inviteFull && canManageGroup ? (
+                <button type="button" className="kgp-upsell mt-3" onClick={() => {
+                  setModal(null);
+                  setInviteFull(false);
+                  useGroupPlusUi.getState().openUpgrade({ conversationId: conversation.id, reason: 'members' });
+                }}><Icon name="sparkles" className="h-3.5 w-3.5" />去升级，容纳更多成员</button>
+              ) : null}
               <div className="kc-mobile-actions mt-5 flex justify-end gap-2">
                 <button type="button" onClick={() => setModal(null)} className="rounded-2xl px-4 py-2.5 text-sm font-semibold transition hover:[background:var(--kc-hover)]">取消</button>
                 <button type="button" onClick={submitInvite} disabled={selectedInviteIds.length === 0 || inviteMutation.isPending} className="liquid-button rounded-2xl px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-45">邀请 {selectedInviteIds.length || ''}</button>
@@ -2014,7 +2046,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
                 {renderConversationAvatar()}
               </div>
               <div className="min-w-0 flex-1 text-left">
-                <h3 className="truncate text-[22px] font-bold [color:var(--kc-text)]">{conversationDisplayTitle(conversation, currentUser)}</h3>
+                <h3 className="truncate text-[22px] font-bold [color:var(--kc-text)]">{conversationDisplayTitle(conversation, currentUser)}{isGroup ? <PlusTierTag tier={conversationTier(conversation)} size="md" /> : null}</h3>
                 <p className="mt-1 text-[13px] font-medium [color:var(--kc-muted)]">{isGroup ? `群号 ${conversation.id} · ${memberCount} 名成员` : `账号 ${directUser?.id ?? conversation.id}`}</p>
                 {isGroup && conversation.description?.trim() ? <p className="mt-2 line-clamp-2 text-[13px] leading-5 [color:var(--kc-muted)]">{conversation.description}</p> : null}
                 {!isGroup ? <p className="mt-2 line-clamp-2 text-[13px] leading-5 [color:var(--kc-muted)]">{directUser?.bio?.trim() || '咕咕咕~'}</p> : null}
@@ -2024,6 +2056,8 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
             {isGroup ? renderMobileCheckinCard() : null}
 
             {isGroup ? renderMobileBotsCard() : null}
+
+            {isGroup ? <section className="mt-4"><GroupPlusInfoBlock conversation={conversation} canManage={canManageGroup} /></section> : null}
 
             {isGroup ? (
               <section className="mt-4">

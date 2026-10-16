@@ -4,14 +4,16 @@ import { pokeOptionsQuery } from '@/api/users';
 import { sendFriendRequest } from '@/api/friends';
 import { addFavoriteSticker, deleteMessageLocal, forwardMessageBundle, recallMessage, sendMessage, toggleMessageBookmark, toggleMessageFeature, toggleMessageReaction, uploadMessageImage, uploadMessageVoice } from '@/api/messages';
 import { createReport } from '@/api/reports';
+import { toast } from '@/components/ui/toast';
 import { patchMessageInPages, upsertMessageIntoFirstPage } from '@/realtime/cache';
 import { useKukeStore } from '@/store/kukeStore';
+import { forwardErrorText } from '@/components/redpacket/data';
 import { absorbMuteError } from '@/store/moderationStore';
 import type { Conversation, CreateReportPayload, Message, MessageMetadata } from '@/types/api';
 import { applyLatestMessageToConversations } from '@/utils/conversations';
 import { apiErrorCode, describePokeError } from '@/utils/poke';
+import { reportFeaturedLimit } from '../message/featuredLimit';
 import type { MessagesInfiniteData, SendMessageVariables } from '../message/types';
-import type { ShowToast } from './runtime';
 
 function describeSendError(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
@@ -27,14 +29,13 @@ function describeSendError(error: unknown): string {
 interface ChatMutationOptions {
   conversationId: number;
   setError: (message: string) => void;
-  showToast: ShowToast;
   onFriendRequested: (userId: number) => void;
   /** 戳一戳成功、消息写进缓存之前调用 */
   onPoked: () => void;
 }
 
-/** 聊天面板里所有会改动服务端数据的操作。成功后直接修补缓存，不整页重拉。 */
-export function useChatMutations({ conversationId, setError, showToast, onFriendRequested, onPoked }: ChatMutationOptions) {
+/** 聊天面板里所有会改动服务端数据的操作。成功后直接修补缓存，不整页重拉。提示都走全站统一的 toast。 */
+export function useChatMutations({ conversationId, setError, onFriendRequested, onPoked }: ChatMutationOptions) {
   const queryClient = useQueryClient();
   const setActiveConversationId = useKukeStore((state) => state.setActiveConversationId);
 
@@ -82,7 +83,7 @@ export function useChatMutations({ conversationId, setError, showToast, onFriend
       if (apiErrorCode(error) === 'invalid_poke_action') {
         void queryClient.invalidateQueries({ queryKey: pokeOptionsQuery.queryKey });
       }
-      showToast(describePokeError(error), 'error');
+      toast.error(describePokeError(error));
     }
   });
 
@@ -115,7 +116,7 @@ export function useChatMutations({ conversationId, setError, showToast, onFriend
       setError('');
       patchMessage(conversationId, messageId, (message) => ({ ...message, bookmarked_by_me: result.bookmarked }));
       void queryClient.invalidateQueries({ queryKey: ['bookmarks-all'] });
-      showToast(result.bookmarked ? '已收藏' : '已取消收藏');
+      toast.info(result.bookmarked ? '已收藏' : '已取消收藏');
     },
     onError: () => setError('收藏状态更新失败，请稍后重试。')
   });
@@ -126,9 +127,14 @@ export function useChatMutations({ conversationId, setError, showToast, onFriend
       setError('');
       patchMessage(conversationId, messageId, (message) => ({ ...message, featured: result.featured }));
       void queryClient.invalidateQueries({ queryKey: ['featured-messages', conversationId] });
-      showToast(result.featured ? '已设为群精华' : '已取消精华');
+      toast.info(result.featured ? '已设为群精华' : '已取消精华');
     },
-    onError: () => setError('精华状态更新失败，请稍后重试。')
+    // 只有群主 / 管理员能设精华，所以超限时一定可以给「去升级」
+    onError: (error) => {
+      if (!reportFeaturedLimit(error, conversationId, true)) {
+        setError(error instanceof Error && error.message ? error.message : '精华状态更新失败，请稍后重试。');
+      }
+    }
   });
 
   const forward = useMutation({
@@ -137,9 +143,9 @@ export function useChatMutations({ conversationId, setError, showToast, onFriend
       setError('');
       upsertMessage(message);
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      showToast('已转发');
+      toast.info('已转发');
     },
-    onError: (error) => setError(absorbMuteError(error) && error instanceof Error ? error.message : '转发失败，请稍后重试。')
+    onError: (error) => setError(absorbMuteError(error) && error instanceof Error ? error.message : forwardErrorText(error))
   });
 
   const reaction = useMutation({
@@ -156,7 +162,7 @@ export function useChatMutations({ conversationId, setError, showToast, onFriend
     onSuccess: () => {
       setError('');
       void queryClient.invalidateQueries({ queryKey: ['favorite-stickers'] });
-      showToast('已添加到收藏表情');
+      toast.info('已添加到收藏表情');
     },
     onError: (error) => setError((error instanceof Error && error.message) || '添加收藏表情失败，请稍后重试。')
   });
@@ -194,17 +200,18 @@ export function useChatMutations({ conversationId, setError, showToast, onFriend
     onSuccess: (request, receiverId) => {
       setError('');
       onFriendRequested(request.receiver_id ?? receiverId);
-      showToast('好友申请已发送，等待对方通过');
+      // 用户截图里那条：正文 + 第二行小字。文案一个字都没动，只是换成新的提示组件
+      toast.success('好友申请已发送', { subtitle: '等待对方通过' });
       void queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
     },
-    onError: () => showToast('好友申请发送失败，可能已是好友或已有待处理申请。', 'error')
+    onError: () => toast.error('好友申请发送失败，可能已是好友或已有待处理申请。')
   });
 
   const report = useMutation({
     mutationFn: (payload: CreateReportPayload) => createReport(payload),
     onSuccess: () => {
       setError('');
-      showToast('举报已提交，处理结果会通知你');
+      toast.success('举报已提交，处理结果会通知你');
       void queryClient.invalidateQueries({ queryKey: ['report-quota'] });
       void queryClient.invalidateQueries({ queryKey: ['my-reports'] });
     }

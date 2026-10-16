@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { GroupPlusInfoBlock } from '@/components/groupPlus/upgrade/PlusInfoBlock';
+import { toast } from '@/components/ui/toast';
 import { UserCard } from '@/components/ui/UserCard';
 import type { Conversation, ConversationMember, Friendship, MemberRole, User } from '@/types/api';
 import { AnnouncementModal } from '../../AnnouncementModal';
@@ -48,7 +50,6 @@ interface ChatInfoDrawerProps {
 
 const EMPTY_FRIENDS: Friendship[] = [];
 const EMPTY_CONVERSATIONS: Conversation[] = [];
-const INFO_NOTICE_MS = 3200;
 
 function DialogHost({ dialog }: { dialog: InfoDialog }): JSX.Element {
   const { conversation, canManage, closeDialog } = useInfo();
@@ -97,22 +98,21 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = E
   const currentMember = members.find((member) => memberUserId(member) === currentUser.id) ?? null;
   const directUser = conversation.direct_user ?? members.find((member) => memberUserId(member) !== currentUser.id)?.user ?? null;
 
-  const notify = useCallback((text: string, tone: InfoNotice['tone'] = 'info') => setNotice(text ? { text, tone } : null), []);
+  // 成功提示看一眼就够了，走全站统一的提示；失败提示留在侧栏顶上（对话框里再显示一份），等用户自己关掉或被下一条顶掉
+  const notify = useCallback((text: string, tone: InfoNotice['tone'] = 'info') => {
+    if (text && tone === 'info') {
+      toast.success(text);
+      setNotice(null);
+      return;
+    }
+    setNotice(text ? { text, tone } : null);
+  }, []);
   const closeDialog = useCallback(() => setDialog(null), []);
   const dismissOverlays = useCallback(() => {
     setMemberMenu(null);
     setUserCard(null);
   }, []);
   const memberActions = useMemberActions({ conversation, currentUser, currentRole, friends, notify, dismissOverlays, closeDialog });
-
-  // 成功提示看一眼就够了；失败提示留着，等用户自己关掉或被下一条顶掉
-  useEffect(() => {
-    if (notice?.tone !== 'info') {
-      return undefined;
-    }
-    const timer = window.setTimeout(() => setNotice(null), INFO_NOTICE_MS);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
 
   // Esc 一次只退一层：菜单 → 资料卡 → 对话框 → 成员名单 → 侧栏本身
   const handleEscape = useEvent(() => {
@@ -208,6 +208,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = E
               <InfoHeader />
               {isGroup ? (
                 <>
+                  <GroupPlusInfoBlock conversation={conversation} canManage={canManage} />
                   <GrowthSection />
                   {canManage ? <LevelTitlesSection /> : null}
                   <BotsSection />

@@ -1,10 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { parseApiDate } from '@/utils/dateTime';
 import { PenaltyCenterModal } from '@/components/moderation/PenaltyCenter';
 import { registerNativeBackHandler } from '@/native/back';
 import { runNativeRouteTransition } from '@/native/transition';
 import type { Conversation, FriendRequest, Friendship, GroupJoinRequest, TemporaryConversationBlock, UnifiedNotification, UnifiedNotificationCategory, User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { BirthdayMark, FriendBirthdayBanner } from '@/components/birthday/BirthdayBits';
 import { UserLevelIcons } from '@/components/level/LevelIcons';
 import { useKukeStore } from '@/store/kukeStore';
 import { LevelNotificationIcon, isLevelNotification } from '@/components/level/LevelNotificationIcon';
@@ -89,7 +91,7 @@ function GroupRequestRow({ request, children }: { request: GroupJoinRequest; chi
   );
 }
 
-function NotificationRow({ notification, onOpenConversation, onOpenPost, onAcceptFriend, onRejectFriend, onAcceptGroup, onRejectGroup, busy }: { notification: UnifiedNotification; onOpenConversation: (conversationId: number) => void; onOpenPost: (postId: number) => void; onAcceptFriend: (id: number) => void; onRejectFriend: (id: number) => void; onAcceptGroup: (id: number) => void; onRejectGroup: (id: number) => void; busy: boolean }): JSX.Element {
+function NotificationRow({ notification, onOpenConversation, onOpenPost, onAcceptFriend, onRejectFriend, onIgnoreFriend, onAcceptGroup, onRejectGroup, busy }: { notification: UnifiedNotification; onOpenConversation: (conversationId: number) => void; onOpenPost: (postId: number) => void; onAcceptFriend: (id: number) => void; onRejectFriend: (id: number) => void; onIgnoreFriend: (id: number) => void; onAcceptGroup: (id: number) => void; onRejectGroup: (id: number) => void; busy: boolean }): JSX.Element {
   const accent = notificationAccent(notification.category);
   const [showPenalties, setShowPenalties] = useState(false);
   const target = notificationTarget(notification);
@@ -97,6 +99,7 @@ function NotificationRow({ notification, onOpenConversation, onOpenPost, onAccep
     <>
       <button type="button" onClick={(event) => { event.stopPropagation(); onAcceptFriend(notification.friend_request_id ?? 0); }} disabled={busy} className="liquid-button rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50">接受</button>
       <button type="button" onClick={(event) => { event.stopPropagation(); onRejectFriend(notification.friend_request_id ?? 0); }} disabled={busy} className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-50">拒绝</button>
+      <button type="button" onClick={(event) => { event.stopPropagation(); onIgnoreFriend(notification.friend_request_id ?? 0); }} disabled={busy} className="rounded-xl border px-3 py-2 text-xs font-bold transition [border-color:var(--kc-border)] [color:var(--kc-muted)] disabled:opacity-50">忽略</button>
     </>
   ) : null;
   const groupActions = notification.action === 'group_join_request' && notification.group_join_request_id ? (
@@ -168,8 +171,9 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
   const [query, setQuery] = useState('');
   const {
     cleanQuery, incomingQuery, outgoingQuery, incomingGroupRequestsQuery, outgoingGroupRequestsQuery, notificationsQuery, temporaryBlocksQuery, usersQuery,
-    acceptMutation, rejectMutation, acceptGroupRequestMutation, rejectGroupRequestMutation, sendRequestMutation, directMutation, unblockMutation,
+    acceptMutation, rejectMutation, ignoreMutation, acceptGroupRequestMutation, rejectGroupRequestMutation, sendRequestMutation, directMutation, unblockMutation,
     incoming, outgoing, incomingGroupRequests, outgoingGroupRequests, notifications, notificationCount, pendingCount, requestBusy, temporaryBlocks,
+    newCount, newFriendCount, pendingIncomingFriendCount, markSeen, ignoreAll,
     searchResults, friendIds, pendingOutgoingIds, filteredFriends, groupConversations, openConversation, openPost
   } = useContactsData({ friends, conversations, currentUser, query, onOpenConversation, onOpenPost });
 
@@ -210,6 +214,14 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
     return false;
   }, 50), [mobilePage]);
 
+  // 打开着通知中心 / 新朋友页就算看过了：角标清零，之后来的才是新的（只提醒一次）
+  useEffect(() => {
+    if (mobilePage === 'notificationCenter' || mobilePage === 'friendRequests') {
+      markSeen();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobilePage, notificationsQuery.data]);
+
   useEffect(() => {
     if (!onMobileDetailActiveChange) {
       return undefined;
@@ -225,7 +237,6 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
   ];
   const showSearchResults = cleanQuery.length > 0;
   const showRemoteUserSearch = cleanQuery.length >= 2 && mobileCategory !== 'groupChats';
-  const pendingFriendRequests = incoming.filter((request) => request.status === 'pending').length;
   const pendingGroupRequests = incomingGroupRequests.filter((request) => request.status === 'pending').length;
   const mobilePageTransitionStyle: CSSProperties | undefined = mobilePage ? { viewTransitionName: 'kc-mobile-route' } : undefined;
 
@@ -235,6 +246,8 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
         <p className="text-[13px] font-bold text-[#8b95a5]">我的好友 {friends.length}</p>
         <span className="text-[12px] font-semibold text-[#8b95a5]">在线优先</span>
       </div>
+      {/* 今天过生日的好友：顶上提一句，列表本身不重排，名字后面有个小蛋糕 */}
+      <FriendBirthdayBanner users={filteredFriends.map(friendUser)} variant="mobile" />
       {isLoading ? <p className="px-4 pb-4 text-[13px] text-[#8b95a5]">正在加载好友...</p> : null}
       {!isLoading && filteredFriends.length === 0 ? <p className="px-4 pb-4 text-[13px] text-[#8b95a5]">暂无好友，点右上角添加。</p> : null}
       {friendGroups.map((group) => (
@@ -250,7 +263,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
               <button key={friendship.id ?? friendId} type="button" onClick={() => directMutation.mutate({ user_id: friendId })} className="kc-qq-contact-entry">
                 <Avatar user={user} />
                 <span className="min-w-0 flex-1 text-left">
-                  <span className="block truncate text-[16px] font-semibold text-[#151922]">{getDisplayName(user, `用户 ${friendId}`)} <UserLevelIcons user={user} passive /></span>
+                  <span className="block truncate text-[16px] font-semibold text-[#151922]">{getDisplayName(user, `用户 ${friendId}`)} <FriendBadgeMark userId={user.id} /><UserLevelIcons user={user} passive /><BirthdayMark user={user} /></span>
                   <span className="block truncate text-[12px] text-[#8b95a5]">{user?.bio || user?.email || '这个人很神秘，还没有简介'}</span>
                 </span>
               </button>
@@ -299,7 +312,10 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
             <span className="h-9 w-9" />
           </header>
           <section className="kc-qq-card mt-3 p-3">
-            <p className="kc-qq-section-title">收到的好友申请</p>
+            <div className="flex items-center justify-between">
+              <p className="kc-qq-section-title">收到的好友申请</p>
+              {pendingIncomingFriendCount > 0 ? <button type="button" onClick={ignoreAll} disabled={requestBusy} className="rounded-full px-3 py-1 text-xs font-bold text-[#7b8798] disabled:opacity-50">全部忽略</button> : null}
+            </div>
             {incomingQuery.isLoading ? <p className="rounded-[18px] bg-[#f4f6fa] p-4 text-[13px] text-[#8b95a5]">正在加载...</p> : null}
             {!incomingQuery.isLoading && incoming.length === 0 ? <p className="rounded-[18px] bg-[#f4f6fa] p-4 text-[13px] text-[#8b95a5]">暂无收到的好友申请。</p> : null}
             <div className="grid gap-1">
@@ -309,6 +325,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
                     <div className="flex gap-2">
                       <button type="button" onClick={() => acceptMutation.mutate(request.id)} className="rounded-full bg-[#168bff] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50" disabled={acceptMutation.isPending}>接受</button>
                       <button type="button" onClick={() => rejectMutation.mutate(request.id)} className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-500 disabled:opacity-50" disabled={rejectMutation.isPending}>拒绝</button>
+                      <button type="button" onClick={() => ignoreMutation.mutate(request.id)} className="rounded-full bg-[#f4f6fa] px-3 py-1.5 text-xs font-bold text-[#7b8798] disabled:opacity-50" disabled={requestBusy}>忽略</button>
                     </div>
                   ) : null}
                 </RequestRow>
@@ -389,6 +406,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
             <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#168bff]">Notifications</p>
             <h2 className="mt-1 text-[24px] font-black text-[#111827]">{notificationCount} 条通知</h2>
             <p className="mt-1 text-[13px] font-semibold text-[#7b8798]">{pendingCount} 条待处理，好友、群聊和动态消息统一收纳。</p>
+            {pendingIncomingFriendCount > 0 ? <button type="button" onClick={ignoreAll} disabled={requestBusy} className="mt-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#7b8798] disabled:opacity-50">全部忽略好友申请</button> : null}
           </section>
           <div className="scroll-soft mt-3 flex gap-2 overflow-x-auto pb-1">
             {mobileFilters.map((filter) => {
@@ -408,6 +426,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
                   onOpenPost={openPost}
                   onAcceptFriend={(id) => acceptMutation.mutate(id)}
                   onRejectFriend={(id) => rejectMutation.mutate(id)}
+                  onIgnoreFriend={(id) => ignoreMutation.mutate(id)}
                   onAcceptGroup={(id) => acceptGroupRequestMutation.mutate(id)}
                   onRejectGroup={(id) => rejectGroupRequestMutation.mutate(id)}
                   busy={requestBusy}
@@ -489,7 +508,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
               <span className="block text-[16px] font-semibold text-[#151922]">通知中心</span>
               <span className="mt-0.5 block truncate text-[12px] text-[#8b95a5]">{notificationCount} 条通知 · {pendingCount} 待处理</span>
             </span>
-            {pendingCount ? <span className="rounded-full bg-[#ff3b30] px-2 py-0.5 text-[11px] font-bold text-white">{pendingCount}</span> : null}
+            {newCount ? <span className="rounded-full bg-[#ff3b30] px-2 py-0.5 text-[11px] font-bold text-white">{newCount > 99 ? '99+' : newCount}</span> : null}
             <Icon name="chevron" className="h-4 w-4 text-[#c0c5ce]" />
           </button>
           <button type="button" onClick={() => openMobileContactsPage('friendRequests')} className="kc-qq-contact-entry">
@@ -498,7 +517,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
               <span className="block text-[16px] font-semibold text-[#151922]">新朋友</span>
               <span className="mt-0.5 block truncate text-[12px] text-[#8b95a5]">{friendRequestCount ? `${friendRequestCount} 条好友验证消息` : '好友申请与验证消息'}</span>
             </span>
-            {pendingFriendRequests ? <span className="rounded-full bg-[#ff3b30] px-2 py-0.5 text-[11px] font-bold text-white">{pendingFriendRequests}</span> : null}
+            {newFriendCount ? <span className="rounded-full bg-[#ff3b30] px-2 py-0.5 text-[11px] font-bold text-white">{newFriendCount}</span> : null}
             <Icon name="chevron" className="h-4 w-4 text-[#c0c5ce]" />
           </button>
           <button type="button" onClick={() => openMobileContactsPage('groupRequests')} className="kc-qq-contact-entry">

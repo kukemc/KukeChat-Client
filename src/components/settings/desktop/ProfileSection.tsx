@@ -8,6 +8,7 @@ import { useKukeStore } from '@/store/kukeStore';
 import type { PresenceStatus, User } from '@/types/api';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { presenceLabel, presenceOptions } from '@/utils/presence';
+import { BirthdaySetting } from '@/components/birthday/BirthdaySetting';
 import { PokeSetting } from './PokeSetting';
 import { Card, Choice, Field, Notice, SettingsPage, btn, inputClass, textareaClass } from './settingsUi';
 
@@ -208,6 +209,8 @@ export function ProfileSection({ user, compact }: { user: User; compact: boolean
             {presenceMutation.error ? <div className="mt-3"><Notice tone="error">在线状态保存失败，请稍后再试。</Notice></div> : null}
           </Card>
           <PokeSetting user={user} />
+          {/* 生日：自己保存，不跟底部的保存条走。服务端没有这个功能时整张卡片不出现 */}
+          <BirthdaySetting variant="desktop" />
         </div>
 
         <aside className={`grid gap-3 ${compact ? '' : 'sticky top-0'}`}>

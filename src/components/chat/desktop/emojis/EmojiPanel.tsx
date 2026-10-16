@@ -3,11 +3,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { addFavoriteSticker, removeFavoriteSticker, type FavoriteStickerItem } from '@/api/messages';
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuSurface, MenuLayer } from '@/components/ui/ContextMenu';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { toast } from '@/components/ui/toast';
 import { useKukeStore } from '@/store/kukeStore';
 import type { MemberRole } from '@/types/api';
 import { clampOverlayPosition, pointInContainer } from '../../message/chatDom';
 import type { SendMessageVariables } from '../../message/types';
-import { cx, useEvent, type ShowToast } from '../runtime';
+import { cx, useEvent } from '../runtime';
 import { FavoritesPage, GroupPage, RecentPage, SearchPage, SystemPage, type OpenStickerMenu, type StickerSource } from './EmojiPages';
 import { EmojiPreview, type EmojiPreviewHandle } from './EmojiPreview';
 import { clearRecents, pushRecentEmoji, pushRecentSticker, readLastTab, readRecents, removeRecentSticker, stickerMessage, writeLastTab, type EmojiTab, type RecentEmojis, type StickerItem } from './emojiPrefs';
@@ -27,7 +28,6 @@ interface EmojiPanelProps {
   onSend: (variables: SendMessageVariables) => void;
   /** refocus：用键盘关掉的，焦点应该回到输入框 */
   onClose: (refocus?: boolean) => void;
-  showToast: ShowToast;
 }
 
 const TABS: Array<{ id: EmojiTab; icon: IconName; label: string }> = [
@@ -76,10 +76,10 @@ function initialTab(isGroup: boolean, recents: RecentEmojis): EmojiTab {
  * 输入框上方的表情面板：Emoji、最近使用、收藏表情、本群表情，外加搜索。
  * 「管理群表情」的对话框也挂在这里，因为点开它的时候面板本身已经收起来了。
  */
-export function EmojiPanel({ open, conversationId, isGroup, currentRole, sending, onInsert, onSend, onClose, showToast }: EmojiPanelProps): JSX.Element {
+export function EmojiPanel({ open, conversationId, isGroup, currentRole, sending, onInsert, onSend, onClose }: EmojiPanelProps): JSX.Element {
   const canManage = isGroup && (currentRole === 'owner' || currentRole === 'admin');
   const [managing, setManaging] = useState(false);
-  const uploads = useFavoriteUploads(showToast);
+  const uploads = useFavoriteUploads();
 
   useEffect(() => {
     if (!managing) {
@@ -112,7 +112,6 @@ export function EmojiPanel({ open, conversationId, isGroup, currentRole, sending
             onClose();
             setManaging(true);
           }}
-          showToast={showToast}
         />
       ) : null}
       {managing ? <GroupEmojiDialog conversationId={conversationId} canManage={canManage} onClose={() => setManaging(false)} /> : null}
@@ -126,7 +125,7 @@ interface EmojiPopoverProps extends Omit<EmojiPanelProps, 'open' | 'currentRole'
   onManage: () => void;
 }
 
-function EmojiPopover({ conversationId, isGroup, canManage, sending, uploads, onInsert, onSend, onClose, onManage, showToast }: EmojiPopoverProps): JSX.Element {
+function EmojiPopover({ conversationId, isGroup, canManage, sending, uploads, onInsert, onSend, onClose, onManage }: EmojiPopoverProps): JSX.Element {
   const queryClient = useQueryClient();
   const userId = useKukeStore((state) => state.currentUser?.id ?? 0);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -145,7 +144,7 @@ function EmojiPopover({ conversationId, isGroup, canManage, sending, uploads, on
     mutationFn: (item: StickerItem) => addFavoriteSticker(item.url),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: favoriteStickersKey });
-      showToast('已添加到收藏表情');
+      toast.info('已添加到收藏表情');
     },
     onError: (error) => setFailure((error instanceof Error && error.message) || '添加收藏表情失败，请稍后重试。')
   });
@@ -156,7 +155,7 @@ function EmojiPopover({ conversationId, isGroup, canManage, sending, uploads, on
       void queryClient.invalidateQueries({ queryKey: favoriteStickersKey });
       // 没有别人收藏的话服务端会把图片一起删掉，最近使用里那张也就打不开了
       setRecents(removeRecentSticker(userId, item.url));
-      showToast('已删除收藏表情');
+      toast.info('已删除收藏表情');
     },
     onError: () => setFailure('删除收藏表情失败，请稍后重试。')
   });

@@ -4,9 +4,10 @@ import { getCookieSession, getMe } from '@/api/auth';
 import { getOnlineCount } from '@/api/users';
 import { useKukeStore } from '@/store/kukeStore';
 import { AuthPanel } from '@/components/auth/AuthPanel';
-import { AuthRestoring } from '@/components/auth/desktop/AuthPanelDesktop';
+import { AuthRestoringScreen } from '@/components/auth/login/AuthScreen';
 import { AccountSuspensionModal } from '@/components/auth/AccountSuspensionModal';
 import { ChatDashboard } from '@/components/chat/ChatDashboard';
+import { ToastHost } from '@/components/ui/toast';
 import { clearNativeSession, loadNativeSession } from '@/native/session';
 import { configureNativeBackgroundRealtime, stopNativeBackgroundRealtime } from '@/native/backgroundRealtime';
 import { isNativeMobileApp, isTauriDesktopApp } from '@/utils/appMode';
@@ -126,21 +127,23 @@ export function ChatShell(): JSX.Element {
   }, [currentUser, setOnlineCount, token]);
 
   const suspensionModal = accountSuspension ? <AccountSuspensionModal notice={accountSuspension} onClose={() => setAccountSuspension(null)} /> : null;
+  // 提示层全站只挂这一处：登录前（改密码、绑定之类的反馈）、登录后、被处罚时的提示都走同一条路
+  const toastHost = <ToastHost />;
 
   if (!token || !currentUser) {
     if (isCheckingCookieSession) {
-      return <><SessionRestorePanel />{suspensionModal}</>;
+      return <><SessionRestorePanel />{suspensionModal}{toastHost}</>;
     }
-    return <><AuthPanel />{suspensionModal}</>;
+    return <><AuthPanel />{suspensionModal}{toastHost}</>;
   }
 
-  return <><ChatDashboard currentUser={currentUser} />{suspensionModal}</>;
+  return <><ChatDashboard currentUser={currentUser} />{suspensionModal}{toastHost}</>;
 }
 
 function SessionRestorePanel(): JSX.Element {
   const isMobile = useKukeStore((state) => state.layoutMode === 'mobile');
   if (!isMobile) {
-    return <AuthRestoring />;
+    return <AuthRestoringScreen />;
   }
   return (
     <div className="grid h-full place-items-center bg-white px-8 text-center text-slate-700">

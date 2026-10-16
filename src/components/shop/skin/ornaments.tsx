@@ -23,9 +23,9 @@ export function isOrnamentCorner(value: unknown): value is OrnamentCorner {
 }
 
 /** animated 时怎么动：闪（缩一点、淡一点）、晃（左右摆）、浮（上下飘）、跳（像心跳那样胀一下）。都很轻。 */
-type Motion = 'twinkle' | 'sway' | 'float' | 'pulse';
+export type Motion = 'twinkle' | 'sway' | 'float' | 'pulse';
 
-const MOTION: Record<OrnamentKey, Motion> = {
+export const ORNAMENT_MOTION: Record<OrnamentKey, Motion> = {
   sparkle: 'twinkle', star: 'twinkle', sun: 'twinkle', snow: 'twinkle', bolt: 'twinkle',
   moon: 'float', cloud: 'float',
   petal: 'sway', leaf: 'sway', paw: 'sway', crown: 'sway',
@@ -33,7 +33,7 @@ const MOTION: Record<OrnamentKey, Motion> = {
 };
 
 const HIGHLIGHT = { fill: '#ffffff', fillOpacity: 0.5 } as const;
-const SHADE = { fill: '#000000', fillOpacity: 0.16 } as const;
+export const SHADE = { fill: '#000000', fillOpacity: 0.16 } as const;
 
 function point(radius: number, degrees: number): string {
   const angle = (degrees * Math.PI) / 180;
@@ -49,7 +49,8 @@ const SNOW_ARM = 'M12 12V2.6M12 6.2l-2.4-2.3M12 6.2l2.4-2.3';
 const PIXEL_HEART_ROWS = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
 const PIXEL_HEART = PIXEL_HEART_ROWS.map((row, y) => Array.from(row).map((cell, x) => (cell === 'X' ? `M${1.5 + x * 3} ${3 + y * 3}h3v3h-3z` : '')).join('')).join('');
 
-const SHAPES: Record<OrnamentKey, () => JSX.Element> = {
+/** 头像框（frameOrnaments.tsx）也画这些图形，所以导出。 */
+export const ORNAMENT_SHAPES: Record<OrnamentKey, () => JSX.Element> = {
   // 闪光：一大一小两颗四角星
   sparkle: () => (
     <>
@@ -162,13 +163,13 @@ export interface OrnamentSpec {
  * motion 为 false（系统设了减少动态效果、或开了性能优先）时不动。
  */
 export function Ornament({ spec, motion, delay }: { spec: OrnamentSpec; motion: boolean; delay: number }): JSX.Element {
-  const Shape = SHAPES[spec.key];
+  const Shape = ORNAMENT_SHAPES[spec.key];
   return (
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
       focusable="false"
-      className={`kcsk-orn kcsk-orn--${spec.corner}${spec.animated && motion ? ` kcsk-orn--${MOTION[spec.key]}` : ''}`}
+      className={`kcsk-orn kcsk-orn--${spec.corner}${spec.animated && motion ? ` kcsk-orn--${ORNAMENT_MOTION[spec.key]}` : ''}`}
       style={{ '--kcsk-os': `${spec.size}px`, '--kcsk-delay': `${delay}s`, color: spec.color } as CSSProperties}
     >
       <Shape />

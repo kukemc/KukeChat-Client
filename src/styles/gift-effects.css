@@ -1,0 +1,975 @@
+/* ───────── 礼物的插画和送礼动画（前缀 kgfx-）─────────
+   GiftGlyph（礼物的矢量插画）和 GiftScene（送礼时放的一幕）的全部样式。
+   动画只动 transform 和 opacity；阴影、渐变都是静止的，不参与动画，低端手机上也不掉帧。
+   整幕多长由组件写在 --kgfx-ms 上（GIFT_SCENE_MS），这里每一段的时间都按它的比例排；
+   谁在什么位置、粒子往哪飞多远，也都是组件写在元素上的变量（--kgfx-x / --kgfx-a / --kgfx-d …），关键帧是公用的。
+   礼物的颜色是插画自己的，不跟主题走；只有那条说明文字取主题的令牌。
+   排队、点击跳过、三档的压暗背景都是宿主的事，这里没有。 */
+
+.kgfx-glyph {
+  display: block;
+  flex: none;
+}
+
+/* ───────── 一幕的外框 ───────── */
+
+.kgfx-scene {
+  /* 礼物的边长和它中心的高度。边长带百分比，用在 width 和 margin 上都是按容器的宽算的，所以到处通用 */
+  --kgfx-size: clamp(64px, 21%, 104px);
+  --kgfx-cy: 44%;
+  /* 粒子：飞多远、飞多久、几时起飞、整团往下坠多少、个头的倍数 */
+  --kgfx-reach: 120px;
+  --kgfx-bit-ms: 820ms;
+  --kgfx-at: 0ms;
+  --kgfx-fall: 34px;
+  --kgfx-u: 1;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  contain: layout paint;
+  pointer-events: none;
+  user-select: none;
+  animation: kgfx-scene var(--kgfx-ms, 2200ms) linear both;
+}
+
+.kgfx-t3 {
+  --kgfx-size: clamp(120px, 38%, 220px);
+  --kgfx-cy: 46%;
+  --kgfx-reach: 250px;
+  --kgfx-u: 1.35;
+}
+
+.kgfx-is-rocket {
+  --kgfx-size: clamp(110px, 32%, 190px);
+}
+
+.kgfx-is-castle {
+  --kgfx-size: clamp(150px, 46%, 260px);
+  --kgfx-cy: 50%;
+  --kgfx-reach: 110px;
+}
+
+@media (min-width: 720px) {
+  .kgfx-t3 {
+    --kgfx-reach: 360px;
+  }
+
+  .kgfx-is-castle {
+    --kgfx-reach: 170px;
+  }
+}
+
+/* 不管里面放到哪一步，最后十分之一整幕一起淡掉，保证到点时什么都不剩 */
+@keyframes kgfx-scene {
+  0%,
+  90% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 以 (50%, --kgfx-cy) 为中心摆一个方框。默认边长是礼物的边长，要别的大小就在自己身上写 --kgfx-box */
+.kgfx-toss-item,
+.kgfx-hero,
+.kgfx-orbit,
+.kgfx-halo,
+.kgfx-rays,
+.kgfx-rocket,
+.kgfx-castle,
+.kgfx-ring {
+  position: absolute;
+  top: var(--kgfx-cy);
+  left: 50%;
+  width: var(--kgfx-box, var(--kgfx-size));
+  margin: calc(var(--kgfx-box, var(--kgfx-size)) / -2) 0 0 calc(var(--kgfx-box, var(--kgfx-size)) / -2);
+}
+
+/* 里面没有内容的方框，靠 padding 撑出高度（padding 的百分比也是按宽算的） */
+.kgfx-orbit,
+.kgfx-halo,
+.kgfx-ring {
+  box-sizing: content-box;
+  height: 0;
+  padding-top: var(--kgfx-box, var(--kgfx-size));
+}
+
+/* 幕里的礼物跟着方框的宽度走，不用组件传的像素尺寸 */
+.kgfx-toss-item > .kgfx-glyph,
+.kgfx-hero > .kgfx-glyph,
+.kgfx-rocket > .kgfx-glyph,
+.kgfx-castle-rise > .kgfx-glyph {
+  position: relative;
+  width: 100%;
+  height: auto;
+}
+
+/* ───────── 说明文字：阿夸 送给 薄荷糖 蛋糕 ×3 ───────── */
+
+.kgfx-caption {
+  position: absolute;
+  top: var(--kgfx-cy);
+  right: 0;
+  left: 0;
+  display: flex;
+  box-sizing: border-box;
+  justify-content: center;
+  margin-top: calc(var(--kgfx-size) / 2 + 16px);
+  padding: 0 12px;
+  animation: kgfx-caption var(--kgfx-ms, 2200ms) ease-out both;
+}
+
+.kgfx-t3 .kgfx-caption {
+  margin-top: calc(var(--kgfx-size) / 2 + 30px);
+}
+
+/* 火箭要从中间穿过去，字放到屏幕下方 */
+.kgfx-is-rocket .kgfx-caption {
+  top: auto;
+  bottom: 13%;
+  margin-top: 0;
+}
+
+.kgfx-chip {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px 5px 8px;
+  border: 1px solid var(--kc-border, rgba(0, 0, 0, 0.1));
+  border-radius: 999px;
+  background: var(--kc-panel, #ffffff);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.4);
+  color: var(--kc-text, #1f2328);
+  font-size: calc(13px * var(--kc-font-multiplier, 1));
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.kgfx-t3 .kgfx-chip {
+  gap: 7px;
+  padding: 8px 18px 8px 11px;
+  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.55);
+  font-size: calc(15px * var(--kc-font-multiplier, 1));
+}
+
+.kgfx-chip-glyph {
+  width: 20px;
+  height: 20px;
+}
+
+.kgfx-t3 .kgfx-chip-glyph {
+  width: 26px;
+  height: 26px;
+}
+
+.kgfx-who,
+.kgfx-what {
+  min-width: 0;
+  max-width: 7.5em;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.kgfx-verb {
+  flex: none;
+  color: var(--kc-muted, #6b7280);
+}
+
+.kgfx-what {
+  color: var(--kc-accent, #5b8cff);
+}
+
+.kgfx-count {
+  flex: none;
+  color: #d97a00;
+  font-style: normal;
+  font-weight: 800;
+}
+
+[data-theme='dark'] .kgfx-count {
+  color: #ffcb3d;
+}
+
+@keyframes kgfx-caption {
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+
+  26%,
+  84% {
+    opacity: 1;
+    transform: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* ───────── 粒子：从一点炸开的彩屑、星星、烟花 ─────────
+   一个粒子一个元素：先转到自己的方向（--kgfx-a），沿这个方向飞出去（--kgfx-d × --kgfx-reach），边飞边自转。
+   外面那层 .kgfx-burst 没有大小，只是炸点；它整个慢慢往下坠，粒子看起来就有了重量。 */
+
+.kgfx-burst {
+  position: absolute;
+  top: var(--kgfx-cy);
+  left: 50%;
+  width: 0;
+  height: 0;
+  animation: kgfx-fall var(--kgfx-bit-ms) cubic-bezier(0.5, 0, 1, 0.6) var(--kgfx-at) both;
+}
+
+.kgfx-bit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(7px * var(--kgfx-u));
+  height: calc(7px * var(--kgfx-u));
+  margin: calc(-3.5px * var(--kgfx-u)) 0 0 calc(-3.5px * var(--kgfx-u));
+  border-radius: 50%;
+  background: var(--kgfx-c, #ffcb3d);
+  opacity: 0;
+  animation: kgfx-bit var(--kgfx-bit-ms) cubic-bezier(0.12, 0.75, 0.3, 1) calc(var(--kgfx-at) + var(--kgfx-i, 0) * 30ms) both;
+}
+
+/* 彩纸片 */
+.kgfx-bit-chip {
+  height: calc(11px * var(--kgfx-u));
+  border-radius: 2px;
+}
+
+/* 四角星 */
+.kgfx-bit-star {
+  width: calc(13px * var(--kgfx-u));
+  height: calc(13px * var(--kgfx-u));
+  margin: calc(-6.5px * var(--kgfx-u)) 0 0 calc(-6.5px * var(--kgfx-u));
+  border-radius: 0;
+  clip-path: polygon(50% 0, 63% 37%, 100% 50%, 63% 63%, 50% 100%, 37% 63%, 0 50%, 37% 37%);
+}
+
+/* 烟花的一道火星：细长，顺着飞的方向 */
+.kgfx-bit-ray {
+  width: 3px;
+  height: 14px;
+  margin: -7px 0 0 -1.5px;
+  border-radius: 2px;
+}
+
+@keyframes kgfx-bit {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--kgfx-a)) translateY(0) rotate(0deg) scale(0.3);
+  }
+
+  10%,
+  62% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(var(--kgfx-a)) translateY(calc(var(--kgfx-d) * var(--kgfx-reach) * -1)) rotate(var(--kgfx-spin)) scale(1);
+  }
+}
+
+@keyframes kgfx-fall {
+  0% {
+    transform: none;
+  }
+
+  100% {
+    transform: translateY(var(--kgfx-fall));
+  }
+}
+
+/* 礼物周围一闪一闪的小星 */
+.kgfx-twinkle {
+  position: absolute;
+  top: var(--kgfx-ty);
+  left: var(--kgfx-tx);
+  box-sizing: content-box;
+  width: 14%;
+  height: 0;
+  margin: -7% 0 0 -7%;
+  padding-top: 14%;
+  background: #fff4c9;
+  clip-path: polygon(50% 0, 63% 37%, 100% 50%, 63% 63%, 50% 100%, 37% 63%, 0 50%, 37% 37%);
+  opacity: 0;
+  animation: kgfx-twinkle 640ms ease-in-out calc(var(--kgfx-ms) * 0.3 + var(--kgfx-i, 0) * 110ms) 2 both;
+}
+
+@keyframes kgfx-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+}
+
+/* ───────── 二档：抛进聊天区 ─────────
+   一个礼物三层：最外层管横向（从侧边滑到自己的位置），中间层管纵向（抛起、落地、弹一下、最后飘走），
+   最里层是礼物本身，管歪头和落地时压扁。横竖分开，各用各的缓动，合起来才是一道弧线。
+   外两层铺满整幕，所以位移的百分比就是聊天区宽高的百分比，窄屏宽屏都落在同样的相对位置。 */
+
+.kgfx-toss,
+.kgfx-toss-hop {
+  position: absolute;
+  inset: 0;
+}
+
+.kgfx-toss {
+  transform: translateX(var(--kgfx-x, 0%));
+  animation: kgfx-toss-x calc(var(--kgfx-ms) - 300ms) cubic-bezier(0.2, 0.7, 0.3, 1) calc(var(--kgfx-i, 0) * 70ms) both;
+}
+
+.kgfx-toss-hop {
+  animation: kgfx-toss-y calc(var(--kgfx-ms) - 300ms) linear calc(var(--kgfx-i, 0) * 70ms) both;
+}
+
+.kgfx-toss-item {
+  transform: rotate(var(--kgfx-tilt, 0deg));
+  transform-origin: 50% 90%;
+  animation: kgfx-toss-pose calc(var(--kgfx-ms) - 300ms) ease-in-out calc(var(--kgfx-i, 0) * 70ms) both;
+}
+
+.kgfx-toss-burst {
+  --kgfx-at: calc((var(--kgfx-ms) - 300ms) * 0.36);
+}
+
+@keyframes kgfx-toss-x {
+  0% {
+    transform: translateX(var(--kgfx-from, -46%));
+  }
+
+  36%,
+  100% {
+    transform: translateX(var(--kgfx-x, 0%));
+  }
+}
+
+@keyframes kgfx-toss-y {
+  0% {
+    opacity: 0;
+    transform: translateY(58%);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  7% {
+    opacity: 1;
+  }
+
+  /* 抛到最高点 */
+  25% {
+    transform: translateY(-9%);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.4);
+  }
+
+  /* 落地 */
+  36% {
+    transform: translateY(0);
+    animation-timing-function: ease-out;
+  }
+
+  43% {
+    transform: translateY(-2.4%);
+    animation-timing-function: ease-in;
+  }
+
+  50% {
+    transform: translateY(0);
+    animation-timing-function: ease-in-out;
+  }
+
+  74% {
+    opacity: 1;
+    transform: translateY(-2%);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-24%);
+  }
+}
+
+@keyframes kgfx-toss-pose {
+  0% {
+    transform: rotate(calc(var(--kgfx-tilt, 0deg) - 40deg)) scale(0.5);
+  }
+
+  25% {
+    transform: rotate(calc(var(--kgfx-tilt, 0deg) + 8deg)) scale(1.06);
+  }
+
+  36% {
+    transform: rotate(var(--kgfx-tilt, 0deg)) scale(1.14, 0.88);
+  }
+
+  43% {
+    transform: rotate(var(--kgfx-tilt, 0deg)) scale(0.95, 1.06);
+  }
+
+  50%,
+  74% {
+    transform: rotate(var(--kgfx-tilt, 0deg)) scale(1);
+  }
+
+  100% {
+    transform: rotate(var(--kgfx-tilt, 0deg)) scale(0.86);
+  }
+}
+
+/* ───────── 三档·通用：放光、撒彩屑、礼物蹦到正中 ───────── */
+
+/* 礼物背后的一团暖光 */
+.kgfx-halo {
+  --kgfx-box: calc(var(--kgfx-size) * 2.6);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 228, 135, 0.6), rgba(255, 228, 135, 0) 100%);
+  animation: kgfx-halo var(--kgfx-ms) ease-in-out both;
+}
+
+/* 放射的光芒：慢慢转。封顶 880px，免得宽屏上是一张巨大的图层 */
+.kgfx-rays {
+  --kgfx-box: min(170%, 880px);
+  height: auto;
+  opacity: 0.6;
+  animation: kgfx-rays var(--kgfx-ms) linear both;
+}
+
+.kgfx-grand-burst {
+  --kgfx-at: calc(var(--kgfx-ms) * 0.12);
+  --kgfx-bit-ms: 1400ms;
+  --kgfx-fall: 90px;
+}
+
+.kgfx-hero {
+  animation: kgfx-hero var(--kgfx-ms) ease-in-out both;
+}
+
+/* 送了不止一个时，礼物右下角的「×3」。从礼物的右下往外长，数字位数多了也不会盖住礼物 */
+.kgfx-times {
+  position: absolute;
+  bottom: -4%;
+  left: 80%;
+  color: #ffe487;
+  font-size: clamp(26px, 8vw, 46px);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 2px 0 #c2700f, 0 5px 12px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  transform: rotate(-6deg);
+  animation: kgfx-times var(--kgfx-ms) ease-out both;
+}
+
+@keyframes kgfx-halo {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  16%,
+  84% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes kgfx-rays {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(-30deg);
+  }
+
+  14% {
+    opacity: 0.9;
+    transform: scale(1) rotate(-14deg);
+  }
+
+  82% {
+    opacity: 0.8;
+    transform: scale(1.06) rotate(40deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.12) rotate(52deg);
+  }
+}
+
+@keyframes kgfx-hero {
+  0% {
+    opacity: 0;
+    transform: scale(0.1) rotate(-24deg);
+    animation-timing-function: cubic-bezier(0.2, 1.3, 0.4, 1);
+  }
+
+  16% {
+    opacity: 1;
+    transform: scale(1.12) rotate(4deg);
+  }
+
+  24% {
+    transform: scale(0.96) rotate(-2deg);
+  }
+
+  32% {
+    transform: scale(1) rotate(0deg);
+  }
+
+  56% {
+    transform: scale(1.05) rotate(2deg);
+  }
+
+  82% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.3) rotate(0deg);
+  }
+}
+
+@keyframes kgfx-times {
+  0%,
+  46% {
+    opacity: 0;
+    transform: scale(0.2) rotate(-20deg);
+  }
+
+  54% {
+    opacity: 1;
+    transform: scale(1.22) rotate(4deg);
+  }
+
+  60%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-6deg);
+  }
+}
+
+/* ───────── 三档·火箭：升上来，悬着抖，喷着火冲出去 ───────── */
+
+/* 往下划过的星。每条是一根和屏幕等高的细柱，只在顶上一小段画了亮线，整根往下平移一个屏幕的高度 */
+.kgfx-streaks {
+  position: absolute;
+  inset: 0;
+  animation: kgfx-streaks var(--kgfx-ms) linear both;
+}
+
+.kgfx-streak {
+  position: absolute;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(to bottom, rgba(255, 244, 201, 0), #fff4c9) no-repeat top / 100% 15%;
+  opacity: 0;
+  animation: kgfx-streak var(--kgfx-speed, 640ms) linear var(--kgfx-wait, 0ms) 3 both;
+}
+
+/* 纵向：铺满整幕，位移按屏幕高度算 */
+.kgfx-rocket-lift,
+.kgfx-rocket-shake {
+  position: absolute;
+  inset: 0;
+}
+
+.kgfx-rocket-lift {
+  animation: kgfx-rocket-lift var(--kgfx-ms) linear both;
+}
+
+/* 发动机的抖动：一直抖，幅度很小 */
+.kgfx-rocket-shake {
+  animation: kgfx-shake 90ms linear infinite;
+}
+
+/* 尾焰：垫在火箭后面，从喷口往下拖。外层按整幕的进度变大变小，里层一直闪 */
+.kgfx-flame {
+  position: absolute;
+  top: 83%;
+  left: 50%;
+  width: 36%;
+  height: 130%;
+  margin-left: -18%;
+  transform-origin: 50% 0;
+  animation: kgfx-flame var(--kgfx-ms) ease-in-out both;
+}
+
+.kgfx-flame-flicker {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 0;
+  animation: kgfx-flicker 130ms ease-in-out infinite alternate;
+}
+
+/* 一团烟：火箭的尾烟，城堡脚下的扬尘（.kgfx-dust）也用它 */
+.kgfx-puff {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  box-sizing: content-box;
+  width: 34%;
+  height: 0;
+  margin: -17% 0 0 -17%;
+  padding-top: 34%;
+  border-radius: 50%;
+  background: rgba(228, 233, 247, 0.5);
+  opacity: 0;
+  animation: kgfx-puff 640ms ease-out calc(var(--kgfx-i, 0) * 107ms) infinite;
+}
+
+/* 点火那一下，脚下荡开的一圈 */
+.kgfx-ring {
+  top: 64%;
+  border: 3px solid rgba(255, 228, 135, 0.85);
+  border-radius: 50%;
+  opacity: 0;
+  animation: kgfx-ring 620ms cubic-bezier(0.2, 0.7, 0.3, 1) calc(var(--kgfx-ms) * 0.62) both;
+}
+
+@keyframes kgfx-streaks {
+  0% {
+    opacity: 0;
+  }
+
+  20%,
+  60% {
+    opacity: 0.5;
+  }
+
+  68%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes kgfx-streak {
+  0% {
+    opacity: 0;
+    transform: translateY(-16%);
+  }
+
+  15%,
+  85% {
+    opacity: var(--kgfx-o, 0.7);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(102%);
+  }
+}
+
+@keyframes kgfx-rocket-lift {
+  0% {
+    transform: translateY(78%);
+    animation-timing-function: cubic-bezier(0.15, 0.7, 0.3, 1);
+  }
+
+  28% {
+    transform: translateY(3%);
+    animation-timing-function: ease-in-out;
+  }
+
+  46% {
+    transform: translateY(-2%);
+    animation-timing-function: ease-in-out;
+  }
+
+  /* 往下沉一点，蓄力 */
+  62% {
+    transform: translateY(2%);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.35);
+  }
+
+  90%,
+  100% {
+    transform: translateY(-130%);
+  }
+}
+
+@keyframes kgfx-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  25% {
+    transform: translate(1.5px, -1px);
+  }
+
+  50% {
+    transform: translate(-1.5px, 1px);
+  }
+
+  75% {
+    transform: translate(1px, 1.5px);
+  }
+}
+
+@keyframes kgfx-flame {
+  0% {
+    transform: scale(0.8, 0.7);
+  }
+
+  30%,
+  58% {
+    transform: scale(0.75, 0.5);
+  }
+
+  66% {
+    transform: scale(1.1, 1);
+  }
+
+  100% {
+    transform: scale(1.2, 1.5);
+  }
+}
+
+@keyframes kgfx-flicker {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.92, 0.86);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1.06, 1.08);
+  }
+}
+
+@keyframes kgfx-puff {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+
+  20% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--kgfx-px, 0%), 320%) scale(1.7);
+  }
+}
+
+@keyframes kgfx-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.3, 0.12);
+  }
+
+  12% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(3.4, 1.2);
+  }
+}
+
+/* ───────── 三档·城堡：拔地而起，脚下扬尘，背后放烟花 ───────── */
+
+/* 外框管收尾时的那一下顿挫；裁剪框只露出地面以上的部分（往上多留一成，升过头时不被削顶） */
+.kgfx-castle {
+  transform-origin: 50% 100%;
+  animation: kgfx-castle var(--kgfx-ms) ease-in-out both;
+}
+
+.kgfx-castle-mask {
+  position: relative;
+  overflow: hidden;
+  margin-top: -10%;
+  padding-top: 10%;
+}
+
+.kgfx-castle-rise {
+  animation: kgfx-castle-rise var(--kgfx-ms) linear both;
+}
+
+/* 往上升的那段时间里左右微微震 */
+.kgfx-castle-rise > .kgfx-glyph {
+  animation: kgfx-shake 100ms linear calc(var(--kgfx-ms) * 0.08) 9;
+}
+
+/* 地上的一片影子 */
+.kgfx-ground {
+  position: absolute;
+  top: 89%;
+  right: -22%;
+  left: -22%;
+  box-sizing: content-box;
+  height: 0;
+  padding-top: 16%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(20, 16, 48, 0.42), rgba(20, 16, 48, 0));
+  animation: kgfx-ground var(--kgfx-ms) ease-out both;
+}
+
+.kgfx-dust {
+  top: 96%;
+  width: 22%;
+  margin: -11% 0 0 -11%;
+  padding-top: 22%;
+  background: rgba(236, 226, 255, 0.45);
+  animation: kgfx-dust 760ms ease-out calc(var(--kgfx-ms) * 0.08 + var(--kgfx-i, 0) * 110ms) both;
+}
+
+.kgfx-firework {
+  --kgfx-bit-ms: 1000ms;
+  --kgfx-fall: 26px;
+}
+
+/* 烟花炸开时中心的一闪 */
+.kgfx-firework-flash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--kgfx-c, #ffe487), rgba(255, 255, 255, 0));
+  opacity: 0;
+  animation: kgfx-flash 420ms ease-out var(--kgfx-at) both;
+}
+
+@keyframes kgfx-castle {
+  0%,
+  44% {
+    transform: none;
+  }
+
+  50% {
+    transform: scale(1.05, 0.95);
+  }
+
+  56% {
+    transform: scale(0.98, 1.03);
+  }
+
+  62%,
+  84% {
+    transform: scale(1);
+  }
+
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes kgfx-castle-rise {
+  0%,
+  8% {
+    transform: translateY(102%);
+    animation-timing-function: cubic-bezier(0.3, 0.1, 0.3, 1);
+  }
+
+  36% {
+    transform: translateY(-4%);
+    animation-timing-function: ease-in-out;
+  }
+
+  42% {
+    transform: translateY(1.5%);
+  }
+
+  48%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes kgfx-ground {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+
+  12%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kgfx-dust {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+
+  20% {
+    opacity: 0.75;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--kgfx-px, 0%), -45%) scale(1.5);
+  }
+}
+
+@keyframes kgfx-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+
+  30% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+/* ───────── 不动的时候 ─────────
+   外观里开了「性能优先」（宿主在祖先上加 is-still），或者系统开了「减少动态效果」：全部不动。
+   停下来以后各元素回到自己的静止样子：礼物在正中、说明文字在，粒子、流星、烟尘本来就是透明的，不会糊成一团。
+   （宿主在这两种情况下本来就不渲染这一幕，这里只是兜底。） */
+.is-still .kgfx-scene,
+.is-still .kgfx-scene *,
+.kgfx-scene.is-still,
+.kgfx-scene.is-still * {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kgfx-scene,
+  .kgfx-scene * {
+    animation: none !important;
+  }
+}

@@ -1,11 +1,14 @@
 import { useKukeStore } from '@/store/kukeStore';
 import { SOUND_KINDS, useSoundStore, type SoundKind } from '@/store/soundStore';
-import type { Conversation, Message, MessageMentionMetadata } from '@/types/api';
+import type { Conversation, Message } from '@/types/api';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { showDesktopMessageNotification } from '@/native/desktopNotifications';
 import { isNativeMobileApp, isTauriDesktopApp } from '@/utils/appMode';
 import { customSoundUrl, loadCustomSounds } from '@/utils/customSounds';
+import { messageMentionKind } from '@/utils/mentions';
 import { pokeInfoOf, pokeText } from '@/utils/poke';
+import { giftPreview } from '@/utils/gift';
+import { redPacketPreview } from '@/utils/redPacket';
 import startSoundUrl from '@/sounds/开始提示音.mp3';
 import leaveSoundUrl from '@/sounds/离开服务器.mp3';
 import joinSoundUrl from '@/sounds/进入服务器.mp3';
@@ -150,6 +153,14 @@ function messagePreview(message: Message): string {
   if (message.type === 'forward_bundle') {
     return '[聊天记录]';
   }
+  const redPacket = redPacketPreview(message);
+  if (redPacket) {
+    return redPacket;
+  }
+  const gift = giftPreview(message);
+  if (gift) {
+    return gift;
+  }
   return message.content.replace(/\s+/g, ' ').trim() || '新消息';
 }
 
@@ -162,15 +173,7 @@ function senderName(message: Message): string {
 }
 
 function mentionsCurrentUser(message: Message, currentUserId: number): boolean {
-  const metadata = message.metadata;
-  if (!metadata) {
-    return false;
-  }
-  if (metadata.mention_all === true) {
-    return true;
-  }
-  const mentions = Array.isArray(metadata.mentions) ? metadata.mentions : [];
-  return mentions.some((mention: MessageMentionMetadata) => mention.user_id === currentUserId);
+  return messageMentionKind(message, currentUserId) !== null;
 }
 
 export function canAlertConversation(conversation: Conversation | undefined): boolean {

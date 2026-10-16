@@ -11,7 +11,7 @@ import { AnnouncementModal } from '@/components/announcements/AnnouncementModal'
 import { applyAnnouncementReactionEvent } from '@/components/announcements/announcementReactions';
 import { subscribeRealtimeEvents } from '@/realtime/events';
 import { logoutCookieSession, setRememberIpLogin } from '@/api/auth';
-import { useKukeStore, type WorkspaceView } from '@/store/kukeStore';
+import { useKukeStore, type RankingBoard, type WorkspaceView } from '@/store/kukeStore';
 import type { Bot, Conversation, ConversationMember, MemberRole, Message, User } from '@/types/api';
 import type { LevelTab } from '@/types/level';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -21,6 +21,7 @@ import { ConversationPane } from '@/components/shell/ConversationPane';
 import { NavRail } from '@/components/shell/NavRail';
 import { MessagePanel } from './MessagePanel';
 import { DesktopChatPanel } from './desktop/DesktopChatPanel';
+import { GroupPlusHosts } from '@/components/groupPlus/GroupPlusHosts';
 import { FavoritesPanel } from './message/FavoritesPanel';
 import { ForwardBundleDetailModal } from './message/ForwardBundleDetailModal';
 import { ContactsPanel } from '@/components/contacts/ContactsPanel';
@@ -36,13 +37,21 @@ import { useJuryPendingCount } from '@/components/jury/data/queries';
 import { useLevelRules } from '@/components/level/data';
 import { LevelPage } from '@/components/level/desktop/LevelPage';
 import { LevelHoverCard } from '@/components/level/LevelHoverCard';
-import { LevelUpToasts } from '@/components/level/LevelUpToasts';
-import { ProfileLikeToasts } from '@/components/likes/ProfileLikeToasts';
 import { MobileLevelPage } from '@/components/level/mobile/MobileLevelPage';
+import { useRankingBoards } from '@/components/ranking/boards';
+import { RankingPage } from '@/components/ranking/desktop/RankingPage';
+import { MobileRankingPage } from '@/components/ranking/mobile/MobileRankingPage';
 import { useHiddenMobileFeatures, useShopAvailable } from '@/components/shop/data';
 import { ShopPage } from '@/components/shop/desktop/ShopPage';
 import { MobileShopPage } from '@/components/shop/mobile/MobileShopPage';
+import { GiftEffectsHost, GiftSendHost } from '@/components/gifts/GiftHosts';
+import { GiftToasts } from '@/components/gifts/GiftToasts';
+import { IntimacyHost } from '@/components/intimacy/IntimacyDialog';
+import { IntimacyToasts } from '@/components/intimacy/IntimacyToasts';
 import { ShopGrantToasts } from '@/components/shop/ShopGrantToasts';
+import { LevelUpToasts } from '@/components/level/LevelUpToasts';
+import { ProfileLikeToasts } from '@/components/likes/ProfileLikeToasts';
+import { BirthdayCelebration } from '@/components/birthday/BirthdayCelebration';
 import { getMobileBottomFeatureIds, getMobileFeatureDefinition, type MobileFeatureId } from '@/mobile/features';
 import { BotDetailPanel } from '@/components/bots/BotDetailPanel';
 import { BotEditorPage } from '@/components/bots/BotEditorPage';
@@ -62,7 +71,7 @@ import { isNativeMobileApp } from '@/utils/appMode';
 import { nativeConversationChange, projectDashboardConversations, sameConversationMembership } from '@/utils/conversations';
 import { userPresenceLabel } from '@/utils/presence';
 
-type MobileSharedSecondaryPage = { type: 'post'; postId: number } | { type: 'user'; user: User | null | undefined; fallbackId: number } | { type: 'onlineUsers'; users: User[]; onlineCount: number } | { type: 'bots' } | { type: 'home' } | { type: 'bot'; botId: number } | { type: 'botEditor'; mode: 'create' | 'edit'; bot?: Bot } | { type: 'conversation'; conversationId: number } | { type: 'announcement' } | { type: 'teamup' } | { type: 'tasks' } | { type: 'favorites' } | { type: 'shop' } | { type: 'level'; tab: LevelTab };
+type MobileSharedSecondaryPage = { type: 'post'; postId: number } | { type: 'user'; user: User | null | undefined; fallbackId: number } | { type: 'onlineUsers'; users: User[]; onlineCount: number } | { type: 'bots' } | { type: 'home' } | { type: 'bot'; botId: number } | { type: 'botEditor'; mode: 'create' | 'edit'; bot?: Bot } | { type: 'conversation'; conversationId: number } | { type: 'announcement' } | { type: 'teamup' } | { type: 'tasks' } | { type: 'favorites' } | { type: 'shop' } | { type: 'level'; tab: LevelTab } | { type: 'ranking'; board: RankingBoard };
 
 function getSharedSecondaryKey(page: MobileSharedSecondaryPage): string {
   if (page.type === 'post') {
@@ -83,7 +92,7 @@ function getSharedSecondaryKey(page: MobileSharedSecondaryPage): string {
   if (page.type === 'conversation') {
     return `conversation-${page.conversationId}`;
   }
-  if (page.type === 'announcement' || page.type === 'teamup' || page.type === 'tasks' || page.type === 'favorites' || page.type === 'home' || page.type === 'shop' || page.type === 'level') {
+  if (page.type === 'announcement' || page.type === 'teamup' || page.type === 'tasks' || page.type === 'favorites' || page.type === 'home' || page.type === 'shop' || page.type === 'level' || page.type === 'ranking') {
     return page.type;
   }
   return 'bots';
@@ -315,6 +324,8 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const clearPendingShop = useKukeStore((state) => state.clearPendingShop);
   const pendingLevel = useKukeStore((state) => state.pendingLevel);
   const clearPendingLevel = useKukeStore((state) => state.clearPendingLevel);
+  const pendingRanking = useKukeStore((state) => state.pendingRanking);
+  const clearPendingRanking = useKukeStore((state) => state.clearPendingRanking);
   const openUserSpace = useKukeStore((state) => state.openUserSpace);
   const closeRecommendedFriendRequest = useKukeStore((state) => state.closeRecommendedFriendRequest);
   const logout = useKukeStore((state) => state.logout);
@@ -524,6 +535,8 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const juryPendingCount = useJuryPendingCount(layoutMode === 'desktop');
   // 商店入口只在服务端确实有商店时出现（docs/shop.md；旧后端 GET /shop 是 404）
   const shopAvailable = useShopAvailable();
+  // 排行榜：至少有一个榜（活跃 / 心意 / 风纪）时导航栏里才有入口
+  const rankingAvailable = useRankingBoards().length > 0;
   // 账号等级（docs/account-level.md）：探测服务端有没有等级，顺便拿到图标的换算表。结果写进 store/levelStore，各处的等级图标和入口读的是那里
   useLevelRules();
   const hiddenMobileFeatures = useHiddenMobileFeatures();
@@ -782,6 +795,17 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       clearPendingLevel();
     }
   }, [clearPendingLevel, isMobile, pendingLevel]);
+
+  // 别处要求打开排行榜（「我」页面里的入口、等级页里的「活跃排行榜」）。桌面布局直接切了工作区，不会走到这里
+  useEffect(() => {
+    if (pendingRanking && isMobile) {
+      const board = pendingRanking;
+      runNativeRouteTransition('secondary-forward', () => {
+        setMobileSharedSecondaryStack((current) => (current[current.length - 1]?.type === 'ranking' ? current : [...current, { type: 'ranking', board }]));
+      }, isMobile);
+      clearPendingRanking();
+    }
+  }, [clearPendingRanking, isMobile, pendingRanking]);
 
   useEffect(() => {
     if (!isMobile) {
@@ -1474,6 +1498,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
           hasUnseenAnnouncement={hasUnseenAnnouncement}
           juryPendingCount={juryPendingCount}
           shopAvailable={shopAvailable}
+          rankingAvailable={rankingAvailable}
           onNavigate={setWorkspaceView}
           onCreateGroup={openCreateGroup}
           onOpenAnnouncement={openAnnouncement}
@@ -1521,6 +1546,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
             {workspaceView === 'jury' && !isMobile ? <JuryPage /> : null}
             {workspaceView === 'shop' && !isMobile ? <ShopPage /> : null}
             {workspaceView === 'level' && !isMobile ? <LevelPage /> : null}
+            {workspaceView === 'ranking' && !isMobile ? <RankingPage /> : null}
             {!isSettingsRailRoute && workspaceView === 'home' ? <HomePanel currentUser={currentUser} conversations={conversations} isMobile={isMobile} onOpenConversation={isMobile ? openSharedConversation : (conversationId) => setActiveConversationId(conversationId)} onOpenUserProfile={isMobile ? openSharedUserProfile : (_user, userId) => openUserSpace(userId)} /> : null}
             {!isSettingsRailRoute && workspaceView === 'settings' ? <SettingsPanel user={currentUser} isMobile={isMobile} initialTab={settingsInitialTab} initialMobilePage={settingsInitialMobilePage ?? undefined} focusKey={settingsFocusKey} onLogout={handleLogout} onMobileBack={backFromMobileSettings} onMobileDetailActiveChange={handleMobileDetailActiveChange} /> : null}
           </div>
@@ -1578,6 +1604,10 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
           const node = <div className={`fixed inset-0 h-screen w-screen overflow-hidden [background:var(--kc-mobile-bg,#f1f3f8)] ${isTop ? 'pointer-events-auto' : 'pointer-events-none'}`} style={{ zIndex: isTop ? 2147483647 : 2147483645, ...transitionStyle }}><div className="kc-native-app h-full w-full"><MobileLevelPage initialTab={page.tab} onMobileBack={isTop ? closeSharedSecondaryPage : undefined} /></div></div>;
           return createPortal(node, getKukePortalRoot(), `shared-level-${index}`);
         }
+        if (page.type === 'ranking') {
+          const node = <div className={`fixed inset-0 h-screen w-screen overflow-hidden [background:var(--kc-mobile-bg,#f1f3f8)] ${isTop ? 'pointer-events-auto' : 'pointer-events-none'}`} style={{ zIndex: isTop ? 2147483647 : 2147483645, ...transitionStyle }}><div className="kc-native-app h-full w-full"><MobileRankingPage initialBoard={page.board} onMobileBack={isTop ? closeSharedSecondaryPage : undefined} /></div></div>;
+          return createPortal(node, getKukePortalRoot(), `shared-ranking-${index}`);
+        }
         if (page.type === 'bot') {
           const node = <div className={`fixed inset-0 h-screen w-screen overflow-hidden [background:var(--kc-mobile-bg,#f1f3f8)] ${isTop ? 'pointer-events-auto' : 'pointer-events-none'}`} style={{ zIndex: isTop ? 2147483647 : 2147483645, ...transitionStyle }}><div className="kc-native-app h-full w-full"><BotDetailPanel botId={page.botId} conversations={conversations} isMobile onBack={isTop ? closeSharedSecondaryPage : undefined} onOpenMobileConversation={openSharedConversation} onOpenUserProfile={openSharedUserProfile} onEdit={(bot) => openSharedBotEditor('edit', bot)} onDeleted={closeSharedSecondaryPage} onKey={() => undefined} /></div></div>;
           return createPortal(node, getKukePortalRoot(), `shared-bot-${index}-${page.botId}`);
@@ -1604,8 +1634,17 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       {globalSearchKeyword !== null ? <GlobalSearchModal currentUser={currentUser} friends={friends} initialKeyword={globalSearchKeyword} mobile={isMobile} onOpenConversation={isMobile ? openConversationFromMobileSurface : undefined} onClose={() => setGlobalSearchKeyword(null)} /> : null}
       {forwardDetailMessage ? <ForwardBundleDetailModal message={forwardDetailMessage} mobile={isMobile} onClose={() => setForwardDetailMessage(null)} /> : null}
       {showCcwBindingPrompt ? <CcwBindingPromptModal mobile={isMobile} onClose={() => setShowCcwBindingPrompt(false)} onOpenBinding={openCcwSettingsFromPrompt} /> : null}
+      {/* 收到礼物 / 装扮的提示只是个事件订阅者（自己渲染 null，往统一的提示里塞）；下面两个是送礼面板和 tier 2 / 3 动效的调度 */}
+      <GiftToasts />
       <ShopGrantToasts />
+      <GiftSendHost />
+      <GroupPlusHosts />
+      <GiftEffectsHost />
+      <BirthdayCelebration user={currentUser} />
       <LevelUpToasts />
+      {/* 好友成就解锁、友谊升级的提示，和「我们的友谊」弹层（谁要看就 openIntimacy） */}
+      <IntimacyToasts />
+      <IntimacyHost />
       <ProfileLikeToasts />
       <LevelHoverCard />
     </div>

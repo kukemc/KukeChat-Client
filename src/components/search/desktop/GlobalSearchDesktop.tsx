@@ -4,9 +4,11 @@ import { UserLevelIcons } from '@/components/level/LevelIcons';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { useEscapeLayer } from '@/components/ui/desktop/Modal';
-import type { Message } from '@/types/api';
-import { formatMessageDateTime } from '@/utils/dateTime';
-import { SEARCH_TABS, conversationTitle, groupTitle, messageConversation, messagePreview, useGlobalSearch, type GlobalSearchModalProps } from '../globalSearch';
+import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
+import { conversationTier, effectiveTier } from '@/components/groupPlus/tier';
+import type { ChatSearchConversation } from '@/types/groupPlus';
+import { chatSearchTitle } from '../chat/util';
+import { CHAT_SUMMARY_PREVIEW, SEARCH_TABS, groupTitle, useGlobalSearch, type GlobalSearchModalProps } from '../globalSearch';
 
 /** 把命中的关键词标出来。关键词按原样匹配，不分大小写。 */
 function highlight(text: string, keyword: string): ReactNode {
@@ -25,12 +27,13 @@ function highlight(text: string, keyword: string): ReactNode {
   return parts;
 }
 
-function MessageAvatar({ message }: { message: Message }): JSX.Element {
-  const conversation = messageConversation(message);
-  if (conversation?.type === 'group') {
-    return <Avatar avatarUrl={conversation.avatar_url} label={conversationTitle(conversation)} toneKey={conversation.id} size="message" />;
+/** 聚合行里的会话头像：群聊带档位角标，私聊是对方的头像。 */
+function SummaryAvatar({ conversation }: { conversation: ChatSearchConversation }): JSX.Element {
+  const title = chatSearchTitle(conversation);
+  if (conversation.type === 'group') {
+    return <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} size="message" plusTier={effectiveTier(conversation.plus_tier, conversation.plus_expires_at)} />;
   }
-  return <Avatar user={conversation?.direct_user ?? message.sender} label={conversation ? conversationTitle(conversation) : undefined} size="message" />;
+  return <Avatar user={conversation.direct_user} label={title} size="message" />;
 }
 
 /**
@@ -39,7 +42,7 @@ function MessageAvatar({ message }: { message: Message }): JSX.Element {
  */
 export function GlobalSearchDesktop({ currentUser, friends, initialKeyword, onOpenConversation, onClose }: GlobalSearchModalProps): JSX.Element {
   const search = useGlobalSearch({ currentUser, friends, initialKeyword, onOpenConversation, onClose });
-  const { tab, cleanKeyword, showingRecommendations, usersQuery, groupsQuery, messagesQuery, users, groups, messages } = search;
+  const { tab, cleanKeyword, showingRecommendations, usersQuery, groupsQuery, messagesQuery, users, groups, chatKeyword, chatConversations, chatTotal } = search;
   // 键盘选中的是第几行；-1 表示焦点还在输入框上，回车是提交搜索
   const [activeIndex, setActiveIndex] = useState(-1);
   const listRef = useRef<HTMLDivElement>(null);
@@ -89,14 +92,15 @@ export function GlobalSearchDesktop({ currentUser, friends, initialKeyword, onOp
     }
   }
 
-  const showMessages = (tab === 'all' && !showingRecommendations) || tab === 'messages';
+  const showMessages = (tab === 'all' && chatKeyword.length > 0) || tab === 'messages';
+  const shownChats = tab === 'all' ? chatConversations.slice(0, CHAT_SUMMARY_PREVIEW) : chatConversations;
   const showUsers = tab === 'all' || tab === 'users';
   const showGroups = tab === 'all' || tab === 'groups';
 
-  const messageNote = showingRecommendations ? '输入关键词可搜索所有会话的历史聊天记录。'
+  const messageNote = chatKeyword.length === 0 ? '输入关键词可搜索所有会话的历史聊天记录。'
     : messagesQuery.isLoading ? '正在搜索聊天记录…'
     : messagesQuery.error ? '聊天记录搜索失败，请稍后重试。'
-    : messages.length === 0 ? '没有找到匹配聊天记录。' : null;
+    : chatConversations.length === 0 ? '没有找到匹配聊天记录。' : null;
   const userNote = usersQuery.isLoading ? '正在加载用户…'
     : usersQuery.error ? '用户搜索失败，请稍后重试。'
     : users.length === 0 ? (showingRecommendations ? '暂无推荐用户。' : '没有找到匹配用户。') : null;
@@ -134,26 +138,27 @@ export function GlobalSearchDesktop({ currentUser, friends, initialKeyword, onOp
         <div ref={listRef} className="kmd-search-results kui-scroll">
           {showMessages ? (
             <section>
-              <h3 className="kmd-search-heading"><span>聊天记录</span>{messages.length > 0 ? <span>{messages.length}{messagesQuery.hasNextPage ? '+' : ''}</span> : null}</h3>
-              {messageNote ? <p className={cx('kmd-search-note', messagesQuery.error && !showingRecommendations && 'is-error')}>{messageNote}</p> : null}
-              {messageNote ? null : messages.map((message) => (
-                <button key={`${message.conversation_id}-${message.id}`} type="button" {...rowProps(() => search.openMessageResult(message))} onClick={() => search.openMessageResult(message)}>
-                  <MessageAvatar message={message} />
-                  <span className="kmd-search-text">
-                    <span className="kmd-search-line">
-                      <span className="kmd-search-name">{conversationTitle(messageConversation(message))}</span>
-                      <time>{formatMessageDateTime(message.created_at)}</time>
+              <h3 className="kmd-search-heading"><span>聊天记录</span>{chatTotal > 0 ? <span>{chatTotal} 条</span> : null}</h3>
+              {messageNote ? <p className={cx('kmd-search-note', messagesQuery.error && chatKeyword.length > 0 && 'is-error')}>{messageNote}</p> : null}
+              {messageNote ? null : shownChats.map((item) => {
+                const title = chatSearchTitle(item.conversation);
+                return (
+                  // 点一个会话：打开聊天记录搜索，直接看这个会话里的命中
+                  <button key={item.conversation.id} type="button" {...rowProps(() => search.openChatHistory(item.conversation.id))} onClick={() => search.openChatHistory(item.conversation.id)}>
+                    <SummaryAvatar conversation={item.conversation} />
+                    <span className="kmd-search-text">
+                      <span className="kmd-search-line">
+                        <span className="kmd-search-name">{title}</span>
+                        {item.conversation.type === 'group' ? <PlusTierTag tier={conversationTier({ type: 'group', plus_tier: item.conversation.plus_tier, plus_expires_at: item.conversation.plus_expires_at })} /> : null}
+                      </span>
+                      <span className="kmd-search-sub">{item.count} 条相关聊天记录</span>
                     </span>
-                    <span className="kmd-search-preview">
-                      <span>{message.sender_display_name || getDisplayName(message.sender, `用户 ${message.sender_id}`)}：</span>
-                      {highlight(messagePreview(message), cleanKeyword)}
-                    </span>
-                  </span>
-                </button>
-              ))}
-              {!messageNote && messagesQuery.hasNextPage ? (
-                <button type="button" disabled={messagesQuery.isFetchingNextPage} {...rowProps(() => void messagesQuery.fetchNextPage())} onClick={() => void messagesQuery.fetchNextPage()}>
-                  <span className="kmd-search-more">{messagesQuery.isFetchingNextPage ? '加载中…' : '加载更多历史记录'}</span>
+                  </button>
+                );
+              })}
+              {!messageNote && chatConversations.length > shownChats.length ? (
+                <button type="button" {...rowProps(() => search.openChatHistory(null))} onClick={() => search.openChatHistory(null)}>
+                  <span className="kmd-search-more">查看全部 {chatConversations.length} 个会话的聊天记录</span>
                 </button>
               ) : null}
             </section>
@@ -192,10 +197,11 @@ export function GlobalSearchDesktop({ currentUser, friends, initialKeyword, onOp
                 return (
                   // 已加入的群这一行（和回车）是「进入群聊」；申请中的只显示状态，不能再点
                   <div key={group.id} {...rowProps(row.joined ? () => search.openGroup(group) : row.actionDisabled ? null : () => search.requestJoinGroup(group))}>
-                    <Avatar avatarUrl={group.avatar_url} label={groupTitle(group)} toneKey={group.id} size="message" />
+                    <Avatar avatarUrl={group.avatar_url} label={groupTitle(group)} toneKey={group.id} size="message" plusTier={conversationTier(group)} />
                     <span className="kmd-search-text">
                       <span className="kmd-search-line">
                         <span className="kmd-search-name">{highlight(groupTitle(group), cleanKeyword)}</span>
+                        <PlusTierTag tier={conversationTier(group)} />
                       </span>
                       <span className="kmd-search-sub">群号 {group.id} · {group.member_count ?? 0} 人 · {group.category?.trim() || '未设置'}</span>
                       {group.description?.trim() ? <span className="kmd-search-desc">{group.description}</span> : null}

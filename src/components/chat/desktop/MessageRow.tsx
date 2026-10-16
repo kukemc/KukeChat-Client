@@ -1,4 +1,5 @@
 import { memo, useState } from 'react';
+import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { useQuery } from '@tanstack/react-query';
 import { getConversations } from '@/api/conversations';
 import type { Conversation, ConversationMember, GroupShareCardMetadata, LevelTitleTier, Message, MessageQuoteMetadata } from '@/types/api';
@@ -7,11 +8,17 @@ import { Icon } from '@/components/ui/Icon';
 import { JuryBadge } from '@/components/jury/growth/JuryBadge';
 import { TaskShareCard } from '@/components/tasks/TaskShareCard';
 import { TaskEventCard } from '@/components/tasks/TaskEventCard';
+import { GiftCard } from '@/components/gifts/GiftCard';
+import { RedPacketCard } from '@/components/redpacket/RedPacketCard';
+import { GroupFileCard } from '@/components/groupPlus/files/GroupFileCard';
+import { groupFileMetaOf } from '@/api/groupPlus';
 import { bubbleSkinClass, type BubbleSkin } from '@/components/shop/skin/bubbleSkin';
 import { SkinDecor, messageSkin, useSkinSettings } from '@/components/shop/skin/SkinDecor';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { formatClockTime, formatMessageDateTime, formatMessageDividerTime, parseApiDate } from '@/utils/dateTime';
 import { pokeActionLabel, pokeInfoOf } from '@/utils/poke';
+import { giftOf, isGiftMessage } from '@/utils/gift';
+import { isRedPacketMessage, redPacketOf } from '@/utils/redPacket';
 import {
   botMarkdownContent,
   botShareCardOf,
@@ -98,7 +105,7 @@ function ChatImage({ src, alt, variant }: { src: string; alt: string; variant: '
 function JoinedAwareGroupCard({ card, actions }: { card: GroupShareCardMetadata; actions: ChatRowActions }): JSX.Element {
   // 只订阅缓存，不主动请求。queryFn 仍然要给：观察者的选项会成为这条查询的选项，缺了它别处触发的刷新会失败
   const { data } = useQuery({ queryKey: ['conversations'], queryFn: getConversations, enabled: false });
-  return <GroupShareCard card={card} conversations={data ?? EMPTY_CONVERSATIONS} onToast={actions.showToast} onError={actions.setError} />;
+  return <GroupShareCard card={card} conversations={data ?? EMPTY_CONVERSATIONS} onError={actions.setError} />;
 }
 
 function QuoteBlock({ quote, onJump }: { quote: MessageQuoteMetadata; onJump: (quote: MessageQuoteMetadata) => void }): JSX.Element {
@@ -178,6 +185,22 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
   const poll = pollOf(message);
   if (poll) {
     return { bare: true, node: <PollCard message={message} poll={poll} /> };
+  }
+  // 红包数据读不出来（形状不对）时落到最下面，按普通文字显示 content 里的兜底文字
+  const redPacket = redPacketOf(message);
+  if (redPacket) {
+    return { bare: true, node: <RedPacketCard message={message} meta={redPacket} mine={mine} isGroup={context.isGroup} /> };
+  }
+  // 礼物同理：数据读不出来时按普通文字显示 content 里的兜底文字
+  const gift = giftOf(message);
+  if (gift) {
+    return { bare: true, node: <GiftCard message={message} meta={gift} mine={mine} /> };
+  }
+
+  // 群文件消息：type 仍是 text（旧客户端只看到「[文件] 名」），新客户端按 metadata.file 画卡片
+  const fileMeta = groupFileMetaOf(message);
+  if (fileMeta) {
+    return { bare: true, node: <GroupFileCard meta={fileMeta} conversationId={message.conversation_id} /> };
   }
 
   const groupCard = groupShareCardOf(message);
@@ -294,6 +317,8 @@ function SenderMeta({ message, context, mine }: { message: Message; context: Cha
       {/* 公开身份的在任风纪委员（本人选择展示时用户对象上才有 jury_badge） */}
       {isBot ? null : <JuryBadge tier={sender?.jury_badge} />}
       <span className="kcd-meta-name">{messageSenderLabel(message)}</span>
+      {/* 发言人是我的好友、我们之间解锁过好友徽章：名字后面挂我选的那一枚（不是好友什么都不画） */}
+      {isBot || mine ? null : <FriendBadgeMark userId={sender?.id} size={14} openable />}
       <time className="kcd-meta-time" title={formatMessageDateTime(message.created_at)}>{formatClockTime(message.created_at)}</time>
     </div>
   );
@@ -404,7 +429,7 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
               onDoubleClick={(event) => event.stopPropagation()}
               onContextMenu={(event) => actions.openMemberMenu(event, message)}
             >
-              <Avatar user={mine ? currentUser : sender} size="message" />
+              <Avatar user={mine ? currentUser : sender} size="message" frame />
             </button>
           )}
         </div>
@@ -436,7 +461,8 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
               <div className="kcd-toolbar" role="toolbar" aria-label="消息操作" onDoubleClick={(event) => event.stopPropagation()}>
                 <button type="button" title="表情回应" onClick={(event) => actions.openReactionPicker(event, message)}><Icon name="emoji" className="h-4 w-4" /></button>
                 <button type="button" title="引用" onClick={() => actions.quote(message)}><Icon name="quote" className="h-4 w-4" /></button>
-                <button type="button" title="转发" onClick={() => actions.forward(message)}><Icon name="share" className="h-4 w-4" /></button>
+                {/* 红包、礼物不能转发 */}
+                {isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) ? null : <button type="button" title="转发" onClick={() => actions.forward(message)}><Icon name="share" className="h-4 w-4" /></button>}
                 <button type="button" title="更多" onClick={(event) => actions.openMessageMenuAt(event.currentTarget, message)}><Icon name="more" className="h-4 w-4" /></button>
               </div>
             )}

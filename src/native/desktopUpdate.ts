@@ -1,11 +1,17 @@
 import { create } from 'zustand';
+import { fetchLatestRelease } from '@/api/releases';
 import { API_BASE_URL } from '@/config';
+import type { ReleaseChannel } from '@/types/release';
 import { isTauriDesktopApp } from '@/utils/appMode';
 import packageJson from '../../package.json';
 
 /**
- * Desktop self-update state machine. The Rust side (src-tauri/src/updater.rs) does the network and
- * file work; this store decides when to check, when to show the dialog, and remembers user choices.
+ * Desktop self-update state machine. The Rust side (src-tauri/src/updater.rs) does the download / install
+ * work; this store decides when to check, when to show the dialog, and remembers user choices.
+ *
+ * 检查更新先问发版服务（GET /releases/latest，KukeChat-Server/docs/releases.md），拿到更新日志、强制更新、
+ * 大小和 sha256；接口不可用（旧后端 404、网络问题）或还没有任何发布时，退回 Rust 的 desktop_update_check
+ * （读 /desktop-update.json，后台「下载配置」手填的地址仍然有效）。
  *
  * idle → checking → (upToDate | available | error)
  * available → downloading → (ready | error | available on cancel)
@@ -26,6 +32,14 @@ interface DesktopUpdateState {
   currentVersion: string;
   latestVersion: string | null;
   installerUrl: string | null;
+  /** 以下几项只有发版服务给得出；走旧的元数据时为空 */
+  changelog: string | null;
+  publishedAt: string | null;
+  installerSize: number | null;
+  installerSha256: string | null;
+  /** 当前版本低于最新版本的 min_supported_version：对话框关不掉，挡住整个应用 */
+  forced: boolean;
+  channel: ReleaseChannel;
   message: string | null;
   error: string | null;
   downloaded: number;
@@ -45,17 +59,21 @@ const AUTO_CHECK_DELAY_MS = 8_000;
 const AUTO_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 export const DESKTOP_UPDATE_METADATA_URL = import.meta.env.VITE_DESKTOP_UPDATE_URL?.trim() || `${API_BASE_URL}/desktop-update.json`;
 
-function readPrefs(): { autoCheck: boolean; skippedVersion: string | null } {
-  try {
-    const raw = JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? '{}') as { autoCheck?: unknown; skippedVersion?: unknown };
-    return { autoCheck: raw.autoCheck !== false, skippedVersion: typeof raw.skippedVersion === 'string' ? raw.skippedVersion : null };
-  } catch {
-    return { autoCheck: true, skippedVersion: null };
-  }
-}
+interface Prefs { autoCheck: boolean; skippedVersion: string | null; channel: ReleaseChannel }
 
-function writePrefs(prefs: { autoCheck: boolean; skippedVersion: string | null }): void {
-  try { window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* storage unavailable */ }
+const DEFAULT_PREFS: Prefs = { autoCheck: true, skippedVersion: null, channel: 'stable' };
+
+function readPrefs(): Prefs {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? '{}') as { autoCheck?: unknown; skippedVersion?: unknown; channel?: unknown };
+    return {
+      autoCheck: raw.autoCheck !== false,
+      skippedVersion: typeof raw.skippedVersion === 'string' ? raw.skippedVersion : null,
+      channel: raw.channel === 'beta' ? 'beta' : 'stable'
+    };
+  } catch {
+    return DEFAULT_PREFS;
+  }
 }
 
 function consumeJustUpdated(current: string): string | null {
@@ -80,13 +98,19 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
   return tauriInvoke<T>(command, args);
 }
 
-const prefs = typeof window !== 'undefined' ? readPrefs() : { autoCheck: true, skippedVersion: null };
+const prefs = typeof window !== 'undefined' ? readPrefs() : DEFAULT_PREFS;
 
 export const useDesktopUpdate = create<DesktopUpdateState>(() => ({
   phase: 'idle',
   currentVersion: packageJson.version,
   latestVersion: null,
   installerUrl: null,
+  changelog: null,
+  publishedAt: null,
+  installerSize: null,
+  installerSha256: null,
+  forced: false,
+  channel: prefs.channel,
   message: null,
   error: null,
   downloaded: 0,
@@ -102,43 +126,101 @@ export const useDesktopUpdate = create<DesktopUpdateState>(() => ({
 const set = useDesktopUpdate.setState;
 const get = useDesktopUpdate.getState;
 
+function writePrefs(): void {
+  const { autoCheck, skippedVersion, channel } = get();
+  try { window.localStorage.setItem(PREFS_KEY, JSON.stringify({ autoCheck, skippedVersion, channel })); } catch { /* storage unavailable */ }
+}
+
 export function isDesktopUpdateSupported(): boolean {
   return isTauriDesktopApp() && !import.meta.env.DEV;
 }
 
-/** Manual checks always open the dialog with the result; automatic checks only open it for an unskipped new version. */
+type CheckFields = Pick<
+  DesktopUpdateState,
+  'currentVersion' | 'latestVersion' | 'installerUrl' | 'message' | 'changelog' | 'publishedAt' | 'installerSize' | 'installerSha256' | 'forced'
+>;
+type CheckResult = CheckFields & { available: boolean };
+
+/** 发版服务。返回 null 表示「这台服务器没有发版服务的数据」，交给旧的元数据检查。 */
+async function checkReleaseService(): Promise<CheckResult | null> {
+  const current = packageJson.version;
+  let result;
+  try {
+    result = await fetchLatestRelease({ platform: 'windows', channel: get().channel, current, arch: 'x64' });
+  } catch {
+    // 旧后端没有这个接口（404）、网络或证明头问题：都退回旧路径，旧路径也失败才报错
+    return null;
+  }
+  const latest = result.latest;
+  if (!latest) return null;
+  const artifact = latest.artifact;
+  const available = result.updateAvailable && artifact !== null;
+  return {
+    currentVersion: current,
+    latestVersion: latest.version,
+    installerUrl: artifact?.url ?? null,
+    installerSize: artifact?.size ?? null,
+    installerSha256: artifact?.sha256 ?? null,
+    changelog: latest.changelog.trim() || null,
+    publishedAt: latest.publishedAt,
+    forced: available && result.forced,
+    available,
+    message: available ? '发现新版本' : result.updateAvailable ? '服务器暂未提供安装包' : '已是最新版本'
+  };
+}
+
+async function checkLegacyMetadata(): Promise<CheckResult> {
+  const result = await invoke<UpdateCheck>('desktop_update_check', { metadataUrl: DESKTOP_UPDATE_METADATA_URL });
+  return {
+    currentVersion: result.current_version,
+    latestVersion: result.latest_version,
+    installerUrl: result.installer_url,
+    installerSize: null,
+    installerSha256: null,
+    changelog: null,
+    publishedAt: null,
+    forced: false,
+    available: result.available,
+    message: result.message
+  };
+}
+
+/**
+ * Manual checks always open the dialog with the result; automatic checks only open it for an unskipped new
+ * version while auto-check is on. A forced update always opens it and can't be skipped or dismissed.
+ */
 export async function checkForDesktopUpdate({ manual = false } = {}): Promise<void> {
   const busy = get().phase;
   if (!isDesktopUpdateSupported() || busy === 'checking' || busy === 'downloading' || busy === 'installing') return;
-  if (busy === 'ready') { if (manual) set({ dialogOpen: true }); return; }
+  if (busy === 'ready') { if (manual || get().forced) set({ dialogOpen: true }); return; }
   set({ phase: 'checking', error: null, message: null, ...(manual ? { dialogOpen: true } : {}) });
   try {
-    const result = await invoke<UpdateCheck>('desktop_update_check', { metadataUrl: DESKTOP_UPDATE_METADATA_URL });
-    const skipped = !manual && result.available && result.latest_version === get().skippedVersion;
+    const { available, ...fields } = (await checkReleaseService()) ?? (await checkLegacyMetadata());
+    const skipped = !manual && !fields.forced && available && fields.latestVersion === get().skippedVersion;
     set({
-      phase: result.available ? 'available' : 'upToDate',
-      currentVersion: result.current_version,
-      latestVersion: result.latest_version,
-      installerUrl: result.installer_url,
-      message: result.message,
+      ...fields,
+      phase: available ? 'available' : 'upToDate',
       lastCheckedAt: Date.now(),
-      dialogOpen: manual || (result.available && !skipped)
+      dialogOpen: manual || fields.forced || (available && !skipped && get().autoCheck)
     });
   } catch (error) {
-    set({ phase: 'error', error: errorText(error), lastCheckedAt: Date.now(), dialogOpen: manual });
+    set({ phase: 'error', error: errorText(error), lastCheckedAt: Date.now(), dialogOpen: manual || get().forced });
   }
 }
 
 export async function downloadDesktopUpdate(): Promise<void> {
-  const { installerUrl, latestVersion, phase } = get();
+  const { installerUrl, latestVersion, phase, installerSha256, installerSize } = get();
   if (!installerUrl || !latestVersion || phase === 'downloading') return;
-  set({ phase: 'downloading', downloaded: 0, total: null, error: null });
+  set({ phase: 'downloading', downloaded: 0, total: installerSize, error: null });
   const { listen } = await import('@tauri-apps/api/event');
   const unlisten = await listen<{ downloaded: number; total: number | null }>('kukechat-update-progress', (event) => {
-    set({ downloaded: event.payload.downloaded, total: event.payload.total });
+    set({ downloaded: event.payload.downloaded, total: event.payload.total ?? installerSize });
   });
   try {
-    const path = await invoke<string>('desktop_update_download', { url: installerUrl, version: latestVersion });
+    // sha256 / expectedSize 由 Rust 在落盘前校验，不一致时报「安装包校验失败，请重新下载」
+    const path = await invoke<string>('desktop_update_download', {
+      url: installerUrl, version: latestVersion, sha256: installerSha256, expectedSize: installerSize
+    });
     set({ phase: 'ready', installerPath: path, dialogOpen: true });
   } catch (error) {
     const message = errorText(error);
@@ -167,30 +249,44 @@ export async function installDesktopUpdate(): Promise<void> {
 }
 
 export function setDesktopUpdateDialogOpen(open: boolean): void {
+  // 强制更新期间对话框关不掉
+  if (!open && get().forced) return;
   set({ dialogOpen: open });
 }
 
 export function skipDesktopUpdateVersion(): void {
-  const version = get().latestVersion;
-  set({ skippedVersion: version, dialogOpen: false });
-  writePrefs({ autoCheck: get().autoCheck, skippedVersion: version });
+  if (get().forced) return;
+  set({ skippedVersion: get().latestVersion, dialogOpen: false });
+  writePrefs();
 }
 
 export function setDesktopUpdateAutoCheck(autoCheck: boolean): void {
   set({ autoCheck });
-  writePrefs({ autoCheck, skippedVersion: get().skippedVersion });
+  writePrefs();
   if (autoCheck) void checkForDesktopUpdate();
+}
+
+/** 接收测试版：beta 渠道检查时 stable 和 beta 一起比，谁新给谁 */
+export function setDesktopUpdateChannel(channel: ReleaseChannel): void {
+  if (get().channel === channel) return;
+  set({ channel });
+  writePrefs();
+  const phase = get().phase;
+  if (phase !== 'downloading' && phase !== 'ready' && phase !== 'installing') void checkForDesktopUpdate();
 }
 
 export function dismissJustUpdated(): void {
   set({ justUpdatedTo: null });
 }
 
-/** Starts background checks: shortly after launch, then every few hours while auto-check is on. */
+/**
+ * Starts background checks: shortly after launch (always — a forced update must be found even with auto-check
+ * off; without auto-check the dialog only opens for forced ones), then every few hours while auto-check is on.
+ */
 export function startDesktopUpdateSchedule(): () => void {
   if (!isDesktopUpdateSupported()) return () => undefined;
   const tick = (): void => { if (get().autoCheck) void checkForDesktopUpdate(); };
-  const first = window.setTimeout(tick, AUTO_CHECK_DELAY_MS);
+  const first = window.setTimeout(() => void checkForDesktopUpdate(), AUTO_CHECK_DELAY_MS);
   const interval = window.setInterval(tick, AUTO_CHECK_INTERVAL_MS);
   return () => { window.clearTimeout(first); window.clearInterval(interval); };
 }

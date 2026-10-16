@@ -4,7 +4,7 @@ import { getConversationBots } from '@/api/bots';
 import { searchConversationMembers } from '@/api/conversations';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
-import type { ConversationMember, MemberRole, MessageMetadata, MessageQuoteMetadata, MessageType } from '@/types/api';
+import type { ConversationMember, MemberRole, MessageMetadata, MessageQuoteMetadata, MessageType, User } from '@/types/api';
 import { MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES, MAX_IMAGE_UPLOAD_BYTES, MAX_MESSAGE_CONTENT_LENGTH, MENTION_ALL_REMAINING } from '../message/constants';
 import { formatBytes, formatVoiceDuration, matchesMember, memberUserId } from '../message/messageMeta';
 import type { SendMessageVariables, StagedImage, StagedVoice } from '../message/types';
@@ -16,7 +16,10 @@ import { EmojiPanel } from './emojis/EmojiPanel';
 import { formatMuteEnd, useMuteStatus } from '@/store/moderationStore';
 import { matchBotCommandInput } from '@/utils/botCommands';
 import { PollComposerButton } from './polls/PollComposerButton';
-import { cx, readNumberPreference, writePreference, type ShowToast } from './runtime';
+import { FileComposerButton } from '@/components/groupPlus/files/FileComposerButton';
+import { GiftComposerButton } from '@/components/gifts/GiftEntry';
+import { RedPacketComposerButton } from '@/components/redpacket/RedPacketEntry';
+import { cx, readNumberPreference, writePreference } from './runtime';
 import { reportTyping, resetTyping } from './typing/reportTyping';
 import { useVoiceRecorder } from './useVoiceRecorder';
 
@@ -36,15 +39,18 @@ interface ComposerProps {
   sending: boolean;
   canCreateTask: boolean;
   isTaskAssistantChat: boolean;
+  /** 这个会话里能不能发红包（和机器人的私聊不能）。服务端关着红包时入口自己不出现 */
+  canSendRedPacket: boolean;
+  /** 私聊的对方：工具栏上的「送礼物」在私聊里直接送给 Ta（群里在面板里选人）。和机器人、任务助手的会话里礼物入口跟着红包一起不出现 */
+  directUser?: User | null;
   onSend: (variables: SendMessageVariables) => void;
-  /** 不经过 onSend 发出去的消息（比如投票）发成功后调用，让列表回到最新。 */
+  /** 不经过 onSend 发出去的消息（比如投票、红包）发成功后调用，让列表回到最新。 */
   onOwnMessageSent?: () => void;
   onMembersNeeded?: () => void;
   onCreateTask: () => void;
   onOpenTaskCenter: () => void;
   onOpenPenalties: () => void;
   setError: (message: string) => void;
-  showToast: ShowToast;
 }
 
 const HEIGHT_PREFERENCE_KEY = 'kukechat.desktop.composerHeight';
@@ -59,7 +65,7 @@ function memberName(member: ConversationMember): string {
   return member.nickname?.trim() || getDisplayName(member.user, userId ? `用户 ${userId}` : '成员');
 }
 
-const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Composer({ conversationId, isGroup, currentRole, members, sending, canCreateTask, isTaskAssistantChat, onSend, onOwnMessageSent, onMembersNeeded, onCreateTask, onOpenTaskCenter, onOpenPenalties, setError, showToast }, ref) {
+const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Composer({ conversationId, isGroup, currentRole, members, sending, canCreateTask, isTaskAssistantChat, canSendRedPacket, directUser, onSend, onOwnMessageSent, onMembersNeeded, onCreateTask, onOpenTaskCenter, onOpenPenalties, setError }, ref) {
   const mute = useMuteStatus();
   const editorRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -476,7 +482,6 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
         isGroup={isGroup}
         currentRole={currentRole}
         sending={sending}
-        showToast={showToast}
         onInsert={(emoji) => {
           const editor = editorRef.current;
           if (editor) {
@@ -545,6 +550,7 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
           setEmojiOpen((current) => !current);
         }}><Icon name="emoji" className="h-[18px] w-[18px]" /></button>
         <button type="button" className="kcd-tool" title="图片（也可以直接粘贴或拖进来）" aria-label="发送图片" disabled={sending} onClick={() => imageInputRef.current?.click()}><Icon name="image" className="h-[18px] w-[18px]" /></button>
+        {isGroup ? <FileComposerButton conversationId={conversationId} disabled={sending || mute.muted} /> : null}
         <button type="button" className={cx('kcd-tool', voice.recording && 'is-recording')} title={voice.recording ? '结束录音' : '语音消息'} aria-label={voice.recording ? '结束录音' : '录制语音'} disabled={sending || stagedImages.length > 0} onClick={() => {
           if (voice.recording) {
             voice.stop();
@@ -563,6 +569,8 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
           }
         }}><Icon name="atSign" className="h-[18px] w-[18px]" /></button> : null}
         <PollComposerButton conversationId={conversationId} onCreated={onOwnMessageSent} />
+        {canSendRedPacket ? <RedPacketComposerButton conversationId={conversationId} isGroup={isGroup} variant="desktop" onCreated={onOwnMessageSent} /> : null}
+        {canSendRedPacket ? <GiftComposerButton conversationId={conversationId} isGroup={isGroup} members={members} directUser={directUser} variant="desktop" onCreated={onOwnMessageSent} onMembersNeeded={onMembersNeeded} /> : null}
         {botCommands.length > 0 ? <button type="button" className={cx('kcd-tool', openBotPanel && 'is-active')} title="机器人指令" aria-label="机器人指令" aria-expanded={Boolean(openBotPanel)} onMouseDown={(event) => {
           // 面板的上下键和回车是输入框接的，焦点不能被按钮拿走；也不让这次按下被面板当成「点了外面」
           event.preventDefault();

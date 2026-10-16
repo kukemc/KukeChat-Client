@@ -1,45 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useRef } from 'react';
 import type { ConversationMember, LevelTitleTier, MemberRole, Message, MessageQuoteMetadata, User } from '@/types/api';
-import type { BotInteraction, ToastState } from '../message/types';
+import type { BotInteraction } from '../message/types';
 
 /** 身份恒定、永远调用最新闭包的回调。传给 memo 过的消息行不会引发重渲染。 */
 export function useEvent<Args extends unknown[], Result>(handler: (...args: Args) => Result): (...args: Args) => Result {
   const ref = useRef(handler);
   ref.current = handler;
   return useCallback((...args: Args) => ref.current(...args), []);
-}
-
-export type ShowToast = (message: string, tone?: ToastState['tone']) => void;
-
-export function useToast(): { toast: ToastState | null; showToast: ShowToast } {
-  const [toast, setToast] = useState<ToastState | null>(null);
-  const idRef = useRef(0);
-  const hideTimerRef = useRef<number | null>(null);
-  const removeTimerRef = useRef<number | null>(null);
-
-  const clearTimers = (): void => {
-    if (hideTimerRef.current !== null) window.clearTimeout(hideTimerRef.current);
-    if (removeTimerRef.current !== null) window.clearTimeout(removeTimerRef.current);
-    hideTimerRef.current = null;
-    removeTimerRef.current = null;
-  };
-
-  const showToast = useCallback<ShowToast>((message, tone = 'info') => {
-    const id = idRef.current + 1;
-    idRef.current = id;
-    clearTimers();
-    setToast({ id, message, tone, exiting: false });
-    hideTimerRef.current = window.setTimeout(() => {
-      setToast((current) => (current?.id === id ? { ...current, exiting: true } : current));
-      removeTimerRef.current = window.setTimeout(() => {
-        setToast((current) => (current?.id === id ? null : current));
-      }, 260);
-    }, tone === 'error' ? 3600 : 2600);
-  }, []);
-
-  useEffect(() => clearTimers, []);
-
-  return { toast, showToast };
 }
 
 /** 消息行能触发的全部动作。对象身份在面板生命周期内不变。 */
@@ -61,7 +28,6 @@ export interface ChatRowActions {
   botInteract: (message: Message, interaction: BotInteraction) => void;
   repeat: (content: string) => void;
   openPost?: (postId: number) => void;
-  showToast: ShowToast;
   setError: (message: string) => void;
 }
 

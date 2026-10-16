@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { APP_DEVELOPERS, APP_NAME, CCW_SUPPORT_URL, SPONSOR_URL } from '@/config';
 import { UpdateProgressBar } from '@/components/desktop/DesktopUpdateDialog';
 import { Icon } from '@/components/ui/Icon';
+import { ReleaseNotesDialog } from '@/components/update/ReleaseNotes';
+import { FORCED_UPDATE_TITLE } from '@/components/update/updateFormat';
 import {
   cancelDesktopUpdateDownload, checkForDesktopUpdate, downloadDesktopUpdate, installDesktopUpdate, isDesktopUpdateSupported,
-  setDesktopUpdateAutoCheck, useDesktopUpdate
+  setDesktopUpdateAutoCheck, setDesktopUpdateChannel, setDesktopUpdateDialogOpen, useDesktopUpdate
 } from '@/native/desktopUpdate';
 import { isTauriDesktopApp } from '@/utils/appMode';
 import { openExternalUrl } from '@/utils/openExternalUrl';
@@ -26,14 +29,17 @@ function UpdateCard(): JSX.Element {
     status = <>正在检查更新…</>;
     action = <button type="button" className={btn.secondary} disabled><Icon name="refresh" className="h-4 w-4 animate-spin" />检查中</button>;
   } else if (phase === 'available') {
-    status = <span className="font-semibold [color:var(--kc-accent)]">发现新版本 v{state.latestVersion}</span>;
-    action = <button type="button" className={btn.primary} onClick={() => void downloadDesktopUpdate()}><Icon name="download" className="h-4 w-4" />下载更新</button>;
+    status = <span className="font-semibold [color:var(--kc-text)]">发现新版本 v{state.latestVersion}{state.forced ? `（${FORCED_UPDATE_TITLE}）` : ''}</span>;
+    action = <>
+      {state.changelog ? <button type="button" className={btn.ghost} onClick={() => setDesktopUpdateDialogOpen(true)}>查看更新内容</button> : null}
+      <button type="button" className={btn.primary} onClick={() => void downloadDesktopUpdate()}><Icon name="download" className="h-4 w-4" />下载并安装</button>
+    </>;
   } else if (phase === 'downloading') {
     status = <>正在下载 v{state.latestVersion}</>;
     action = <button type="button" className={btn.ghost} onClick={cancelDesktopUpdateDownload}>取消</button>;
   } else if (phase === 'ready' || phase === 'installing') {
     status = <span className="font-semibold text-emerald-600">v{state.latestVersion} 已下载，重启即可完成更新</span>;
-    action = <button type="button" className={btn.primary} disabled={phase === 'installing'} onClick={() => void installDesktopUpdate()}>{phase === 'installing' ? '正在启动安装…' : '重启并安装'}</button>;
+    action = <button type="button" className={btn.primary} disabled={phase === 'installing'} onClick={() => void installDesktopUpdate()}>{phase === 'installing' ? '正在启动安装…' : '安装并重启'}</button>;
   } else {
     status = phase === 'upToDate' ? <>{state.message === '已是最新版本' ? '已是最新版本' : state.message}</> : phase === 'error' ? <span className="text-red-500">检查失败</span> : <>{lastChecked(state.lastCheckedAt)}</>;
     action = <button type="button" className={btn.secondary} onClick={() => void checkForDesktopUpdate({ manual: true })}><Icon name="refresh" className="h-4 w-4" />检查更新</button>;
@@ -54,6 +60,9 @@ function UpdateCard(): JSX.Element {
       <Row title="自动检查更新" description="启动后和每隔几小时检查一次，有新版本时提醒你。不会在你不知情时安装。">
         <Toggle label="自动检查更新" checked={state.autoCheck} onChange={setDesktopUpdateAutoCheck} />
       </Row>
+      <Row title="接收测试版" description="提前体验还在测试的新版本，可能不太稳定。关掉后只接收正式版。">
+        <Toggle label="接收测试版" checked={state.channel === 'beta'} onChange={(on) => setDesktopUpdateChannel(on ? 'beta' : 'stable')} />
+      </Row>
       {state.skippedVersion ? <Row title="已跳过的版本" description={`v${state.skippedVersion} 不会再自动提醒，手动检查仍然可以安装。`} /> : null}
     </Card>
   );
@@ -61,9 +70,16 @@ function UpdateCard(): JSX.Element {
 
 export function AboutSection(): JSX.Element {
   const desktop = isTauriDesktopApp();
+  const [notesOpen, setNotesOpen] = useState(false);
   return (
     <SettingsPage title={desktop ? '关于与更新' : '关于'}>
       {isDesktopUpdateSupported() ? <UpdateCard /> : null}
+      <Card>
+        <Row icon="fileText" title="更新日志" description={desktop ? '每个版本更新了什么' : '桌面端和安卓端每个版本更新了什么'} onClick={() => setNotesOpen(true)}>
+          <Icon name="chevron" className="h-4 w-4 [color:var(--kc-muted)]" />
+        </Row>
+      </Card>
+      <ReleaseNotesDialog open={notesOpen} onClose={() => setNotesOpen(false)} platforms={desktop ? ['windows'] : ['windows', 'android']} currentVersion={desktop ? packageJson.version : null} />
       <Card padded>
         <div className="flex items-center gap-3">
           <span className="grid h-12 w-12 place-items-center rounded-2xl text-white [background:var(--kc-accent)]"><Icon name="message" className="h-6 w-6" /></span>

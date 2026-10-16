@@ -6,17 +6,17 @@
  *   2. 我收到的赞（klk-mine）——自己的资料卡、自己的个人空间上的大拇指 + 总数 + 红色的 +N；
  *   3. 「谁赞了我」的名单（klk-list），和它的三个壳：资料卡里就地展开（ksc-liked）、对话框（klk-dialog）、手机整页（klk-page）；
  *   4. 这些东西在各个页面上摆在哪（资料卡头部、个人空间的名字那一行）；
- *   5. 有人赞了我时的一条小提示（klk-toast）。
+ *   5. 有人赞了我时那条提示的图形（klk-toast-mark）——提示本体走统一的提示组件，这里只剩它作为 leading 插槽的那枚圆底图标。
  *
  * 守 kui 的「利落」取向：按钮是发丝边 + 标准的面，强调色只在「已赞」时出现；数字等宽。
  * 移动布局没有 --kui-* 这些量（它们只定义在桌面布局和 .kui 上），所以这里每处都带了退路，并在最前面起几个自己的别名。
- * 动画只有三处：点下去图标弹一下、数字滚一格、提示落下来；系统设了「减少动态效果」或开了性能优先（is-still）时都不动。
+ * 动画只有两处：点下去图标弹一下、数字滚一格；系统设了「减少动态效果」或开了性能优先（is-still）时都不动。
  */
 
 .klk,
 .klk-mine,
 .klk-list,
-.klk-toast-layer {
+.klk-toast-mark {
   --klk-fs: var(--kui-fs, var(--kc-font-multiplier, 1));
   /* 「+N」的红和未读数字是同一个红：都是「有新的」 */
   --klk-red: var(--kui-unread, #ec3d44);
@@ -642,59 +642,7 @@ button.klk-row:active {
 
 /* ───────── 5. 有人赞了我 ───────── */
 
-/* 和升级的提示一样从窗口上沿落下来，但小得多，也不接鼠标 */
-.klk-toast-layer {
-  position: absolute;
-  z-index: 69;
-  top: 12px;
-  right: 0;
-  left: 0;
-  display: flex;
-  justify-content: center;
-  padding: 0 14px;
-  color: var(--kc-text);
-  pointer-events: none;
-}
-
-/* 移动布局：挂在窗口根上，盖过各个全屏的二级页面 */
-.klk-toast-layer.is-mobile {
-  position: fixed;
-  z-index: 2147483647;
-  top: calc(var(--kc-native-safe-top, env(safe-area-inset-top, 0px)) + 10px);
-}
-
-.klk-toast {
-  display: inline-flex;
-  max-width: min(360px, 100%);
-  height: 36px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px 0 6px;
-  border-radius: var(--kui-r-lg, 10px);
-  background: var(--kc-overlay-surface, var(--kui-raised, var(--kc-panel)));
-  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
-  backdrop-filter: var(--kc-overlay-filter, none);
-  box-shadow: var(--kui-shadow, 0 0 0 1px rgba(18, 22, 38, 0.08), 0 8px 20px -8px rgba(18, 22, 38, 0.28));
-  font-size: calc(12.5px * var(--klk-fs));
-  /* 落下来、停住、收起，整段时长和 ProfileLikeToasts 里的 LIFETIME_MS 一致 */
-  animation: klk-toast 3200ms ease both;
-}
-
-.klk-toast-layer.is-mobile > .klk-toast {
-  height: 40px;
-  padding: 0 14px 0 8px;
-  border-radius: 999px;
-  font-size: 13.5px;
-}
-
-/* 头像组件最小一档是 32px，这里再收一号 */
-.klk-toast > :is(img, div):first-child {
-  width: 24px;
-  height: 24px;
-  flex: none;
-  font-size: 11px;
-}
-
+/* 提示本体走统一的提示组件（styles/toast.css）；这里只剩它作为 leading 插槽的那枚图形。 */
 .klk-toast-mark {
   display: grid;
   width: 24px;
@@ -706,59 +654,13 @@ button.klk-row:active {
   color: var(--kc-accent);
 }
 
-.klk-toast-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.klk-toast-text > b {
-  font-weight: 600;
-}
-
-.klk-toast-plus {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 3px;
-  padding-left: 8px;
-  border-left: 1px solid var(--kc-border);
-  color: var(--klk-red);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-@keyframes klk-toast {
-  0% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  7% {
-    opacity: 1;
-    transform: none;
-  }
-
-  90% {
-    opacity: 1;
-    transform: none;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
 /* ───────── 减少动态效果 ───────── */
 
 .is-still .klk-thumb.is-pop,
 .is-still .klk-thumb.is-pop::after,
 .is-still .klk-count > span,
 .klk-mine.is-still .klk-count > span,
-.klk-mine.is-still > .klk-plus,
-.klk-toast.is-still {
+.klk-mine.is-still > .klk-plus {
   animation: none;
 }
 
@@ -771,7 +673,6 @@ button.klk-row:active {
   .klk-count > :is(.is-in, .is-out),
   .klk-notice,
   .klk-plus,
-  .klk-toast,
   .klk-row.is-bone > :is(i, span, em) {
     animation: none;
   }

@@ -2,11 +2,12 @@ import { useState, type CSSProperties } from 'react';
 import { cx } from '@/components/chat/desktop/runtime';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
-import { Markdown } from '@/components/ui/Markdown';
+import { Markdown, longImageMarkdownProps } from '@/components/ui/Markdown';
+import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { Modal } from '@/components/ui/desktop/Modal';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { AnnouncementReactionBar } from '../AnnouncementReactionBar';
-import { formatAnnouncementDate, useAnnouncementList, useCoverImage, type AnnouncementModalProps } from '../announcementData';
+import { formatAnnouncementDate, useAnnouncementImageUrls, useAnnouncementList, useCoverImage, type AnnouncementModalProps } from '../announcementData';
 
 /** 桌面端的公告中心：左边是公告列表，右边是选中那一条的正文。 */
 export function AnnouncementCenterDesktop({ initialId, onClose }: AnnouncementModalProps): JSX.Element {
@@ -24,6 +25,10 @@ export function AnnouncementCenterDesktop({ initialId, onClose }: AnnouncementMo
   if (loading && !arriving) {
     setArriving(true);
   }
+
+  // 正文里的长图：点开看大图，同一篇里的图可以左右切换
+  const images = useAnnouncementImageUrls(selected?.content);
+  const [viewer, setViewer] = useState<ImageViewerState | null>(null);
 
   return (
     <Modal
@@ -72,11 +77,12 @@ export function AnnouncementCenterDesktop({ initialId, onClose }: AnnouncementMo
               <time>{formatAnnouncementDate(selected.created_at)}</time>
               {selected.pinned ? <span className="kui-tag kui-tag--accent">置顶</span> : null}
             </div>
-            <Markdown content={selected.content} className="kmd-md" />
+            <Markdown content={selected.content} className="kmd-md" {...longImageMarkdownProps({ onOpenImage: (src) => setViewer({ images, index: Math.max(images.indexOf(src), 0) }) })} />
             <AnnouncementReactionBar announcement={selected} />
           </article>
         </>
       )}
+      {viewer ? <ImageViewer viewer={viewer} portal onClose={() => setViewer(null)} onNavigate={(index) => setViewer((current) => (current ? { ...current, index } : current))} /> : null}
     </Modal>
   );
 }

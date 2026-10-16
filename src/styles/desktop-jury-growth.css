@@ -3,12 +3,11 @@
  * 和 desktop-jury.css 是一家：面只用标准令牌（--kc-chat-surface / --kc-panel / --kc-list），整窗背景和毛玻璃主题下跟着变；
  * 强调、对错、提醒的淡底一律是「令牌色掺透明」，不写死颜色。卡片里不套卡片，分区靠发丝线和小标题。
  * 文件顺序：通用小件 → 题目与标准结论（考试、练习共用）→ 练习场 → 评审台新增 → 考试 → 成长（层级、风纪值、成就）→
- * 排行榜 → 总览新增（趋势图）→ 委员徽章（聊天里也用）→ 轻提示 → 窄窗口。
+ * 排行榜 → 总览新增（趋势图）→ 委员徽章（聊天里也用）→ 提示图形 → 窄窗口。
  */
 
 /* ───────── 通用小件 ───────── */
 
-/* 轻提示挂在风纪页的右下角，要一个定位基准 */
 .kjr-root {
   position: relative;
 }
@@ -391,7 +390,7 @@
   font-weight: 700;
 }
 
-#kukechat-root [data-font-scale] :is(.kjr-reward, .kjr-exam-review-line, .kjr-toast) .kui-link {
+#kukechat-root [data-font-scale] :is(.kjr-reward, .kjr-exam-review-line) .kui-link {
   font-size: inherit;
 }
 
@@ -1578,79 +1577,18 @@
   white-space: nowrap;
 }
 
-/* ───────── 轻提示 ───────── */
+/* ───────── 提示图形 ───────── */
 
-.kjr-toasts {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  z-index: 5;
-  display: grid;
-  width: min(340px, calc(100% - 36px));
-  gap: 8px;
-  pointer-events: none;
-}
-
-.kjr-toast {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 8px 9px 12px;
-  border-radius: var(--kui-r-lg);
-  /* 和菜单、对话框一样是浮层：材质是玻璃时用主题给的半透明底 + 模糊，否则是实底 */
-  background: var(--kc-overlay-surface, var(--kui-raised));
-  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
-  backdrop-filter: var(--kc-overlay-filter, none);
-  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kui-ok);
-  pointer-events: auto;
-}
-
-.kjr-toast.is-loss {
-  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kui-danger);
-}
-
-.kjr-toast.is-achievement {
-  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kc-accent);
-}
-
+/* 提示本体走统一的提示组件（styles/toast.css）；这里只剩它作为 leading 插槽的那枚图形。
+   颜色跟着语气的图标一起看会重复，所以固定用中性的强调色，不再按正负分色。 */
 .kjr-toast-icon {
   display: grid;
   width: 30px;
   height: 30px;
   place-items: center;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--kui-ok) 13%, transparent);
-  color: var(--kui-ok);
-}
-
-.kjr-toast.is-loss .kjr-toast-icon {
-  background: color-mix(in srgb, var(--kui-danger) 12%, transparent);
-  color: var(--kui-danger);
-}
-
-.kjr-toast-main {
-  display: grid;
-  min-width: 0;
-  text-align: left;
-}
-
-.kjr-toast-main b {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-.kjr-toast-main span {
-  overflow: hidden;
-  color: var(--kc-muted);
-  font-size: calc(12px * var(--kui-fs));
-  font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#kukechat-root [data-font-scale] .kjr-toast-main {
-  font-size: calc(13.5px * var(--kui-fs));
+  background: color-mix(in srgb, var(--kc-accent) 13%, transparent);
+  color: var(--kc-accent);
 }
 
 /* ───────── 窄窗口 ───────── */

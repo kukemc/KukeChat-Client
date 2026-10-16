@@ -4,19 +4,25 @@ import { UserLevelIcons } from '@/components/level/LevelIcons';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { resolveThumbnailUrl } from '@/utils/assetUrl';
-import { formatMessageDateTime } from '@/utils/dateTime';
+import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
+import { conversationTier, effectiveTier } from '@/components/groupPlus/tier';
+import { chatSearchTitle } from './chat/util';
 import { registerNativeBackHandler } from '@/native/back';
 import { GlobalSearchDesktop } from './desktop/GlobalSearchDesktop';
-import { SEARCH_TABS, conversationTitle, groupTitle, messageConversation, messagePreview, useGlobalSearch, type GlobalSearchModalProps } from './globalSearch';
+import { CHAT_SUMMARY_PREVIEW, SEARCH_TABS, groupTitle, useGlobalSearch, type GlobalSearchModalProps } from './globalSearch';
 
 function renderGroupAvatar(conversation: Conversation): JSX.Element {
   const title = groupTitle(conversation);
   const avatarUrl = resolveThumbnailUrl(conversation.avatar_url);
+  const tier = conversationTier(conversation);
   if (avatarUrl) {
-    return <img src={avatarUrl} alt={title} className="h-11 w-11 rounded-2xl border object-cover [border-color:var(--kc-border)]" />;
+    // 有档位的群：交给 Avatar 画（它会套容器、画角标）；没有档位保持原来的圆角方图
+    return tier === 'free'
+      ? <img src={avatarUrl} alt={title} className="h-11 w-11 rounded-2xl border object-cover [border-color:var(--kc-border)]" />
+      : <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} plusTier={tier} />;
   }
 
-  return <Avatar label={title} />;
+  return <Avatar label={title} toneKey={conversation.id} plusTier={tier} />;
 }
 
 /** 全局搜索。桌面布局是顶部弹出的搜索面板，手机布局是整页。 */
@@ -25,7 +31,7 @@ export function GlobalSearchModal(props: GlobalSearchModalProps): JSX.Element {
 }
 
 function MobileGlobalSearch({ currentUser, friends, initialKeyword, onOpenConversation, onClose }: GlobalSearchModalProps): JSX.Element {
-  const { tab, setTab, inputValue, setInputValue, cleanKeyword, showingRecommendations, usersQuery, groupsQuery, messagesQuery, users, groups, messages, submitSearch, openMessageResult, userRowState, groupRowState, sendFriendRequest, requestJoinGroup } = useGlobalSearch({ currentUser, friends, initialKeyword, onOpenConversation, onClose });
+  const { tab, setTab, inputValue, setInputValue, cleanKeyword, showingRecommendations, usersQuery, groupsQuery, messagesQuery, chatKeyword, chatConversations, chatTotal, users, groups, submitSearch, openChatHistory, userRowState, groupRowState, sendFriendRequest, requestJoinGroup } = useGlobalSearch({ currentUser, friends, initialKeyword, onOpenConversation, onClose });
 
   useEffect(() => registerNativeBackHandler(() => {
     onClose();
@@ -33,36 +39,46 @@ function MobileGlobalSearch({ currentUser, friends, initialKeyword, onOpenConver
   }, 160), [onClose]);
 
   function renderMessageRows(): JSX.Element {
-    if (showingRecommendations) {
+    if (chatKeyword.length === 0) {
       return <p className="rounded-2xl p-4 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">输入关键词可搜索所有会话的历史聊天记录。</p>;
     }
     if (messagesQuery.isLoading) {
       return <p className="rounded-2xl p-4 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">正在搜索聊天记录...</p>;
     }
     if (messagesQuery.error) {
-      return <p className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">聊天记录搜索失败，请稍后重试。</p>;
+      return (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">
+          <span>聊天记录搜索失败，请稍后重试。</span>
+          <button type="button" onClick={() => void messagesQuery.refetch()} className="shrink-0 rounded-xl border border-red-500/40 px-3 py-1.5 text-xs font-semibold">重试</button>
+        </div>
+      );
     }
-    if (messages.length === 0) {
+    if (chatConversations.length === 0) {
       return <p className="rounded-2xl p-4 text-sm [background:var(--kc-panel-muted)] [color:var(--kc-muted)]">没有找到匹配聊天记录。</p>;
     }
+    const shown = tab === 'all' ? chatConversations.slice(0, CHAT_SUMMARY_PREVIEW) : chatConversations;
     return (
       <div className="grid min-w-0 max-w-full gap-2 overflow-hidden">
-        {messages.map((message) => {
-          const conversation = messageConversation(message);
+        {shown.map((item) => {
+          const title = chatSearchTitle(item.conversation);
+          const group = item.conversation.type === 'group';
           return (
-            <button key={`${message.conversation_id}-${message.id}`} type="button" onClick={() => openMessageResult(message)} className="block w-full min-w-0 max-w-full overflow-hidden rounded-2xl border p-3 text-left transition hover:[background:var(--kc-hover)] [background:var(--kc-panel)] [border-color:var(--kc-border)]">
-              <div className="mb-1 flex min-w-0 max-w-full items-center justify-between gap-3 text-xs [color:var(--kc-muted)]">
-                <span className="min-w-0 max-w-full truncate font-semibold [color:var(--kc-text)]">{conversationTitle(conversation)}</span>
-                <span className="shrink-0">{formatMessageDateTime(message.created_at)}</span>
-              </div>
-              <p className="min-w-0 max-w-full truncate text-xs [color:var(--kc-muted)]">{message.sender_display_name || getDisplayName(message.sender, `用户 ${message.sender_id}`)}</p>
-              <p className="mt-1 min-w-0 max-w-full whitespace-normal break-words text-sm leading-6 [color:var(--kc-text)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] [overflow:hidden] [overflow-wrap:anywhere]">{messagePreview(message)}</p>
+            // 点一个会话：打开聊天记录搜索，直接看这个会话里的命中
+            <button key={item.conversation.id} type="button" onClick={() => openChatHistory(item.conversation.id)} className="flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-2xl border p-3 text-left transition active:[background:var(--kc-hover)] [background:var(--kc-panel)] [border-color:var(--kc-border)]">
+              {group
+                ? <Avatar avatarUrl={item.conversation.avatar_url} label={title} toneKey={item.conversation.id} plusTier={effectiveTier(item.conversation.plus_tier, item.conversation.plus_expires_at)} />
+                : <Avatar user={item.conversation.direct_user} label={title} />}
+              <span className="min-w-0 flex-1">
+                <span className="flex min-w-0 items-center"><span className="truncate text-sm font-semibold [color:var(--kc-text)]">{title}</span>{group ? <PlusTierTag tier={conversationTier({ type: 'group', plus_tier: item.conversation.plus_tier, plus_expires_at: item.conversation.plus_expires_at })} /> : null}</span>
+                <span className="mt-0.5 block text-xs [color:var(--kc-muted)]">{item.count} 条相关聊天记录</span>
+              </span>
+              <Icon name="chevron" className="h-4 w-4 shrink-0 [color:var(--kc-muted)]" />
             </button>
           );
         })}
-        {messagesQuery.hasNextPage ? (
-          <button type="button" disabled={messagesQuery.isFetchingNextPage} onClick={() => void messagesQuery.fetchNextPage()} className="mt-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:[background:var(--kc-hover)] disabled:cursor-not-allowed disabled:opacity-45 [border-color:var(--kc-border)]">
-            {messagesQuery.isFetchingNextPage ? '加载中...' : '加载更多历史记录'}
+        {chatConversations.length > shown.length ? (
+          <button type="button" onClick={() => openChatHistory(null)} className="mt-1 rounded-2xl border px-4 py-3 text-sm font-semibold transition active:[background:var(--kc-hover)] [border-color:var(--kc-border)]">
+            查看全部 {chatConversations.length} 个会话（共 {chatTotal} 条）
           </button>
         ) : null}
       </div>
@@ -123,7 +139,7 @@ function MobileGlobalSearch({ currentUser, friends, initialKeyword, onOpenConver
             <div key={group.id} className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-2xl px-3 py-3 transition hover:[background:var(--kc-hover)]">
               {renderGroupAvatar(group)}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{groupTitle(group)}</p>
+                <p className="truncate text-sm font-semibold">{groupTitle(group)}<PlusTierTag tier={conversationTier(group)} /></p>
                 <p className="truncate text-xs [color:var(--kc-muted)]">群号 {group.id} · {group.member_count ?? 0} 人 · {group.category?.trim() || '未设置'}</p>
                 {group.description?.trim() ? <p className="mt-1 line-clamp-2 text-xs leading-5 [color:var(--kc-muted)]">{group.description}</p> : null}
                 {row.result ? <p className={`mt-1 text-xs ${row.result.ok ? '[color:var(--kc-accent)]' : 'text-red-500'}`}>{row.result.text}</p> : null}

@@ -6,8 +6,8 @@ import { Icon } from '@/components/ui/Icon';
 import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { registerNativeBackHandler } from '@/native/back';
 import { ForwardBundleDialog } from './desktop/ForwardBundleDialog';
-import { parseForwardBundle, formatMessageTime } from './messageMeta';
-import { renderSnapshotContent } from './messageContent';
+import { parseForwardBundle, formatMessageTime, snapshotToMessage } from './messageMeta';
+import { MessageView } from './MessageView';
 
 export interface ForwardBundleDetailModalProps {
   message: Message;
@@ -21,25 +21,35 @@ export function ForwardBundleDetailModal({ message, mobile = false, onClose }: F
 }
 
 function MobileForwardBundleDetail({ message, onClose }: Omit<ForwardBundleDetailModalProps, 'mobile'>): JSX.Element {
-  const bundle = parseForwardBundle(message);
+  // 嵌套转发：点进去把那一条压栈，返回只退一层（统一渲染器 MessageView 限制了原地展开的深度）
+  const [stack, setStack] = useState<Message[]>([message]);
+  const current = stack[stack.length - 1];
+  const bundle = parseForwardBundle(current);
   const [imageViewer, setImageViewer] = useState<ImageViewerState | null>(null);
   const openSnapshotImage = (images: string[], index: number): void => setImageViewer({ images, index });
+  const goBack = (): void => {
+    if (stack.length > 1) {
+      setStack((items) => items.slice(0, -1));
+    } else {
+      onClose();
+    }
+  };
 
   useEffect(() => registerNativeBackHandler(() => {
     if (imageViewer) {
       setImageViewer(null);
       return true;
     }
-    onClose();
+    goBack();
     return true;
-  }, 120), [imageViewer, onClose]);
+  }, 120));
 
   return createPortal(
     <>
       <div className="fixed inset-0 z-[2147483646] flex w-screen max-w-[100vw] flex-col overflow-hidden bg-[#f2f2f4] text-[#111827] [background-color:#f2f2f4]" style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
         <div onMouseDown={(event) => event.stopPropagation()} className="flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f2f2f4] text-[#111827] [background-color:#f2f2f4]" style={{ overflowX: 'hidden', maxWidth: '100%' }}>
           <header className="flex min-h-[calc(max(44px,env(safe-area-inset-top))+56px)] shrink-0 items-end justify-between gap-3 bg-[#f2f2f4] px-4 pb-3 pt-[max(44px,env(safe-area-inset-top))] [background-color:#f2f2f4]">
-            <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full [color:var(--kc-text)]" aria-label="返回聊天"><Icon name="chevronLeft" className="h-6 w-6" /></button>
+            <button type="button" onClick={goBack} className="grid h-9 w-9 place-items-center rounded-full [color:var(--kc-text)]" aria-label={stack.length > 1 ? '返回上一层' : '返回聊天'}><Icon name="chevronLeft" className="h-6 w-6" /></button>
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-[18px] font-bold">{bundle.title}</h2>
               <p className="mt-1 text-xs [color:var(--kc-muted)]">共 {bundle.count || bundle.snapshots.length} 条转发消息</p>
@@ -60,7 +70,7 @@ function MobileForwardBundleDetail({ message, onClose }: Omit<ForwardBundleDetai
                         <span className="shrink-0">{formatMessageTime(snapshot.createdAt)}</span>
                       </div>
                       <div className="w-fit min-w-0 max-w-full overflow-hidden rounded-xl rounded-tl-sm px-3.5 py-2.5 shadow-none [background:var(--kc-bubble-in)] [color:var(--kc-text)]">
-                        {renderSnapshotContent(snapshot, openSnapshotImage)}
+                        <MessageView message={snapshotToMessage(snapshot, current.conversation_id, index)} depth={stack.length} variant="full" onOpenImages={openSnapshotImage} onOpenBundle={(nested) => setStack((items) => [...items, nested])} />
                       </div>
                     </div>
                   </article>

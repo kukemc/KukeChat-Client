@@ -21,7 +21,7 @@ export const MOBILE_FEATURES: Array<MobileFeatureDefinition & { id: MobileSortab
   { id: 'bots', label: '机器人', detail: '查看机器人和我的机器人', icon: 'bot' },
   { id: 'home', label: '主页', detail: '社区数据、热门群聊与大佬入住', icon: 'home' },
   { id: 'favorites', label: '收藏', detail: '收藏消息、图片和转发记录', icon: 'star' },
-  { id: 'shop', label: '商店', detail: '用 CCW 金币换气泡皮肤', icon: 'store' }
+  { id: 'shop', label: '商店', detail: '用 CCW 金币换气泡和头像框', icon: 'store' }
 ];
 
 export const DEFAULT_MOBILE_FEATURE_ORDER: MobileSortableFeatureId[] = MOBILE_FEATURES.map((item) => item.id);

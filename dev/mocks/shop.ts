@@ -5,6 +5,11 @@ import { json, type MockHandler } from './types';
  * 商店接口（docs/shop.md）的假实现，状态只存在内存里，刷新页面就没了。
  * 场景写在 shopScenario 上，预览页（dev/shop-harness.tsx）的控制条和地址参数改的就是它。
  * 几件示例皮肤是自己编的，用来看纹样、角饰、动效组合起来的样子；颜色都核对过对比度（预览页的「皮肤图鉴」里有读数）。
+ * 头像框（FRAMES）同理：后端默认上架的八件在这里先拟了一份样式。
+ *
+ * 限时商品（duration_days）：「天使」120 币 / 30 天、「小恶魔」50 币 / 30 天，其余永久。到期时间记在 expiry 里，
+ * 每次读取时现场判断（settleExpiry）：过了就不再拥有、装备着的卸下。已拥有、没到期的限时商品 obtainable 是 renew，
+ * 再买一次在原到期时间上加 N 天。shopState.setExpiry / expire 给预览页摆布到期时间用。
  */
 
 export interface ShopScenario {
@@ -53,6 +58,7 @@ export const DONATE_URL = 'https://www.ccw.site/detail/6650a1b2c3d4e5f6a7b8c9d0'
 interface MockItem {
   id: number;
   sku: string;
+  category: 'bubble' | 'frame';
   name: string;
   description: string;
   price: number;
@@ -62,6 +68,8 @@ interface MockItem {
   tag: 'new' | 'hot' | 'limited' | null;
   available_until: string | null;
   is_active: boolean;
+  /** 有效期（天）；不写是永久 */
+  duration_days?: number | null;
 }
 
 /** 示例皮肤的 style。预览页的图鉴、聊天预览里群友身上穿的，也是这几件。 */
@@ -196,9 +204,87 @@ export const SKINS = {
   future: { version: 2, background: 'conic-gradient(#f00, #00f)', text: '#ffffff' }
 } satisfies Record<string, unknown>;
 
+/**
+ * 头像框的示例 style（docs/shop.md 头像框一节）。前八件对应后端默认上架的那八件，样式是照着名字先拟的，以后以后端的为准；
+ * 后面几件是为了把每个头像框专用的装饰、每种动效都看一遍。
+ */
+export const FRAMES = {
+  mint: {
+    version: 1,
+    ring: { background: 'linear-gradient(140deg, #a8f5d8 0%, #3ecfa0 55%, #8ff0cf 100%)', width: 3, gap: 1 },
+    ornaments: [{ key: 'leaf', position: 'br', color: '#37c488', size: 14, animated: true }],
+    dark: { ring: { background: 'linear-gradient(140deg, #7fe6c2 0%, #2bb389 55%, #6fdcb8 100%)' } }
+  },
+  sakura: {
+    version: 1,
+    ring: { background: 'linear-gradient(160deg, #ffd9e6 0%, #ff8fb3 55%, #ffc4d8 100%)', width: 3, gap: 1 },
+    glow: { color: '#ff8fb355', blur: 6 },
+    ornaments: [{ key: 'petal', position: 'tr', color: '#ff8fb3', size: 15, animated: true }, { key: 'petal', position: 'bl', color: '#ffb7cd', size: 11, animated: true }]
+  },
+  seasalt: {
+    version: 1,
+    ring: { background: 'linear-gradient(180deg, #d6f1ff 0%, #6bbcf7 60%, #a9dcff 100%)', width: 3, gap: 1 },
+    animation: 'shimmer',
+    ornaments: [{ key: 'sparkle', position: 'tr', color: '#ffffff', size: 12, animated: true }],
+    dark: { ring: { background: 'linear-gradient(180deg, #a9dcff 0%, #3f96dc 60%, #7cc4f5 100%)' } }
+  },
+  cat: {
+    version: 1,
+    ring: { background: 'linear-gradient(180deg, #ffd9a0 0%, #f2a954 100%)', width: 3, gap: 0 },
+    ornaments: [{ key: 'cat_ears', position: 'top', color: '#f5b160', size: 20, animated: true }, { key: 'paw', position: 'br', color: '#e8944a', size: 13 }]
+  },
+  starring: {
+    version: 1,
+    ring: { background: 'conic-gradient(from 0deg, #7f7fd5, #91eae4, #ffe9a8, #b08cf0, #7f7fd5)', width: 3, gap: 1 },
+    glow: { color: '#7f7fd566', blur: 8 },
+    animation: 'spin',
+    ornaments: [{ key: 'star', position: 'tr', color: '#ffd76a', size: 15, animated: true }, { key: 'sparkle', position: 'bl', color: '#fff6c4', size: 11, animated: true }]
+  },
+  aurora: {
+    version: 1,
+    ring: { background: 'conic-gradient(from 90deg, #4c3fd1, #2fb6dd, #3ddc97, #b05cff, #4c3fd1)', width: 4, gap: 1 },
+    glow: { color: '#3ddc9750', blur: 10 },
+    animation: 'spin'
+  },
+  halo: {
+    version: 1,
+    ring: { background: 'linear-gradient(180deg, #fff6d0 0%, #ffd76a 100%)', width: 2, gap: 1 },
+    glow: { color: '#ffd76a88', blur: 9 },
+    animation: 'pulse',
+    ornaments: [{ key: 'halo', position: 'top', color: '#ffdf7a', size: 22, animated: true }]
+  },
+  crowned: {
+    version: 1,
+    ring: { background: 'conic-gradient(from 0deg, #f7d774, #b8862b, #fff1b8, #c9962f, #f7d774)', width: 4, gap: 1 },
+    glow: { color: '#f2c14e66', blur: 8 },
+    animation: 'shimmer',
+    ornaments: [{ key: 'crown', position: 'top', color: '#ffd24a', size: 18 }, { key: 'laurel', position: 'bottom', color: '#e0ae3e', size: 15 }]
+  },
+  angel: {
+    version: 1,
+    ring: { background: 'linear-gradient(180deg, #ffffff 0%, #cfe4ff 100%)', width: 2, gap: 1 },
+    glow: { color: '#a9cfff77', blur: 8 },
+    ornaments: [{ key: 'wings', position: 'right', color: '#f4f8ff', size: 24, animated: true }, { key: 'halo', position: 'top', color: '#ffe38a', size: 18, animated: true }]
+  },
+  imp: {
+    version: 1,
+    ring: { background: 'linear-gradient(160deg, #ff6b7d 0%, #8a1f3d 100%)', width: 3, gap: 0 },
+    glow: { color: '#ff3b5c55', blur: 8 },
+    animation: 'pulse',
+    ornaments: [{ key: 'horns', position: 'top', color: '#d8314f', size: 18, animated: true }, { key: 'bolt', position: 'br', color: '#ffd34a', size: 13 }]
+  },
+  ribbon: {
+    version: 1,
+    ring: { background: '#ff9ec0', width: 3, gap: 1 },
+    ornaments: [{ key: 'bow', position: 'tr', color: '#ff5c8a', size: 18, animated: true }, { key: 'heart', position: 'bl', color: '#ff7aa5', size: 11, animated: true }]
+  },
+  /** 这个版本不认识的头像框（version 2） */
+  future: { version: 2, ring: { background: '#ffffff', width: 3 } }
+} satisfies Record<string, unknown>;
+
 const soon = (hours: number): string => new Date(Date.now() + hours * 3600_000).toISOString();
 
-const CATALOG: MockItem[] = [
+const BUBBLE_CATALOG: Array<Omit<MockItem, 'category'>> = [
   { id: 1, sku: 'bubble.aurora', name: '极光', description: '会缓缓流动的渐变气泡，角上一点闪光。', price: 200, unlock_level: null, style: SKINS.aurora, preview_text: '今天也要开心呀', tag: 'hot', available_until: null, is_active: true },
   { id: 2, sku: 'bubble.starry', name: '星空', description: '深蓝的夜，星点和一弯新月，光晕慢慢呼吸。', price: 320, unlock_level: null, style: SKINS.starry, preview_text: '晚安，好梦', tag: 'new', available_until: null, is_active: true },
   { id: 3, sku: 'bubble.sakura', name: '樱花', description: '粉色的底上飘着花瓣，春天限定。', price: 260, unlock_level: null, style: SKINS.sakura, preview_text: '一起去看樱花吧', tag: 'limited', available_until: soon(51), is_active: true },
@@ -214,6 +300,21 @@ const CATALOG: MockItem[] = [
   { id: 13, sku: 'bubble.future', name: '全息', description: '用了这个版本还不认识的新效果。', price: 500, unlock_level: null, style: SKINS.future, preview_text: '未来已来', tag: 'new', available_until: null, is_active: true }
 ];
 
+const CATALOG: MockItem[] = [
+  ...BUBBLE_CATALOG.map((item): MockItem => ({ ...item, category: 'bubble' })),
+  { id: 101, sku: 'frame.mint', category: 'frame', name: '薄荷', description: '清爽的薄荷绿，角上一片小叶子。', price: 80, unlock_level: null, style: FRAMES.mint, preview_text: '', tag: null, available_until: null, is_active: true },
+  { id: 102, sku: 'frame.sakura', category: 'frame', name: '樱花', description: '粉色的环，飘着两片花瓣。', price: 120, unlock_level: null, style: FRAMES.sakura, preview_text: '', tag: 'new', available_until: null, is_active: true },
+  { id: 103, sku: 'frame.seasalt', category: 'frame', name: '海盐', description: '浅浅的海蓝，偶尔一道光扫过去。', price: 100, unlock_level: null, style: FRAMES.seasalt, preview_text: '', tag: null, available_until: null, is_active: true },
+  { id: 104, sku: 'frame.cat', category: 'frame', name: '猫耳', description: '头顶一对猫耳，偶尔会抖一下。', price: 180, unlock_level: null, style: FRAMES.cat, preview_text: '', tag: 'hot', available_until: null, is_active: true },
+  { id: 105, sku: 'frame.starring', category: 'frame', name: '星环', description: '缓缓旋转的渐变，挂着一颗星星。', price: 260, unlock_level: null, style: FRAMES.starring, preview_text: '', tag: null, available_until: null, is_active: true },
+  { id: 106, sku: 'frame.aurora', category: 'frame', name: '极光', description: '极光的颜色绕着头像慢慢转。', price: 300, unlock_level: null, style: FRAMES.aurora, preview_text: '', tag: null, available_until: null, is_active: true },
+  { id: 107, sku: 'frame.halo', category: 'frame', name: '光环', description: '头顶一圈光环。账号等级 4 免费解锁。', price: 0, unlock_level: 4, style: FRAMES.halo, preview_text: '', tag: null, available_until: null, is_active: true },
+  { id: 108, sku: 'frame.crowned', category: 'frame', name: '加冕', description: '金环、皇冠和月桂。账号等级 16 免费解锁。', price: 0, unlock_level: 16, style: FRAMES.crowned, preview_text: '', tag: null, available_until: null, is_active: true },
+  { id: 110, sku: 'frame.angel', category: 'frame', name: '天使', description: '一对翅膀和头顶的光环。限时 30 天，到期可以续。', price: 120, unlock_level: null, style: FRAMES.angel, preview_text: '', tag: 'new', available_until: null, is_active: true, duration_days: 30 },
+  { id: 111, sku: 'frame.devil', category: 'frame', name: '小恶魔', description: '两只小角，一闪一闪的红光。限时 30 天。', price: 50, unlock_level: null, style: FRAMES.imp, preview_text: '', tag: null, available_until: null, is_active: true, duration_days: 30 },
+  { id: 109, sku: 'frame.future', category: 'frame', name: '全息框', description: '用了这个版本还不认识的新效果。', price: 500, unlock_level: null, style: FRAMES.future, preview_text: '', tag: 'new', available_until: null, is_active: true }
+];
+
 interface MockRecord {
   id: number;
   item: { sku: string; name: string; category: string };
@@ -222,10 +323,49 @@ interface MockRecord {
   created_at: string;
   revoked_at?: string | null;
   refunded?: boolean;
+  duration_days?: number | null;
+  expires_at?: string | null;
 }
 
-const owned = new Set<string>(['bubble.snow', 'bubble.sunny']);
-let equipped: string | null = 'bubble.sunny';
+const DAY_MS = 86400_000;
+const owned = new Set<string>(['bubble.snow', 'bubble.sunny', 'frame.mint']);
+/** 限时商品的到期时间（毫秒）。只有拥有着的限时商品才有 */
+const expiry = new Map<string, number>();
+/** 到期了、还没发过 shop.item.expired 的那些：预览页轮询 takeExpired() 取走并发事件 */
+const justExpired: string[] = [];
+
+/** 读取时现场判断到期：过了的不再拥有，装备着的卸下 */
+function settleExpiry(): void {
+  for (const [sku, at] of expiry) {
+    if (at <= Date.now()) {
+      expiry.delete(sku);
+      owned.delete(sku);
+      justExpired.push(sku);
+      for (const slot of Object.keys(equipped)) {
+        if (equipped[slot] === sku) {
+          equipped[slot] = null;
+        }
+      }
+    }
+  }
+}
+
+/** 让某人（这里只有「我」）得到一件：限时商品从现在起算 N 天，已拥有没到期的在原到期时间上再加 N 天。返回新的到期时间 */
+function obtain(item: MockItem, days: number | null | undefined = item.duration_days): string | null {
+  settleExpiry();
+  if (days) {
+    const base = owned.has(item.sku) ? Math.max(expiry.get(item.sku) ?? 0, Date.now()) : Date.now();
+    expiry.set(item.sku, base + days * DAY_MS);
+  } else {
+    expiry.delete(item.sku);
+  }
+  owned.add(item.sku);
+  const at = expiry.get(item.sku);
+  return at ? new Date(at).toISOString() : null;
+}
+/** 每个槽装备的 sku（槽名和类别名相同） */
+const equipped: Record<string, string | null> = { bubble: 'bubble.sunny', frame: null };
+const categoryOf = (sku: string): string => CATALOG.find((item) => item.sku === sku)?.category ?? 'bubble';
 let lastRefreshAt = 0;
 let verifiedAt: string | null = new Date(Date.now() - 5 * 60_000).toISOString();
 let nextRecordId = 100;
@@ -242,12 +382,16 @@ export const shopState = {
   setOwned(skus: string[]): void {
     owned.clear();
     skus.forEach((sku) => owned.add(sku));
-    if (equipped && !owned.has(equipped)) {
-      equipped = null;
+    for (const slot of Object.keys(equipped)) {
+      const sku = equipped[slot];
+      if (sku && !owned.has(sku)) {
+        equipped[slot] = null;
+      }
     }
   },
-  setEquipped(sku: string | null): void {
-    equipped = sku;
+  /** sku 传 null 是卸下 slot 这个槽；传了 sku 就装到它所属类别的槽上 */
+  setEquipped(sku: string | null, slot = 'bubble'): void {
+    equipped[sku ? categoryOf(sku) : slot] = sku;
     if (sku) {
       owned.add(sku);
     }
@@ -256,18 +400,48 @@ export const shopState = {
   fillRecords(count: number): void {
     for (let index = 0; index < count; index += 1) {
       const item = CATALOG[index % CATALOG.length];
-      records.push({ id: nextRecordId++, item: { sku: item.sku, name: item.name, category: 'bubble' }, price: index % 3 === 0 ? 0 : item.price, source: index % 3 === 0 ? 'level' : index % 5 === 0 ? 'grant' : 'purchase', created_at: new Date(Date.now() - (index + 4) * 86400_000).toISOString() });
+      records.push({ id: nextRecordId++, item: { sku: item.sku, name: item.name, category: item.category }, price: index % 3 === 0 ? 0 : item.price, source: index % 3 === 0 ? 'level' : index % 5 === 0 ? 'grant' : 'purchase', created_at: new Date(Date.now() - (index + 4) * 86400_000).toISOString() });
     }
   },
-  /** 模拟被赠送 / 升级解锁：让这件变成已拥有，返回事件里要带的商品摘要 */
+  /** 模拟被赠送 / 升级解锁：让这件变成已拥有（限时商品按它的 duration_days 计期），返回事件里要带的商品摘要 */
   grant(sku: string, source: 'grant' | 'level'): { sku: string; name: string; category: string } | null {
     const item = CATALOG.find((candidate) => candidate.sku === sku);
     if (!item) {
       return null;
     }
+    const expiresAt = obtain(item);
+    records.unshift({ id: nextRecordId++, item: { sku, name: item.name, category: item.category }, price: 0, source, created_at: new Date().toISOString(), duration_days: item.duration_days ?? null, expires_at: expiresAt });
+    return { sku, name: item.name, category: item.category };
+  },
+  /** 我已经拥有一件限时商品，还剩 days 天（可以是小数）到期。装备与否另外用 setEquipped */
+  setExpiry(sku: string, days: number): { item: { sku: string; name: string; category: string }; expires_at: string } | null {
+    const item = CATALOG.find((candidate) => candidate.sku === sku);
+    if (!item) {
+      return null;
+    }
     owned.add(sku);
-    records.unshift({ id: nextRecordId++, item: { sku, name: item.name, category: 'bubble' }, price: 0, source, created_at: new Date().toISOString() });
-    return { sku, name: item.name, category: 'bubble' };
+    expiry.set(sku, Date.now() + days * DAY_MS);
+    return { item: { sku, name: item.name, category: item.category }, expires_at: new Date(expiry.get(sku) ?? 0).toISOString() };
+  },
+  /** 到期了、还没发过事件的商品：取走，预览页拿去发 shop.item.expired 和 user.cosmetics.updated */
+  takeExpired(): Array<{ sku: string; name: string; category: string }> {
+    settleExpiry();
+    return justExpired.splice(0).map((sku) => {
+      const item = CATALOG.find((candidate) => candidate.sku === sku);
+      return { sku, name: item?.name ?? sku, category: item?.category ?? 'bubble' };
+    });
+  },
+  /** 送礼的假后端要用：目录、某件现在是不是我的、把一件给我 */
+  find(sku: string): MockItem | undefined {
+    return CATALOG.find((candidate) => candidate.sku === sku);
+  },
+  owns(sku: string): boolean {
+    settleExpiry();
+    return owned.has(sku);
+  },
+  giveMe(sku: string): string | null {
+    const item = CATALOG.find((candidate) => candidate.sku === sku);
+    return item ? obtain(item) : null;
   },
   /** 模拟后台下架一件商品（目录变化） */
   delist(sku: string): void {
@@ -276,11 +450,17 @@ export const shopState = {
       item.is_active = false;
     }
   },
-  equippedStyle(): unknown {
-    return CATALOG.find((item) => item.sku === equipped)?.style ?? null;
-  },
-  equippedSku(): string | null {
-    return equipped;
+  /** 用户对象上的 cosmetics 应该是什么样：每个装备着的槽一项 */
+  cosmetics(): Record<string, { sku: string; style: unknown }> {
+    settleExpiry();
+    const result: Record<string, { sku: string; style: unknown }> = {};
+    for (const [slot, sku] of Object.entries(equipped)) {
+      const item = sku ? CATALOG.find((candidate) => candidate.sku === sku) : undefined;
+      if (item) {
+        result[slot] = { sku: item.sku, style: item.style };
+      }
+    }
+    return result;
   }
 };
 
@@ -297,7 +477,8 @@ function balance(): Record<string, unknown> {
 
 function obtainable(item: MockItem): string {
   if (owned.has(item.sku)) {
-    return 'owned';
+    // 限时商品没到期：可以再买来续期（下架了、不卖的不行）
+    return expiry.has(item.sku) && item.is_active && item.price > 0 ? 'renew' : 'owned';
   }
   if (item.unlock_level !== null && shopScenario.level >= item.unlock_level) {
     return 'level';
@@ -306,11 +487,12 @@ function obtainable(item: MockItem): string {
 }
 
 function view(item: MockItem): Record<string, unknown> {
-  return { id: item.id, sku: item.sku, category: 'bubble', name: item.name, description: item.description, price: item.price, unlock_level: item.unlock_level, style: item.style, preview_text: item.preview_text, tag: item.tag, available_until: item.available_until, owned: owned.has(item.sku), equipped: equipped === item.sku, obtainable: obtainable(item), is_active: item.is_active };
+  const expiresAt = expiry.get(item.sku);
+  return { duration_days: item.duration_days ?? null, expires_at: owned.has(item.sku) && expiresAt ? new Date(expiresAt).toISOString() : null, id: item.id, sku: item.sku, category: item.category, name: item.name, description: item.description, price: item.price, unlock_level: item.unlock_level, style: item.style, preview_text: item.preview_text, tag: item.tag, available_until: item.available_until, owned: owned.has(item.sku), equipped: equipped[item.category] === item.sku, obtainable: obtainable(item), is_active: item.is_active };
 }
 
 function equippedMap(): Record<string, string> {
-  return equipped ? { bubble: equipped } : {};
+  return Object.fromEntries(Object.entries(equipped).filter((entry): entry is [string, string] => Boolean(entry[1])));
 }
 
 function purchase(item: MockItem | undefined): Response {
@@ -321,15 +503,18 @@ function purchase(item: MockItem | undefined): Response {
   if (!item || forced === 'item_not_found') {
     return fail(404, 'item_not_found', '商品不存在');
   }
+  settleExpiry();
   // 检查顺序照 docs/shop.md 3.6：not_found → already_owned → unavailable → 等级免费领 / locked → ccw_not_bound → 503 → 402
-  if (forced === 'already_owned' || owned.has(item.sku)) {
+  // 永久商品重复购买是 409；限时商品已拥有没到期时可以再买（续期）
+  const renewing = owned.has(item.sku) && expiry.has(item.sku);
+  if (forced === 'already_owned' || (owned.has(item.sku) && !renewing)) {
     owned.add(item.sku);
     return fail(409, 'already_owned', '已经拥有这件商品');
   }
   if (forced === 'item_unavailable' || !item.is_active) {
     return fail(409, 'item_unavailable', '商品已下架或已过期');
   }
-  const how = obtainable(item);
+  const how = renewing ? 'buy' : obtainable(item);
   if (forced === 'item_locked' || how === 'locked') {
     return fail(409, 'item_locked', '这件商品不出售，等级也还不够');
   }
@@ -353,9 +538,9 @@ function purchase(item: MockItem | undefined): Response {
   if (!free) {
     shopScenario.spent += item.price;
   }
-  owned.add(item.sku);
+  const expiresAt = obtain(item);
   verifiedAt = new Date().toISOString();
-  records.unshift({ id: nextRecordId++, item: { sku: item.sku, name: item.name, category: 'bubble' }, price: free ? 0 : item.price, source: free ? 'level' : 'purchase', created_at: new Date().toISOString() });
+  records.unshift({ id: nextRecordId++, item: { sku: item.sku, name: item.name, category: item.category }, price: free ? 0 : item.price, source: free ? 'level' : 'purchase', created_at: new Date().toISOString(), duration_days: item.duration_days ?? null, expires_at: expiresAt });
   return json({ item: view(item), balance: balance(), equipped: equippedMap() });
 }
 
@@ -374,11 +559,12 @@ export const shopMock: MockHandler = async ({ path, url, method, body }) => {
   if (shopScenario.backend === 'error') {
     return json({ detail: 'Internal Server Error' }, 500);
   }
+  settleExpiry();
   if (path === '/shop' && method === 'GET') {
     return json({
-      categories: [{ key: 'bubble', label: '气泡', slot: 'bubble' }, { key: 'frame', label: '头像框', slot: 'frame' }],
+      categories: [{ key: 'bubble', label: '气泡', slot: 'bubble' }, { key: 'frame', label: '头像框', slot: 'frame' }, { key: 'nameplate', label: '铭牌', slot: 'nameplate' }],
       // 一件这个版本不认识的类别的商品：不应该显示出来
-      items: [...CATALOG.filter((item) => item.is_active || owned.has(item.sku)).map(view), { id: 99, sku: 'frame.gold', category: 'frame', name: '金色头像框', description: '', price: 100, unlock_level: null, style: {}, preview_text: '', tag: null, available_until: null, owned: false, equipped: false, obtainable: 'buy' }],
+      items: [...CATALOG.filter((item) => item.is_active || owned.has(item.sku)).map(view), { id: 99, sku: 'nameplate.gold', category: 'nameplate', name: '金色铭牌', description: '', price: 100, unlock_level: null, style: {}, preview_text: '', tag: null, available_until: null, owned: false, equipped: false, obtainable: 'buy' }],
       balance: balance(),
       equipped: equippedMap(),
       donate_url: shopScenario.noDonateUrl ? null : DONATE_URL,
@@ -412,13 +598,14 @@ export const shopMock: MockHandler = async ({ path, url, method, body }) => {
   }
   if (path === '/shop/equipped' && method === 'PUT') {
     const sku = isRecord(body) && typeof body.sku === 'string' ? body.sku : null;
-    if (isRecord(body) && body.slot !== 'bubble') {
+    const slot = isRecord(body) && typeof body.slot === 'string' ? body.slot : '';
+    if (!(slot in equipped) || (sku !== null && categoryOf(sku) !== slot)) {
       return fail(422, 'invalid_slot', '没有这个装备槽');
     }
     if (shopScenario.equipFails || (sku !== null && !owned.has(sku))) {
       return fail(403, 'not_owned', '只能装备自己拥有的装扮');
     }
-    equipped = sku;
+    equipped[slot] = sku;
     return json({ equipped: equippedMap() });
   }
   if (path === '/shop/purchases' && method === 'GET') {

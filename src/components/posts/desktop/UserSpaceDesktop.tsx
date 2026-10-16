@@ -1,4 +1,7 @@
 import { type CSSProperties, useState } from 'react';
+import { BirthdayToday, useBirthdayFact } from '@/components/birthday/BirthdayBits';
+import { SendGiftButton } from '@/components/gifts/GiftEntry';
+import { GiftWall } from '@/components/gifts/GiftWall';
 import { UserLevelIcons } from '@/components/level/LevelIcons';
 import { UserLevelCard } from '@/components/level/UserLevelCard';
 import { MyLikesEntry } from '@/components/likes/MyLikesEntry';
@@ -35,6 +38,7 @@ export function UserSpaceDesktop({ profileUser, fallbackId, currentUser, overlay
   const friendUsers = useFriendUsers(currentUser.id);
   const topicOptions = useTrendingPostTopics().data ?? [];
   const cover = resolveAssetUrl(space.coverUrl);
+  const birthday = useBirthdayFact(displayUser);
   const heroStyle = { '--kpo-accent': space.accent } as CSSProperties;
 
   return (
@@ -45,6 +49,8 @@ export function UserSpaceDesktop({ profileUser, fallbackId, currentUser, overlay
           <h1 className="kpo-bar-title">{space.profileTitle}</h1>
           <span className="kpo-bar-space" />
           {displayUser ? <button type="button" className="kui-btn" onClick={() => setShareOpen(true)}><Icon name="send" className="h-3.5 w-3.5" />分享</button> : null}
+          {/* 送礼物：从个人空间送不落聊天消息。礼物功能关着、看的是自己或机器人时不出现 */}
+          {isSelf ? null : <SendGiftButton user={displayUser} className="kui-btn"><Icon name="gift" className="h-3.5 w-3.5" />送礼物</SendGiftButton>}
           {isSelf
             ? <button type="button" className="kui-btn" onClick={() => space.setEditingProfile((value) => !value)}><Icon name="edit" className="h-3.5 w-3.5" />{editingProfile ? '收起编辑' : '编辑主页'}</button>
             : <button type="button" className="kui-btn kui-btn--primary" disabled={space.friendButtonDisabled} onClick={space.handleFriendAction}><Icon name={space.isFriend ? 'message' : 'userPlus'} className="h-3.5 w-3.5" />{space.friendButtonLabel}</button>}
@@ -59,12 +65,14 @@ export function UserSpaceDesktop({ profileUser, fallbackId, currentUser, overlay
                 </div>
               </div>
               <div className="kpo-hero-info">
-                <div className="kpo-hero-avatar"><Avatar user={displayUser} label={displayName} size={space.profileLayout === 'compact' ? 'lg' : 'xl'} /></div>
+                <div className="kpo-hero-avatar"><Avatar user={displayUser} label={displayName} size={space.profileLayout === 'compact' ? 'lg' : 'xl'} frame /></div>
                 <div className="kpo-hero-text">
                   <div className="kpo-hero-name">
                     <h1>{displayName}</h1>
                     <UserLevelIcons user={displayUser} variant="full" self={isSelf} size={16} />
                     {isSelf ? <span className="kui-tag">我的空间</span> : null}
+                    {/* 今天生日：小蛋糕 + 「今天生日」，旁边是送礼入口 */}
+                    <BirthdayToday user={displayUser} gift={!isSelf} />
                     {/* 资料点赞（docs/chat-features.md 第 6 节）：别人的是点赞按钮，自己的是总赞数 + 今天的 +N，点了看「谁赞了我」。服务端没有这个功能时不出现 */}
                     {isSelf
                       ? <MyLikesEntry user={displayUser} className="kpo-hero-like" onOpenUser={(target) => onOpenUserSpace(target, target.id)} />
@@ -94,6 +102,7 @@ export function UserSpaceDesktop({ profileUser, fallbackId, currentUser, overlay
                   <dl className="kpo-facts">
                     <div><dt>状态</dt><dd>{space.profileStatus || (isSelf ? '写一句状态，让主页更有现场感。' : 'Ta 暂时没有写状态。')}</dd></div>
                     {space.profileLocation ? <div><dt>所在地</dt><dd>{space.profileLocation}</dd></div> : null}
+                    {birthday ? <div data-birthday="fact"><dt>生日</dt><dd>{birthday}</dd></div> : null}
                     {space.interests.length > 0 ? <div><dt>兴趣</dt><dd>{space.interests.map((item) => <span key={item} className="kpo-chip">{item}</span>)}</dd></div> : null}
                   </dl>
                   {!space.profileLocation && space.interests.length === 0 ? <p className="kpo-hint">{isSelf ? '编辑主页后，这里会展示所在地和兴趣标签。' : '这个人还没有公开更多资料。'}</p> : null}
@@ -103,6 +112,14 @@ export function UserSpaceDesktop({ profileUser, fallbackId, currentUser, overlay
                   <section className="kpo-block kpo-card" data-level="space-card">
                     <h2 className="kpo-card-title">账号等级</h2>
                     {card}
+                  </section>
+                )} />
+
+                {/* 礼物墙：收到过的礼物按种类摆出来，心意值是小标题旁的一个数字。礼物功能关着时整块不出现 */}
+                <GiftWall user={displayUser} isSelf={isSelf} frame={(wall, charm) => (
+                  <section className="kpo-block kpo-card" data-gift="space-wall">
+                    <div className="kgf-wall-title"><h2 className="kpo-card-title">礼物墙</h2>{charm}</div>
+                    {wall}
                   </section>
                 )} />
 

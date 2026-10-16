@@ -1,6 +1,5 @@
 import type { InfiniteData } from '@tanstack/react-query';
 import type { Conversation, ConversationMember, Friendship, MemberRole, Message, MessageComponentState, MessageMetadata, MessageType, ReportTargetType, User } from '@/types/api';
-
 export interface MessagePanelProps {
   conversations: Conversation[];
   currentUser: User;
@@ -36,13 +35,6 @@ export interface MemberMenuState {
 export interface MemberMuteStatus {
   muted: boolean;
   muted_until: string | null;
-}
-
-export interface ToastState {
-  id: number;
-  message: string;
-  tone?: 'info' | 'error';
-  exiting?: boolean;
 }
 
 export interface BotInteraction {

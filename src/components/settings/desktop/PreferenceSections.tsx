@@ -75,7 +75,7 @@ function BubbleSkinCard(): JSX.Element | null {
   }
   return (
     <Card title="气泡皮肤" description="在商店里换的气泡皮肤盖在上面的主题气泡之上；没穿皮肤的消息仍然按主题显示。">
-      <Row icon="store" title="商店与我的装扮" description="用 CCW 金币换气泡皮肤，查看、更换或卸下现在用的那一件。" onClick={openShop}>
+      <Row icon="store" title="商店与我的装扮" description="用 CCW 金币换气泡和头像框，查看、更换或卸下现在用的那一件。" onClick={openShop}>
         <Icon name="chevron" className="h-4 w-4 shrink-0 [color:var(--kc-muted)]" />
       </Row>
       <Row icon="eye" title="显示别人的气泡皮肤" description="关掉后，别人的气泡按你的主题显示；你自己的皮肤不受影响。">
@@ -94,7 +94,7 @@ function LevelIconCard(): JSX.Element | null {
   }
   return (
     <Card title="账号等级" description="等级看累计活跃天数，图标是星星、月亮、太阳和皇冠。">
-      <Row icon="star" title="我的等级" description="当前等级、今天拿到的活跃天、排行榜和规则说明。" onClick={() => openLevel('me')}>
+      <Row icon="star" title="我的等级" description="当前等级、今天拿到的活跃天和规则说明。" onClick={() => openLevel('me')}>
         <Icon name="chevron" className="h-4 w-4 shrink-0 [color:var(--kc-muted)]" />
       </Row>
     </Card>

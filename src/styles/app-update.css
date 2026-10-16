@@ -1,0 +1,408 @@
+/* ───────── 应用更新与更新日志（前缀 kup-）─────────
+   桌面端的更新对话框（components/desktop/DesktopUpdateDialog.tsx）、Capacitor 安卓的更新弹窗
+   （components/settings/MobileUpdateModal.tsx）、更新日志列表（components/update/ReleaseNotes.tsx）共用。
+   视觉同群升级（group-plus.css 的 kgp-）：近黑白的墨色、600 字重标题、发丝线分隔、墨色胶囊主按钮、留白宽。
+   全页不用强调色；只有出错的文字是红色。 */
+
+.kup-layer,
+.kup-sheet,
+.kup-notes {
+  --kup-ink: #16171b;
+  --kup-on-ink: #ffffff;
+  --kup-surface: var(--kc-panel, #ffffff);
+  --kup-line: rgba(22, 23, 27, 0.1);
+  --kup-line-strong: rgba(22, 23, 27, 0.22);
+  --kup-wash: rgba(22, 23, 27, 0.045);
+  --kup-wash-2: rgba(22, 23, 27, 0.075);
+  --kup-text: rgba(22, 23, 27, 0.86);
+  --kup-sub: rgba(22, 23, 27, 0.56);
+  --kup-faint: rgba(22, 23, 27, 0.4);
+  --kup-bad: #d1343a;
+  --kup-scrim: rgba(12, 13, 16, 0.38);
+}
+
+[data-theme='dark'] .kup-layer,
+[data-theme='dark'] .kup-sheet,
+[data-theme='dark'] .kup-notes {
+  --kup-ink: #f2f2f4;
+  --kup-on-ink: #141518;
+  --kup-surface: var(--kc-panel, #1b1d23);
+  --kup-line: rgba(255, 255, 255, 0.1);
+  --kup-line-strong: rgba(255, 255, 255, 0.24);
+  --kup-wash: rgba(255, 255, 255, 0.05);
+  --kup-wash-2: rgba(255, 255, 255, 0.085);
+  --kup-text: rgba(255, 255, 255, 0.86);
+  --kup-sub: rgba(255, 255, 255, 0.58);
+  --kup-faint: rgba(255, 255, 255, 0.4);
+  --kup-bad: #ff8086;
+  --kup-scrim: rgba(0, 0, 0, 0.55);
+}
+
+/* 遮罩：强制更新时不透明度更高，挡住后面的应用 */
+.kup-layer {
+  position: fixed;
+  z-index: 2147483600;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--kup-scrim);
+  pointer-events: auto;
+}
+
+.kup-layer.is-forced {
+  background: color-mix(in srgb, var(--kup-surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.kup-sheet {
+  display: flex;
+  width: min(460px, 100%);
+  max-height: min(640px, 100%);
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--kup-line);
+  border-radius: 20px;
+  background: var(--kup-surface);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.16);
+  color: var(--kup-ink);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.kup-sheet--wide {
+  width: min(560px, 100%);
+}
+
+.kup-head {
+  display: grid;
+  flex: none;
+  gap: 6px;
+  padding: 28px 28px 20px;
+}
+
+.kup-eyebrow {
+  color: var(--kup-faint);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.kup-title {
+  margin: 0;
+  color: var(--kup-ink);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.kup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--kup-sub);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kup-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--kup-line);
+  padding: 20px 28px 24px;
+  color: var(--kup-text);
+}
+
+.kup-body > * + * {
+  margin-top: 14px;
+}
+
+.kup-text {
+  margin: 0;
+  color: var(--kup-sub);
+}
+
+.kup-error {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--kup-bad);
+}
+
+/* 强制更新的说明：墨色细边框，不用警告色 */
+.kup-forced {
+  margin: 0;
+  border: 1px solid var(--kup-line-strong);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--kup-ink);
+  font-weight: 600;
+}
+
+.kup-forced span {
+  display: block;
+  margin-top: 2px;
+  color: var(--kup-sub);
+  font-weight: 400;
+}
+
+/* 更新日志正文 */
+.kup-log {
+  display: grid;
+  gap: 10px;
+}
+
+.kup-log p {
+  margin: 0;
+}
+
+.kup-log-lead {
+  color: var(--kup-ink);
+  font-weight: 600;
+}
+
+.kup-log ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kup-log li {
+  position: relative;
+  padding-left: 16px;
+}
+
+.kup-log li::before {
+  position: absolute;
+  top: 0.72em;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--kup-faint);
+  content: '';
+}
+
+/* 下载进度：一根细线 */
+.kup-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.kup-progress-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--kup-wash-2);
+}
+
+.kup-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--kup-ink);
+  transition: width 200ms ease;
+}
+
+.kup-progress-fill.is-unknown {
+  width: 32%;
+  animation: kup-indeterminate 1.4s ease-in-out infinite;
+}
+
+.kup-progress-label {
+  display: flex;
+  justify-content: space-between;
+  color: var(--kup-sub);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes kup-indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(320%); }
+}
+
+.kup-foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--kup-line);
+  padding: 16px 20px 16px 28px;
+}
+
+.kup-foot-start {
+  margin-right: auto;
+}
+
+/* 主按钮：墨色胶囊 */
+.kup-btn,
+.kup-btn-quiet,
+.kup-link {
+  display: inline-flex;
+  height: 38px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 140ms ease, background-color 120ms ease, color 120ms ease, transform 80ms ease;
+}
+
+.kup-btn {
+  padding: 0 22px;
+  background: var(--kup-ink);
+  color: var(--kup-on-ink);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.kup-btn:hover:not(:disabled) { opacity: 0.86; }
+
+.kup-btn-quiet {
+  padding: 0 16px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--kup-line-strong);
+  color: var(--kup-ink);
+  font-weight: 500;
+}
+
+.kup-btn-quiet:hover:not(:disabled) { background: var(--kup-wash); }
+
+.kup-link {
+  padding: 0 10px;
+  background: transparent;
+  color: var(--kup-sub);
+  font-weight: 500;
+}
+
+.kup-link:hover:not(:disabled) {
+  background: var(--kup-wash);
+  color: var(--kup-ink);
+}
+
+:is(.kup-btn, .kup-btn-quiet, .kup-link):active:not(:disabled) { transform: scale(0.98); }
+:is(.kup-btn, .kup-btn-quiet, .kup-link):disabled { cursor: not-allowed; opacity: 0.32; }
+
+/* ── 更新日志列表 ── */
+.kup-tabs {
+  display: inline-flex;
+  gap: 2px;
+  justify-self: start;
+  margin-top: 10px;
+  border-radius: 999px;
+  padding: 3px;
+  background: var(--kup-wash);
+}
+
+.kup-tab {
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--kup-sub);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.kup-tab.is-active {
+  background: var(--kup-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  color: var(--kup-ink);
+}
+
+.kup-notes {
+  display: grid;
+  color: var(--kup-text);
+}
+
+.kup-note {
+  display: grid;
+  gap: 10px;
+  padding: 18px 0;
+}
+
+.kup-note + .kup-note {
+  border-top: 1px solid var(--kup-line);
+}
+
+.kup-note:first-child { padding-top: 0; }
+
+.kup-note-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.kup-note-version {
+  color: var(--kup-ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.kup-note-date {
+  color: var(--kup-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kup-chip {
+  border-radius: 999px;
+  padding: 1px 8px;
+  box-shadow: inset 0 0 0 1px var(--kup-line-strong);
+  color: var(--kup-sub);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.kup-chip.is-ink {
+  background: var(--kup-ink);
+  box-shadow: none;
+  color: var(--kup-on-ink);
+}
+
+.kup-empty {
+  padding: 28px 0;
+  color: var(--kup-faint);
+  text-align: center;
+}
+
+/* 手机：贴底的面板，按钮撑满 */
+[data-layout='mobile'] .kup-layer:not(.is-forced),
+.kc-native-app .kup-layer:not(.is-forced) {
+  align-items: end;
+  padding: 0;
+}
+
+[data-layout='mobile'] .kup-layer:not(.is-forced) .kup-sheet,
+.kc-native-app .kup-layer:not(.is-forced) .kup-sheet {
+  width: 100%;
+  max-height: 86%;
+  border-width: 1px 0 0;
+  border-radius: 22px 22px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+:is([data-layout='mobile'], .kc-native-app) .kup-head { padding: 26px 22px 18px; }
+:is([data-layout='mobile'], .kc-native-app) .kup-body { padding: 18px 22px 22px; }
+:is([data-layout='mobile'], .kc-native-app) .kup-foot { padding: 14px 16px; }
+:is([data-layout='mobile'], .kc-native-app) .kup-foot > .kup-btn { flex: 1; height: 44px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kup-progress-fill { transition: none; }
+  .kup-progress-fill.is-unknown { animation: none; }
+}

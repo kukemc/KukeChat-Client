@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { addFavoriteSticker, getFavoriteStickers, uploadMessageImage, type FavoriteStickerItem } from '@/api/messages';
+import { toast } from '@/components/ui/toast';
 import { MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES, MAX_IMAGE_UPLOAD_BYTES } from '../../message/constants';
-import { useEvent, type ShowToast } from '../runtime';
+import { useEvent } from '../runtime';
 
 /** 和聊天图片右键「添加到表情」、移动端面板用的是同一份缓存。 */
 export const favoriteStickersKey = ['favorite-stickers'] as const;
@@ -47,7 +48,7 @@ export interface FavoriteUploads {
 }
 
 /** 从本地图片添加收藏表情。状态放在面板外层，面板关了再打开还能看到进度和失败原因。 */
-export function useFavoriteUploads(showToast: ShowToast): FavoriteUploads {
+export function useFavoriteUploads(): FavoriteUploads {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<PendingFavorite[]>([]);
   const [error, setError] = useState('');
@@ -96,7 +97,7 @@ export function useFavoriteUploads(showToast: ShowToast): FavoriteUploads {
       }
       if (added > 0) {
         void queryClient.invalidateQueries({ queryKey: favoriteStickersKey });
-        showToast(added > 1 ? `已添加 ${added} 个收藏表情` : '已添加到收藏表情');
+        toast.info(added > 1 ? `已添加 ${added} 个收藏表情` : '已添加到收藏表情');
       }
       if (problems.length > 0) {
         setError(`${problems.length} 张没有添加：${problems.join('、')}`);

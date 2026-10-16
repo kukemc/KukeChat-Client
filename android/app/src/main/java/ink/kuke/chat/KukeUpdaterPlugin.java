@@ -19,6 +19,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.MessageDigest;
+import java.util.Locale;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -56,15 +58,26 @@ public class KukeUpdaterPlugin extends Plugin {
             call.reject("INVALID_URL", "缺少下载链接");
             return;
         }
+        // 发版服务给的 sha256（64 位十六进制，可选）。格式不对当没给
+        String rawSha = call.getString("sha256");
+        final String expectedSha = rawSha != null && rawSha.trim().matches("(?i)[0-9a-f]{64}") ? rawSha.trim().toLowerCase(Locale.ROOT) : null;
         new Thread(new Runnable() {
             @Override
             public void run() {
-                runDownload(call, url);
+                runDownload(call, url, expectedSha);
             }
         }).start();
     }
 
-    private void runDownload(PluginCall call, String url) {
+    private static String hex(byte[] bytes) {
+        StringBuilder builder = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            builder.append(String.format(Locale.ROOT, "%02x", b & 0xff));
+        }
+        return builder.toString();
+    }
+
+    private void runDownload(PluginCall call, String url, String expectedSha) {
         try {
             File dir = new File(getContext().getCacheDir(), "updates");
             if (!dir.exists()) {
@@ -91,12 +104,14 @@ public class KukeUpdaterPlugin extends Plugin {
             long total = body.contentLength();
             InputStream in = body.byteStream();
             OutputStream out = new FileOutputStream(apk);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] buffer = new byte[8192];
             long downloaded = 0;
             long lastEmit = 0;
             int read;
             while ((read = in.read(buffer)) != -1) {
                 out.write(buffer, 0, read);
+                digest.update(buffer, 0, read);
                 downloaded += read;
                 if (downloaded - lastEmit > 65536 || (total > 0 && downloaded >= total)) {
                     lastEmit = downloaded;
@@ -112,8 +127,14 @@ public class KukeUpdaterPlugin extends Plugin {
             in.close();
             response.close();
 
-            if (apk.length() < 1024L * 1024L) {
+            if (apk.length() < 1024L * 1024L || (total > 0 && downloaded != total)) {
+                apk.delete();
                 call.reject("DOWNLOAD_FAILED", "下载的安装包不完整");
+                return;
+            }
+            if (expectedSha != null && !expectedSha.equals(hex(digest.digest()))) {
+                apk.delete();
+                call.reject("CHECKSUM_MISMATCH", "安装包校验失败，请重新下载");
                 return;
             }
 

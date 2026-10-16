@@ -80,7 +80,6 @@ function Harness(): JSX.Element {
                 isGroup={isGroup}
                 currentRole={role}
                 sending={false}
-                showToast={(message) => note(`提示：${message}`)}
                 onInsert={(emoji) => note(`插入 ${emoji}`)}
                 onSend={(variables) => {
                   setOpen(false);

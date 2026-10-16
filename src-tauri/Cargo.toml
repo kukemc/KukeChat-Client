@@ -18,3 +18,4 @@ tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 ureq = { version = "2", default-features = false, features = ["json", "tls"] }
+sha2 = "0.10"

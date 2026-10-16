@@ -2,7 +2,7 @@
  * 商店与气泡皮肤（src/components/shop）。基础样式见 kui.css。
  *
  * 三部分：
- *   1. 气泡皮肤（kcsk-）——聊天里的气泡、商店里的预览共用，桌面和移动两套消息列表都用它；
+ *   1. 气泡皮肤（kcsk-）和头像框（kcaf-）——聊天里、商店里的预览共用，桌面和移动两套界面都用它；
  *   2. 商店的桌面页面（ksp-）——守 kui 的「利落」取向：面只用标准令牌，卡片不描边、不套卡片；
  *   3. 商店的移动端页面（ksp-m-）——外框沿用移动端的 kc-qq-*，颜色取移动端令牌。
  */
@@ -396,6 +396,266 @@
   }
 }
 
+/* ───────── 头像框 ───────── */
+
+/*
+ * 头像框（components/shop/skin/avatarFrame.ts 解析，AvatarFrameDecor 渲染，ui/Avatar 的 frame 打开）。
+ * .kcaf 是套在头像外面的一层，和头像一样大、占一样的位置；环、光、装饰都绝对定位在它里面往外探，不参与布局。
+ * 尺寸全是相对 .kcaf 的百分比（契约里「按 40 像素的头像计」的 1 个单位 = 2.5%），所以 24 像素到 80 像素的头像都是等比的，
+ * 外面的样式把头像改成别的尺寸也不用管。只有光的模糊半径用不了百分比，按头像那一档的大小给一个 --kcaf-u。
+ * 值（--kcaf-* 浅色、--kcaf-d-* 深色）来自 avatarFrame.ts，这里只管用哪一组、画到哪。
+ *
+ * 聊天里同屏可能有几十个带框的头像：会动的只动 transform / opacity（环的旋转是转里面一层铺了渐变的方块，不是重画渐变），
+ * 节奏慢，不同人用 --kcaf-delay 错开；屏幕外的消息不在 DOM 里；「性能优先」时会动的层不渲染；
+ * 系统设了「减少动态效果」时一律不动（契约：此时 animation 当作 none）。
+ */
+.kcaf {
+  --kcaf-c-bg: var(--kcaf-bg);
+  --kcaf-c-glow: var(--kcaf-glow, transparent);
+  --kcaf-c-blur: var(--kcaf-blur, 0);
+  --kcaf-r: 50%;
+  --kcaf-u: 1px;
+  position: relative;
+  display: block;
+  flex: none;
+  isolation: isolate;
+}
+
+[data-theme='dark'] .kcaf {
+  --kcaf-c-bg: var(--kcaf-d-bg);
+  --kcaf-c-glow: var(--kcaf-d-glow, transparent);
+  --kcaf-c-blur: var(--kcaf-d-blur, 0);
+}
+
+/* 桌面端有的主题把头像改成圆角方形（--kc-avatar-radius），环跟着它 */
+[data-layout='desktop'] .kcaf {
+  --kcaf-r: var(--kc-avatar-radius, 50%);
+}
+
+.kcaf--sm {
+  --kcaf-u: 0.8px;
+}
+
+.kcaf--message {
+  --kcaf-u: 0.9px;
+}
+
+.kcaf--lg {
+  --kcaf-u: 1.4px;
+}
+
+.kcaf--xl {
+  --kcaf-u: 2px;
+}
+
+/* 头像本身铺满这一层，压在光和后面的装饰上面 */
+.kcaf > .kc-avatar {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+
+/* 外发光：一个和环一样大的空框，光是它的投影。只画一次，pulse 时只改不透明度 */
+.kcaf-glow {
+  position: absolute;
+  z-index: 0;
+  inset: calc(var(--kcaf-out) * -1);
+  border-radius: var(--kcaf-r);
+  box-shadow: 0 0 calc(var(--kcaf-c-blur) * var(--kcaf-u)) calc(var(--kcaf-c-blur) * var(--kcaf-u) * 0.1) var(--kcaf-c-glow);
+  pointer-events: none;
+}
+
+.kcaf-glow--pulse {
+  animation: kcaf-pulse 3.8s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
+}
+
+@keyframes kcaf-pulse {
+  from {
+    opacity: 0.3;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+ * 环：比头像大一圈的方块铺上底色，内边距就是环的宽度，再用 mask 把内容区挖掉（圆角跟着 --kcaf-r，方的圆的都对）。
+ * 环和头像之间的留白是透明的，露出的是头像后面本来的东西。没有留白时（--tight）往里多盖半个像素，免得接缝处漏出一条底色。
+ */
+.kcaf-ring {
+  position: absolute;
+  z-index: 2;
+  inset: calc(var(--kcaf-out) * -1);
+  overflow: hidden;
+  padding: var(--kcaf-w);
+  border-radius: var(--kcaf-r);
+  background: var(--kcaf-c-bg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.kcaf-ring--tight {
+  padding: calc(var(--kcaf-w) + 0.6px);
+}
+
+.kcaf-ring > i {
+  position: absolute;
+  display: block;
+  /* 转起来之后四个角也要盖得住这个方块 */
+  inset: -21%;
+}
+
+/* spin：底色挪到里面那一层上，由它慢慢转；十二秒一圈 */
+.kcaf-ring--spin {
+  background: none;
+}
+
+.kcaf-spin {
+  background: var(--kcaf-c-bg);
+  animation: kcaf-spin 12s linear var(--kcaf-delay, 0s) infinite;
+}
+
+@keyframes kcaf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* shimmer：一段弧形的光沿着环走一圈，七秒里只有两秒多在走，其余时间看不见 */
+.kcaf-shine {
+  background: conic-gradient(from 0deg, transparent 0%, transparent 66%, rgba(255, 255, 255, 0.92) 86%, transparent 100%);
+  opacity: 0;
+  animation: kcaf-shine 7s cubic-bezier(0.45, 0, 0.25, 1) var(--kcaf-delay, 0s) infinite;
+}
+
+@keyframes kcaf-shine {
+  0%,
+  62% {
+    opacity: 0;
+    transform: rotate(-40deg);
+  }
+
+  68% {
+    opacity: 1;
+  }
+
+  94% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(320deg);
+  }
+}
+
+/* 装饰：外层管位置、大小、朝向（内联样式里是百分比和角度），里面的 svg 管动。贴身一圈暗边加一层很轻的投影，浅色的装饰落在浅色画布上也看得出轮廓 */
+.kcaf-orn {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.kcaf-orn--back {
+  z-index: 0;
+}
+
+.kcaf-orn > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 0.5px rgba(15, 18, 30, 0.5)) drop-shadow(0 1px 1.5px rgba(15, 18, 30, 0.2));
+}
+
+/* 闪、晃、浮、跳和气泡角饰用同一组关键帧 */
+.kcaf-orn--twinkle > svg {
+  animation: kcsk-twinkle 3.6s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
+}
+
+.kcaf-orn--sway > svg {
+  animation: kcsk-sway 4.4s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
+}
+
+.kcaf-orn--float > svg {
+  animation: kcsk-float 4.8s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
+}
+
+.kcaf-orn--pulse > svg {
+  animation: kcsk-pulse 3.2s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
+}
+
+/* 耳朵：绕着根部偶尔抖一下，大部分时间不动 */
+.kcaf-orn--twitch > svg {
+  transform-origin: 50% 92%;
+  animation: kcaf-twitch 6.5s ease-in-out var(--kcaf-delay, 0s) infinite;
+}
+
+@keyframes kcaf-twitch {
+  0%,
+  84%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  88% {
+    transform: rotate(-9deg);
+  }
+
+  92% {
+    transform: rotate(5deg);
+  }
+
+  96% {
+    transform: rotate(-3deg);
+  }
+}
+
+/* 翅膀：绕着根部慢慢扇 */
+.kcaf-orn--flap > svg {
+  transform-origin: 8% 64%;
+  animation: kcaf-flap 3.6s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
+}
+
+@keyframes kcaf-flap {
+  from {
+    transform: rotate(5deg);
+  }
+
+  to {
+    transform: rotate(-8deg);
+  }
+}
+
+/*
+ * 移动端的消息行各自裁切、消息列表横向也裁切，头像离行的边只有几像素，环和装饰会被切掉。
+ * 有带框头像的行和列表放开裁切；横向还有滚动容器那一层裁切兜着，内容再宽也撑不出屏幕。
+ */
+#kukechat-root .kc-mobile-message-row:has(.kcaf),
+#kukechat-root .kc-native-app .kc-mobile-message-row:has(.kcaf),
+#kukechat-root .kc-native-app .kc-mobile-message-list > :has(.kcaf),
+#kukechat-root .kc-mobile-message-list:has(.kcaf),
+#kukechat-root .kc-native-app .kc-mobile-message-list:has(.kcaf) {
+  overflow: visible !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kcaf-shine {
+    display: none;
+  }
+
+  .kcaf-glow--pulse,
+  .kcaf-spin,
+  .kcaf-orn > svg {
+    animation: none;
+  }
+}
+
 /* ───────── 气泡预览（商店里用真的气泡画） ───────── */
 
 /* 桌面：外层同时带着 .kcd，气泡行用的就是聊天面板的那批规则；这里把聊天面板「铺满、裁切、自成容器」的那几条收回去 */
@@ -460,6 +720,113 @@
 
 .ksp-stage--slot .kcd-line {
   max-width: 100%;
+}
+
+/* ───────── 头像框预览（商店里把头像框套在自己的头像上） ───────── */
+
+/* 四周留的空要装得下探出去的环和装饰（最多探出头像的 11/40，大头像上是 22 像素） */
+.ksp-fstage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: 26px 20px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ksp-fstage--mobile {
+  gap: 20px;
+  padding: 22px 12px;
+}
+
+/* 「我的装扮」里那一条：贴着文字，只留装饰探出去的那点空 */
+.ksp-fstage--slot {
+  padding: 14px 18px;
+}
+
+.ksp-fstage--boxed {
+  padding: 32px 20px;
+  border-radius: var(--kui-r-md, 9px);
+  background: var(--kc-chat);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+}
+
+/* 试穿：上面一个大头像和名字，中间几档尺寸，下面一小段聊天，垫在同一块消息画布上 */
+.ksp-ftry {
+  overflow: hidden;
+  border-radius: var(--kui-r-md, 9px);
+  background: var(--kc-chat);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  pointer-events: none;
+  user-select: none;
+}
+
+.ksp-ftry-hero {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 30px 32px 22px;
+}
+
+.ksp-ftry-id {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ksp-ftry-id > b {
+  overflow: hidden;
+  font-size: calc(17px * var(--kui-fs, 1));
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksp-ftry-id > span {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kui-fs, 1));
+}
+
+.ksp-ftry-sizes {
+  display: flex;
+  align-items: flex-end;
+  gap: 30px;
+  padding: 16px 32px 14px;
+  border-top: 1px solid var(--kc-border);
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.ksp-ftry-sizes > figure {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.ksp-ftry-sizes figcaption {
+  color: var(--kc-subtle);
+  font-size: calc(11.5px * var(--kui-fs, 1));
+}
+
+.ksp-ftry--mobile .ksp-ftry-hero {
+  gap: 22px;
+  padding: 28px 24px 20px;
+}
+
+.ksp-ftry--mobile .ksp-ftry-sizes {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px 12px;
+}
+
+.ksp-m-sheet-body :is(.ksp-fstage--boxed, .ksp-ftry) {
+  border-radius: 18px;
+  background: var(--kc-mobile-chat, var(--kc-chat));
+  box-shadow: none;
+}
+
+.ksp-slot > .ksp-fstage {
+  flex: none;
 }
 
 /* ───────── 2. 桌面页面 ───────── */
@@ -967,52 +1334,6 @@
   border-radius: var(--kui-r-lg);
 }
 
-/* —— 页面里的轻提示 —— */
-
-.ksp-toasts {
-  position: absolute;
-  z-index: 5;
-  right: 18px;
-  bottom: 18px;
-  display: grid;
-  width: min(340px, calc(100% - 36px));
-  pointer-events: none;
-}
-
-.ksp-toast {
-  display: grid;
-  align-items: center;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 7px 6px 7px 12px;
-  border-radius: var(--kui-r-lg);
-  background: var(--kc-overlay-surface, var(--kui-raised));
-  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
-  backdrop-filter: var(--kc-overlay-filter, none);
-  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kui-ok);
-  pointer-events: auto;
-  animation: ksp-rise 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.ksp-toast > svg {
-  color: var(--kui-ok);
-}
-
-.ksp-toast.is-danger {
-  box-shadow: var(--kui-shadow), inset 3px 0 0 var(--kui-danger);
-}
-
-.ksp-toast.is-danger > svg {
-  color: var(--kui-danger);
-}
-
-@keyframes ksp-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-
 /* —— 对话框里的内容（桌面的对话框和移动端的底部面板共用） —— */
 
 .ksp-buy,
@@ -1160,47 +1481,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ───────── 「获得新装扮」的提示（主界面上，不在商店页里） ───────── */
+/* ───────── 「获得新装扮」提示里的图形（主界面上，不在商店页里） ───────── */
 
-.ksp-grants {
-  position: absolute;
-  z-index: 60;
-  right: 18px;
-  bottom: 18px;
-  display: grid;
-  width: min(340px, calc(100% - 36px));
-  gap: 8px;
-  color: var(--kc-text);
-  pointer-events: none;
-}
-
-/* 移动布局：从顶上落下来，挂在窗口根上，盖过各个全屏的二级页面 */
-.ksp-grants.is-mobile {
-  position: fixed;
-  z-index: 2147483647;
-  top: calc(var(--kc-native-safe-top, env(safe-area-inset-top, 0px)) + 10px);
-  right: 12px;
-  bottom: auto;
-  left: 12px;
-  width: auto;
-}
-
-.ksp-grant {
-  display: grid;
-  align-items: start;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 10px 8px 10px 12px;
-  border-radius: 10px;
-  background: var(--kc-overlay-surface, var(--kui-raised, var(--kc-panel)));
-  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
-  backdrop-filter: var(--kc-overlay-filter, none);
-  box-shadow: var(--kui-shadow, 0 8px 24px rgba(15, 23, 42, 0.18)), inset 3px 0 0 var(--kc-accent);
-  pointer-events: auto;
-  animation: ksp-rise 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.ksp-grant-icon {
+/* 提示本体走统一的提示组件（styles/toast.css）；这里只剩它作为 leading 插槽的那枚图形。 */
+.ksp-grant-leading {
   display: grid;
   width: 30px;
   height: 30px;
@@ -1208,67 +1492,6 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--kc-accent) 13%, transparent);
   color: var(--kc-accent);
-}
-
-.ksp-grant-main {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-}
-
-.ksp-grant-main b {
-  overflow: hidden;
-  font-size: calc(13.5px * var(--kc-font-multiplier, 1));
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ksp-grant-main > span {
-  color: var(--kc-muted);
-  font-size: calc(12px * var(--kc-font-multiplier, 1));
-}
-
-.ksp-grant-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 7px;
-}
-
-#kukechat-root .ksp-grant-btn {
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid var(--kc-border-strong);
-  border-radius: 6px;
-  color: var(--kc-text);
-  font-size: calc(12px * var(--kc-font-multiplier, 1));
-  font-weight: 500;
-}
-
-#kukechat-root .ksp-grant-btn.is-primary {
-  border-color: transparent;
-  background: var(--kc-accent-fill, var(--kc-accent));
-  color: var(--kc-accent-contrast, #ffffff);
-  font-weight: 600;
-}
-
-.ksp-grant-btn:disabled {
-  opacity: 0.55;
-}
-
-.ksp-grant-close {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border-radius: 6px;
-  color: var(--kc-muted);
-}
-
-.ksp-grant-close:hover {
-  background: var(--kc-hover);
-  color: var(--kc-text);
 }
 
 /* ───────── 3. 移动端页面 ───────── */
@@ -1665,36 +1888,6 @@
   border-radius: 20px;
 }
 
-.ksp-m-toast {
-  position: absolute;
-  z-index: 70;
-  top: calc(var(--kc-native-safe-top, 0px) + 58px);
-  right: 16px;
-  left: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 16px;
-  background: #1f2937;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
-  animation: ksp-drop 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.ksp-m-toast.is-danger {
-  background: #dc2626;
-}
-
-@keyframes ksp-drop {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-}
-
 /* 底部面板 */
 .ksp-m-backdrop {
   position: absolute;
@@ -1813,11 +2006,65 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ksp-toast,
-  .ksp-grant,
-  .ksp-m-toast,
   .ksp-m-backdrop,
   .ksp-m-sheet {
     animation: none;
   }
+}
+
+/* ───────── 限时商品：有效期标签、「还剩 N 天」、续期 ───────── */
+
+.ksp-tag-term {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ksp-tag-term > svg {
+  flex: none;
+}
+
+/* 「我的装扮」里名字后面的「还剩 N 天」 */
+.ksp-expiry {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs, 1));
+  font-weight: 500;
+  vertical-align: 1px;
+}
+
+/* 不超过 3 天：换成警示色，底上衬一块，一眼看得到 */
+.ksp-expiry.is-soon {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kui-danger, #e0383e) 13%, transparent);
+  color: var(--kui-danger, #e0383e);
+  font-weight: 700;
+}
+
+.ksp-m .ksp-expiry {
+  font-size: 12px;
+}
+
+/* 已拥有的限时商品：「续期」和「装备 / 卸下」并排 */
+.ksp-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.ksp-m-slot-actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ksp-price--text > svg {
+  width: 13px;
+  height: 13px;
 }

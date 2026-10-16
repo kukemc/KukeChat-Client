@@ -4,6 +4,8 @@ import type { BotShareCardMetadata, Conversation, ConversationMember, CcwCreatio
 import { getDisplayName } from '@/components/ui/Avatar';
 import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
 import { formatMessageDateTime, parseApiDate } from '@/utils/dateTime';
+import { giftPreview } from '@/utils/gift';
+import { redPacketPreview } from '@/utils/redPacket';
 import type { ForwardBundleSnapshot, ForwardBundleData } from './types';
 import { REPEAT_MAX_LENGTH } from './constants';
 
@@ -452,6 +454,25 @@ export function parseForwardBundle(message: Message): ForwardBundleData {
   };
 }
 
+/**
+ * 合并转发里的一条快照 → Message，让详情里每一条也走统一的 MessageView（支持所有类型、嵌套转发）。
+ * 快照没有自己的消息 id 时用负数占位（key 不会和真实消息撞）；sender 只带名字和头像，够显示就行。
+ */
+export function snapshotToMessage(snapshot: ForwardBundleSnapshot, conversationId = 0, index = 0): Message {
+  const senderId = snapshot.senderId ?? 0;
+  return {
+    id: snapshot.id ?? -(index + 1),
+    conversation_id: conversationId,
+    sender_id: snapshot.senderId,
+    sender: { id: senderId, username: snapshot.senderName, nickname: snapshot.senderName, avatar_url: snapshot.senderAvatarUrl ?? null },
+    sender_display_name: snapshot.senderName,
+    type: snapshot.type,
+    content: snapshot.content,
+    metadata: snapshot.metadata ?? null,
+    created_at: snapshot.createdAt ?? ''
+  };
+}
+
 export function formatMessageTime(value?: string | null): string {
   return formatMessageDateTime(value);
 }
@@ -538,6 +559,16 @@ export function messagePreview(message: Message): string {
     const bundle = parseForwardBundle(message);
     return `[转发消息] ${bundle.title}${bundle.count ? `（${bundle.count}条）` : ''}`;
   }
+  // 红包的 content 是给旧客户端的兜底文字，摘要统一写成「[红包] 祝福语」
+  const redPacket = redPacketPreview(message);
+  if (redPacket) {
+    return redPacket;
+  }
+  // 礼物同理：「[礼物] 送给 谁 什么」。引用预览、合并转发里的一行、复制出来的文字都走这里
+  const gift = giftPreview(message);
+  if (gift) {
+    return gift;
+  }
   if (postShareCardOf(message)) {
     return '[动态卡片]';
   }
@@ -587,6 +618,14 @@ export function messageCopyText(message: Message): string {
   }
   if (message.type === 'voice') {
     return message.content;
+  }
+  const redPacket = redPacketPreview(message);
+  if (redPacket) {
+    return redPacket;
+  }
+  const gift = giftPreview(message);
+  if (gift) {
+    return gift;
   }
   const images = messageImageUrls(message);
   if (images.length === 0) {

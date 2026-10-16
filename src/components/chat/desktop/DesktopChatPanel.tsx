@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getOutgoingFriendRequests } from '@/api/friends';
-import { getFeaturedMessages, triggerMessageInteraction } from '@/api/messages';
+import { triggerMessageInteraction } from '@/api/messages';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation, ConversationMember, Friendship, MemberRole, Message, User } from '@/types/api';
 import { getDisplayName } from '@/components/ui/Avatar';
@@ -10,14 +10,20 @@ import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer'
 import type { ProfileAction } from '@/components/ui/MobileUserProfilePage';
 import { UserCard } from '@/components/ui/UserCard';
 import { PenaltyCenterModal } from '@/components/moderation/PenaltyCenter';
+import { openGiftTo } from '@/components/gifts/GiftEntry';
+import { GiftStage } from '@/components/gifts/GiftHosts';
+import { RedPacketHost } from '@/components/redpacket/OpenRedPacketDialog';
 import { GroupTasksPanel } from '@/components/tasks/GroupTasksPanel';
 import { TaskDetailPanel } from '@/components/tasks/TaskDetailPanel';
 import { TaskEditorModal } from '@/components/tasks/TaskEditorModal';
 import { hasPendingOutgoingFriendRequest, isFriendUserId } from '@/utils/friendship';
+import { giftRecallConfirmText, isGiftMessage } from '@/utils/gift';
+import { isRedPacketMessage, redPacketRecallConfirmText } from '@/utils/redPacket';
+import { toast } from '@/components/ui/toast';
 import { AnnouncementModal } from '../AnnouncementModal';
 import { ReportModal } from '../ReportModal';
 import { conversationPlainTitle } from '../info/shared';
-import { ChatSearchModal } from '../message/ChatSearchModal';
+import { useGroupPlusUi } from '@/components/groupPlus/ui';
 import { FeaturedMessagesModal } from '../message/FeaturedMessagesModal';
 import { ForwardBundleDetailModal } from '../message/ForwardBundleDetailModal';
 import { ForwardTargetModal } from '../message/ForwardTargetModal';
@@ -33,8 +39,10 @@ import { ChatInfoDrawer } from './info/ChatInfoDrawer';
 import { MemberMenu, type MemberMenuTarget } from './MemberMenu';
 import { MessageList, type MessageListHandle } from './MessageList';
 import { MessageMenu, ReactionPicker } from './MessageMenus';
+import { GroupTodoBar } from '@/components/groupPlus/todo/GroupTodoBar';
+import { useTodoMenu } from '@/components/groupPlus/todo/useTodoMenu';
 import { usePollRealtime } from './polls/usePollRealtime';
-import { ChatRowContext, cx, readPreference, useEvent, useToast, writePreference, type ChatRowActions, type ChatRowContextValue } from './runtime';
+import { ChatRowContext, cx, readPreference, useEvent, writePreference, type ChatRowActions, type ChatRowContextValue } from './runtime';
 import { useChatMutations } from './useChatMutations';
 
 export interface DesktopChatPanelProps {
@@ -92,14 +100,15 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   const pendingTaskCreateConversationId = useKukeStore((state) => state.pendingTaskCreateConversationId);
   const clearPendingTaskCreate = useKukeStore((state) => state.clearPendingTaskCreate);
   const openTaskCenter = useKukeStore((state) => state.openTaskCenter);
+  const openPostInSpace = useKukeStore((state) => state.openPost);
   const chatTaskDetailId = useKukeStore((state) => state.chatTaskDetailId);
   const openChatTaskDetail = useKukeStore((state) => state.openChatTaskDetail);
   const closeChatTaskDetail = useKukeStore((state) => state.closeChatTaskDetail);
 
   const overlayRootRef = useRef<HTMLElement | null>(null);
   const listRef = useRef<MessageListHandle | null>(null);
+  const todoMenu = useTodoMenu(conversation);
   const composerRef = useRef<ComposerHandle | null>(null);
-  const { toast, showToast } = useToast();
   const [error, setError] = useState('');
   const [messageMenu, setMessageMenu] = useState<MessageMenuState | null>(null);
   const [memberMenu, setMemberMenu] = useState<MemberMenuTarget | null>(null);
@@ -125,7 +134,6 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   const mutations = useChatMutations({
     conversationId,
     setError,
-    showToast,
     onFriendRequested: (userId) => {
       setPendingFriendIds((current) => new Set(current).add(userId));
       setMemberMenu(null);
@@ -136,11 +144,6 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   const sending = mutations.send.isPending;
 
   const outgoingFriendRequestsQuery = useQuery({ queryKey: ['friend-requests', 'outgoing'], queryFn: getOutgoingFriendRequests, staleTime: 15_000 });
-  const featuredMessagesQuery = useQuery({
-    queryKey: ['featured-messages', conversationId],
-    queryFn: () => getFeaturedMessages(conversationId),
-    enabled: isGroup && panel === 'featured'
-  });
 
   useEffect(() => {
     setVisibleConversationId(conversationId);
@@ -327,9 +330,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     botInteract: (message, interaction) => actionsRef.current.botInteract(message, interaction),
     repeat: (content) => actionsRef.current.repeat(content),
     openPost: (postId) => actionsRef.current.openPost?.(postId),
-    showToast,
     setError
-  }), [openMessageMenu, showToast]);
+  }), [openMessageMenu]);
 
   // 每次渲染刷新实现，actions 对象本身的身份保持不变
   const actionsRef = useRef<ChatRowActions>(actions);
@@ -384,12 +386,13 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     openUser: (element, userId, name) => openUserCardAt(element, userId === currentUser.id ? currentUser : resolveKnownUser(memberByUserId.get(userId)?.user, userId, friends), name),
     quote: quoteMessage,
     forward: (message) => {
-      if (!message.recalled_at) {
+      if (!message.recalled_at && !isRedPacketMessage(message) && !isGiftMessage(message)) {
         setForwardIds([message.id]);
       }
     },
     toggleSelected: (message) => {
-      if (message.recalled_at || message.type === 'system') {
+      // 多选出来是要合并转发的，红包、礼物不能转发，所以选不上
+      if (message.recalled_at || message.type === 'system' || isRedPacketMessage(message) || isGiftMessage(message)) {
         return;
       }
       setSelectedIds((current) => {
@@ -440,7 +443,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         send({ content, type: 'text' });
       }
     },
-    openPost: onOpenPost
+    // 桌面端外层不传 onOpenPost：没有就走全局跳转（切到动态页并打开这条），否则点分享卡片没反应
+    openPost: onOpenPost ?? openPostInSpace
   };
 
   const levelTitles = isGroup && conversation.level_titles_enabled ? conversation.level_titles ?? null : null;
@@ -530,12 +534,13 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
             </div>
           ) : null}
           <div className="kcd-header-group">
-            <button type="button" className={cx('kcd-icon-button', panel === 'search' && 'is-active')} title="搜索聊天记录" aria-label="搜索聊天记录" onClick={() => setPanel('search')}><Icon name="search" className="h-4 w-4" /></button>
+            <button type="button" className="kcd-icon-button" title="聊天记录" aria-label="聊天记录" onClick={() => useGroupPlusUi.getState().openChatSearch({ conversationId, title })}><Icon name="search" className="h-4 w-4" /></button>
           </div>
           {isGroup ? (
             <div className="kcd-header-group">
               {conversation.tasks_enabled ? <button type="button" className={cx('kcd-icon-button', panel === 'tasks' && 'is-active')} title="群任务" aria-label="群任务" onClick={() => setPanel('tasks')}><Icon name="checkSquare" className="h-4 w-4" /></button> : null}
               <button type="button" className={cx('kcd-icon-button', panel === 'featured' && 'is-active')} title="群精华" aria-label="查看群精华消息" onClick={() => setPanel('featured')}><Icon name="sparkles" className="h-4 w-4" /></button>
+              <button type="button" className="kcd-icon-button" title="群文件" aria-label="群文件" onClick={() => useGroupPlusUi.getState().openFiles(conversation.id)}><Icon name="folder" className="h-4 w-4" /></button>
             </div>
           ) : null}
           <div className="kcd-header-group">
@@ -544,8 +549,11 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
           </div>
         </ChatHeader>
 
+        {/* 群待办条：在消息列表的滚动容器外面，不遮挡首屏消息 */}
+        {isGroup ? <GroupTodoBar conversation={conversation} canManage={isAdmin} onJump={(messageId) => void listRef.current?.jumpToMessage(messageId)} /> : null}
+
         <ChatRowContext.Provider value={rowContext}>
-          <MessageList ref={listRef} conversation={conversation} currentUserId={currentUser.id} selectMode={selectMode} selectedIds={selectedIds ?? EMPTY_SELECTION} sending={sending} showToast={showToast} />
+          <MessageList ref={listRef} conversation={conversation} currentUserId={currentUser.id} selectMode={selectMode} selectedIds={selectedIds ?? EMPTY_SELECTION} sending={sending} />
         </ChatRowContext.Provider>
 
         {error ? (
@@ -562,7 +570,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
               <button type="button" className="kcd-button" disabled={selection.length === 0} onClick={() => {
                 copyText(selection.map(messageReadableLine).join('\n'));
                 setSelectedIds(null);
-                showToast('已复制');
+                toast.info('已复制');
               }}>复制</button>
               <button type="button" className="kcd-button kcd-button--primary" disabled={selection.length === 0} onClick={() => setForwardIds(selection.map((message) => message.id))}>合并转发</button>
               <button type="button" className="kcd-button" onClick={() => setSelectedIds(null)}>取消</button>
@@ -579,6 +587,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
             sending={sending}
             canCreateTask={canCreateTask}
             isTaskAssistantChat={isTaskAssistantChat}
+            canSendRedPacket={!isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot)}
+            directUser={isGroup ? null : directUser}
             onSend={handleSend}
             onOwnMessageSent={handleOwnMessageSent}
             onMembersNeeded={handleMembersNeeded}
@@ -586,7 +596,6 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
             onOpenTaskCenter={handleOpenTaskCenter}
             onOpenPenalties={handleOpenPenalties}
             setError={setError}
-            showToast={showToast}
           />
         </div>
 
@@ -632,7 +641,18 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
           onMultiSelect={(message) => setSelectedIds(new Set([message.id]))}
           onQuote={quoteMessage}
           onFeature={(message) => mutations.feature.mutate(message.id)}
-          onRecall={(message) => mutations.recall.mutate(message.id)}
+          todoAction={todoMenu(messageMenu.message)}
+          onRecall={(message) => {
+            // 撤回红包消息就是撤销红包：没领完的退回去，先问一句
+            if (isRedPacketMessage(message) && !window.confirm(redPacketRecallConfirmText((message.sender_id ?? message.sender?.id) === currentUser.id))) {
+              return;
+            }
+            // 撤回礼物消息只是把消息撤掉，礼物和币都不退：也先说清楚
+            if (isGiftMessage(message) && !window.confirm(giftRecallConfirmText())) {
+              return;
+            }
+            mutations.recall.mutate(message.id);
+          }}
           onDelete={(message) => mutations.deleteLocal.mutate(message.id)}
           onReport={reportMessage}
         />
@@ -650,6 +670,12 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         isPendingFriend={isPendingFriend}
         canRequestFriend={canRequestFriend}
         onClose={() => setMemberMenu(null)}
+        onGift={(member) => {
+          // 从消息头像 / 成员列表的菜单送：就在这个会话里送，会落一条礼物消息
+          if (member.user) {
+            openGiftTo(member.user, conversationId, handleOwnMessageSent);
+          }
+        }}
         onSendMessage={(member) => startDirect(memberUserId(member), isGroup)}
         onAddFriend={(member) => requestFriend(resolveKnownUser(member.user, memberUserId(member), friends))}
         onMention={(member) => composerRef.current?.insertMention(member)}
@@ -660,7 +686,6 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         }}
         onReport={reportMember}
         setError={setError}
-        showToast={showToast}
       />
       {reactionPicker ? <ReactionPicker picker={reactionPicker} overlayRoot={overlayRootRef.current} onPick={actionsRef.current.toggleReaction} onClose={() => setReactionPicker(null)} /> : null}
       {userCard ? <UserCard user={userCard.user} label={userCard.label} anchor={userCard.anchor} containerRef={overlayRootRef} action={profileActionFor(userCard.user)} onClose={() => setUserCard(null)} /> : null}
@@ -683,24 +708,9 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
       ) : null}
       {forwardDetail ? <ForwardBundleDetailModal message={forwardDetail} onClose={() => setForwardDetail(null)} /> : null}
       {imageViewer ? <ImageViewer viewer={imageViewer} onClose={() => setImageViewer(null)} onNavigate={(index) => setImageViewer((current) => current ? { ...current, index } : current)} /> : null}
-      {panel === 'search' ? (
-        <ChatSearchModal
-          conversationId={conversationId}
-          title={title}
-          onOpenForwardBundle={setForwardDetail}
-          onOpenImage={actionsRef.current.openImages}
-          onJump={(messageId) => {
-            setPanel(null);
-            void listRef.current?.jumpToMessage(messageId);
-          }}
-          onClose={() => setPanel(null)}
-        />
-      ) : null}
       {panel === 'featured' && isGroup ? (
         <FeaturedMessagesModal
-          items={featuredMessagesQuery.data ?? []}
-          isLoading={featuredMessagesQuery.isLoading}
-          error={featuredMessagesQuery.error}
+          conversationId={conversationId}
           canManage={isAdmin}
           isToggling={mutations.feature.isPending}
           onToggleFeature={(message) => mutations.feature.mutate(message.id)}
@@ -774,14 +784,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         />
       ) : null}
       {showPenalties ? <PenaltyCenterModal onClose={() => setShowPenalties(false)} /> : null}
-      {toast ? (
-        <div className="pointer-events-none absolute inset-0 z-[70] grid place-items-center px-4">
-          <div className={`kc-toast flex max-w-[min(380px,calc(100%-32px))] items-center gap-3 rounded-[22px] border px-5 py-4 text-sm font-semibold shadow-float ${toast.exiting ? 'kc-toast-exit' : 'kc-toast-enter'} ${toast.tone === 'error' ? 'kc-toast-error' : 'kc-toast-info'}`}>
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-black">{toast.tone === 'error' ? '!' : 'i'}</span>
-            <span className="min-w-0 break-words">{toast.message}</span>
-          </div>
-        </div>
-      ) : null}
+      <RedPacketHost conversationId={conversationId} isGroup={isGroup} currentUser={currentUser} />
+      <GiftStage conversationId={conversationId} />
     </section>
   );
 }

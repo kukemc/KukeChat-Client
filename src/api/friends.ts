@@ -32,6 +32,15 @@ export async function rejectFriendRequest(requestId: number): Promise<FriendRequ
   return apiRequest<FriendRequest>(`/friends/requests/${requestId}/reject`, { method: 'POST' });
 }
 
+/** 忽略：只对自己生效，申请方仍看到「等待验证」，不会收到任何通知 */
+export async function ignoreFriendRequest(requestId: number): Promise<void> {
+  await apiRequest<unknown>(`/friends/requests/${requestId}/ignore`, { method: 'POST' });
+}
+
+export async function ignoreAllFriendRequests(): Promise<{ ignored: number }> {
+  return apiRequest<{ ignored: number }>('/friends/requests/ignore-all', { method: 'POST' });
+}
+
 export async function deleteFriend(friendId: number): Promise<void> {
   await apiRequest<unknown>(`/friends/${friendId}`, { method: 'DELETE' });
 }

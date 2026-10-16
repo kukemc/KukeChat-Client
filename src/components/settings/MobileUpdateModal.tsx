@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { PluginListenerHandle } from '@capacitor/core';
-import { Icon } from '@/components/ui/Icon';
+import { ChangelogText } from '@/components/update/ChangelogText';
+import { updatePortalRoot } from '@/components/update/ReleaseNotes';
+import { UpdateProgress } from '@/components/update/UpdateProgress';
+import { FORCED_UPDATE_TITLE, formatBytes, formatReleaseDate } from '@/components/update/updateFormat';
 import {
   checkMobileUpdate,
   downloadUpdateApk,
@@ -25,7 +29,8 @@ type UpdatePhase =
 interface UpdateState {
   phase: UpdatePhase;
   info: MobileUpdateInfo | null;
-  progress: number;
+  downloaded: number;
+  total: number | null;
   error: string | null;
   manual: boolean;
 }
@@ -33,7 +38,8 @@ interface UpdateState {
 const INITIAL_STATE: UpdateState = {
   phase: 'idle',
   info: null,
-  progress: 0,
+  downloaded: 0,
+  total: null,
   error: null,
   manual: false
 };
@@ -46,6 +52,17 @@ export function requestMobileUpdateCheck(): void {
   window.dispatchEvent(new CustomEvent(MOBILE_CHECK_UPDATE_EVENT));
 }
 
+function pluginErrorCode(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error && typeof (error as { code: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return error instanceof Error ? error.message : '';
+}
+
+/**
+ * Capacitor 安卓壳的更新弹窗：启动后静默检查，有新版本时弹出更新内容，用户点「下载并安装」才下载。
+ * 强制更新（当前版本低于 min_supported_version）时弹窗关不掉、挡住整个应用。样式在 styles/app-update.css（kup-）。
+ */
 export function MobileUpdateGate(): JSX.Element | null {
   const [state, setState] = useState<UpdateState>(INITIAL_STATE);
   const progressListenerRef = useRef<PluginListenerHandle | null>(null);
@@ -57,8 +74,7 @@ export function MobileUpdateGate(): JSX.Element | null {
       await installUpdateApk(path);
       setState((current) => ({ ...current, phase: 'installing' }));
     } catch (error) {
-      const code = error instanceof Error ? error.message : '';
-      if (typeof code === 'string' && code.includes('PERMISSION')) {
+      if (pluginErrorCode(error).includes('PERMISSION')) {
         setState((current) => ({ ...current, phase: 'permission' }));
         return;
       }
@@ -71,20 +87,23 @@ export function MobileUpdateGate(): JSX.Element | null {
       setState((current) => ({ ...current, phase: 'error', error: '缺少下载链接。' }));
       return;
     }
-    setState((current) => ({ ...current, phase: 'downloading', progress: 0, error: null }));
+    setState((current) => ({ ...current, phase: 'downloading', downloaded: 0, total: info.size, error: null }));
     try {
       progressListenerRef.current = await onDownloadProgress((update) => {
-        setState((current) => (current.phase === 'downloading' ? { ...current, progress: update.progress } : current));
+        setState((current) => (current.phase === 'downloading'
+          ? { ...current, downloaded: update.downloaded, total: update.total > 0 ? update.total : info.size }
+          : current));
       });
-      const path = await downloadUpdateApk(info.downloadUrl);
+      const path = await downloadUpdateApk(info.downloadUrl, info.sha256);
       await progressListenerRef.current?.remove();
       progressListenerRef.current = null;
       downloadedPathRef.current = path;
       await startInstall(path);
-    } catch {
+    } catch (error) {
       await progressListenerRef.current?.remove();
       progressListenerRef.current = null;
-      setState((current) => ({ ...current, phase: 'error', error: '下载失败，请检查网络后重试。' }));
+      const mismatch = pluginErrorCode(error).includes('CHECKSUM');
+      setState((current) => ({ ...current, phase: 'error', error: mismatch ? '安装包校验失败，请重新下载。' : '下载失败，请检查网络后重试。' }));
     }
   }, [startInstall]);
 
@@ -100,14 +119,12 @@ export function MobileUpdateGate(): JSX.Element | null {
         busyRef.current = false;
         if (manual) {
           setState({ ...INITIAL_STATE, phase: 'uptodate', info, manual });
-          window.setTimeout(() => setState((current) => (current.phase === 'uptodate' ? INITIAL_STATE : current)), 2200);
         } else {
           setState(INITIAL_STATE);
         }
         return;
       }
       setState({ ...INITIAL_STATE, phase: 'available', info, manual });
-      void runDownload(info);
     } catch {
       busyRef.current = false;
       if (manual) {
@@ -116,7 +133,7 @@ export function MobileUpdateGate(): JSX.Element | null {
         setState(INITIAL_STATE);
       }
     }
-  }, [runDownload]);
+  }, []);
 
   useEffect(() => {
     if (!isMobileUpdateSupported()) {
@@ -133,10 +150,13 @@ export function MobileUpdateGate(): JSX.Element | null {
     };
   }, [runCheck]);
 
+  const forced = state.info?.forced === true;
+
   const dismiss = useCallback(() => {
+    if (forced) return;
     busyRef.current = false;
     setState(INITIAL_STATE);
-  }, []);
+  }, [forced]);
 
   if (!isMobileUpdateSupported() || state.phase === 'idle') {
     return null;
@@ -146,89 +166,82 @@ export function MobileUpdateGate(): JSX.Element | null {
     return null;
   }
 
-  const latest = state.info?.latestVersion;
-  const percent = Math.round(Math.min(1, Math.max(0, state.progress)) * 100);
-  const canDismiss = state.phase === 'available' || state.phase === 'permission' || state.phase === 'uptodate' || state.phase === 'error' || state.phase === 'checking';
+  const info = state.info;
+  const canDismiss = !forced && state.phase !== 'downloading' && state.phase !== 'installing';
+  const meta: string[] = [];
+  const date = formatReleaseDate(info?.publishedAt ?? null);
+  if (date) meta.push(date);
+  if (info?.size) meta.push(formatBytes(info.size));
+  if (info) meta.push(`当前 v${info.currentVersion}`);
+  const changelog = info?.changelog ? <ChangelogText text={info.changelog} /> : null;
+  const forcedNote = forced ? <p className="kup-forced">{FORCED_UPDATE_TITLE}<span>更新完成前暂时无法使用 KukeChat，聊天记录不会丢失。</span></p> : null;
 
-  return (
-    <div className="fixed inset-0 z-[2147483600] grid place-items-center bg-black/45 p-6" onClick={canDismiss ? dismiss : undefined}>
-      <div
-        className="w-full max-w-[360px] rounded-[26px] border p-6 shadow-2xl [background:var(--kc-panel)] [border-color:var(--kc-border)] [color:var(--kc-text)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="grid h-14 w-14 place-items-center rounded-[20px] [background:var(--kc-accent-soft)] [color:var(--kc-accent)]">
-          <Icon name={state.phase === 'error' ? 'flag' : state.phase === 'uptodate' ? 'check' : 'sparkles'} className="h-7 w-7" />
-        </div>
+  let eyebrow = forced ? '需要更新' : '软件更新';
+  let title = '';
+  let body: JSX.Element | null = null;
+  let actions: JSX.Element | null = null;
+  const later = canDismiss ? <button type="button" className="kup-btn-quiet" onClick={dismiss}>稍后</button> : null;
 
-        {state.phase === 'checking' ? (
-          <>
-            <h2 className="mt-4 text-lg font-black">正在检查更新</h2>
-            <p className="mt-2 text-sm [color:var(--kc-muted)]">正在获取最新版本信息…</p>
-          </>
-        ) : null}
+  if (state.phase === 'checking') {
+    title = '正在检查更新…';
+    body = <p className="kup-text">正在获取最新版本信息。</p>;
+    actions = <button type="button" className="kup-btn-quiet" onClick={dismiss}>关闭</button>;
+  } else if (state.phase === 'uptodate') {
+    title = '已是最新版本';
+    body = <p className="kup-text">当前版本 v{info?.currentVersion} 已是最新，无需更新。</p>;
+    actions = <button type="button" className="kup-btn" onClick={dismiss}>好的</button>;
+  } else if (state.phase === 'available') {
+    eyebrow = forced ? '需要更新' : '发现新版本';
+    title = `KukeChat ${info?.latestVersion ?? ''}`;
+    body = <>{forcedNote}{changelog ?? <p className="kup-text">新版本已经可以下载。</p>}</>;
+    actions = <>{later}<button type="button" className="kup-btn" onClick={() => info && void runDownload(info)}>下载并安装</button></>;
+  } else if (state.phase === 'downloading') {
+    eyebrow = '正在下载';
+    title = `KukeChat ${info?.latestVersion ?? ''}`;
+    body = <>{forcedNote}<UpdateProgress downloaded={state.downloaded} total={state.total} />{changelog}</>;
+  } else if (state.phase === 'installing') {
+    eyebrow = '准备安装';
+    title = '已打开系统安装程序';
+    body = <>{forcedNote}<p className="kup-text">请按系统提示完成安装。没有看到安装界面的话，可以再点一次「安装」。</p></>;
+    actions = <>{later}<button type="button" className="kup-btn" onClick={() => downloadedPathRef.current && void startInstall(downloadedPathRef.current)}>安装</button></>;
+  } else if (state.phase === 'permission') {
+    eyebrow = '需要权限';
+    title = '允许安装应用';
+    body = <>{forcedNote}<p className="kup-text">请在打开的系统设置里允许 KukeChat「安装未知应用」，然后回到这里点「继续安装」。</p></>;
+    actions = <>{later}<button type="button" className="kup-btn" onClick={() => downloadedPathRef.current && void startInstall(downloadedPathRef.current)}>继续安装</button></>;
+  } else {
+    title = '更新失败';
+    body = <>{forcedNote}<p className="kup-error">{state.error ?? '请稍后重试。'}</p></>;
+    actions = <>
+      {later}
+      <button
+        type="button"
+        className="kup-btn"
+        onClick={() => {
+          if (info?.hasUpdate) {
+            void runDownload(info);
+          } else {
+            busyRef.current = false;
+            void runCheck(true);
+          }
+        }}
+      >重试</button>
+    </>;
+  }
 
-        {state.phase === 'uptodate' ? (
-          <>
-            <h2 className="mt-4 text-lg font-black">已是最新版本</h2>
-            <p className="mt-2 text-sm [color:var(--kc-muted)]">当前版本 v{state.info?.currentVersion} 已是最新。</p>
-          </>
-        ) : null}
-
-        {state.phase === 'available' ? (
-          <>
-            <h2 className="mt-4 text-lg font-black">发现新版本 v{latest}</h2>
-            <p className="mt-2 text-sm [color:var(--kc-muted)]">正在为你准备下载最新版本…</p>
-          </>
-        ) : null}
-
-        {state.phase === 'downloading' ? (
-          <>
-            <h2 className="mt-4 text-lg font-black">正在下载 v{latest}</h2>
-            <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full [background:var(--kc-hover)]">
-              <div className="h-full rounded-full transition-[width] duration-200 [background:var(--kc-accent)]" style={{ width: `${percent}%` }} />
-            </div>
-            <p className="mt-2 text-right text-xs font-semibold [color:var(--kc-muted)]">{percent}%</p>
-          </>
-        ) : null}
-
-        {state.phase === 'installing' ? (
-          <>
-            <h2 className="mt-4 text-lg font-black">准备安装</h2>
-            <p className="mt-2 text-sm [color:var(--kc-muted)]">已唤起系统安装程序，请按提示完成安装。</p>
-          </>
-        ) : null}
-
-        {state.phase === 'permission' ? (
-          <>
-            <h2 className="mt-4 text-lg font-black">需要安装权限</h2>
-            <p className="mt-2 text-sm [color:var(--kc-muted)]">请在弹出的系统设置中允许“安装未知应用”，然后返回点击“重新安装”。</p>
-          </>
-        ) : null}
-
-        {state.phase === 'error' ? (
-          <>
-            <h2 className="mt-4 text-lg font-black">更新失败</h2>
-            <p className="mt-2 text-sm [color:var(--kc-muted)]">{state.error ?? '请稍后重试。'}</p>
-          </>
-        ) : null}
-
-        <div className="mt-6 flex items-center justify-end gap-2">
-          {state.phase === 'available' || state.phase === 'permission' || state.phase === 'error' || state.phase === 'uptodate' ? (
-            <button type="button" onClick={dismiss} className="rounded-xl border px-4 py-2 text-sm font-semibold [border-color:var(--kc-border)] hover:[background:var(--kc-hover)]">
-              {state.phase === 'uptodate' ? '好的' : '稍后再说'}
-            </button>
-          ) : null}
-          {state.phase === 'permission' ? (
-            <button type="button" onClick={() => downloadedPathRef.current && void startInstall(downloadedPathRef.current)} className="rounded-xl px-5 py-2 text-sm font-semibold text-white [background:var(--kc-accent)]">重新安装</button>
-          ) : null}
-          {state.phase === 'error' && state.info?.hasUpdate ? (
-            <button type="button" onClick={() => state.info && void runDownload(state.info)} className="rounded-xl px-5 py-2 text-sm font-semibold text-white [background:var(--kc-accent)]">重试</button>
-          ) : null}
-          {state.phase === 'error' && !state.info?.hasUpdate ? (
-            <button type="button" onClick={() => { busyRef.current = false; void runCheck(true); }} className="rounded-xl px-5 py-2 text-sm font-semibold text-white [background:var(--kc-accent)]">重试</button>
-          ) : null}
-        </div>
-      </div>
-    </div>
+  const showMeta = state.phase === 'available' || state.phase === 'downloading';
+  return createPortal(
+    <div className={`kup-layer ${forced ? 'is-forced' : ''}`} onClick={canDismiss ? dismiss : undefined}>
+      <section role={forced ? 'alertdialog' : 'dialog'} aria-modal="true" aria-label={title} className="kup-sheet" onClick={(event) => event.stopPropagation()}>
+        <header className="kup-head">
+          <span className="kup-eyebrow">{eyebrow}</span>
+          <h2 className="kup-title">{title}</h2>
+          {showMeta && meta.length ? <div className="kup-meta">{meta.map((item) => <span key={item}>{item}</span>)}</div> : null}
+        </header>
+        {body ? <div className="kup-body">{body}</div> : null}
+        {actions ? <footer className="kup-foot">{actions}</footer> : null}
+      </section>
+    </div>,
+    updatePortalRoot()
   );
 }

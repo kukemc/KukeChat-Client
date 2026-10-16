@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
+import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { Avatar } from '@/components/ui/Avatar';
+import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
+import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTypingStore } from '@/store/typingStore';
 import type { Conversation, User } from '@/types/api';
@@ -58,10 +61,12 @@ export function ChatHeader({ conversation, name, directUser, onOpenInfo, childre
   return (
     <header className="kcd-header">
       <button type="button" className="kcd-header-id" title={isGroup ? '查看群聊资料' : '查看聊天资料'} onClick={onOpenInfo}>
-        {isGroup ? <Avatar avatarUrl={conversation.avatar_url} label={name} size="sm" toneKey={conversation.id} /> : <Avatar user={directUser} label={name} size="sm" />}
+        {isGroup ? <Avatar avatarUrl={conversation.avatar_url} label={name} size="sm" toneKey={conversation.id} plusTier={conversationTier(conversation)} /> : <Avatar user={directUser} label={name} size="sm" />}
         <span className="kcd-header-text">
           <span className="kcd-header-title">
             <span className="kcd-header-name" role="heading" aria-level={3}>{name}</span>
+            {isGroup ? <PlusTierTag tier={conversationTier(conversation)} /> : null}
+            {isGroup ? null : <FriendBadgeMark userId={directUser?.id} size={18} openable />}
             {directUser?.is_bot ? <span className="kcd-tag kcd-tag--admin"><Icon name="bot" className="h-3 w-3" />机器人</span> : null}
             {!isGroup && conversation.is_temporary ? <span className="kcd-tag">临时会话</span> : null}
           </span>

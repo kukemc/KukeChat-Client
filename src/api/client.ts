@@ -45,6 +45,8 @@ interface RequestOptions {
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
   cache?: RequestCache;
+  /** 中止请求（搜索输入防抖后取消过期的请求） */
+  signal?: AbortSignal;
 }
 
 /**
@@ -197,8 +199,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     headers,
     body,
     credentials: options.credentials,
-    cache: options.cache
+    cache: options.cache,
+    signal: options.signal
   }).catch((error: unknown) => {
+    // 被主动中止的请求原样抛出（AbortError），不当成网络故障
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
     throw new NetworkError(url, error);
   });
 
@@ -243,4 +250,148 @@ export async function uploadFile<T>(path: string, file: File, fieldName = 'file'
   }
 
   return payload as T;
+}
+
+/**
+ * 和 apiRequest 一样，但把响应头一起交出来。精华列表的分页信息在 X-Total-Count / X-Has-More 里，
+ * 响应体仍是数组（老客户端不受影响），所以要读头。
+ */
+export async function apiRequestWithHeaders<T>(path: string, options: RequestOptions = {}): Promise<{ data: T; headers: Headers }> {
+  const state = useKukeStore.getState();
+  const token = options.token === undefined ? state.token : options.token;
+  const headers: Record<string, string> = { ...(options.headers ?? {}) };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const method = options.method ?? 'GET';
+  await attachClientProof(headers, method, path);
+  const url = joinApiPath(resolveApiBaseUrl(), path);
+  const response = await fetch(url, { method, headers, cache: options.cache }).catch((error: unknown) => {
+    throw new NetworkError(url, error);
+  });
+  const payload = await readJson(response);
+  if (!response.ok) {
+    handleAccountSuspension(payload);
+    throw new ApiError(response.status, payload);
+  }
+  return { data: payload as T, headers: response.headers };
+}
+
+/**
+ * 带上传进度的 multipart 上传（fetch 拿不到上传进度，所以这里用 XMLHttpRequest）。
+ * 群文件最大 100MB，没有进度条用户会以为卡死。signal 中止时请求被取消，抛出 name 为 AbortError 的错误。
+ */
+export function uploadFormWithProgress<T>(path: string, form: FormData, onProgress?: (loaded: number, total: number) => void, signal?: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const state = useKukeStore.getState();
+    const headers: Record<string, string> = {};
+    if (state.token) {
+      headers.Authorization = `Bearer ${state.token}`;
+    }
+    void attachClientProof(headers, 'POST', path).then(() => {
+      const url = joinApiPath(resolveApiBaseUrl(), path);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      for (const [name, value] of Object.entries(headers)) {
+        xhr.setRequestHeader(name, value);
+      }
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress?.(event.loaded, event.total);
+        }
+      };
+      xhr.onerror = () => reject(new NetworkError(url, null));
+      xhr.onabort = () => reject(new DOMException('上传已取消', 'AbortError'));
+      xhr.onload = () => {
+        let payload: unknown;
+        try {
+          payload = xhr.responseText ? JSON.parse(xhr.responseText) as unknown : undefined;
+        } catch {
+          payload = xhr.responseText;
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(payload as T);
+          return;
+        }
+        handleAccountSuspension(payload);
+        reject(new ApiError(xhr.status, payload));
+      };
+      if (signal) {
+        if (signal.aborted) {
+          reject(new DOMException('上传已取消', 'AbortError'));
+          return;
+        }
+        signal.addEventListener('abort', () => xhr.abort(), { once: true });
+      }
+      xhr.send(form);
+    }, reject);
+  });
+}
+
+/** 存储桶拒绝了直传（签名过期、大小不符、桶没配好）。和 NetworkError 分开：网络 / 跨域失败时可以退回经后端上传。 */
+export class StorageUploadError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`存储服务拒绝了上传（${status}）`);
+    this.name = 'StorageUploadError';
+    this.status = status;
+  }
+}
+
+/**
+ * 把文件直接 PUT 到存储桶的签名地址（群文件直传）。不带 Authorization 和客户端证明头：
+ * 签名已经在地址里，多带别的头会让签名对不上；headers 只放服务端发地址时要求的那几个。
+ * 跨域没配好时浏览器会在预检那一步拦下，表现为 onerror → NetworkError。
+ */
+export function putToSignedUrl(url: string, headers: Record<string, string>, body: Blob, onProgress?: (loaded: number, total: number) => void, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    for (const [name, value] of Object.entries(headers)) {
+      xhr.setRequestHeader(name, value);
+    }
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(event.loaded, event.total);
+      }
+    };
+    xhr.onerror = () => reject(new NetworkError(url, null));
+    xhr.onabort = () => reject(new DOMException('上传已取消', 'AbortError'));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+        return;
+      }
+      reject(new StorageUploadError(xhr.status));
+    };
+    if (signal) {
+      if (signal.aborted) {
+        reject(new DOMException('上传已取消', 'AbortError'));
+        return;
+      }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true });
+    }
+    xhr.send(body);
+  });
+}
+
+/** 带鉴权下载二进制（群文件的下载接口要 Authorization 头，不能用 <a href> 直链）。 */
+export async function apiDownloadBlob(path: string): Promise<Blob> {
+  const state = useKukeStore.getState();
+  const headers: Record<string, string> = {};
+  if (state.token) {
+    headers.Authorization = `Bearer ${state.token}`;
+  }
+  await attachClientProof(headers, 'GET', path);
+  const url = joinApiPath(resolveApiBaseUrl(), path);
+  const response = await fetch(url, { method: 'GET', headers }).catch((error: unknown) => {
+    throw new NetworkError(url, error);
+  });
+  if (!response.ok) {
+    const payload = await readJson(response);
+    handleAccountSuspension(payload);
+    throw new ApiError(response.status, payload);
+  }
+  return response.blob();
 }

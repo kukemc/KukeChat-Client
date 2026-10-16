@@ -1,0 +1,375 @@
+/* ───────── 生日（前缀 kbd-）─────────
+   「今天生日」的标识、好友列表顶上的那一条、设置里的生日、庆生动画的外层。桌面和移动共用。
+   庆生动画 / 贺卡本身的样式在 birthday-scene.css（kbds-）。暖金色是生日自己的颜色，不跟主题的强调色走。 */
+
+.kbd-today,
+.kbd-banner,
+.kbd-m-strip,
+.kbd-card-fact,
+.kbd-setting {
+  --kbd-fs: var(--kc-font-multiplier, 1);
+  --kbd: #d9831a;
+  --kbd-soft: color-mix(in srgb, #f2a93b 18%, transparent);
+  --kbd-pink: #d9468f;
+}
+
+[data-theme='dark'] .kbd-today,
+[data-theme='dark'] .kbd-banner,
+[data-theme='dark'] .kbd-m-strip,
+[data-theme='dark'] .kbd-card-fact,
+[data-theme='dark'] .kbd-setting {
+  --kbd: #ffc35c;
+  --kbd-soft: color-mix(in srgb, #ffc35c 16%, transparent);
+  --kbd-pink: #ff7db8;
+}
+
+/* ───────── 「今天生日」 ───────── */
+
+.kbd-today {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(12px * var(--kbd-fs));
+}
+
+.kbd-today-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  background: var(--kbd-soft);
+  color: var(--kbd);
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .kbd-today-gift,
+.kbd-today-gift {
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kbd-pink) 86%, #ffffff), var(--kbd-pink));
+  color: #ffffff;
+  font-size: calc(11.5px * var(--kbd-fs));
+  font-weight: 600;
+}
+
+.kbd-today-gift:hover {
+  filter: brightness(1.06);
+}
+
+/* 列表里名字后面的小蛋糕 */
+.kbd-mark {
+  display: inline-block;
+  margin-left: 4px;
+}
+
+/* 资料卡上的「生日」：日期后面跟一个「今天生日」（只在当天） */
+.kmd-card-rows dd.kmd-card-birthday {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+/* 手机资料卡：简介那块淡底里的第二行 */
+.kbd-card-fact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--kc-text) 7%, transparent);
+}
+
+.kbd-card-fact-label {
+  color: var(--kc-subtle, var(--kc-muted));
+}
+
+/* 联系人页的好友资料：名字下面居中的一条 */
+.kbd-today--center {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* ───────── 好友列表顶上的「今天是 X 的生日」 ───────── */
+
+.kbd-banner {
+  display: grid;
+  gap: 4px;
+  margin: 4px 6px 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--kbd-soft), color-mix(in srgb, var(--kbd-pink) 10%, transparent));
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kbd-fs));
+}
+
+.kbd-banner--mobile {
+  margin: 0 12px 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+.kbd-banner-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.kbd-banner-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .kbd-banner-name,
+.kbd-banner-name {
+  color: var(--kbd);
+  font-size: inherit;
+  font-weight: 700;
+}
+
+button.kbd-banner-name:hover {
+  text-decoration: underline;
+}
+
+#kukechat-root [data-font-scale] .kbd-banner-gift,
+.kbd-banner-gift {
+  height: 24px;
+  flex: none;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kbd-pink) 86%, #ffffff), var(--kbd-pink));
+  color: #ffffff;
+  font-size: calc(11.5px * var(--kbd-fs));
+  font-weight: 600;
+}
+
+.kbd-banner-more {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kbd-fs));
+}
+
+/* ───────── 手机个人主页上的那一条 ───────── */
+
+.kbd-m-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: var(--kc-mobile-card, var(--kc-panel, #ffffff));
+  color: var(--kc-text);
+  font-size: 13px;
+}
+
+.kbd-m-strip-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--kc-muted);
+  font-weight: 600;
+}
+
+#kukechat-root [data-font-scale] .kbd-m-strip-gift,
+.kbd-m-strip-gift {
+  height: 32px;
+  margin-left: auto;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kbd-pink) 86%, #ffffff), var(--kbd-pink));
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ───────── 设置里的生日 ───────── */
+
+.kbd-date {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 8px;
+}
+
+.kbd-date-field {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.kbd-date-field > span {
+  color: var(--kc-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#kukechat-root [data-font-scale] .kbd-select,
+.kbd-select {
+  min-width: 0;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.kbd-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.kbd-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kbd-switch-title {
+  display: block;
+  color: var(--kc-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.kbd-switch-desc {
+  display: block;
+  margin-top: 2px;
+  color: var(--kc-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.kbd-setting--mobile .kbd-setting-desc,
+.kbd-setting--mobile .kbd-setting-note {
+  color: var(--kc-mobile-muted, #8b95a5);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.kbd-setting--mobile .kbd-setting-desc {
+  margin-top: 4px;
+}
+
+.kbd-setting--mobile .kbd-date-field > span,
+.kbd-setting--mobile .kbd-switch-desc {
+  color: var(--kc-mobile-muted, #8b95a5);
+}
+
+.kbd-setting--mobile .kbd-switch-title {
+  color: var(--kc-mobile-strong, #111827);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.kbd-setting-error {
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-size: 13px;
+}
+
+.kbd-setting-ok {
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(22, 139, 255, 0.1);
+  color: #168bff;
+  font-size: 13px;
+}
+
+.kbd-setting-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#kukechat-root [data-font-scale] .kbd-m-btn,
+.kbd-m-btn {
+  height: 44px;
+  flex: 1;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--kc-mobile-strong, #111827) 6%, transparent);
+  color: var(--kc-mobile-strong, #111827);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+#kukechat-root [data-font-scale] .kbd-m-btn.is-primary,
+.kbd-m-btn.is-primary {
+  flex: 2;
+  background: var(--kc-accent, #168bff);
+  color: #ffffff;
+}
+
+.kbd-m-btn:disabled {
+  opacity: 0.5;
+}
+
+/* ───────── 庆生：全屏的外层 ───────── */
+
+.kbd-celebrate {
+  position: fixed;
+  z-index: 2147483646;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 42%, rgba(74, 34, 92, 0.72), rgba(14, 10, 30, 0.86));
+  cursor: pointer;
+  animation: kbd-veil 420ms ease both;
+}
+
+.kbd-celebrate.is-still {
+  --kbds-still-bottom: 76px;
+  cursor: default;
+  animation: none;
+}
+
+@keyframes kbd-veil {
+  from {
+    opacity: 0;
+  }
+}
+
+.kbd-celebrate-skip {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--kc-native-safe-bottom, env(safe-area-inset-bottom, 0px)) + 18px);
+  left: 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* 静态贺卡下面的「收下祝福」：压在卡片下方，卡片靠 --kbds-still-bottom 往上让 */
+#kukechat-root [data-font-scale] .kbd-celebrate-accept,
+.kbd-celebrate-accept {
+  position: absolute;
+  top: calc(50% + 128px);
+  left: 50%;
+  height: 40px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffd27a, #f2a93b);
+  box-shadow: 0 8px 20px -8px rgba(242, 169, 59, 0.8);
+  color: #5a3200;
+  font-size: 15px;
+  font-weight: 700;
+  transform: translateX(-50%);
+}
+
+.kbd-celebrate-accept:hover {
+  filter: brightness(1.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kbd-celebrate {
+    animation: none;
+  }
+}

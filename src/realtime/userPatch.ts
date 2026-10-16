@@ -6,14 +6,15 @@ import { patchMemberPages, patchMembers, type ConversationMembersPageData, type 
 /**
  * 「某个用户的公开资料变了一两个字段」时，把本地缓存里这个人的所有副本一起改掉，不重新请求。
  * 用在装扮变化（user.cosmetics.updated，docs/shop.md 2.3）、本人升级（account.level.up，docs/account-level.md）
- * 和资料赞数变化（点赞成功、user.profile.liked，docs/chat-features.md 第 6 节）上。
+ * 资料赞数变化（点赞成功、user.profile.liked，docs/chat-features.md 第 6 节）、心意值变化（送礼成功、gift.received）
+ * 和本人改了生日上。
  *
  * 用户对象在缓存里是散着的：每条消息带一份发送者，成员列表、会话列表、好友、在线名单各有各的。这里逐个缓存去改，
  * 而且只给真正变了的那几项换新对象 —— 消息行是按对象身份记忆的，没变的行不会跟着重渲染。
  * 收到的字段和手头的一样时什么都不动（事件是广播给所有在线用户的，大多数时候和我正在看的东西无关）。
  */
 
-type UserFields = Partial<Pick<User, 'cosmetics' | 'account_level' | 'profile_like_count'>>;
+type UserFields = Partial<Pick<User, 'cosmetics' | 'account_level' | 'profile_like_count' | 'charm' | 'birthday' | 'is_birthday_today'>>;
 
 function sameValue(left: unknown, right: unknown): boolean {
   if (left === right) {

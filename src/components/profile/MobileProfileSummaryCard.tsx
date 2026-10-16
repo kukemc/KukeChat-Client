@@ -49,7 +49,7 @@ export function MobileProfileSummaryCard({ user, name, label, handle, userId, bi
   return (
     <section className={`kc-mobile-profile-summary-card w-full overflow-hidden rounded-[28px] p-4 text-left ${className}`} data-card-style={cardStyle}>
       <div className="flex items-start gap-3">
-        <Avatar user={user} label={label || resolvedName} size="md" />
+        <Avatar user={user} label={label || resolvedName} size="md" frame />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <span className="min-w-0">

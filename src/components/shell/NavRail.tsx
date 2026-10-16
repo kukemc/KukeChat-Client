@@ -10,6 +10,8 @@ interface NavRailProps {
   juryPendingCount?: number;
   /** 当前连接的服务端有没有商店（docs/shop.md）。没有就不显示入口 */
   shopAvailable?: boolean;
+  /** 有没有可看的排行榜（活跃 / 心意 / 风纪至少一个开着）。没有就不显示入口 */
+  rankingAvailable?: boolean;
   onNavigate: (view: WorkspaceView) => void;
   onCreateGroup: () => void;
   onOpenAnnouncement: () => void;
@@ -24,6 +26,7 @@ const PRIMARY: Array<{ view: WorkspaceView; label: string; icon: IconName }> = [
   { view: 'bots', label: '机器人', icon: 'bot' },
   { view: 'jury', label: '风纪', icon: 'scale' },
   { view: 'shop', label: '商店', icon: 'store' },
+  { view: 'ranking', label: '排行榜', icon: 'trophy' },
   { view: 'home', label: '主页', icon: 'home' }
 ];
 
@@ -42,11 +45,11 @@ function RailButton({ label, icon, active = false, badge, dot = false, onClick }
 }
 
 /** 桌面端最左侧的导航栏：上面是各个工作区，下面是工具入口。 */
-function NavRailInner({ view, unreadCount, hasUnseenAnnouncement, juryPendingCount, shopAvailable = false, onNavigate, onCreateGroup, onOpenAnnouncement, onOpenSettings }: NavRailProps): JSX.Element {
+function NavRailInner({ view, unreadCount, hasUnseenAnnouncement, juryPendingCount, shopAvailable = false, rankingAvailable = false, onNavigate, onCreateGroup, onOpenAnnouncement, onOpenSettings }: NavRailProps): JSX.Element {
   return (
     <nav className="ksh-rail" aria-label="主导航">
       <div className="ksh-rail-group">
-        {PRIMARY.filter((item) => item.view !== 'shop' || shopAvailable || view === 'shop').map((item) => <RailButton key={item.view} label={item.label} icon={item.icon} active={view === item.view} badge={item.view === 'chat' ? unreadCount : item.view === 'jury' ? juryPendingCount : undefined} onClick={() => onNavigate(item.view)} />)}
+        {PRIMARY.filter((item) => (item.view !== 'shop' || shopAvailable || view === 'shop') && (item.view !== 'ranking' || rankingAvailable || view === 'ranking')).map((item) => <RailButton key={item.view} label={item.label} icon={item.icon} active={view === item.view} badge={item.view === 'chat' ? unreadCount : item.view === 'jury' ? juryPendingCount : undefined} onClick={() => onNavigate(item.view)} />)}
       </div>
       <div className="ksh-rail-group">
         <RailButton label="创建群聊" icon="plus" onClick={onCreateGroup} />

@@ -53,7 +53,7 @@ export function ContactsDesktop({ friends, conversations, isLoading, currentUser
         friendTotal={friends.length}
         friendsLoading={isLoading}
         groups={data.groupConversations}
-        pendingCount={data.pendingCount}
+        newCount={data.newCount}
         blockCount={data.temporaryBlocks.length}
         onViewChange={setView}
         onQueryChange={setQuery}

@@ -1,0 +1,1007 @@
+/* ───────── 群升级（前缀 kgp-）─────────
+   档位标志（MAX 群头像右下角的徽记、群名后的标签）在文件开头，所有地方共用；
+   升级面板、确认面板、庆祝反馈接在后面。桌面和移动共用一套，移动布局的差异在各段末尾。
+   视觉是克制的黑白：档位不靠颜色区分，靠层级——Pro 描边、Pro+ 浅灰底、MAX 墨色实底 + 小王冠。
+   主按钮是墨色实底（深色主题下反过来是近白底深字）。全页唯一的彩色是金币图标。 */
+
+.kgp-avatar,
+.kgp-tag,
+.kgp-corner,
+.kgp-panel,
+.kgp-info {
+  /* 墨色：浅色主题下近黑，深色主题下近白；on-ink 是放在墨色上的字 */
+  --kgp-ink: #16171b;
+  --kgp-on-ink: #ffffff;
+  --kgp-line: rgba(22, 23, 27, 0.1);
+  --kgp-line-strong: rgba(22, 23, 27, 0.22);
+  --kgp-wash: rgba(22, 23, 27, 0.045);
+  --kgp-wash-2: rgba(22, 23, 27, 0.075);
+  --kgp-sub: rgba(22, 23, 27, 0.56);
+  --kgp-faint: rgba(22, 23, 27, 0.4);
+  --kgp-warn: #b4610c;
+  --kgp-bad: #d1343a;
+  --kgp-ring: var(--kc-panel, #ffffff);
+}
+
+[data-theme='dark'] .kgp-avatar,
+[data-theme='dark'] .kgp-tag,
+[data-theme='dark'] .kgp-corner,
+[data-theme='dark'] .kgp-panel,
+[data-theme='dark'] .kgp-info {
+  --kgp-ink: #f2f2f4;
+  --kgp-on-ink: #141518;
+  --kgp-line: rgba(255, 255, 255, 0.1);
+  --kgp-line-strong: rgba(255, 255, 255, 0.24);
+  --kgp-wash: rgba(255, 255, 255, 0.05);
+  --kgp-wash-2: rgba(255, 255, 255, 0.085);
+  --kgp-sub: rgba(255, 255, 255, 0.58);
+  --kgp-faint: rgba(255, 255, 255, 0.4);
+  --kgp-warn: #f0ad5a;
+  --kgp-bad: #ff8086;
+  --kgp-ring: var(--kc-panel, #1b1d23);
+}
+
+/* 头像容器：徽记相对它定位。尺寸由 Avatar 的 sizeClass 给，这里只管相对定位和徽记大小 */
+.kgp-avatar {
+  position: relative;
+  --kgp-corner: 14px;
+}
+
+.kgp-avatar--sm { --kgp-corner: 12px; }
+.kgp-avatar--message { --kgp-corner: 12px; }
+.kgp-avatar--md { --kgp-corner: 14px; }
+.kgp-avatar--lg { --kgp-corner: 17px; }
+.kgp-avatar--xl { --kgp-corner: 22px; }
+
+/* MAX 头像右下角的徽记：墨色小圆 + 王冠，外面一圈面板色描边 */
+.kgp-corner {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  display: grid;
+  width: var(--kgp-corner, 14px);
+  height: var(--kgp-corner, 14px);
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kgp-ink);
+  box-shadow: 0 0 0 2px var(--kgp-ring);
+  color: var(--kgp-on-ink);
+  pointer-events: none;
+}
+
+.kgp-corner-icon {
+  width: 60%;
+  height: 60%;
+}
+
+/* 选中的会话行是强调色实底：描边换成底色，徽记换成白底、底色字 */
+.ksh-conv.is-active .kgp-corner {
+  --kgp-ring: var(--kui-fill);
+  background: var(--kui-on-fill, #ffffff);
+  color: var(--kui-fill);
+}
+
+/* 群名后面的小标签。sm 跟 12–15px 的名字走（列表、顶栏），md 跟群资料页的大标题、卡片走 */
+.kgp-tag {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 16px;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--kgp-tag-line, transparent);
+  background: var(--kgp-tag-bg, transparent);
+  color: var(--kgp-tag-ink, inherit);
+  font-family: 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: none;
+  vertical-align: middle;
+  white-space: nowrap;
+  /* 和名字的中线对齐：小写字母多的名字看起来重心偏下，往上提半个像素 */
+  transform: translateY(-0.5px);
+}
+
+/* 全局有一条「按钮、输入框、标签的字号跟着外面走」的高权重规则，标签自己的字号要用同样的写法压住 */
+#kukechat-root [data-font-scale] .kgp-tag {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.kgp-tag--md,
+#kukechat-root [data-font-scale] .kgp-tag--md {
+  height: 20px;
+  gap: 3px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+.kgp-tag-icon {
+  width: 9px;
+  height: 9px;
+  flex: none;
+}
+
+.kgp-tag--md .kgp-tag-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.kgp-tag--pro {
+  --kgp-tag-line: var(--kgp-line-strong);
+  --kgp-tag-ink: var(--kgp-sub);
+}
+
+.kgp-tag--pro_plus {
+  --kgp-tag-bg: var(--kgp-wash-2);
+  --kgp-tag-ink: var(--kgp-ink);
+}
+
+.kgp-tag--max {
+  --kgp-tag-bg: var(--kgp-ink);
+  --kgp-tag-ink: var(--kgp-on-ink);
+}
+
+/* 在 flex + gap 的标题行里不需要自己的外边距 */
+:is(.kcd-header-title, .ksh-conv-title, .kgp-name-row) > .kgp-tag {
+  margin-left: 0;
+}
+
+/* 选中的会话行（强调色实底）：Pro / Pro+ 换成半透明白，MAX 是白底、底色字 */
+.ksh-conv.is-active .kgp-tag {
+  --kgp-tag-bg: color-mix(in srgb, var(--kui-on-fill, #ffffff) 18%, transparent);
+  --kgp-tag-line: transparent;
+  --kgp-tag-ink: var(--kui-on-fill, #ffffff);
+}
+
+.ksh-conv.is-active .kgp-tag--pro {
+  --kgp-tag-bg: transparent;
+  --kgp-tag-line: color-mix(in srgb, var(--kui-on-fill, #ffffff) 50%, transparent);
+}
+
+.ksh-conv.is-active .kgp-tag--max {
+  --kgp-tag-bg: var(--kui-on-fill, #ffffff);
+  --kgp-tag-ink: var(--kui-fill);
+}
+
+/* ───────── 升级面板 ─────────
+   外壳是红包那一套（RedPacketLayer / krp-panel）。选档位页自己画头部，确认、成功、购买记录沿用红包面板的头部。
+   大留白、大字号、细描边；动效只有选中卡片的描边 / 阴影过渡和购买成功那一下弹簧；is-still 时全部不动。 */
+
+.kgp-layer .krp-stage {
+  height: 100%;
+}
+
+.kgp-panel {
+  width: min(940px, 100%);
+  max-height: min(760px, 100%);
+  border-radius: 20px;
+  transition: width 200ms cubic-bezier(0.2, 0.85, 0.2, 1);
+}
+
+/* 确认、成功、购买记录是一列窄内容：三列卡片的宽度放它们会把每行左右拉得很开 */
+.kgp-panel:is([data-plus-view='confirm'], [data-plus-view='done'], [data-plus-view='records']) {
+  width: min(500px, 100%);
+}
+
+.kgp-head-icon.krp-panel-icon {
+  background: var(--kgp-wash-2);
+  color: var(--kgp-ink);
+}
+
+.kgp-link {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--kgp-sub);
+  font-size: calc(13px * var(--krp-fs, 1));
+  font-weight: 500;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.kgp-link:hover {
+  background: var(--kgp-wash);
+  color: var(--kgp-ink);
+}
+
+/* 主按钮：墨色胶囊 */
+.kgp-btn {
+  display: inline-flex;
+  height: 38px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: var(--kgp-ink);
+  color: var(--kgp-on-ink);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: opacity 140ms ease, transform 80ms ease;
+}
+
+.kgp-btn:hover:not(:disabled) { opacity: 0.86; }
+.kgp-btn:active:not(:disabled) { transform: scale(0.98); }
+.kgp-btn:disabled { cursor: not-allowed; opacity: 0.28; }
+
+.kgp-panel .krp-panel-foot .kui-btn--ghost {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+}
+
+.kgp-coins {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 选档位页的头部：大标题、群名，下面一行当前档位和用量 */
+.kgp-hero {
+  display: grid;
+  flex: none;
+  gap: 22px;
+  padding: 26px 22px 0 32px;
+}
+
+.kgp-hero-top {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.kgp-hero-title {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+
+.kgp-hero-title h2 {
+  color: var(--kgp-ink);
+  font-size: calc(24px * var(--krp-fs, 1));
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.kgp-hero-group {
+  overflow: hidden;
+  color: var(--kgp-sub);
+  font-size: calc(13.5px * var(--krp-fs, 1));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgp-hero-top .kui-icon-btn {
+  border-radius: 999px;
+}
+
+.kgp-reason {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--kgp-wash);
+  color: var(--kgp-ink);
+  font-weight: 500;
+}
+
+/* 当前档位 + 用量：一条浅灰的条带 */
+.kgp-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 32px;
+  margin-right: 10px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--kgp-wash);
+}
+
+.kgp-status-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  font-size: calc(13px * var(--krp-fs, 1));
+}
+
+.kgp-status-label {
+  color: var(--kgp-sub);
+}
+
+.kgp-status-tag {
+  margin-left: 0;
+}
+
+.kgp-status-free {
+  font-weight: 600;
+}
+
+.kgp-status-expire {
+  color: var(--kgp-sub);
+  white-space: nowrap;
+}
+
+.kgp-status-expire b {
+  color: var(--kgp-ink);
+  font-weight: 600;
+}
+
+/* 用量：三条细进度条并排 */
+.kgp-meters {
+  display: grid;
+  grid-template-columns: repeat(3, 128px);
+  gap: 22px;
+}
+
+.kgp-meter {
+  --kgp-meter: var(--kgp-ink);
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.kgp-meter.is-near { --kgp-meter: var(--kgp-warn); }
+.kgp-meter.is-full { --kgp-meter: var(--kgp-bad); }
+
+.kgp-meter-top {
+  display: flex;
+  white-space: nowrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--kgp-sub);
+  font-size: calc(11.5px * var(--krp-fs, 1));
+}
+
+.kgp-meter-top b {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--kgp-ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kgp-meter.is-locked .kgp-meter-top b {
+  color: var(--kgp-faint);
+  font-weight: 500;
+}
+
+.kgp-meter-bar {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--kgp-wash-2);
+}
+
+.kgp-meter-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--kgp-meter);
+}
+
+.kgp-select {
+  gap: 18px;
+  padding: 30px 32px 26px;
+}
+
+/* 面板体是可滚动的纵向 flex：里面的块不许被压扁（手机上横滑的卡片行最容易被压掉一截） */
+.kgp-select > * {
+  flex: none;
+}
+
+.kgp-select-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kgp-select-bar h3 {
+  color: var(--kgp-ink);
+  font-size: calc(16px * var(--krp-fs, 1));
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* 月付 / 年付 */
+.kgp-period {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--kgp-wash-2);
+}
+
+.kgp-period button {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: var(--kgp-sub);
+  font-size: calc(13px * var(--krp-fs, 1));
+  font-weight: 500;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.kgp-period button:hover:not(.is-active) {
+  color: var(--kgp-ink);
+}
+
+.kgp-period button.is-active {
+  background: var(--kc-panel, #fff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  color: var(--kgp-ink);
+  font-weight: 600;
+}
+
+[data-theme='dark'] .kgp-period button.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+
+.kgp-period em {
+  color: var(--kgp-sub);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.kgp-period button.is-active em {
+  color: var(--kgp-ink);
+}
+
+/* 档位卡片：桌面三列并排，手机横向滑动 */
+.kgp-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kgp-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 24px 24px 22px;
+  border-radius: 18px;
+  background: var(--kc-panel, transparent);
+  box-shadow: inset 0 0 0 1px var(--kgp-line);
+  color: var(--kgp-ink);
+  text-align: left;
+  transition: box-shadow 200ms ease, background-color 200ms ease;
+}
+
+.kgp-card:hover:not(.is-active) {
+  box-shadow: inset 0 0 0 1px var(--kgp-line-strong);
+}
+
+.kgp-card.is-active {
+  box-shadow: inset 0 0 0 1.5px var(--kgp-ink), 0 22px 44px -30px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='dark'] .kgp-card {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.kgp-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kgp-card-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(18px * var(--krp-fs, 1));
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.kgp-card-crown {
+  width: 15px;
+  height: 15px;
+}
+
+.kgp-card-now {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--kgp-wash-2);
+  color: var(--kgp-sub);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* 右上角的单选圈：没选是空心圈，选中是墨色实心 + 勾 */
+.kgp-card-radio {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin-left: auto;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--kgp-line-strong);
+  color: transparent;
+  transition: background-color 180ms ease, box-shadow 180ms ease, color 180ms ease;
+}
+
+.kgp-card.is-active .kgp-card-radio {
+  background: var(--kgp-ink);
+  box-shadow: none;
+  color: var(--kgp-on-ink);
+}
+
+.kgp-card-line {
+  margin-top: 6px;
+  color: var(--kgp-sub);
+  font-size: calc(13px * var(--krp-fs, 1));
+}
+
+.kgp-card-price {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 26px;
+}
+
+.kgp-card-price b {
+  font-size: calc(34px * var(--krp-fs, 1));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.kgp-card-price small,
+.kgp-card-sub {
+  color: var(--kgp-sub);
+  font-size: calc(12.5px * var(--krp-fs, 1));
+}
+
+.kgp-card-price small {
+  align-self: flex-end;
+  padding-bottom: 3px;
+}
+
+.kgp-card-sub {
+  margin-top: 8px;
+}
+
+.kgp-perks {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--kgp-line);
+}
+
+.kgp-perks li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--kgp-sub);
+  font-size: calc(13px * var(--krp-fs, 1));
+}
+
+.kgp-perks li svg {
+  flex: none;
+  color: var(--kgp-faint);
+}
+
+.kgp-perks li span {
+  flex: 1;
+  min-width: 0;
+}
+
+.kgp-perks li b {
+  color: var(--kgp-ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kgp-perks li.is-off b {
+  color: var(--kgp-faint);
+  font-weight: 400;
+}
+
+.kgp-explain {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--kgp-wash);
+  color: var(--kgp-sub);
+  font-size: calc(12.5px * var(--krp-fs, 1));
+  line-height: 1.6;
+}
+
+.kgp-explain svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--kgp-ink);
+}
+
+.kgp-explain b {
+  margin-right: 4px;
+  color: var(--kgp-ink);
+  font-weight: 600;
+}
+
+.kgp-baseline {
+  color: var(--kgp-faint);
+  font-size: calc(12px * var(--krp-fs, 1));
+}
+
+/* 卡片下面的一句提示（同一时间最多一条） */
+.kgp-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: -6px;
+  color: var(--kgp-sub);
+  font-size: calc(12.5px * var(--krp-fs, 1));
+  line-height: 1.55;
+}
+
+.kgp-hint svg {
+  flex: none;
+  margin-top: 2.5px;
+}
+
+.kgp-hint--warn { color: var(--kgp-warn); }
+.kgp-hint--danger { color: var(--kgp-bad); }
+
+.kgp-foot {
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 16px 24px 16px 32px;
+  border-top-color: var(--kgp-line);
+}
+
+.kgp-foot-sum {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  line-height: 1;
+  margin-right: auto;
+  color: var(--kgp-sub);
+  font-size: calc(13px * var(--krp-fs, 1));
+}
+
+.kgp-foot-sum > span {
+  /* 中文字的字面比数字偏低，和右边的大数字放在一行时往上提 1px，看起来才等高 */
+  transform: translateY(-1px);
+}
+
+.kgp-foot-sum b {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--kgp-ink);
+  font-size: calc(18px * var(--krp-fs, 1));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.kgp-skeleton {
+  gap: 10px;
+}
+
+.kgp-skeleton span {
+  display: block;
+  height: 64px;
+  border-radius: 12px;
+  background: var(--kgp-wash);
+}
+
+/* 确认页 */
+.kgp-confirm-hero {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--kgp-wash);
+}
+
+.kgp-confirm-hero .kgp-tag { margin-left: 0; }
+
+.kgp-diff {
+  display: grid;
+  gap: 9px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--kgp-line);
+}
+
+.kgp-diff li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--krp-fs, 1));
+}
+
+.kgp-diff li span {
+  flex: 1;
+}
+
+.kgp-diff li em {
+  color: var(--kc-subtle, var(--kc-muted));
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+.kgp-diff-arrow {
+  flex: none;
+  opacity: 0.55;
+}
+
+.kgp-diff li b {
+  min-width: 64px;
+  color: var(--kgp-ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.kgp-forfeit {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--kgp-warn) 45%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--kgp-warn) 8%, transparent);
+  cursor: pointer;
+}
+
+.kgp-forfeit.is-checked {
+  border-color: var(--kgp-line-strong);
+  background: var(--kgp-wash);
+}
+
+.kgp-forfeit input {
+  margin-top: 3px;
+}
+
+.kgp-forfeit span {
+  display: grid;
+  gap: 2px;
+}
+
+.kgp-forfeit small {
+  color: var(--kc-muted);
+}
+
+/* 成功 */
+.kgp-done {
+  align-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.kgp-done-medal {
+  position: relative;
+  display: grid;
+  width: 60px;
+  height: 60px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kgp-ink);
+  color: var(--kgp-on-ink);
+}
+
+.kgp-done-title {
+  font-size: calc(18px * var(--krp-fs, 1));
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.kgp-done-tag {
+  margin: 0 4px;
+}
+
+.kgp-done-sub {
+  color: var(--kc-muted);
+}
+
+/* 一次轻微的光圈 + 弹簧缩放；没有动效时 is-celebrate 不会加上 */
+.kgp-done.is-celebrate .kgp-done-medal {
+  animation: kgp-spring 620ms cubic-bezier(0.2, 0.9, 0.3, 1.35) both;
+}
+
+.kgp-done.is-celebrate .kgp-done-medal::after {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: kgp-halo 700ms ease-out 120ms both;
+  content: '';
+}
+
+@keyframes kgp-spring {
+  0% { opacity: 0; transform: scale(0.4); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes kgp-halo {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--kgp-ink) 30%, transparent); opacity: 1; }
+  100% { box-shadow: 0 0 0 22px transparent; opacity: 0; }
+}
+
+.kgp-panel.is-still *,
+.kgp-panel.is-still *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 购买记录 */
+.kgp-records {
+  display: grid;
+}
+
+.kgp-records li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--kc-border);
+}
+
+.kgp-record-main,
+.kgp-record-side {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.kgp-record-main .kgp-tag { margin-left: 0; }
+
+.kgp-record-side {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.kgp-record-side small {
+  color: var(--kc-muted);
+}
+
+/* 群资料页里的「群升级」「群文件」：和侧栏其他区块一样的一张卡片、两行（结构是 kui-group + kui-row） */
+.kgp-info .kgp-info-row {
+  min-height: 54px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.kgp-info .kgp-info-row:disabled {
+  cursor: default;
+}
+
+.kgp-info .kgp-info-row:disabled:hover {
+  background: transparent;
+}
+
+.kgp-info-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.kgp-info-cta {
+  flex: none;
+  color: var(--kgp-sub);
+  font-size: calc(12.5px * var(--kui-fs, 1));
+}
+
+.kgp-info-chev {
+  flex: none;
+  color: var(--kgp-faint);
+}
+
+.kgp-upsell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+/* ───────── 移动布局 ───────── */
+
+[data-layout='mobile'] .kgp-layer .kgp-panel {
+  width: 100%;
+  max-height: 90%;
+}
+
+[data-layout='mobile'] .kgp-layer .kgp-panel {
+  border-radius: 24px 24px 0 0;
+}
+
+[data-layout='mobile'] .kgp-hero {
+  gap: 16px;
+  padding: 22px 12px 0 20px;
+}
+
+[data-layout='mobile'] .kgp-hero-title h2 {
+  font-size: 21px;
+}
+
+[data-layout='mobile'] .kgp-status {
+  display: grid;
+  margin-right: 8px;
+  padding: 14px 16px;
+}
+
+[data-layout='mobile'] .kgp-meters {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding-right: 6px;
+}
+
+[data-layout='mobile'] .kgp-select {
+  padding: 22px 20px 18px;
+}
+
+[data-layout='mobile'] .kgp-foot-sum > span {
+  display: none;
+}
+
+[data-layout='mobile'] .kgp-tiers {
+  display: flex;
+  margin: 0 -20px;
+  padding: 4px 20px 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+[data-layout='mobile'] .kgp-tiers::-webkit-scrollbar {
+  display: none;
+}
+
+[data-layout='mobile'] .kgp-card {
+  flex: 0 0 78%;
+  scroll-snap-align: center;
+}
+
+[data-layout='mobile'] .kgp-btn {
+  height: 44px;
+}
+
+[data-layout='mobile'] .kgp-panel .krp-panel-foot > .kgp-btn:last-child {
+  flex: 1;
+}

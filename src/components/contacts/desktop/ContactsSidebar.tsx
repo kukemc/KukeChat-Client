@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { BirthdayMark, FriendBirthdayBanner } from '@/components/birthday/BirthdayBits';
 import { UserLevelIcons } from '@/components/level/LevelIcons';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { conversationTier } from '@/components/groupPlus/tier';
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuSurface, MenuLayer } from '@/components/ui/ContextMenu';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { Conversation, Friendship, User } from '@/types/api';
@@ -16,7 +19,8 @@ interface ContactsSidebarProps {
   friendTotal: number;
   friendsLoading: boolean;
   groups: Conversation[];
-  pendingCount: number;
+  /** 通知中心角标：上次打开之后来的新通知数 */
+  newCount: number;
   blockCount: number;
   onViewChange: (view: ContactsView) => void;
   onQueryChange: (query: string) => void;
@@ -44,7 +48,7 @@ const ENTRIES: Array<{ kind: 'notifications' | 'blocks' | 'search'; label: strin
 ];
 
 /** 联系人页的列表栏：搜索、三个入口，以及好友 / 群聊列表和它们的右键菜单。 */
-export function ContactsSidebar({ view, query, friends, friendTotal, friendsLoading, groups, pendingCount, blockCount, onViewChange, onQueryChange, onOpenGlobalSearch, onStartChat, onRemoveFriend, onOpenConversation }: ContactsSidebarProps): JSX.Element {
+export function ContactsSidebar({ view, query, friends, friendTotal, friendsLoading, groups, newCount, blockCount, onViewChange, onQueryChange, onOpenGlobalSearch, onStartChat, onRemoveFriend, onOpenConversation }: ContactsSidebarProps): JSX.Element {
   const [tab, setTab] = useState<ListTab>('friends');
   const [menu, setMenu] = useState<MenuState | null>(null);
   const rootRef = useRef<HTMLElement>(null);
@@ -108,7 +112,7 @@ export function ContactsSidebar({ view, query, friends, friendTotal, friendsLoad
           }}>
             <Icon name={entry.icon} />
             <span className="kcc-entry-label">{entry.label}</span>
-            {entry.kind === 'notifications' && pendingCount ? <span className="kui-badge">{pendingCount > 99 ? '99+' : pendingCount}</span> : null}
+            {entry.kind === 'notifications' && newCount ? <span className="kui-badge">{newCount > 99 ? '99+' : newCount}</span> : null}
             {entry.kind === 'blocks' && blockCount ? <span className="kcc-entry-count">{blockCount}</span> : null}
           </button>
         ))}
@@ -127,6 +131,8 @@ export function ContactsSidebar({ view, query, friends, friendTotal, friendsLoad
             {friendsLoading ? <p className="kui-empty">正在加载好友…</p> : null}
             {!friendsLoading && friendTotal === 0 ? <p className="kui-empty">还没有好友<br />去「找人」发一个好友申请</p> : null}
             {!friendsLoading && friendTotal > 0 && friends.length === 0 ? <p className="kui-empty">没有匹配的好友</p> : null}
+            {/* 今天过生日的好友：顶上提一句，列表本身不重排，名字后面有个小蛋糕 */}
+            <FriendBirthdayBanner users={friends.map(friendUser)} variant="desktop" onOpenUser={(user) => onViewChange({ kind: 'friend', id: user.id })} />
             {friends.map((friendship) => {
               const user = friendUser(friendship);
               if (!user?.id) {
@@ -143,7 +149,7 @@ export function ContactsSidebar({ view, query, friends, friendTotal, friendsLoad
                 >
                   <Avatar user={user} size="message" />
                   <span className="kcc-item-main">
-                    <span className="kcc-item-title">{getDisplayName(user, `用户 ${user.id}`)} <UserLevelIcons user={user} passive /></span>
+                    <span className="kcc-item-title">{getDisplayName(user, `用户 ${user.id}`)} <FriendBadgeMark userId={user.id} /><UserLevelIcons user={user} passive /><BirthdayMark user={user} /></span>
                     <span className="kcc-item-sub">{user.bio || user.email || '这个人很神秘，还没有简介'}</span>
                   </span>
                 </button>
@@ -165,7 +171,7 @@ export function ContactsSidebar({ view, query, friends, friendTotal, friendsLoad
                   onDoubleClick={() => onOpenConversation(conversation.id)}
                   onContextMenu={(event) => openMenu(event, { kind: 'group', conversation })}
                 >
-                  <Avatar avatarUrl={conversation.avatar_url} label={title} size="message" toneKey={conversation.id} />
+                  <Avatar avatarUrl={conversation.avatar_url} label={title} size="message" toneKey={conversation.id} plusTier={conversationTier(conversation)} />
                   <span className="kcc-item-main">
                     <span className="kcc-item-title">{title}</span>
                     <span className="kcc-item-sub">{conversation.member_count ?? conversation.members?.length ?? 0} 名成员{announcement ? ` · ${announcement}` : ''}</span>

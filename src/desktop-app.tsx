@@ -162,9 +162,9 @@ function DesktopTitleBar(): JSX.Element {
 
   return (
     <>
-    <header onPointerDown={startWindowDrag} className="kwf-titlebar">
+    <header onPointerDown={startWindowDrag} className={currentUser ? 'kwf-titlebar' : 'kwf-titlebar kwf-titlebar--bare'}>
       <div className="kwf-identity">
-        {currentUser ? <SelfCardTrigger user={currentUser} label={title} /> : <h1 className="kwf-title">{title}</h1>}
+        {currentUser ? <SelfCardTrigger user={currentUser} label={title} /> : null}
         {currentUser ? <span className="kwf-bio">{bio}</span> : null}
         {currentUser ? (
           <div ref={onlineAnchorRef} data-window-action className="kwf-online" onMouseEnter={openOnlinePopover} onMouseLeave={scheduleCloseOnlinePopover} onFocus={openOnlinePopover} onBlur={scheduleCloseOnlinePopover}>
@@ -225,7 +225,7 @@ function DesktopAppContent(): JSX.Element {
       data-font-scale={uiFontScale}
       data-kc-wallpaper={themeRoot['data-kc-wallpaper']}
       style={themeRoot.style}
-      className="kc-desktop-app flex h-full min-h-0 flex-col overflow-hidden [color:var(--kc-text)]"
+      className="kc-desktop-app relative flex h-full min-h-0 flex-col overflow-hidden [color:var(--kc-text)]"
     >
       <ThemeEffects scheme={resolvedThemeMode} />
       <DesktopTitleBar />

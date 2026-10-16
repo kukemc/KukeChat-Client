@@ -5,6 +5,16 @@ import { resolveAssetUrl } from '@/utils/assetUrl';
 // constructed from parsed tokens, and all URLs are validated against an http(s)
 // allow-list. Mirrors the hardened renderer used for bot messages.
 
+const DEFAULT_IMAGE_CLASS = 'my-1 max-h-72 max-w-full rounded-xl border object-contain [border-color:var(--kc-border)]';
+
+/** 渲染 markdown 时按调用方需要覆盖默认行为。不传就是原来的样子。 */
+export interface MarkdownRenderOptions {
+  /** 覆盖 <img> 的 class。不传用默认的 max-h-72。 */
+  imageClassName?: string;
+  /** 传入后图片变成可点（外层套一个 button），点击回调这张图的地址。 */
+  onImageClick?: (src: string) => void;
+}
+
 function safeLinkUrl(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed || /[\u0000-\u001f<>"'`]/.test(trimmed)) {
@@ -37,8 +47,9 @@ function safeImageUrl(value: string): string | undefined {
   }
 }
 
-function renderInline(value: string, keyPrefix: string): Array<string | JSX.Element> {
+function renderInline(value: string, keyPrefix: string, options: MarkdownRenderOptions = {}): Array<string | JSX.Element> {
   const result: Array<string | JSX.Element> = [];
+  const imageClass = options.imageClassName ?? DEFAULT_IMAGE_CLASS;
   const pattern = /(!\[([^\]\n]{0,80})\]\(([^\s)<>]{1,500})\))|(\*\*([^*\n]+)\*\*)|(__([^_\n]+)__)|(~~([^~\n]+)~~)|(\*([^*\n]+)\*)|(_([^_\n]+)_)|(`([^`\n]+)`)|(\[([^\]\n]{1,80})\]\(([^\s)<>]{1,500})\))/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -48,17 +59,24 @@ function renderInline(value: string, keyPrefix: string): Array<string | JSX.Elem
     }
     if (match[1]) {
       const src = safeImageUrl(match[3]);
-      result.push(src ? <img key={`${keyPrefix}-img-${match.index}`} src={src} alt={match[2] || '图片'} loading="lazy" className="my-1 max-h-72 max-w-full rounded-xl border object-contain [border-color:var(--kc-border)]" /> : <span key={`${keyPrefix}-badimg-${match.index}`} className="text-xs [color:var(--kc-muted)]">[图片链接不可用]</span>);
+      result.push(
+        src
+          ? (options.onImageClick
+            // 可点的时候外面套 button：键盘可达，回车也能打开大图
+            ? <button key={`${keyPrefix}-img-${match.index}`} type="button" onClick={() => options.onImageClick?.(src)} className="block max-w-full cursor-zoom-in appearance-none border-0 bg-transparent p-0 text-left"><img src={src} alt={match[2] || '图片'} loading="lazy" className={imageClass} /></button>
+            : <img key={`${keyPrefix}-img-${match.index}`} src={src} alt={match[2] || '图片'} loading="lazy" className={imageClass} />)
+          : <span key={`${keyPrefix}-badimg-${match.index}`} className="text-xs [color:var(--kc-muted)]">[图片链接不可用]</span>
+      );
     } else if (match[4]) {
-      result.push(<strong key={`${keyPrefix}-b-${match.index}`} className="font-bold">{renderInline(match[5], `${keyPrefix}-b-${match.index}`)}</strong>);
+      result.push(<strong key={`${keyPrefix}-b-${match.index}`} className="font-bold">{renderInline(match[5], `${keyPrefix}-b-${match.index}`, options)}</strong>);
     } else if (match[6]) {
-      result.push(<strong key={`${keyPrefix}-b2-${match.index}`} className="font-bold">{renderInline(match[7], `${keyPrefix}-b2-${match.index}`)}</strong>);
+      result.push(<strong key={`${keyPrefix}-b2-${match.index}`} className="font-bold">{renderInline(match[7], `${keyPrefix}-b2-${match.index}`, options)}</strong>);
     } else if (match[8]) {
-      result.push(<del key={`${keyPrefix}-s-${match.index}`} className="opacity-70">{renderInline(match[9], `${keyPrefix}-s-${match.index}`)}</del>);
+      result.push(<del key={`${keyPrefix}-s-${match.index}`} className="opacity-70">{renderInline(match[9], `${keyPrefix}-s-${match.index}`, options)}</del>);
     } else if (match[10]) {
-      result.push(<em key={`${keyPrefix}-i-${match.index}`} className="italic">{renderInline(match[11], `${keyPrefix}-i-${match.index}`)}</em>);
+      result.push(<em key={`${keyPrefix}-i-${match.index}`} className="italic">{renderInline(match[11], `${keyPrefix}-i-${match.index}`, options)}</em>);
     } else if (match[12]) {
-      result.push(<em key={`${keyPrefix}-i2-${match.index}`} className="italic">{renderInline(match[13], `${keyPrefix}-i2-${match.index}`)}</em>);
+      result.push(<em key={`${keyPrefix}-i2-${match.index}`} className="italic">{renderInline(match[13], `${keyPrefix}-i2-${match.index}`, options)}</em>);
     } else if (match[14]) {
       result.push(<code key={`${keyPrefix}-c-${match.index}`} className="rounded bg-black/5 px-1 py-0.5 font-mono text-[0.9em] dark:bg-white/10">{match[15]}</code>);
     } else if (match[16] && match[18]) {
@@ -86,7 +104,7 @@ function isTableDivider(value: string): boolean {
   return Boolean(cells?.length && cells.every((cell) => /^:?-{1,}:?$/.test(cell)));
 }
 
-export function renderMarkdown(content: string): JSX.Element {
+export function renderMarkdown(content: string, options: MarkdownRenderOptions = {}): JSX.Element {
   const limited = content.length > 12000 ? `${content.slice(0, 12000)}…` : content;
   const lines = limited.replace(/\r\n/g, '\n').split('\n').slice(0, 400);
   const nodes: JSX.Element[] = [];
@@ -99,13 +117,13 @@ export function renderMarkdown(content: string): JSX.Element {
   function flushUl(key: string): void {
     if (listItems.length === 0) return;
     const items = listItems;
-    nodes.push(<ul key={key} className="my-1.5 list-disc space-y-1 pl-5">{items.map((item, index) => <li key={index}>{renderInline(item, `${key}-${index}`)}</li>)}</ul>);
+    nodes.push(<ul key={key} className="my-1.5 list-disc space-y-1 pl-5">{items.map((item, index) => <li key={index}>{renderInline(item, `${key}-${index}`, options)}</li>)}</ul>);
     listItems = [];
   }
   function flushOl(key: string): void {
     if (orderedItems.length === 0) return;
     const items = orderedItems;
-    nodes.push(<ol key={key} className="my-1.5 list-decimal space-y-1 [padding-inline-start:2.5em]">{items.map((item, index) => <li key={index}>{renderInline(item, `${key}-${index}`)}</li>)}</ol>);
+    nodes.push(<ol key={key} className="my-1.5 list-decimal space-y-1 [padding-inline-start:2.5em]">{items.map((item, index) => <li key={index}>{renderInline(item, `${key}-${index}`, options)}</li>)}</ol>);
     orderedItems = [];
   }
   function flushLists(key: string): void {
@@ -164,9 +182,9 @@ export function renderMarkdown(content: string): JSX.Element {
         <div key={`table-${index}`} className="scroll-soft my-2 block w-full max-w-full overflow-x-auto rounded-xl border [border-color:var(--kc-border)]">
           <table className="w-max min-w-full border-collapse text-left text-[13px] leading-5">
             <thead className="[background:var(--kc-panel-muted)]">
-              <tr>{header.map((cell, cellIndex) => <th key={cellIndex} className="border-b px-3 py-2 font-semibold [border-color:var(--kc-border)]">{renderInline(cell, `th-${index}-${cellIndex}`)}</th>)}</tr>
+              <tr>{header.map((cell, cellIndex) => <th key={cellIndex} className="border-b px-3 py-2 font-semibold [border-color:var(--kc-border)]">{renderInline(cell, `th-${index}-${cellIndex}`, options)}</th>)}</tr>
             </thead>
-            <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex} className={rowIndex % 2 ? 'bg-black/[0.02] dark:bg-white/[0.03]' : ''}>{header.map((_cell, cellIndex) => <td key={cellIndex} className="border-t px-3 py-2 align-top [border-color:var(--kc-border)]">{renderInline(row[cellIndex] ?? '', `td-${index}-${rowIndex}-${cellIndex}`)}</td>)}</tr>)}</tbody>
+            <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex} className={rowIndex % 2 ? 'bg-black/[0.02] dark:bg-white/[0.03]' : ''}>{header.map((_cell, cellIndex) => <td key={cellIndex} className="border-t px-3 py-2 align-top [border-color:var(--kc-border)]">{renderInline(row[cellIndex] ?? '', `td-${index}-${rowIndex}-${cellIndex}`, options)}</td>)}</tr>)}</tbody>
           </table>
         </div>
       );
@@ -198,15 +216,15 @@ export function renderMarkdown(content: string): JSX.Element {
     if (heading) {
       const level = heading[1].length;
       const sizeClass = level === 1 ? 'text-lg' : level === 2 ? 'text-base' : level === 3 ? 'text-[15px]' : 'text-sm';
-      nodes.push(<p key={`h-${index}`} className={`mt-1 font-black leading-7 [color:var(--kc-text)] ${sizeClass}`}>{renderInline(heading[2], `h-${index}`)}</p>);
+      nodes.push(<p key={`h-${index}`} className={`mt-1 font-black leading-7 [color:var(--kc-text)] ${sizeClass}`}>{renderInline(heading[2], `h-${index}`, options)}</p>);
       continue;
     }
     const quote = /^>\s?(.+)$/.exec(trimmed);
     if (quote) {
-      nodes.push(<blockquote key={`q-${index}`} className="my-1 border-l-[3px] pl-3 text-[0.95em] [border-color:var(--kc-accent)] [color:var(--kc-muted)]">{renderInline(quote[1], `q-${index}`)}</blockquote>);
+      nodes.push(<blockquote key={`q-${index}`} className="my-1 border-l-[3px] pl-3 text-[0.95em] [border-color:var(--kc-accent)] [color:var(--kc-muted)]">{renderInline(quote[1], `q-${index}`, options)}</blockquote>);
       continue;
     }
-    nodes.push(<p key={`p-${index}`} className="leading-7">{renderInline(line, `p-${index}`)}</p>);
+    nodes.push(<p key={`p-${index}`} className="leading-7">{renderInline(line, `p-${index}`, options)}</p>);
   }
   flushLists('list-end');
   flushCode('code-end');
@@ -214,6 +232,31 @@ export function renderMarkdown(content: string): JSX.Element {
   return <div className="kc-markdown min-w-0 max-w-full space-y-0.5 break-words [overflow-wrap:anywhere]">{nodes}</div>;
 }
 
-export function Markdown({ content, className }: { content: string; className?: string }): JSX.Element {
-  return <div className={className}>{renderMarkdown(content)}</div>;
+export function Markdown({ content, className, imageClassName, onImageClick }: { content: string; className?: string } & MarkdownRenderOptions): JSX.Element {
+  return <div className={className}>{renderMarkdown(content, { imageClassName, onImageClick })}</div>;
+}
+
+// ---------------------------------------------------------------------------
+// 长图（公告里的更新日志整图、信息图）
+//
+// 默认的 <img> 带着 max-h-72（288px）。公告长图是一整张 1000+ × 7000+ 的图，
+// 套上它就只剩一条缝。下面这组给公告用：不限高度、按原比例铺满正文宽度、
+// 点一下看大图。组队简介等其它调用方不传这些 prop，行为一个字都不变。
+// ---------------------------------------------------------------------------
+
+/** 不限高度、按宽高比自适应；max-h-none 压掉默认的 max-h-72。 */
+export const LONG_IMAGE_CLASS =
+  'my-3 block h-auto max-h-none w-full max-w-full rounded-2xl border object-contain [border-color:var(--kc-border)]';
+
+export interface LongImageOptions {
+  /** 从正文里点开某张图（配合 ImageViewer）。不传则图片不可点。 */
+  onOpenImage?: (src: string) => void;
+}
+
+/** 公告正文用的一组渲染 prop：长图样式 + 可点开大图。 */
+export function longImageMarkdownProps({ onOpenImage }: LongImageOptions = {}): MarkdownRenderOptions {
+  return {
+    imageClassName: LONG_IMAGE_CLASS,
+    onImageClick: onOpenImage
+  };
 }

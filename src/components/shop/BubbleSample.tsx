@@ -63,10 +63,12 @@ interface BubbleStageProps {
   avatars?: boolean;
   /** 别人的那几条也穿这件皮肤（试穿时两边都看） */
   both?: boolean;
+  /** 头像框的试穿：自己那几条消息的头像套上这一份头像框（要带 avatars） */
+  frameStyle?: unknown;
   className?: string;
 }
 
-export function BubbleStage({ style, skin: givenSkin, messages, layout, avatars = false, both = true, className }: BubbleStageProps): JSX.Element {
+export function BubbleStage({ style, skin: givenSkin, messages, layout, avatars = false, both = true, frameStyle, className }: BubbleStageProps): JSX.Element {
   const currentUser = useKukeStore((state) => state.currentUser);
   const { motion } = useSkinSettings();
   const skin = useMemo(() => (givenSkin !== undefined ? givenSkin : parseBubbleSkin(style)), [givenSkin, style]);
@@ -76,7 +78,7 @@ export function BubbleStage({ style, skin: givenSkin, messages, layout, avatars 
       <div className={cx('ksp-stage ksp-stage--mobile', className)} aria-hidden="true">
         {messages.map((message, index) => {
           const wear = skin && (message.mine || both) ? skin : null;
-          const avatar = avatars ? <span className="h-9 w-9 shrink-0 rounded-full [&>*]:h-full [&>*]:w-full">{message.mine ? <Avatar user={currentUser} label={currentUser ? undefined : '我'} size="message" /> : <Avatar label={OTHER_NAME} toneKey={2} size="message" />}</span> : null;
+          const avatar = avatars ? <span className="h-9 w-9 shrink-0 rounded-full [&>*]:h-full [&>*]:w-full">{message.mine ? <Avatar user={currentUser} label={currentUser ? undefined : '我'} size="message" frameStyle={frameStyle} /> : <Avatar label={OTHER_NAME} toneKey={2} size="message" />}</span> : null;
           return (
             <div key={index} className={`kc-mobile-message-row flex w-full min-w-0 items-start gap-2 px-1 py-0.5 ${message.mine ? 'justify-end' : 'justify-start'}`}>
               {message.mine ? null : avatar}
@@ -102,7 +104,7 @@ export function BubbleStage({ style, skin: givenSkin, messages, layout, avatars 
         return (
           <div key={index} className="kcd-item">
             <div className={cx('kcd-row', message.mine && 'is-mine')}>
-              {avatars ? <div className="kcd-avatar-slot"><span className="kcd-avatar">{message.mine ? <Avatar user={currentUser} label={currentUser ? undefined : '我'} size="message" /> : <Avatar label={OTHER_NAME} toneKey={2} size="message" />}</span></div> : null}
+              {avatars ? <div className="kcd-avatar-slot"><span className="kcd-avatar">{message.mine ? <Avatar user={currentUser} label={currentUser ? undefined : '我'} size="message" frameStyle={frameStyle} /> : <Avatar label={OTHER_NAME} toneKey={2} size="message" />}</span></div> : null}
               <div className="kcd-main">
                 <div className="kcd-line">
                   <div className={cx('kcd-content kcd-bubble', wear && bubbleSkinClass(wear, message.mine))} style={wear?.vars}>

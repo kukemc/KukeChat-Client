@@ -1,42 +1,30 @@
 import { Icon } from '@/components/ui/Icon';
 import { useKukeStore } from '@/store/kukeStore';
-import type { LevelTab } from '@/types/level';
 import { useLevelRules } from '../data';
 import { LevelBody } from '../LevelBody';
 
-const TABS: Array<{ value: LevelTab; label: string }> = [{ value: 'me', label: '我的等级' }, { value: 'board', label: '排行榜' }];
-
 /**
  * 账号等级：桌面端的页面。它是一个工作区（和商店、风纪并列），但导航栏里没有它的入口 ——
- * 从自己的等级图标、个人主页、设置里进来，标题栏左边的箭头回到进来之前的那一页。
+ * 从自己的等级图标、个人主页、设置里进来，标题栏左边的箭头回到进来之前的那一页。活跃榜在排行榜页（导航栏里的奖杯），这里的入口跳过去。
  * 外框（标题栏、滚动区、空状态）沿用商店页的那一套（ksp-），内容在 LevelBody。
  * 契约：KukeChat-Server 的 docs/account-level.md。预览页：dev/level-harness.html。样式在 src/styles/level.css（前缀 klv-）。
  */
 export function LevelPage(): JSX.Element {
-  const tab = useKukeStore((state) => state.levelTab);
-  const setTab = useKukeStore((state) => state.setLevelTab);
   const closeLevel = useKukeStore((state) => state.closeLevel);
   const query = useLevelRules();
   const rules = query.data;
 
   return (
     <section className="ksp-root" aria-label="账号等级">
-      <div className="ksp klv-page" data-level-page={tab}>
+      <div className="ksp klv-page" data-level-page="me">
         <header className="ksp-head">
           <button type="button" className="kui-icon-btn" aria-label="返回" title="返回" data-action="level-back" onClick={closeLevel}><Icon name="chevronLeft" className="h-4 w-4" /></button>
           <h1 className="ksp-head-title">账号等级</h1>
           <p className="ksp-head-sub">在 KukeChat 待了多久、有多活跃</p>
-          {rules ? (
-            <div className="ksp-head-actions">
-              <div className="kui-segment" role="tablist" aria-label="等级页">
-                {TABS.map((item) => <button key={item.value} type="button" role="tab" data-level-tab={item.value} aria-selected={tab === item.value} className={tab === item.value ? 'is-active' : undefined} onClick={() => setTab(item.value)}>{item.label}</button>)}
-              </div>
-            </div>
-          ) : null}
         </header>
         <div className="ksp-body kui-scroll">
           <div className="ksp-wrap klv-wrap">
-            {rules ? <LevelBody rules={rules} tab={tab} layout="desktop" onTab={setTab} />
+            {rules ? <LevelBody rules={rules} layout="desktop" />
               : rules === null ? (
                 <div className="ksp-state" data-level="unavailable">
                   <span className="ksp-state-icon"><Icon name="clock" className="h-5 w-5" /></span>

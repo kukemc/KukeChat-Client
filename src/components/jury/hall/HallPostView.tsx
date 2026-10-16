@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { cx } from '@/components/chat/desktop/runtime';
 import { getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { toast } from '@/components/ui/toast';
 import type { HallPost } from '@/types/juryHall';
 import { useJury } from '../context';
 import { hallKeys, useHallPost, useHallPostActions, useHallReport, useHallRules } from '../data/hall';
@@ -74,7 +75,6 @@ export function HallPostView({ postId, onBack, onEdit, onGone }: { postId: numbe
   const [reporting, setReporting] = useState<HallReportTarget | null>(null);
   // 「我举报过没有」以帖子 / 评论自带的 reported 为准；刚举报完、缓存还没更新的这一阵先自己记着
   const [reported, setReported] = useState<ReadonlySet<string>>(() => new Set());
-  const [toast, setToast] = useState<string | null>(null);
   const post = query.data;
 
   const markReported = (target: HallReportTarget): void => setReported((current) => new Set(current).add(`${target.type}:${target.id}`));
@@ -101,7 +101,6 @@ export function HallPostView({ postId, onBack, onEdit, onGone }: { postId: numbe
         ) : (
           <div className={cx('kjr-hall-layout', vote && 'is-proposal')} data-post={post.id} data-status={post.status}>
             <div className="kjr-hall-main">
-              {toast ? <p className="kui-note" role="status">{toast}</p> : null}
               <PostCard post={post} reported={Boolean(post.reported) || reported.has(`post:${post.id}`)} onEdit={onEdit} onDeleted={onBack} onReport={(target) => {
                 report.reset();
                 setReporting(target);
@@ -136,14 +135,14 @@ export function HallPostView({ postId, onBack, onEdit, onGone }: { postId: numbe
           onSubmit={(reason, details) => report.mutate({ target_type: reporting.type, target_id: reporting.id, reason, ...(details ? { details } : {}) }, {
             onSuccess: (result) => {
               markReported(reporting);
-              setToast(reportDoneText(result?.state, identity.isJuror, rules));
+              toast.success(reportDoneText(result?.state, identity.isJuror, rules));
               setReporting(null);
             },
             onError: (error) => {
               // 重复举报不算失败：直接当作已经举报过
               if (errorCode(error) === 'already_reported') {
                 markReported(reporting);
-                setToast(hallErrorText(error, rules, ''));
+                toast.info(hallErrorText(error, rules, ''));
                 setReporting(null);
               }
             }

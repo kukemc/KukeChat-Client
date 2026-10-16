@@ -1,6 +1,8 @@
 //! Desktop self-update: check → download (with progress, cancellable) → install on exit.
 //!
-//! The metadata is the backend's `/desktop-update.json` (`pc_version` + `pc_url`). The URL comes from
+//! The frontend normally checks `/api/v1/releases/latest` itself (changelog, forced flag, sha256) and only calls
+//! `desktop_update_download`; `desktop_update_check` below is the fallback that reads the backend's
+//! `/desktop-update.json` (`pc_version` + `pc_url`). The URL comes from
 //! the frontend's API config; `KUKECHAT_UPDATE_METADATA_URL` (runtime env, then compile-time env)
 //! still overrides it for local testing. Earlier builds only read the compile-time variable, so a
 //! build made without it silently never updated.
@@ -18,6 +20,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager};
 
 const PROGRESS_EVENT: &str = "kukechat-update-progress";
@@ -155,15 +158,25 @@ fn looks_like_installer(path: &Path) -> bool {
 
 /// Downloads the installer and returns its local path. Emits `kukechat-update-progress` about 10×/s.
 #[tauri::command]
-pub async fn desktop_update_download(app: AppHandle, url: String, version: String) -> Result<String, String> {
+pub async fn desktop_update_download(
+    app: AppHandle,
+    url: String,
+    version: String,
+    sha256: Option<String>,
+    expected_size: Option<u64>,
+) -> Result<String, String> {
     let url = http_url(&url).ok_or("安装包地址无效")?.to_string();
+    // 发版服务给的 sha256（64 位十六进制）；格式不对就当没给，不能因为它挡住更新
+    let sha256 = sha256
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit()));
     let state = app.state::<UpdateState>();
     if state.downloading.swap(true, Ordering::SeqCst) {
         return Err("已经在下载更新了".to_string());
     }
     state.cancel.store(false, Ordering::SeqCst);
     let (cancel, downloading) = (state.cancel.clone(), state.downloading.clone());
-    let result = tauri::async_runtime::spawn_blocking(move || download_blocking(&app, &url, &version, &cancel))
+    let result = tauri::async_runtime::spawn_blocking(move || download_blocking(&app, &url, &version, sha256.as_deref(), expected_size, &cancel))
         .await
         .map_err(|error| format!("下载任务失败：{error}"))
         .and_then(|inner| inner);
@@ -171,11 +184,42 @@ pub async fn desktop_update_download(app: AppHandle, url: String, version: Strin
     result.map(|path| path.to_string_lossy().into_owned())
 }
 
-fn download_blocking(app: &AppHandle, url: &str, version: &str, cancel: &AtomicBool) -> Result<PathBuf, String> {
+fn file_sha256(path: &Path) -> Option<String> {
+    let mut file = fs::File::open(path).ok()?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer).ok()?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Some(hex(&hasher.finalize()))
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn download_blocking(
+    app: &AppHandle,
+    url: &str,
+    version: &str,
+    sha256: Option<&str>,
+    expected_size: Option<u64>,
+    cancel: &AtomicBool,
+) -> Result<PathBuf, String> {
     let target = installer_path(version);
     if looks_like_installer(&target) {
         // Finished earlier (e.g. user chose "later"); files are only renamed into place once complete.
-        return Ok(target);
+        // With a known checksum, re-verify: a stale or tampered file must not be installed.
+        match sha256 {
+            Some(expected) if file_sha256(&target).as_deref() != Some(expected) => {
+                let _ = fs::remove_file(&target);
+            }
+            _ => return Ok(target),
+        }
     }
     fs::create_dir_all(update_dir()).map_err(|error| format!("无法创建更新目录：{error}"))?;
     let partial = target.with_extension("download");
@@ -186,6 +230,7 @@ fn download_blocking(app: &AppHandle, url: &str, version: &str, cancel: &AtomicB
     let mut reader = response.into_reader();
     let mut file = fs::File::create(&partial).map_err(|error| format!("无法写入安装包：{error}"))?;
     let mut buffer = vec![0u8; 64 * 1024];
+    let mut hasher = Sha256::new();
     let mut downloaded = 0u64;
     let mut last_emit = Instant::now() - Duration::from_secs(1);
     let fail = |message: String| { let _ = fs::remove_file(&partial); Err(message) };
@@ -204,6 +249,7 @@ fn download_blocking(app: &AppHandle, url: &str, version: &str, cancel: &AtomicB
             drop(file);
             return fail(format!("保存安装包失败：{error}"));
         }
+        hasher.update(&buffer[..read]);
         downloaded += read as u64;
         if last_emit.elapsed() >= Duration::from_millis(100) {
             last_emit = Instant::now();
@@ -217,8 +263,13 @@ fn download_blocking(app: &AppHandle, url: &str, version: &str, cancel: &AtomicB
     }
     drop(file);
 
-    if total.is_some_and(|expected| expected != downloaded) {
+    if total.is_some_and(|expected| expected != downloaded) || expected_size.is_some_and(|expected| expected != downloaded) {
         return fail("安装包下载不完整，请重试".to_string());
+    }
+    if let Some(expected) = sha256 {
+        if hex(&hasher.finalize()) != expected {
+            return fail("安装包校验失败，请重新下载".to_string());
+        }
     }
     if !looks_like_installer(&partial) {
         return fail("下载到的文件不是有效的安装包".to_string());

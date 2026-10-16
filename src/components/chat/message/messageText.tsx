@@ -1,5 +1,7 @@
 import type { Conversation, CcwCreationPreview, MessageMentionMetadata, MessageQuoteMetadata } from '@/types/api';
 import { Avatar } from '@/components/ui/Avatar';
+import { PlusCornerBadge } from '@/components/groupPlus/PlusBadge';
+import { conversationTier } from '@/components/groupPlus/tier';
 import { CcwCreationCard } from '@/components/ui/CcwCreationCard';
 import { resolveThumbnailUrl } from '@/utils/assetUrl';
 import { formatMessageDividerTime } from '@/utils/dateTime';
@@ -25,7 +27,10 @@ export function ConversationAvatar({ conversation, title, size = 'md' }: { conve
   if (conversation?.type === 'group') {
     const avatarUrl = resolveThumbnailUrl(conversation.avatar_url);
     if (avatarUrl) {
-      return <img src={avatarUrl} alt={title} className={`${sizeClass} shrink-0 rounded-full border object-cover [border-color:var(--kc-border)]`} />;
+      const tier = conversationTier(conversation);
+      const image = <img src={avatarUrl} alt={title} className={`${sizeClass} shrink-0 rounded-full border object-cover [border-color:var(--kc-border)]`} />;
+      // 付费群才多套一层放角标，免费群的结构和原来一样
+      return tier === 'free' ? image : <span className="kgp-avatar kgp-avatar--sm inline-block shrink-0">{image}<PlusCornerBadge tier={tier} /></span>;
     }
     const initial = title.trim().slice(0, 1).toUpperCase() || '群';
     return <div className={`${sizeClass} grid shrink-0 place-items-center rounded-full border font-semibold [background:var(--kc-panel-muted)] [border-color:var(--kc-border)] [color:var(--kc-text)]`}>{initial}</div>;

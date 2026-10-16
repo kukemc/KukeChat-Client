@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
+import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/desktop/Modal';
 import type { Conversation } from '@/types/api';
@@ -8,7 +9,7 @@ import { conversationDisplayTitle } from '../messageMeta';
 
 function TargetAvatar({ conversation, title }: { conversation: Conversation; title: string }): JSX.Element {
   return conversation.type === 'group'
-    ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} size="sm" />
+    ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} size="sm" plusTier={conversationTier(conversation)} />
     : <Avatar user={conversation.direct_user} label={title} size="sm" />;
 }
 

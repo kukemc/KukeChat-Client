@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { JuryBadge } from '@/components/jury/growth/JuryBadge';
@@ -118,6 +119,7 @@ function ChatSidebarInner({ conversation, currentUser, members, directUser, memb
               <button key={member.id} type="button" className="kcd-member" onClick={(event) => onOpenUser(event.currentTarget, member.user, member)} onContextMenu={(event) => onMemberContextMenu(event, member)}>
                 <Avatar user={member.user} label={name} size="sm" />
                 <span className="kcd-member-name">{name}</span>
+                <FriendBadgeMark userId={userId} size={14} />
                 {/* 成员栏很窄，公开身份的风纪委员只放一个小标记，悬停看全称 */}
                 <JuryBadge tier={member.user?.jury_badge} variant="icon" />
                 {badge ?<span className={`kcd-tag kcd-tag--${member.role}`}>{badge}</span> : null}

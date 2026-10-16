@@ -38,7 +38,7 @@ export function SelfCardTrigger({ user, label }: { user: User; label: string }):
           title={open ? undefined : '我的资料卡'}
           onClick={() => setOpen((value) => !value)}
         >
-          <Avatar user={user} label={label} size="sm" />
+          <Avatar user={user} label={label} size="sm" frame />
           <span className="kwf-title">{label}</span>
         </button>
       </h1>

@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KukeChat 登录页</title>
+<!--
+  登录页设计稿 v4 · 方案 C「积木」+ 跟着表单实时变化的积木
+  积木外观、拖动 / 吸附 / 运行沿用 ../index.html?c=C：scratchblocks@3.7.1（scratch3 主题，zh_cn）逐块渲染成 SVG，
+  接缝处理（seamless / setJoin）原样搬过来。需要联网读 jsdelivr。背景是同一套渲染出来的「虚拟积木描边」。
+  v4：
+    · 每个输入框都驱动一块积木：登录 = 说「你好，<用户名>!」+ 将 [密码] 设为 [●●●]；
+      注册 = 说「欢迎加入，<用户名>!」+ 将 [昵称] 设为 […]（填了昵称才接上来）+ 如果 <[密码] = [确认]> 那么 创建 […] 账号，
+      两次密码一致时布尔积木由灰变绿。
+    · 文本变了不换图：离屏渲染新 SVG，把现在这块的路径 / 参数槽 / 文字位置逐个数字插值过去（morph），文字交叉淡入淡出，
+      每帧同步接缝，所以下面的积木不会跳。每帧最多渲染一次（rAF 合并输入）。
+    · 登录 ⇄ 注册：共享的「当绿旗被点击」「说」原地变形，独有的积木脱离淡出，另一边的积木错开飞入、吸附上去；
+      表单的下划线滑动、标题交叉淡入、多出来的输入框展开 / 收起、按钮文字变形，整体高度连续变化。
+    · 动效关或系统减少动态效果：全部瞬时更新。
+  logo 由 build.py 内联（__WM__ 那一行别手改）。地址参数：?theme=light|dark  &motion=off  &s=idle|user|pass|ok|bad|reg
+-->
+<style>
+:root { --page:#e4e7ee; --page-text:#12141a; --page-muted:#676d7c; --page-card:#fff; --page-border:rgba(18,22,38,.1); color-scheme: light; }
+:root[data-theme="dark"] { --page:#0b0c0f; --page-text:#e1e4ea; --page-muted:#8d93a2; --page-card:#15161b; --page-border:rgba(255,255,255,.09); color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--page); color: var(--page-text); }
+body { font: 14px/1.6 Inter, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+svg.i { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ───────── 预览外壳 ───────── */
+.top { position: sticky; top: 0; z-index: 90; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 20px; background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--page-border); font-size: 12.5px; color: var(--page-muted); }
+.top b { color: var(--page-text); font-size: 14px; font-weight: 600; }
+.grp { display: flex; align-items: center; gap: 6px; }
+.pill { display: flex; padding: 2px; border-radius: 8px; background: color-mix(in srgb, var(--page-text) 7%, transparent); }
+.pill button { padding: 4px 10px; border: 0; border-radius: 6px; background: none; color: var(--page-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.pill button.on { background: var(--page-card); color: var(--page-text); box-shadow: 0 0 0 1px var(--page-border); }
+.intro { max-width: 960px; padding: 22px 20px 0; color: var(--page-muted); font-size: 13.5px; line-height: 1.7; }
+.intro b { color: var(--page-text); font-weight: 600; }
+.boards { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; padding: 22px 28px 60px; }
+.cap { display: block; margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--page-muted); }
+.slot { position: relative; }
+
+/* ───────── 令牌（kui.css） ───────── */
+.app { --fill:#1f6bff; --accent:#1f6bff; --on:#fff; --text:#12141a; --muted:#676d7c; --subtle:#a0a6b3; --border:rgba(18,22,38,.08); --bs:rgba(18,22,38,.15); --panel:#fff; --pm:#f0f1f5; --raise:#fff; --danger:#e0383e; --ok:#0d8f69;
+  --ws:#f3f4f8; --dot:rgba(18,22,38,.09); --ol:#1a1f33; --ol-k:1; --ease:cubic-bezier(.16,1,.3,1); --sp:cubic-bezier(.2,.8,.2,1);
+  position: relative; overflow: hidden; color: var(--text); font-size: 14px; line-height: 1.5; color-scheme: light; }
+.app.dark { --accent:#5b93ff; --text:#e1e4ea; --muted:#8d93a2; --subtle:#636979; --border:rgba(255,255,255,.075); --bs:rgba(255,255,255,.14); --panel:#1b1d23; --pm:#212329; --raise:#26282f; --danger:#ff6369; --ok:#3ecf9f;
+  --ws:#111217; --dot:rgba(255,255,255,.06); --ol:#c9d0e6; --ol-k:.62; color-scheme: dark; }
+
+.desk { width: 1100px; height: 720px; display: grid; grid-template-columns: 1fr 470px; border-radius: 10px; background: var(--panel); box-shadow: 0 0 0 1px rgba(18,22,38,.12), 0 30px 70px -24px rgba(18,22,38,.4); }
+.desk.dark { box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 30px 70px -24px rgba(0,0,0,.8); }
+.tb { position: absolute; z-index: 30; top: 0; right: 0; display: flex; height: 40px; pointer-events: none; }
+.tb span { display: grid; width: 46px; place-items: center; color: var(--muted); font-size: 15px; }
+.phone { width: 412px; height: 892px; display: flex; flex-direction: column; border-radius: 40px; background: var(--panel); box-shadow: 0 0 0 10px #16171b, 0 0 0 11px rgba(255,255,255,.06), 0 30px 70px -24px rgba(18,22,38,.45); }
+.sbar { position: absolute; z-index: 30; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; height: 40px; padding: 4px 28px 0 30px; font-size: 14px; font-weight: 600; pointer-events: none; }
+.sbar .r { display: flex; gap: 6px; font-size: 15px; }
+.gbar { position: absolute; z-index: 30; bottom: 8px; left: 50%; width: 120px; height: 4px; margin-left: -60px; border-radius: 2px; background: var(--text); opacity: .3; }
+
+/* ───────── 工作区（方案 C 的点阵画板） ───────── */
+.ws { position: relative; overflow: hidden; background-color: var(--ws); background-image: radial-gradient(circle, var(--dot) 1px, transparent 1.6px); background-size: 22px 22px; }
+.desk .ws { display: flex; flex-direction: column; padding: 30px 40px 32px; border-right: 1px solid var(--border); }
+.phone .ws { flex: none; height: 344px; padding: 52px 22px 0; border-bottom: 1px solid var(--border); transition: height .42s var(--sp); }
+.phone.kb .ws { height: 216px; }
+.brand { position: relative; z-index: 4; display: flex; align-items: center; flex: none; height: 34px; pointer-events: none; }
+.phone .brand { height: 30px; }
+.brand svg { display: block; height: 100%; width: auto; }
+.stage { position: relative; z-index: 3; }
+.desk .stage { flex: 1; margin: 6px -40px 10px; --bs: 1; }
+.phone .stage { position: absolute; left: 0; right: 0; top: 92px; bottom: 0; --bs: .8; }
+/* 手机键盘弹起：积木缩小留在原处，镜头跟着正在填的那块积木走，上下沿淡出 */
+.phone.kb .stage { --bs: .6; -webkit-mask-image: linear-gradient(transparent, #000 18px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(transparent, #000 18px, #000 calc(100% - 26px), transparent); }
+.claim { position: relative; z-index: 4; font-size: 22px; font-weight: 600; letter-spacing: -.015em; line-height: 1.45; pointer-events: none; }
+.claim span { color: var(--accent); }
+.meta { position: relative; z-index: 4; margin-top: 10px; color: var(--subtle); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* ───────── 虚拟积木描边 ───────── */
+.ol { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.ol-d { position: absolute; inset: 0; transition: transform 1.2s var(--ease); will-change: transform; }
+.ol-s { position: absolute; left: 0; top: 0; overflow: visible; transform-origin: 50% 50%; opacity: calc(var(--o) * var(--ol-k)); color: var(--ol);
+  animation: ol-drift var(--t, 60s) ease-in-out var(--dl, 0s) infinite alternate; }
+.ol-s * { fill: none !important; stroke: currentColor !important; stroke-width: var(--sw) !important; stroke-linejoin: round; filter: none !important; }
+@keyframes ol-drift { from { translate: 0 0; } to { translate: var(--dx, 10px) var(--dy, -14px); } }
+.no-motion .ol-s { animation: none; }
+.no-motion .ol-d { transition: none; transform: none !important; }
+
+/* ───────── Scratch 3 积木（scratchblocks 渲染，同方案 C） ───────── */
+.sb-layer { position: absolute; left: 0; top: 0; width: calc(100% / var(--bs, 1)); height: calc(100% / var(--bs, 1)); transform: translateY(var(--py, 0px)) scale(var(--bs, 1)); transform-origin: 0 0; transition: transform .42s var(--sp); touch-action: none; user-select: none; -webkit-user-select: none; }
+.sb-probe { position: absolute; left: 0; top: 0; width: 100px; height: 0; visibility: hidden; }
+.sb-blk { position: absolute; left: 0; top: 0; pointer-events: none; transform-origin: 0 0; transition: transform .4s var(--sp), opacity .25s; }
+.sb-blk svg { display: block; overflow: visible; transition: filter .12s; }
+.sb-blk .sb3-label { font-family: 'Helvetica Neue', Helvetica, Arial, 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif; }
+.sb-blk path, .sb-blk rect, .sb-blk text, .sb-blk use, .sb-blk image { pointer-events: auto; cursor: grab; }
+.sb-blk.leaving, .sb-blk.leaving * { pointer-events: none !important; }
+.sb-blk .pw-bool { transition: fill .32s var(--sp), stroke .32s var(--sp); }
+.sb-blk.glow svg { filter: drop-shadow(0 0 1px #fff200) drop-shadow(0 0 2px #fff200) drop-shadow(0 0 5px rgba(255,228,0,.75)); }
+.sb-drag { position: absolute; left: 0; top: 0; z-index: 500; will-change: transform; }
+.sb-lift { transition: transform .16s var(--ease), filter .16s; }
+.sb-lift.on { transform: scale(1.04); filter: drop-shadow(0 14px 14px rgba(18,22,38,.26)) drop-shadow(0 2px 3px rgba(18,22,38,.16)); }
+.dark .sb-lift.on { filter: drop-shadow(0 16px 16px rgba(0,0,0,.6)) drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
+.sb-drag .sb-blk { transition: none; }
+.sb-drag .sb-blk path, .sb-drag .sb-blk rect, .sb-drag .sb-blk text, .sb-drag .sb-blk use { cursor: grabbing; }
+.sb-ghost { position: absolute; left: 0; top: 0; z-index: 0; opacity: .2; pointer-events: none; }
+.sb-ghost svg { position: absolute; left: 0; overflow: visible; }
+.sb-ghost path { fill: #000 !important; stroke: none !important; }
+.dark .sb-ghost { opacity: .22; }
+.dark .sb-ghost path { fill: #fff !important; }
+.sb-say { position: absolute; z-index: 3; bottom: calc(100% - 6px); left: calc(100% - 26px); padding: 7px 13px; border: 2px solid rgba(0,0,0,.15); border-radius: 16px; background: #fff; background-clip: padding-box; color: #575e75; font: 600 14px/1.3 'Helvetica Neue', Helvetica, Arial, 'Microsoft YaHei UI', sans-serif; white-space: nowrap; pointer-events: none; transform-origin: 18px 100%; animation: sb-pop .3s cubic-bezier(.19,1.18,.22,1); }
+.sb-say::after { position: absolute; left: 14px; bottom: -9px; width: 12px; height: 12px; border: solid rgba(0,0,0,.15); border-width: 0 0 2px 2px; border-bottom-left-radius: 3px; background: #fff; transform: skewY(-38deg); content: ''; }
+.sb-say.out { opacity: 0; transform: scale(.9); transition: opacity .2s, transform .2s; }
+@keyframes sb-pop { from { opacity: 0; transform: scale(.6); } }
+.sb-val { position: absolute; top: calc(100% + 6px); left: 50%; padding: 3px 10px; border: 1px solid rgba(0,0,0,.15); border-radius: 8px; background: #fff; color: #575e75; font: 600 13px/1.4 'Helvetica Neue', Helvetica, Arial, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; transform: translateX(-50%); box-shadow: 0 2px 6px -2px rgba(0,0,0,.15); }
+.sb-val::before { position: absolute; top: -5px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border: solid rgba(0,0,0,.15); border-width: 1px 0 0 1px; background: #fff; transform: rotate(45deg); content: ''; }
+.sb-fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
+.no-motion .sb-blk, .no-motion .sb-lift, .no-motion .sb-blk svg, .no-motion .sb-layer, .no-motion .pw-bool { transition: none !important; }
+.no-motion .sb-lift.on { transform: none; }
+.no-motion .sb-say { animation: none; }
+
+/* ───────── 表单（方案 C：胶囊输入框 + 积木凹口主按钮） ───────── */
+.form { position: relative; z-index: 2; display: flex; flex-direction: column; }
+.desk .form { justify-content: center; padding: 40px 52px; }
+.phone .form { flex: 1; padding: 24px 22px 26px; }
+.tabs { position: relative; display: flex; gap: 22px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+.tabs button { padding: 0 0 10px; border: 0; background: none; color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: color .3s var(--sp); }
+.tabs button.on { color: var(--text); }
+.tab-ink { position: absolute; left: 0; bottom: -1px; width: 0; height: 2px; border-radius: 2px; background: var(--fill); transition: transform .42s var(--sp), width .42s var(--sp); }
+.h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
+.sub { margin-top: 6px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+.phone .h1, .phone .sub { display: none; }
+.btn > span { display: inline-flex; align-items: center; gap: 8px; }
+.h1 > span, .sub > span, .btn-pri > span { display: inline-flex; align-items: center; gap: 8px; will-change: transform, opacity; }
+.fields { margin-top: 10px; }
+.phone .fields { margin-top: -14px; }
+.fields .f { padding-top: 14px; }
+/* 只在一种模式里出现的东西：高度从 0fr 展开到 1fr，同时淡入；内容外面留 3px 给聚焦光圈 */
+.clp { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .42s var(--sp), opacity .22s ease; }
+.clp.open { grid-template-rows: 1fr; opacity: 1; transition: grid-template-rows .42s var(--sp), opacity .3s ease .06s; }
+.clp > div { min-height: 0; overflow: hidden; padding: 3px; margin: -3px; }
+.no-motion .clp { transition: none !important; }
+.f-l { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px; font-weight: 600; color: color-mix(in srgb, var(--text) 74%, var(--muted)); }
+.f-l em { font-style: normal; font-weight: 500; color: var(--subtle); }
+.f-box { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 6px 0 16px; border: 1px solid var(--bs); border-radius: 22px; background: var(--panel); transition: border-color .18s, box-shadow .18s; }
+.f-box:focus-within { border-color: var(--fill); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fill) 18%, transparent); }
+.f.err .f-box { border-color: color-mix(in srgb, var(--danger) 65%, transparent); }
+.f.err .f-box:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 15%, transparent); }
+.f-box > svg { font-size: 16px; color: var(--subtle); }
+.f-box:focus-within > svg { color: var(--accent); }
+.f-box input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; font-size: 14.5px; }
+.f-box input::placeholder { color: var(--subtle); }
+.eye { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 16px; background: none; color: var(--muted); font-size: 16px; cursor: pointer; }
+.eye:hover { background: var(--pm); }
+.hint { padding-top: 6px; color: var(--subtle); font-size: 12px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 12px; color: var(--muted); font-size: 12.5px; }
+.link { color: var(--accent); font-weight: 600; cursor: pointer; }
+.alert { display: none; align-items: flex-start; gap: 8px; margin-top: 14px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--danger) 8%, var(--panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 24%, transparent); color: var(--danger); font-size: 13px; line-height: 1.5; }
+.alert.on { display: flex; }
+.alert svg { margin-top: 2px; font-size: 15px; }
+.btn { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 44px; border: 0; border-radius: 8px; font-size: 14.5px; font-weight: 600; letter-spacing: .01em; cursor: pointer; }
+/* 主按钮 = 一条 SVG 路径：圆角矩形 + 顶部 Scratch 凹口 + 底部凸起，没有叠加的伪元素，也就没有接缝线 */
+.btn-pri { --bg: var(--fill); margin-top: 20px; background: none; color: var(--on); outline: none; }
+.btn-bg { position: absolute; left: 0; top: 0; width: 100%; height: 52px; overflow: visible; pointer-events: none; }
+.btn-bg path { fill: var(--bg); transition: fill .3s var(--sp); shape-rendering: geometricPrecision; }
+.btn-pri > span { position: relative; }
+.btn-pri:hover { --bg: color-mix(in srgb, var(--fill) 92%, #000); }
+.btn-pri:active { --bg: color-mix(in srgb, var(--fill) 84%, #000); }
+.btn-pri:focus-visible .btn-bg { filter: drop-shadow(0 0 0 var(--fill)) drop-shadow(0 0 3px color-mix(in srgb, var(--fill) 55%, transparent)); }
+.btn-pri.loading { --bg: color-mix(in srgb, var(--fill) 82%, var(--panel)); }
+.btn-pri.ok { --bg: var(--ok); }
+.btn-pri .arrow { font-size: 16px; margin-left: -2px; }
+.spin { font-size: 17px; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.or { display: flex; align-items: center; gap: 12px; padding-top: 18px; color: var(--subtle); font-size: 12px; }
+.or::before, .or::after { flex: 1; height: 1px; background: var(--border); content: ''; }
+.btn-sec { margin-top: 14px; border: 1px solid var(--bs); background: var(--panel); color: var(--text); }
+.btn-sec svg { color: var(--accent); font-size: 17px; }
+.badge { padding: 0 6px; border-radius: 5px; background: color-mix(in srgb, var(--fill) 13%, transparent); color: var(--accent); font-size: 11px; font-weight: 600; line-height: 18px; }
+.note { margin-top: 8px; color: var(--subtle); font-size: 12px; text-align: center; }
+.foot { margin-top: auto; padding-top: 16px; color: var(--subtle); font-size: 11.5px; text-align: center; }
+.desk .foot { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sb-blk, .sb-lift, .sb-blk svg, .sb-layer, .pw-bool, .clp, .tab-ink, .phone .ws { transition: none !important; }
+  .sb-lift.on { transform: none; }
+  .sb-say { animation: none; }
+  .ol-s { animation: none; }
+  .ol-d { transition: none; transform: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <b>登录页 · 积木</b>
+  <span class="grp">主题 <span class="pill" id="p-theme"><button data-v="light">浅色</button><button data-v="dark">深色</button></span></span>
+  <span class="grp">动效 <span class="pill" id="p-motion"><button data-v="on">开</button><button data-v="off">关</button></span></span>
+  <span class="grp">状态 <span class="pill" id="p-state">
+    <button data-s="idle">待机</button><button data-s="user">输入用户名</button><button data-s="pass">输入密码</button><button data-s="ok">登录成功</button><button data-s="bad">密码错误</button><button data-s="reg">注册页</button></span></span>
+</div>
+<p class="intro">方案 C 的<b>真 Scratch 3 积木</b>（scratchblocks 渲染）现在跟着表单实时变：用户名写进「说」，密码变成一串圆点（不会显示真实密码）；注册时填昵称会接上一块「将 [昵称] 设为」，两次密码一致时「如果」里的布尔积木由灰变绿。切换登录 / 注册：共享的积木原地变形，其余积木脱离、飞入、吸附。积木照样能拖、点一下运行；密码输 <b>wrong</b> 看错误态。</p>
+<div class="boards" id="boards"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/scratchblocks@3.7.1/build/scratchblocks.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scratchblocks@3.7.1/build/translations.js"></script>
+<script>
+const WM = __WM__;
+const BRAND = 'KukeChat';
+const VERSION = 'NEXT · v2.0.0';
+const $ = (s, r = document) => r.querySelector(s);
+const el = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const q = new URLSearchParams(location.search);
+const S = {
+  theme: ['light', 'dark'].includes(q.get('theme')) ? q.get('theme') : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+  motion: q.get('motion') === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'on'
+};
+const reduceMotion = () => S.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* 统一的缓动：cubic-bezier(.2,.8,.2,1)，JS 动画也用同一条曲线 */
+function bezier(x1, y1, x2, y2) {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t, dX = (t) => (3 * ax * t + 2 * bx) * t + cx;
+  return (x) => { let t = x; for (let i = 0; i < 6; i++) { const d = dX(t); if (Math.abs(d) < 1e-6) break; t -= (X(t) - x) / d; } return Y(Math.min(1, Math.max(0, t))); };
+}
+const EASE = bezier(.2, .8, .2, 1);
+
+/* lucide 线稿图标（同方案 C） */
+const P = {
+  user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff: '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+  arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  loader: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  minus: '<path d="M5 12h14"/>',
+  square: '<rect width="14" height="14" x="5" y="5" rx="2"/>',
+  wifi: '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>',
+  signal: '<path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/>',
+  battery: '<rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/><line x1="6" x2="6" y1="11" y2="13"/><line x1="10" x2="10" y1="11" y2="13"/><line x1="14" x2="14" y1="11" y2="13"/>',
+  pointer: '<path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"/>'
+};
+const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
+
+/* ═════════ 积木定义 ═════════ */
+/*
+ * KukeChat 扩展里真实存在的积木（src/extension/extension.ts 的 getInfo，文案取 zh-cn）：
+ *   windowAction 「将 KukeChat 窗口 [ACTION]」 · recommendFriend 「推荐添加好友 [USER_ID] 附加消息 [EXTRA_MESSAGE]」 · kukeInfo 「获取 KukeChat 信息 [FIELD]」
+ * 扩展色 color1/2/3 = #27272a / #18181b / #171717，图标 = src/extension/assets.ts 的 iconSvg。
+ * 跟着表单变的积木都是 code(vars) 函数：变量积木「将 [密码] 设为」「将 [昵称] 设为」是 Scratch 原生的变量积木（橙色），
+ * 「如果 <[…] = […]> 那么」是控制 + 运算积木，里面包一块自定义积木「创建 […] 账号」。密码只显示成圆点。
+ */
+const EXT = {
+  c1: '#27272a', c2: '#18181b', c3: '#171717',
+  icon: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" rx="34" fill="#171717"/><rect x="10" y="10" width="108" height="108" rx="28" fill="#262626" stroke="#525252" stroke-width="2"/><path d="M31 42c0-8.284 6.716-15 15-15h36c8.284 0 15 6.716 15 15v21c0 8.284-6.716 15-15 15H59.8L41.2 94.6C38.6 96.9 34.5 95 34.5 91.5V77.7C28.1 75.9 23.5 70 23.5 63V42H31Z" fill="#f4f4f5"/><circle cx="50" cy="54" r="5.8" fill="#171717"/><circle cx="64" cy="54" r="5.8" fill="#737373"/><circle cx="78" cy="54" r="5.8" fill="#171717"/></svg>`)
+};
+const clean = (s) => s.replace(/[\[\]()<>{}:\\\n]/g, '').slice(0, 22);
+const DOTS = (s) => '•'.repeat(Math.min(s.length, 14));
+const sayText = (v) => (v.mode === 'reg' ? `欢迎加入，${v.name || 'Scratcher'}!` : `你好，${v.name || 'Scratcher'}!`);
+const SB_DEFS = {
+  hat: { code: '当绿旗被点击', hat: true },
+  say: { code: (v) => `说 [${sayText(v)}]`, say: sayText },
+  pw: { code: (v) => `将 [密码 v] 设为 [${DOTS(v.pw)}]` },
+  open: { code: `将 ${BRAND} 窗口 [打开 v] :: pen`, ext: true },
+  chat: { code: '推荐添加好友 (1) 附加消息 [一起聊天吧!] :: pen', ext: true },
+  nick: { code: (v) => `将 [昵称 v] 设为 [${v.nick}]` },
+  ifc: { code: (v) => `如果 <[${DOTS(v.pw)}] = [${DOTS(v.conf)}]> 那么\n创建 [${v.name || `新的 ${BRAND}`}] 账号 :: custom\nend`, bool: true },
+  online: { code: `(获取 ${BRAND} 信息 [在线玩家数 v] :: pen)`, ext: true, rep: true, value: '1,284' }
+};
+const IDS = { login: ['hat', 'say', 'pw', 'open', 'chat'], reg: ['hat', 'say', 'nick', 'ifc'] };
+const BOUND = ['say', 'pw', 'nick', 'ifc'];
+const SB_OPTS = { style: 'scratch3', languages: ['zh_cn', 'en'], scale: 1 };
+const SB_FONT = 'Arial, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif';
+const SB = { ok: false, cache: {} };
+const SVGNS = 'http://www.w3.org/2000/svg';
+const svgEl = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+const BASE_VARS = { mode: 'login', name: '', nick: '', pw: '', conf: '' };
+
+function extensionize(svg, def) {
+  const use = svg.querySelector('use[href="#sb3-penBlock"]');
+  if (use) {
+    const x = use.getAttribute('transform').match(/translate\(([\d.]+)/)[1];
+    use.replaceWith(svgEl('image', { href: EXT.icon, width: 40, height: 40, transform: `translate(${x} ${def.rep ? 4 : 8})` }));
+  }
+  svg.querySelectorAll('.sb3-extension').forEach((n) => {
+    n.classList.remove('sb3-extension');
+    if (!n.classList.contains('sb3-input')) { n.style.fill = EXT.c1; n.style.stroke = EXT.c3; }
+    else if (n.classList.contains('sb3-input-dropdown')) { n.style.fill = EXT.c2; n.style.stroke = EXT.c3; }
+  });
+  svg.querySelectorAll('.sb3-extension-line').forEach((n) => { n.removeAttribute('class'); n.style.stroke = EXT.c3; n.style.strokeWidth = '1'; });
+}
+/* 接缝：描边单独一条画在填充下面、顶边被上一块盖住的那段裁掉、底边垫一条本块颜色（同方案 C） */
+function seamless(svg, w, h, body) {
+  document.body.appendChild(svg);
+  const shape = svg.querySelector('path');
+  const cs = getComputedStyle(shape); const fill = shape.style.fill || cs.fill; const stroke = shape.style.stroke || cs.stroke;
+  svg.remove();
+  const g = shape.parentNode;
+  const clip = svgEl('clipPath', { id: '__CLIP__' });
+  clip.appendChild(svgEl('path', { class: 'sb-clip', 'clip-rule': 'evenodd', d: 'M-20 -20 H3000 V3000 H-20 Z' }));
+  const edge = svgEl('path', { class: 'sb-edge', d: shape.getAttribute('d'), fill: 'none', stroke, 'stroke-width': 2, 'stroke-linejoin': 'round', 'clip-path': 'url(#__CLIP__)' });
+  const filler = svgEl('rect', { class: 'sb-filler', x: 4, y: body - 2, width: 0, height: 3, fill });
+  shape.removeAttribute('class'); shape.style.fill = fill; shape.style.stroke = 'none';
+  g.insertBefore(clip, shape); g.insertBefore(edge, shape); g.insertBefore(filler, shape);
+}
+function withFont(fn) {
+  const proto = CanvasRenderingContext2D.prototype; const measure = proto.measureText;
+  proto.measureText = function (t) { if (/Helvetica/.test(this.font) && !/YaHei/.test(this.font)) this.font = this.font.replace(/sans-serif\s*$/, SB_FONT); return measure.call(this, t); };
+  try { return fn(); } finally { proto.measureText = measure; }
+}
+const codeOf = (def, vars) => (typeof def.code === 'function' ? def.code(vars) : def.code);
+let sbDefs = null;
+function renderBlock(def, vars = BASE_VARS) {
+  return withFont(() => {
+    const code = codeOf(def, vars);
+    const svg = scratchblocks.render(scratchblocks.parse(code, SB_OPTS), SB_OPTS);
+    const d = svg.querySelector('defs');
+    if (d) { if (!sbDefs) sbDefs = d.cloneNode(true); d.remove(); }
+    const w = +svg.getAttribute('width'); const h = +svg.getAttribute('height');
+    const body = def.rep ? h - 2 : h - 10;
+    if (def.ext) extensionize(svg, def);
+    if (def.bool) svg.querySelector('path.sb3-operators')?.classList.add('pw-bool');
+    const ghost = svg.cloneNode(true);
+    const gshape = ghost.querySelector('path, rect');
+    [...gshape.parentNode.children].forEach((c) => c !== gshape && c.remove());
+    if (!def.rep) seamless(svg, w, h, body);
+    return { svg: svg.outerHTML, ghost: ghost.outerHTML, w, h, body, sw: w - 4, code };
+  });
+}
+function sbInit() {
+  if (SB.ok || !window.scratchblocks) return SB.ok;
+  try {
+    scratchblocks.appendStyles();
+    for (const [id, def] of Object.entries(SB_DEFS)) SB.cache[id] = renderBlock(def);
+    if (sbDefs) {
+      const holder = svgEl('svg', { width: 0, height: 0, 'aria-hidden': 'true' });
+      holder.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+      holder.appendChild(sbDefs); document.body.appendChild(holder);
+    }
+    buildOutlines();
+    SB.ok = true;
+  } catch (err) { console.warn('scratchblocks 渲染失败', err); }
+  return SB.ok;
+}
+
+/* ═════════ 虚拟积木描边 ═════════ */
+const OL_CODE = {
+  hat: 'when flag clicked', hatk: 'when [space v] key pressed', move: 'move (10) steps', say: 'say [Hello!] for (2) seconds',
+  turn: 'turn cw (15) degrees', forever: 'forever\nmove (10) steps\nend', ifc: 'if <> then\nend', repeat: 'repeat (10)\nnext costume\nwait (1) seconds\nend',
+  rep: '(x position)', join: '(join [apple] [banana])', bool: '<key [space v] pressed?>', booleq: '<[] = (50)>', stop: 'stop [all v]', define: 'define greet (name)'
+};
+const OL = {};
+function buildOutlines() {
+  const o = { style: 'scratch3', languages: ['en'], scale: 1 };
+  for (const [k, code] of Object.entries(OL_CODE)) {
+    const svg = scratchblocks.render(scratchblocks.parse(code, o), o);
+    svg.querySelectorAll('defs, text, use, image, line').forEach((n) => n.remove());
+    svg.querySelectorAll('*').forEach((n) => { n.removeAttribute('class'); n.removeAttribute('style'); });
+    svg.removeAttribute('class');
+    OL[k] = { inner: svg.innerHTML, w: +svg.getAttribute('width'), h: +svg.getAttribute('height') };
+  }
+}
+/* 摆放：[形状, x, y, 缩放, 角度, 透明度, 景深(0 远 → 2 近)]，坐标是工作区像素；中间（真积木和口号）尽量留空 */
+const OL_LAYOUT = {
+  desk: [
+    ['ifc', 488, -46, 1.3, 8, .12, 0], ['hat', 296, 34, 1.0, -5, .17, 1], ['rep', 58, 104, .75, -4, .19, 2], ['move', -56, 170, 1.0, -7, .13, 0],
+    ['bool', 424, 246, .75, -6, .16, 1], ['forever', 446, 322, 1.0, 5, .14, 1], ['stop', 500, 494, .8, -9, .18, 2], ['turn', 236, 508, .55, 6, .19, 2],
+    ['say', -64, 522, 1.0, 3, .13, 1], ['repeat', 372, 598, 1.3, -6, .11, 0], ['join', 214, 690, .9, 2, .13, 1]
+  ],
+  phone: [
+    ['ifc', 286, -28, .9, 8, .11, 0], ['rep', 302, 56, .6, 5, .17, 2], ['hat', 262, 108, .78, -6, .15, 1],
+    ['say', -70, 300, .9, 3, .12, 1], ['forever', 300, 286, .82, -6, .12, 0], ['stop', 186, 318, .62, 7, .16, 2]
+  ]
+};
+function mountOutlines(ws, kind) {
+  sbInit();
+  const host = ws.querySelector('.ol');
+  if (!Object.keys(OL).length) return;
+  const depths = [0, 1, 2].map((d) => { const g = el(`<div class="ol-d" data-d="${d}"></div>`); host.appendChild(g); return g; });
+  OL_LAYOUT[kind].forEach(([k, x, y, s, rot, op, d], i) => {
+    const o = OL[k]; if (!o) return;
+    const dx = ((i * 37) % 17) - 8, dy = -6 - ((i * 23) % 11);
+    depths[d].insertAdjacentHTML('beforeend', `<svg class="ol-s" width="${(o.w * s).toFixed(1)}" height="${(o.h * s).toFixed(1)}" viewBox="0 0 ${o.w} ${o.h}" style="left:${x}px;top:${y}px;rotate:${rot}deg;--o:${op};--sw:${(1.1 / s).toFixed(3)}px;--t:${44 + ((i * 13) % 30)}s;--dl:-${(i * 7) % 40}s;--dx:${dx}px;--dy:${dy}px">${o.inner}</svg>`);
+  });
+  ws.addEventListener('pointermove', (e) => {
+    if (reduceMotion()) return;
+    const r = ws.getBoundingClientRect();
+    const mx = (e.clientX - r.left) / r.width - .5, my = (e.clientY - r.top) / r.height - .5;
+    depths.forEach((g, d) => { const k = (d + 1) * 5; g.style.transform = `translate(${(-mx * k).toFixed(1)}px, ${(-my * k).toFixed(1)}px)`; });
+  });
+  ws.addEventListener('pointerleave', () => depths.forEach((g) => { g.style.transform = ''; }));
+}
+
+/* ═════════ 积木模型：摆放 / 接缝 ═════════ */
+const SNAP = 40;
+const H_ = (bid) => SB.cache[bid].body;
+const cc = (W, bid) => W.own[bid] || SB.cache[bid];
+const swOf = (W, bid) => W.animSw[bid] ?? cc(W, bid).sw;
+const stackH = (ids) => ids.reduce((a, b) => a + H_(b), 0);
+const setT = (n, x, y, s = 1) => { n.style.transform = `translate(${x}px, ${y}px) scale(${s})`; };
+const findStack = (W, bid) => W.model.stacks.find((s) => s.ids.includes(bid));
+
+function setJoin(W, bid, above, below) {
+  const n = W.els[bid]; if (!n) return;
+  const clip = n.querySelector('.sb-clip'); if (!clip) return;
+  clip.setAttribute('d', 'M-20 -20 H3000 V3000 H-20 Z' + (above ? ` M3 -3 H${above - 3} V9.5 H3 Z` : ''));
+  n.querySelector('.sb-filler').setAttribute('width', below ? Math.max(0, below - 8) : 0);
+}
+/* 正在飞进来的积木先不接缝，落下那一刻再接上 */
+function joinRun(W, ids, gapAt = -1) {
+  const A = W.arriving;
+  ids.forEach((bid, i) => {
+    const prev = i > 0 && i !== gapAt && !A.has(bid) && !A.has(ids[i - 1]) ? ids[i - 1] : null;
+    const next = i < ids.length - 1 && i + 1 !== gapAt && !A.has(bid) && !A.has(ids[i + 1]) ? ids[i + 1] : null;
+    const sw = swOf(W, bid);
+    setJoin(W, bid, prev ? Math.min(sw, swOf(W, prev)) : 0, next ? Math.min(sw, swOf(W, next)) : 0);
+  });
+}
+function rejoin(W, bid) {
+  if (W.drag && W.drag.ids.includes(bid)) return joinRun(W, W.drag.ids);
+  const s = findStack(W, bid); if (s) joinRun(W, s.ids, W.preview && W.preview.stack === s && W.preview.type === 'insert' ? W.preview.at : -1);
+}
+function homeXY(W) {
+  if (W.kind !== 'desk') return { x: 26, y: 10 };
+  const Hd = W.layer.offsetHeight;
+  return { x: 40, y: Math.round(Math.max(110, (Hd - stackH(IDS.login) - 8) / 2 + 30)) };
+}
+function wantIds(W) { return W.mode === 'reg' ? IDS.reg.filter((b) => b !== 'nick' || W.vars.nick) : IDS.login.slice(); }
+function makeEl(W, bid) {
+  if (typeof SB_DEFS[bid].code === 'function') { const c = codeOf(SB_DEFS[bid], W.vars); W.own[bid] = c === SB.cache[bid].code ? SB.cache[bid] : renderBlock(SB_DEFS[bid], W.vars); }
+  W.codes[bid] = cc(W, bid).code;
+  const n = document.createElement('div');
+  n.className = 'sb-blk'; n.dataset.id = bid;
+  W.layer.insertBefore(n, W.ghost);
+  W.els[bid] = n; paint(W, bid);
+  return n;
+}
+function paint(W, bid) {
+  const n = W.els[bid];
+  n.innerHTML = cc(W, bid).svg.replaceAll('__CLIP__', `sbc-${W.uid}-${bid}`) + (SB_DEFS[bid].rep ? `<span class="sb-val">${SB_DEFS[bid].value}</span>` : '');
+  if (bid === 'ifc') setBool(W, true);
+}
+function mountBlocks(W) {
+  const stage = W.stage;
+  if (!sbInit()) { stage.insertAdjacentHTML('beforeend', '<div class="sb-fallback">积木需要联网读取 scratchblocks</div>'); return; }
+  const layer = el('<div class="sb-layer"><i class="sb-probe"></i></div>');
+  stage.appendChild(layer); W.layer = layer; W.els = {};
+  W.ghost = el('<div class="sb-ghost" hidden></div>'); layer.appendChild(W.ghost);
+  const home = homeXY(W); const ids = wantIds(W);
+  W.model = { stacks: [{ x: home.x, y: home.y, ids }], touched: false };
+  if (W.kind === 'desk') W.model.stacks.push({ x: Math.round(layer.offsetWidth - SB.cache.online.w - 44), y: home.y - 104, ids: ['online'] });
+  for (const s of W.model.stacks) for (const bid of s.ids) makeEl(W, bid);
+  layout(W, true);
+}
+function layout(W, instant) {
+  const p = W.preview; let z = 1;
+  for (const s of W.model.stacks) {
+    let y = s.y;
+    joinRun(W, s.ids, p && p.stack === s && p.type === 'insert' ? p.at : -1);
+    s.ids.forEach((bid, i) => {
+      if (p && p.stack === s && p.at === i && p.type === 'insert') y += W.drag.h;
+      const n = W.els[bid];
+      if (instant) n.style.transition = 'none';
+      setT(n, s.x, y); n.style.zIndex = z++;
+      if (instant) { n.offsetWidth; n.style.transition = ''; }
+      y += H_(bid);
+    });
+  }
+}
+
+/* ═════════ 变形：文本变了，积木的几何连续过渡 ═════════ */
+/*
+ * scratchblocks 同一块积木换了参数文字，SVG 的元素结构完全一样，只是数字不同（路径的水平段、参数槽宽度、后面文字的位置）。
+ * 所以离屏渲染出新 SVG，逐个元素把 d / x / width / transform 等属性里的数字从「现在的值」插值到「新值」；
+ * 文字内容不同的，旧文字复制一份淡出、新文字淡入（共同的前缀位置不变，看起来就是新字符淡进来）。
+ * 每帧同步本块宽度给接缝，高度不变，所以下面的积木不动。中途又有新输入就从当前插值状态接着变。
+ */
+const NUM = /-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
+const MATTR = ['d', 'x', 'y', 'width', 'height', 'rx', 'ry', 'transform', 'viewBox'];
+const MORPH_MS = 320;
+function morph(W, bid, next) {
+  const host = W.els[bid]; if (!host) return;
+  const live = host.querySelector('svg');
+  W.own[bid] = next;
+  if (W.morphs[bid]) { cancelAnimationFrame(W.morphs[bid]); delete W.morphs[bid]; }
+  const tpl = document.createElement('div'); tpl.innerHTML = next.svg.replaceAll('__CLIP__', `sbc-${W.uid}-${bid}`);
+  const nsvg = tpl.firstElementChild;
+  const A = [live, ...live.querySelectorAll('*')].filter((n) => !n.classList.contains('mx-old'));
+  const B = [nsvg, ...nsvg.querySelectorAll('*')];
+  const iso = A.length === B.length && A.every((a, i) => a.tagName === B[i].tagName);
+  if (!iso || reduceMotion()) {
+    live.querySelectorAll('.mx-old').forEach((n) => n.remove());
+    if (iso) { A.forEach((a, i) => { if (a.classList.contains('sb-clip') || a.classList.contains('sb-filler')) return; for (const k of MATTR) { const v = B[i].getAttribute(k); if (v == null) a.removeAttribute(k); else a.setAttribute(k, v); } if (a.tagName === 'text') a.textContent = B[i].textContent; }); }
+    else { live.replaceWith(nsvg); if (bid === 'ifc') setBool(W, true); }
+    delete W.animSw[bid]; rejoin(W, bid); return;
+  }
+  const tracks = [];
+  A.forEach((a, i) => {
+    const b = B[i];
+    if (a.classList.contains('sb-clip') || a.classList.contains('sb-filler')) return;
+    for (const k of MATTR) {
+      const va = a.getAttribute(k), vb = b.getAttribute(k);
+      if (va === vb) continue;
+      if (va == null || vb == null) { if (vb == null) a.removeAttribute(k); else a.setAttribute(k, vb); continue; }
+      const na = va.match(NUM) || [], nb = vb.match(NUM) || [];
+      if (na.length !== nb.length) { a.setAttribute(k, vb); continue; }
+      tracks.push({ el: a, k, from: na.map(Number), to: nb.map(Number), parts: vb.split(NUM) });
+    }
+    if (a.tagName === 'text' && a.textContent !== b.textContent) {
+      const old = a.cloneNode(true); old.classList.add('mx-old'); old.removeAttribute('opacity');
+      a.parentNode.insertBefore(old, a);
+      const fo = old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, easing: 'ease-in', fill: 'forwards' });
+      fo.onfinish = fo.oncancel = () => old.remove();
+      a.textContent = b.textContent;
+      a.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, delay: 40, easing: 'ease-out', fill: 'backwards' });
+    }
+  });
+  const t0 = performance.now();
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / MORPH_MS), e = EASE(p);
+    for (const tr of tracks) {
+      let s = tr.parts[0];
+      for (let j = 0; j < tr.to.length; j++) s += Math.round((tr.from[j] + (tr.to[j] - tr.from[j]) * e) * 100) / 100 + tr.parts[j + 1];
+      tr.el.setAttribute(tr.k, s);
+    }
+    W.animSw[bid] = +live.getAttribute('width') - 4;
+    rejoin(W, bid);
+    if (p < 1) W.morphs[bid] = requestAnimationFrame(step);
+    else { delete W.morphs[bid]; delete W.animSw[bid]; rejoin(W, bid); }
+  };
+  W.morphs[bid] = requestAnimationFrame(step);
+}
+/* 「如果」里的布尔：两次密码都填了且一致 → 运算绿；否则灰。翻成绿色时轻轻亮一下 */
+function setBool(W, force) {
+  const n = W.els.ifc; if (!n) return;
+  const b = n.querySelector('.pw-bool'); if (!b) return;
+  const on = !!W.vars.pw && W.vars.pw === W.vars.conf;
+  b.style.fill = on ? '' : '#c3c7d0'; b.style.stroke = on ? '' : '#a3a8b4';
+  n.querySelectorAll('rect.sb3-operators').forEach((r) => { r.style.transition = 'stroke .32s'; r.style.stroke = on ? '' : '#a3a8b4'; });
+  if (!force && on && !W.boolOn && !reduceMotion()) b.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.25)' }, { filter: 'brightness(1)' }], { duration: 520, easing: 'ease-out' });
+  W.boolOn = on;
+}
+
+/* ═════════ 积木进出：脱离淡出 / 错开飞入并吸附 ═════════ */
+function leave(W, bid, delay = 0) {
+  const n = W.els[bid]; if (!n) return;
+  for (const s of W.model.stacks) { const i = s.ids.indexOf(bid); if (i >= 0) s.ids.splice(i, 1); }
+  W.model.stacks = W.model.stacks.filter((s) => s.ids.length);
+  setJoin(W, bid, 0, 0);
+  if (W.morphs[bid]) cancelAnimationFrame(W.morphs[bid]);
+  delete W.els[bid]; delete W.morphs[bid]; delete W.animSw[bid]; W.arriving.delete(bid);
+  n.classList.add('leaving');
+  if (reduceMotion()) { n.remove(); return; }
+  const m = n.style.transform.match(/translate\(([-\d.]+)px, ([-\d.]+)px\)/) || [0, 0, 0];
+  n.style.transition = `transform .32s cubic-bezier(.4,0,.7,.2) ${delay}ms, opacity .24s ease ${delay}ms`;
+  requestAnimationFrame(() => { setT(n, +m[1] + 34, +m[2] + 8, .98); n.style.opacity = '0'; });
+  setTimeout(() => n.remove(), delay + 380);
+}
+function arrive(W, bid, delay = 0) {
+  const n = makeEl(W, bid);
+  if (reduceMotion()) return;
+  W.arriving.add(bid);
+  n.dataset.delay = delay;
+}
+/* layout 之后：把刚建的积木先放到落点左下方（不透明度 0），下一帧带延迟过渡到落点，略带一点回弹，像 Scratch 里吸附上去 */
+function launch(W) {
+  for (const bid of W.arriving) {
+    const n = W.els[bid]; if (!n || n.dataset.delay == null) continue;
+    const delay = +n.dataset.delay; delete n.dataset.delay;
+    const m = n.style.transform.match(/translate\(([-\d.]+)px, ([-\d.]+)px\)/);
+    const fx = +m[1], fy = +m[2];
+    n.style.transition = 'none'; n.style.opacity = '0'; setT(n, fx - 30, fy + 22, .98); n.offsetWidth;
+    n.style.transition = `transform .46s cubic-bezier(.3,1.22,.5,1) ${delay}ms, opacity .2s ease ${delay}ms`;
+    setT(n, fx, fy); n.style.opacity = '1';
+    setTimeout(() => { if (!W.arriving.has(bid)) return; W.arriving.delete(bid); n.style.transition = ''; rejoin(W, bid); }, delay + 300);
+  }
+}
+function switchBlocks(W) {
+  if (!SB.ok) return;
+  if (W.drag) { if (W.drag.raf) cancelAnimationFrame(W.drag.raf); endDrag(W, true); }
+  W.run++; W.stage.querySelectorAll('.sb-say').forEach((b) => b.remove());
+  Object.values(W.els).forEach((n) => n.classList.remove('glow'));
+  const want = wantIds(W); const keep = new Set([...want, 'online']);
+  let k = 0;
+  for (const bid of Object.keys(W.els)) if (!keep.has(bid)) leave(W, bid, k++ * 40);
+  for (const s of W.model.stacks) s.ids = s.ids.filter((b) => !want.includes(b));
+  W.model.stacks = W.model.stacks.filter((s) => s.ids.length);
+  const home = homeXY(W);
+  W.model.stacks.unshift({ x: home.x, y: home.y, ids: want });
+  want.filter((b) => !W.els[b]).forEach((bid, i) => arrive(W, bid, 150 + i * 70));
+  sync(W, true);
+  layout(W); launch(W);
+}
+
+/* ═════════ 表单 → 积木（每帧最多一次） ═════════ */
+function schedule(W) { if (!W.raf) W.raf = requestAnimationFrame(() => { W.raf = 0; sync(W); }); }
+function sync(W, noLayout) {
+  if (!SB.ok || !W.layer) return;
+  for (const bid of BOUND) {
+    if (!W.els[bid]) continue;
+    const code = codeOf(SB_DEFS[bid], W.vars);
+    if (code === W.codes[bid]) continue;
+    W.codes[bid] = code;
+    morph(W, bid, renderBlock(SB_DEFS[bid], W.vars));
+  }
+  setBool(W);
+  // 注册：昵称第一个字出现时接上「将 [昵称] 设为」，清空时脱离
+  if (W.mode === 'reg' && !noLayout) {
+    const has = !!W.vars.nick;
+    if (has && !W.els.nick) {
+      const s = findStack(W, 'say') || findStack(W, 'hat') || W.model.stacks[0];
+      const at = s.ids.indexOf('say') + 1 || s.ids.length;
+      s.ids.splice(at, 0, 'nick'); arrive(W, 'nick', 0); layout(W); launch(W);
+    } else if (!has && W.els.nick) { leave(W, 'nick'); layout(W); }
+  }
+  W.onSync?.();
+}
+
+/* ═════════ 拖动 / 吸附 / 运行（同方案 C） ═════════ */
+function toLocal(W, e) {
+  const r = W.layer.getBoundingClientRect();
+  const unit = W.layer.firstChild.getBoundingClientRect().width / 100;
+  return { x: (e.clientX - r.left) / unit, y: (e.clientY - r.top) / unit };
+}
+function bindDrag(W) {
+  const stage = W.stage; let press = null;
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || W.drag || press || !W.layer) return;
+    const n = e.target.closest('.sb-blk'); if (!n || n.classList.contains('leaving') || W.arriving.has(n.dataset.id)) return;
+    e.preventDefault();
+    press = { id: n.dataset.id, pid: e.pointerId, cx: e.clientX, cy: e.clientY, p: toLocal(W, e) };
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!press || e.pointerId !== press.pid) return;
+    if (!W.drag) { if (!W.els[press.id] || Math.hypot(e.clientX - press.cx, e.clientY - press.cy) < 4) return; startDrag(W, press); }
+    W.drag.last = e;
+    if (!W.drag.raf) W.drag.raf = requestAnimationFrame(() => { W.drag.raf = 0; moveDrag(W, W.drag.last); });
+  });
+  const end = (e) => {
+    if (!press || e.pointerId !== press.pid) return;
+    if (stage.hasPointerCapture(e.pointerId)) stage.releasePointerCapture(e.pointerId);
+    if (W.drag) { if (W.drag.raf) cancelAnimationFrame(W.drag.raf); moveDrag(W, e); endDrag(W, e.type === 'pointercancel'); }
+    else if (e.type === 'pointerup' && W.els[press.id]) clickBlock(W, press.id);
+    press = null;
+  };
+  stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
+}
+function touch(W) { if (!W.model.touched) { W.model.touched = true; W.stage.classList.add('touched'); } }
+function startDrag(W, press) {
+  touch(W);
+  const s = findStack(W, press.id); const i = s.ids.indexOf(press.id);
+  const top = { x: s.x, y: s.y + stackH(s.ids.slice(0, i)) };
+  const ids = s.ids.splice(i);
+  if (!s.ids.length) W.model.stacks.splice(W.model.stacks.indexOf(s), 1);
+  const gx = press.p.x - top.x; const gy = press.p.y - top.y;
+  const wrap = el('<div class="sb-drag"></div>'); const lift = el('<div class="sb-lift"></div>');
+  lift.style.transformOrigin = `${gx}px ${gy}px`;
+  let yy = 0;
+  for (const bid of ids) { const n = W.els[bid]; n.style.zIndex = ''; setT(n, 0, yy); lift.appendChild(n); yy += H_(bid); }
+  wrap.appendChild(lift); W.layer.appendChild(wrap); setT(wrap, top.x, top.y);
+  W.ghost.innerHTML = ids.reduce((acc, bid, k) => acc + cc(W, bid).ghost.replace('<svg ', `<svg style="top:${stackH(ids.slice(0, k))}px" `), '');
+  W.drag = { ids, h: stackH(ids), gx, gy, x: top.x, y: top.y, wrap, lift, hat: !!SB_DEFS[ids[0]].hat, rep: !!SB_DEFS[ids[0]].rep };
+  joinRun(W, ids);
+  requestAnimationFrame(() => lift.classList.add('on'));
+  layout(W);
+}
+function findSnap(W, x, y) {
+  const d = W.drag; if (d.rep) return null;
+  let best = null; let bd = SNAP;
+  for (const s of W.model.stacks) {
+    if (SB_DEFS[s.ids[0]].rep) continue;
+    if (!d.hat) {
+      let yy = s.y;
+      for (let at = 1; at <= s.ids.length; at++) {
+        yy += H_(s.ids[at - 1]);
+        const dist = Math.hypot(x - s.x, y - yy);
+        if (dist < bd) { bd = dist; best = { type: 'insert', stack: s, at, gx: s.x, gy: yy }; }
+      }
+    }
+    if (!SB_DEFS[s.ids[0]].hat) {
+      const dist = Math.hypot(x - s.x, y + d.h - s.y);
+      if (dist < bd) { bd = dist; best = { type: 'top', stack: s, at: 0, gx: s.x, gy: s.y - d.h }; }
+    }
+  }
+  return best;
+}
+function moveDrag(W, e) {
+  const d = W.drag; const p = toLocal(W, e);
+  d.x = p.x - d.gx; d.y = p.y - d.gy; setT(d.wrap, d.x, d.y);
+  const snap = findSnap(W, d.x, d.y);
+  const same = snap && W.preview && snap.stack === W.preview.stack && snap.at === W.preview.at && snap.type === W.preview.type;
+  if (same || (!snap && !W.preview)) return;
+  W.preview = snap;
+  if (snap) { W.ghost.hidden = false; setT(W.ghost, snap.gx, snap.gy); } else W.ghost.hidden = true;
+  layout(W);
+}
+function endDrag(W, cancelled) {
+  const d = W.drag; const snap = cancelled ? null : W.preview;
+  W.preview = null; W.ghost.hidden = true; W.drag = null;
+  let target;
+  if (snap && snap.type === 'insert') { snap.stack.ids.splice(snap.at, 0, ...d.ids); target = snap.stack; }
+  else if (snap) { snap.stack.ids.unshift(...d.ids); snap.stack.y -= d.h; target = snap.stack; }
+  else { target = { x: d.x, y: d.y, ids: d.ids }; W.model.stacks.push(target); }
+  const Wd = W.layer.offsetWidth; const Hd = W.layer.offsetHeight;
+  const tw = Math.max(...target.ids.map((b) => cc(W, b).w)); const th = stackH(target.ids) + (SB_DEFS[target.ids[0]].rep ? 34 : 10);
+  target.x = Math.round(Math.max(6, Math.min(target.x, Wd - tw - 6)));
+  target.y = Math.round(Math.max(SB_DEFS[target.ids[0]].hat ? 14 : 2, Math.min(target.y, Hd - th)));
+  W.model.stacks.splice(W.model.stacks.indexOf(target), 1); W.model.stacks.push(target);
+  const sc = d.lift.classList.contains('on') && !reduceMotion() ? 1.04 : 1;
+  let yy = 0;
+  for (const bid of d.ids) {
+    const n = W.els[bid]; n.style.transition = 'none';
+    setT(n, d.x + d.gx - d.gx * sc, d.y + d.gy + (yy - d.gy) * sc, sc);
+    W.layer.insertBefore(n, W.ghost); yy += H_(bid);
+  }
+  d.wrap.remove(); W.layer.offsetWidth;
+  for (const bid of d.ids) W.els[bid].style.transition = '';
+  layout(W);
+}
+async function runIds(W, ids) {
+  const tok = ++W.run; let bubble = null;
+  for (const bid of ids) {
+    if (tok !== W.run) break;
+    const n = W.els[bid]; if (!n || !n.isConnected) break;
+    n.classList.add('glow');
+    if (SB_DEFS[bid].say) {
+      W.stage.querySelectorAll('.sb-say').forEach((b) => b.remove());
+      bubble = el('<span class="sb-say"></span>'); bubble.textContent = SB_DEFS[bid].say(W.vars);
+      n.appendChild(bubble);
+    }
+    await wait(SB_DEFS[bid].say ? 700 : 420);
+    n.classList.remove('glow');
+  }
+  if (bubble) { await wait(1300); bubble.classList.add('out'); await wait(220); bubble.remove(); }
+}
+function clickBlock(W, bid) {
+  touch(W);
+  if (SB_DEFS[bid].rep) {
+    W.els[bid].querySelector('.sb-val').animate?.([{ transform: 'translateX(-50%) scale(1.15)' }, { transform: 'translateX(-50%) scale(1)' }], { duration: 260, easing: 'ease-out' });
+    return;
+  }
+  if (W.running) return;
+  W.running = true;
+  runIds(W, findStack(W, bid).ids.slice()).finally(() => { W.running = false; });
+}
+const mainIds = (W) => (W.model?.stacks.find((s) => SB_DEFS[s.ids[0]].hat) || { ids: [] }).ids.slice();
+
+/* ═════════ 表单动效小工具 ═════════ */
+/* 文字交叉淡入 + 轻微上移；连续切换时以最后一次为准 */
+function swap(node, html) {
+  const cur = node._to ?? node.innerHTML; if (cur === html) return;
+  node.getAnimations().forEach((a) => a.cancel());
+  if (reduceMotion()) { node.innerHTML = html; node._to = null; return; }
+  if (node.innerHTML === html) { node._to = null; node.animate([{ opacity: .3 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' }); return; }
+  node._to = html;
+  const out = node.animate([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-5px)' }], { duration: 130, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+  out.onfinish = () => {
+    if (node._to !== html) return;
+    node.innerHTML = html; node._to = null; out.cancel();
+    node.animate([{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  };
+}
+/* Scratch 命令积木的凹口曲线（原版深 8，这里按 0.75 压到 6），宽 32，起点距左边 16 */
+const NOTCH_DN = 'c2,0 3,.75 4,1.5 l4,3 c1,.75 2,1.5 4,1.5 h12 c2,0 3,-.75 4,-1.5 l4,-3 c1,-.75 2,-1.5 4,-1.5';
+const NOTCH_UP = 'c-2,0 -3,.75 -4,1.5 l-4,3 c-1,.75 -2,1.5 -4,1.5 h-12 c-2,0 -3,-.75 -4,-1.5 l-4,-3 c-1,-.75 -2,-1.5 -4,-1.5';
+function btnPath(w, h = 44, r = 8) {
+  return `M0,${r} A${r},${r} 0 0 1 ${r},0 H16 ${NOTCH_DN} H${w - r} A${r},${r} 0 0 1 ${w},${r} V${h - r} A${r},${r} 0 0 1 ${w - r},${h} H48 ${NOTCH_UP} H${r} A${r},${r} 0 0 1 0,${h - r} Z`;
+}
+function shapeButton(btn) {
+  const path = btn.querySelector('.btn-bg path');
+  const draw = () => { const w = btn.offsetWidth; if (w) path.setAttribute('d', btnPath(w, btn.offsetHeight || 44)); };
+  draw(); new ResizeObserver(draw).observe(btn);
+}
+function setNow(node, html) { node.getAnimations().forEach((a) => a.cancel()); node._to = null; node.innerHTML = html; }
+
+/* ═════════ 页面 ═════════ */
+let UID = 0;
+const ALL = [];
+const brandSvg = (W, t) => WM[t === 'dark' ? 'dark' : 'light'].replace(/\b(id="|href="#|url\(#)(w[ld]-)/g, `$1$2${W.uid}-`).replace(/ width="[\d.]+" height="48"/, ' height="48" style="height:100%;width:auto"');
+const clp = (name, inner, open) => `<div class="clp ${open ? 'open' : ''}" data-c="${name}" ${open ? '' : 'inert'}><div>${inner}</div></div>`;
+
+function mount(host, kind) {
+  const W = { uid: 'k' + (++UID), kind, mode: 'login', own: {}, codes: {}, morphs: {}, animSw: {}, arriving: new Set(), vars: { ...BASE_VARS }, run: 0, running: false, busy: false, raf: 0 };
+  const desk = kind === 'desk';
+  const root = el(`<div class="app ${kind}"></div>`);
+  host.appendChild(root);
+  root.innerHTML = `
+    ${desk ? `<div class="tb"><span>${ic('minus')}</span><span>${ic('square')}</span><span>${ic('x')}</span></div>`
+      : `<div class="sbar"><span>9:41</span><span class="r">${ic('signal')}${ic('wifi')}${ic('battery')}</span></div><div class="gbar"></div>`}
+    <section class="ws">
+      <div class="ol" aria-hidden="true"></div>
+      <div class="brand"></div>
+      <div class="stage"></div>
+      ${desk ? `<p class="claim">给 Scratcher 的聊天室：<br><span>做作品、找队友、交朋友。</span></p><p class="meta">${VERSION} · 桌面版</p>` : ''}
+    </section>
+    <form class="form" autocomplete="off" novalidate>
+      <div class="tabs" role="tablist"><button type="button" data-m="login" class="on" role="tab" aria-selected="true">登录</button><button type="button" data-m="reg" role="tab" aria-selected="false">注册新账号</button><i class="tab-ink"></i></div>
+      <p class="h1"><span data-r="h1">欢迎回来</span></p>
+      <p class="sub"><span data-r="sub">登录后继续你的 Scratch 社交空间。</span></p>
+      <div class="fields">
+        <div class="f" data-f="user"><div class="f-l">用户名</div><label class="f-box">${ic('user')}<input name="u" placeholder="输入用户名" autocapitalize="off" spellcheck="false"></label>${clp('uhint', '<div class="hint">3–50 个字符，之后不能修改。</div>')}</div>
+        ${clp('nick', `<div class="f" data-f="nick"><div class="f-l">昵称<em>选填</em></div><label class="f-box">${ic('smile')}<input name="n" placeholder="显示给别人看的名字"></label></div>`)}
+        <div class="f" data-f="pass"><div class="f-l">密码</div><label class="f-box">${ic('lock')}<input name="p" type="password" placeholder="输入密码"><button class="eye" type="button" data-a="eye" aria-label="显示密码">${ic('eye')}</button></label></div>
+        ${clp('conf', `<div class="f" data-f="conf"><div class="f-l">确认密码</div><label class="f-box">${ic('lock')}<input name="c" type="password" placeholder="再输入一次"></label></div>`)}
+      </div>
+      ${clp('row', `<div class="row"><span>${desk ? '普通登录不会保存登录状态' : '登录后会自动保存登录状态'}</span><span class="link">忘记密码？</span></div>`, true)}
+      <div class="alert" data-r="alert" role="alert">${ic('alert')}<span></span></div>
+      <button class="btn btn-pri" type="submit"><svg class="btn-bg" aria-hidden="true"><path/></svg><span data-r="go"></span></button>
+      ${desk ? clp('secure', `<div class="or">或</div><button type="button" class="btn btn-sec"><span>${ic('shield')}安全登录<span class="badge">推荐</span></span></button><p class="note">安全登录后，下次打开会自动同步登录状态</p>`, true) : ''}
+      <p class="foot">${VERSION} · Android</p>
+    </form>`;
+  const $r = (n) => root.querySelector(`[data-r="${n}"]`);
+  const ws = $('.ws', root); const form = $('.form', root); const ink = $('.tab-ink', root);
+  W.stage = $('.stage', root);
+  const inU = form.elements.u, inN = form.elements.n, inP = form.elements.p, inC = form.elements.c;
+  const goHtml = () => (W.mode === 'reg' ? '创建账号' : `登录${ic('arrow', 'arrow')}`);
+  setNow($r('go'), goHtml());
+  shapeButton($('.btn-pri', root));
+
+  mountOutlines(ws, kind);
+  mountBlocks(W);
+  bindDrag(W);
+
+  const readVars = () => { W.vars.name = clean(inU.value.trim()); W.vars.nick = clean(inN.value.trim()); W.vars.pw = inP.value; W.vars.conf = inC.value; };
+  function setError(field, msg) {
+    root.querySelectorAll('.f.err').forEach((f) => f.classList.remove('err'));
+    if (field) form.querySelector(`[data-f="${field}"]`).classList.add('err');
+    const al = $r('alert'); al.querySelector('span').textContent = msg || ''; al.classList.toggle('on', !!msg);
+  }
+  [inU, inN, inP, inC].forEach((i) => i.addEventListener('input', () => { setError(); readVars(); if (reduceMotion()) sync(W); else schedule(W); }));
+
+  /* 手机：键盘弹起 → 画板变矮、积木缩小，镜头对准正在填的那块积木 */
+  const FOCUS_BLOCK = { u: () => (W.mode === 'reg' ? 'ifc' : 'say'), n: () => 'nick', p: () => (W.mode === 'reg' ? 'ifc' : 'pw'), c: () => 'ifc' };
+  function pan() {
+    if (desk || !W.layer) return;
+    const a = document.activeElement; const kb = root.classList.contains('kb');
+    let py = 0;
+    if (kb && a && FOCUS_BLOCK[a.name]) {
+      const bid = FOCUS_BLOCK[a.name]() ; const s = findStack(W, bid);
+      if (s) {
+        const top = s.y + stackH(s.ids.slice(0, s.ids.indexOf(bid))); const bottom = top + cc(W, bid).h;
+        const view = (216 - 92) / .6 - 30; // 键盘态画板高度 / 缩放，再留出底部淡出
+        py = -Math.max(0, Math.min(top - 6, bottom - view)) * .6;
+      }
+    }
+    W.stage.style.setProperty('--py', `${Math.round(py)}px`);
+  }
+  W.onSync = pan;
+  if (!desk) {
+    form.addEventListener('focusin', () => { root.classList.add('kb'); pan(); });
+    form.addEventListener('focusout', () => setTimeout(() => { if (!form.contains(document.activeElement)) { root.classList.remove('kb'); pan(); } }, 60));
+  }
+  root.querySelector('[data-a="eye"]').addEventListener('click', (e) => {
+    const show = inP.type === 'password'; inP.type = show ? 'text' : 'password';
+    e.currentTarget.innerHTML = ic(show ? 'eyeoff' : 'eye'); inP.focus({ preventScroll: true });
+  });
+
+  function moveInk(instant) {
+    const b = form.querySelector('.tabs button.on');
+    if (instant || reduceMotion()) { ink.style.transition = 'none'; }
+    ink.style.width = `${b.offsetWidth}px`; ink.style.transform = `translateX(${b.offsetLeft}px)`;
+    if (instant || reduceMotion()) { ink.offsetWidth; ink.style.transition = ''; }
+  }
+  requestAnimationFrame(() => moveInk(true));
+  root.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.m)));
+
+  function setOpen(name, open, delay) {
+    const c = form.querySelector(`[data-c="${name}"]`); if (!c) return;
+    c.style.transitionDelay = reduceMotion() ? '0ms' : `${delay}ms`;
+    c.classList.toggle('open', open); c.inert = !open;
+  }
+  function setMode(m) {
+    if (m === W.mode) return;
+    W.mode = m; W.vars.mode = m; setError();
+    const reg = m === 'reg';
+    root.classList.toggle('reg', reg);
+    root.querySelectorAll('.tabs button').forEach((b) => { b.classList.toggle('on', b.dataset.m === m); b.setAttribute('aria-selected', b.dataset.m === m); });
+    moveInk();
+    // 展开：提示 → 昵称 → 确认密码 依次；收起反过来。登录独有的「忘记密码」「安全登录」同步收 / 放
+    if (reg) { setOpen('row', false, 0); setOpen('secure', false, 0); setOpen('uhint', true, 40); setOpen('nick', true, 70); setOpen('conf', true, 140); }
+    else { setOpen('conf', false, 0); setOpen('nick', false, 50); setOpen('uhint', false, 90); setOpen('row', true, 110); setOpen('secure', true, 150); }
+    inU.placeholder = reg ? '字母、数字、_ . -' : '输入用户名';
+    inP.placeholder = reg ? '至少 6 位' : '输入密码';
+    swap($r('h1'), reg ? '创建账号' : '欢迎回来');
+    swap($r('sub'), reg ? '起个名字，几秒钟就好。' : '登录后继续你的 Scratch 社交空间。');
+    swap($r('go'), goHtml());
+    // 焦点在被收起的输入框里 → 挪回用户名
+    const a = document.activeElement;
+    if (a && form.contains(a) && a.closest('.clp:not(.open)')) inU.focus({ preventScroll: true });
+    switchBlocks(W); pan();
+  }
+
+  const fail = (field, msg) => { setError(field, msg); form.querySelector(`[data-f="${field}"] input`)?.focus({ preventScroll: true }); };
+  async function submit() {
+    if (W.busy) return;
+    const reg = W.mode === 'reg'; const name = inU.value.trim(); const pw = inP.value;
+    if (!name) return fail('user', '请输入用户名。');
+    if (reg && !/^[A-Za-z0-9_.-]{3,50}$/.test(name)) return fail('user', '用户名仅可使用英文字母、数字、下划线、点和短横线。');
+    if (!pw) return fail('pass', '请输入密码。');
+    if (reg && pw.length < 6) return fail('pass', '密码至少 6 位。');
+    if (reg && pw !== inC.value) return fail('conf', '两次输入的密码不一致。');
+    W.busy = true; setError();
+    document.activeElement?.blur?.();
+    const btn = $('.btn-pri', form);
+    btn.classList.add('loading'); setNow($r('go'), `${ic('loader', 'spin')}${reg ? '正在创建…' : '正在登录…'}`);
+    touch(W);
+    await runIds(W, mainIds(W));
+    btn.classList.remove('loading');
+    if (!reg && pw === 'wrong') { setNow($r('go'), goHtml()); setError('pass', '用户名或密码错误，请检查后再试。'); }
+    else {
+      btn.classList.add('ok'); setNow($r('go'), `${ic('check')}${reg ? '账号已创建' : '登录成功'}`);
+      await wait(2400); btn.classList.remove('ok'); swap($r('go'), goHtml());
+    }
+    W.busy = false;
+  }
+  form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+
+  const api = {
+    W, root,
+    theme(t) { root.classList.toggle('dark', t === 'dark'); $('.brand', root).innerHTML = brandSvg(W, t); },
+    motion(m) { root.classList.toggle('no-motion', m === 'off'); },
+    preset(s) {
+      W.busy = false; setError();
+      const btn = $('.btn-pri', form); btn.classList.remove('ok', 'loading');
+      const set = (i, v) => { i.value = v; i.dispatchEvent(new Event('input')); };
+      if (s === 'reg') { setMode('reg'); return; }
+      if (W.mode !== 'login') setMode('login');
+      setNow($r('go'), goHtml()); inP.type = 'password';
+      if (s === 'idle') { set(inU, ''); set(inP, ''); document.activeElement?.blur?.(); return; }
+      if (s === 'user') { set(inP, ''); set(inU, 'kuke_cat'); return; }
+      if (s === 'pass') { set(inU, 'kuke_cat'); set(inP, 'hunter22'); return; }
+      if (s === 'ok') { set(inU, 'kuke_cat'); set(inP, 'hunter22'); setTimeout(submit, 120); return; }
+      if (s === 'bad') { set(inU, 'kuke_cat'); set(inP, 'wrong'); setTimeout(submit, 120); }
+    },
+    setMode
+  };
+  ALL.push(api);
+  return api;
+}
+
+function fit() {
+  document.querySelectorAll('.slot').forEach((slot) => {
+    const inner = slot.firstElementChild, w = +slot.dataset.w, h = +slot.dataset.h, sc = +slot.dataset.s;
+    inner.style.transform = `scale(${sc})`; inner.style.transformOrigin = '0 0';
+    inner.style.width = w + 'px'; inner.style.height = h + 'px';
+    slot.style.width = w * sc + 'px'; slot.style.height = h * sc + 'px';
+  });
+}
+const mark = (id, v, key = 'v') => document.querySelectorAll(`#${id} button`).forEach((b) => b.classList.toggle('on', b.dataset[key] === v));
+function applyTheme() { document.documentElement.dataset.theme = S.theme; ALL.forEach((a) => a.theme(S.theme)); mark('p-theme', S.theme); }
+function applyMotion() { ALL.forEach((a) => a.motion(S.motion)); mark('p-motion', S.motion); }
+function boot() {
+  const boards = $('#boards');
+  [['desk', '桌面端 · 1100×720', 1100, 720, .82], ['phone', '手机端 · 412×892', 412, 892, .82]].forEach(([kind, cap, w, h, s]) => {
+    const wrap = el(`<div><span class="cap">${cap}</span><div class="slot" data-w="${w}" data-h="${h}" data-s="${s}"><div></div></div></div>`);
+    boards.appendChild(wrap);
+    fit();
+    mount($('.slot > div', wrap), kind);
+  });
+  fit(); applyTheme(); applyMotion();
+  const s0 = q.get('s'); if (s0) { mark('p-state', s0, 's'); ALL.forEach((a) => a.preset(s0)); }
+}
+$('#p-theme').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { S.theme = b.dataset.v; applyTheme(); } });
+$('#p-motion').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { S.motion = b.dataset.v; applyMotion(); } });
+$('#p-state').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { mark('p-state', b.dataset.s, 's'); ALL.forEach((a) => a.preset(b.dataset.s)); } });
+boot();
+</script>
+</body>
+</html>

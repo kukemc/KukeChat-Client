@@ -1,5 +1,43 @@
 # KukeChat 更新日志
 
+## 未发布 - 好友申请「忽略」/ 通知只提醒一次
+
+对应契约：KukeChat-Server/docs/chat-features.md 第 10 节。
+
+### 新功能
+
+- 好友申请可以「忽略」：通知中心和「新朋友」页每条申请多了「忽略」，另有「全部忽略」（先确认）。只对自己生效，对方仍看到「等待验证」，不会收到通知。
+- 通知只提醒一次：通知中心 / 新朋友的角标只算上次打开之后来的新通知，看过但没处理的申请不再一直挂着（仍显示「待处理」标签）。
+
+### 开发者说明
+
+- 新增接口封装：`api/friends.ts` 的 `ignoreFriendRequest` / `ignoreAllFriendRequests`；`api/notifications.ts` 的 `markNotificationsSeen`，以及 `notificationNewCount` / `applyNotificationsSeen` / `hasUnseenNotifications` 三个纯函数。`UnifiedNotificationList` 新增可选的 `seen_at` / `new_count`（旧后端没有时退回 `unread_count`）。
+- `useContactsData` 新增 `ignoreMutation` / `ignoreAllMutation` / `ignoreAll()` / `markSeen()` 和 `newCount` / `newFriendCount` / `pendingIncomingFriendCount`。角标改用 `newCount`（桌面 `ContactsSidebar` 的 prop 从 `pendingCount` 改名为 `newCount`），「新朋友」角标用 `newFriendCount`。
+- 打开通知中心（桌面 `NotificationsPane` 挂载时、移动端通知中心 / 新朋友页）且有未看过的通知时调 `POST /notifications/seen`，成功后本地只改 `seen_at` 和计数，条目的 `unread` 高亮留到下次刷新。
+- 实时事件：`notification.seen`（本人其他设备看过了，本地套 `applyNotificationsSeen` 清角标）、`friend.request.ignored`（刷新申请列表和通知），已加进 `realtime/events.ts` 与 `types/realtime.ts`。
+
+## 未发布 - 群升级 / 群文件 / 群待办 / 聊天记录搜索（客户端界面）
+
+对应契约：KukeChat-Server/docs/group-plus.md。旧后端没有这些接口时全部静默降级（价目表 404 视为「暂未开放」）。
+
+### 新功能
+
+- 群升级（Pro / Pro+ / MAX）：升级面板含档位对比、月付/年付切换（年付按 year_months_paid 算「省两个月」）、报价后的确认面板（权益增量、新到期时间、扣币、原档位剩余时间作废需明确确认后才带 confirm_forfeit）、余额不足 / 未绑定 CCW / 暂停购买的引导、克制的成功反馈（尊重「减少动态效果 / 性能优先」）、购买记录。入口在群资料页，群人数达上限、精华超限、文件未解锁处带「去升级」。全局浮层由 `components/groupPlus/GroupPlusHosts`（挂在 ChatDashboard）渲染，入口只调用 `useGroupPlusUi`。
+- 档位标志：群头像右下角角标（`Avatar` 新增 `plusTier`）和群名后缀标签（`PlusTierTag`），会话列表、聊天顶栏、群资料页、搜索结果一致；到期降级没有实时事件，按 `plus_expires_at` 用 `effectiveTier` 自行判断。
+- 群文件（Pro+ 起）：文件面板（配额条、列表、搜索、下载、删除、转永久/转限时、默认保留时长设置、未解锁/宽限期引导）；上传用 XMLHttpRequest 带进度，任务放在全局 store（`uploads.ts`），关掉面板不中断，可取消、重试；聊天里的文件消息（`metadata.file`）渲染为 `GroupFileCard`，文件消息不可转发。
+- 精华改为永久快照：分页（读 X-Total-Count / X-Has-More）、已用/上限、撤回与快照缺失的提示、按精华 id 取消、设精华 409 featured_limit 的引导。
+- 群待办：聊天顶部待办条（可收起，换新待办自动展开）、消息菜单「设为群待办 / 取消群待办」、原消息不在时「查看全文」、会话列表前缀「[群待办]」。
+- 精华 / 收藏 / 合并转发统一使用 `MessageView`（覆盖文字、图片、表情、语音、投票、红包、礼物、各类名片、引用、撤回、文件、群待办提醒、嵌套合并转发），嵌套深度限制为 3 并可逐层进入详情。
+- 聊天记录搜索（QQ 式）：分类页签、日期与发送人筛选、命中高亮、防抖并取消过期请求、游标分页、点击定位；入口为聊天头部和全局搜索的「聊天记录」分区（全局先按会话聚合）。旧的会话内搜索弹窗已移除。
+
+### 开发者说明
+
+- 新增：`src/types/groupPlus.ts`、`src/api/groupPlus.ts`、`src/api/messageSearch.ts`；`api/client.ts` 增加 `signal`、`apiRequestWithHeaders`、`uploadFormWithProgress`、`apiDownloadBlob`。
+- 实时事件 `group.plus.updated` / `group.todo.updated` / `group.file.updated` 在 `realtime/client.ts` 接入，缓存处理在 `components/groupPlus/data.ts`；`balance` 新增 `group_plus_spent`。
+- 本地预览：`dev/group-plus-harness.html`（假接口在 `dev/mocks/groupPlus.ts`，桌面/移动与浅深色可切换）。
+- 修复升级面板打不开（桌面只在窗口右下角露出一小块）：`group-plus.css` 里 `.kgp-panel` 误和头像角标 `.kgp-corner` 合写在同一条规则里，面板被绝对定位到右下角、高 14px、圆角 50%。现在只共用颜色变量；外壳仍是 `RedPacketLayer`（桌面居中 + 遮罩 + 淡入上浮，移动贴底弹出）。确认 / 成功 / 购买记录页收窄到 500px，权益增量按目标档位着色，「购买记录」链接改为中性色，档位卡片价格下补一行（月付显示年付总价），手机首次打开时卡片直接定位、不再停在半路。
+- 档位标志重做：标签改为细描边的浅色字标（Pro 蓝、Pro+ 紫、MAX 暖金渐变带高光），选中会话行里 Pro / Pro+ 改白字；头像角标只给 MAX（金色圆章 + 王冠，外圈面板色描边，选中行里描边换成强调色），Pro / Pro+ 不再画角标。桌面 / 移动会话列表的群名改为「名字截断、标签保留」（`.ksh-conv-name`），长群名不再把标签一起截掉。
+
 ## 1.2.1 - 2026-07-23
 
 ### 新功能

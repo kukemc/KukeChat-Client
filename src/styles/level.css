@@ -1455,3 +1455,26 @@
 .klv-user--profile {
   margin-top: 10px;
 }
+
+/* ───────── 6. 排行榜页（components/ranking，前缀 krk-）─────────
+   外框和等级页一样（桌面 ksp + klv-page，移动 kc-qq-page + klv-m），榜单的行也是同一套，这里只补几处小东西。 */
+
+/* 标题栏上的榜单页签带一个小图标 */
+.krk-page .ksp-head-actions .kui-segment button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#kukechat-root .krk-page .klv-wrap {
+  max-width: 860px;
+}
+
+/* 风纪榜：层级是一个标签，票数和风纪值是数字列 */
+.krk-jury-table.klv-table--desktop .kjr-tr {
+  grid-template-columns: 44px minmax(140px, 1.4fr) minmax(90px, 0.8fr) 92px 84px;
+}
+
+.krk-jury-table .kjr-lb-anon {
+  flex: none;
+}

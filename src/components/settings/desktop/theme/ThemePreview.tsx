@@ -54,7 +54,7 @@ export function ThemeStage({ mode }: { mode: WallpaperMode }): JSX.Element {
             <div key={item.name} className={`ksh-conv ${index === 0 ? 'is-active' : ''}`}>
               <Avatar label={item.name} toneKey={index + 3} size="md" />
               <span className="ksh-conv-main">
-                <span className="ksh-conv-line"><span className="ksh-conv-title">{item.name}</span><span className="ksh-conv-time">{item.time}</span></span>
+                <span className="ksh-conv-line"><span className="ksh-conv-title"><span className="ksh-conv-name">{item.name}</span></span><span className="ksh-conv-time">{item.time}</span></span>
                 <span className="ksh-conv-line"><span className="ksh-conv-preview">{item.preview}</span>{item.unread ? <span className="kui-badge">{item.unread}</span> : null}</span>
               </span>
             </div>

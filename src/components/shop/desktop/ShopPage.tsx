@@ -1,12 +1,15 @@
 import { createPortal } from 'react-dom';
 import { cx } from '@/components/chat/desktop/runtime';
+import { GiftRecordsButton } from '@/components/gifts/GiftEntry';
+import { RedPacketRecordsButton } from '@/components/redpacket/RedPacketEntry';
 import { Icon } from '@/components/ui/Icon';
+import { CoinIcon } from '@/components/ui/CoinIcon';
 import { getDesktopPortalRoot } from '@/components/ui/desktop/Modal';
 import { useKukeStore } from '@/store/kukeStore';
 import type { ShopItem } from '@/types/shop';
-import { BubbleStage, cardSamples } from '../BubbleSample';
 import { ItemButton, ItemTags, PriceLine } from '../ItemParts';
-import { DEFAULT_PREVIEW_TEXT, formatCoins, formatVerifiedAt, itemAction } from '../labels';
+import { ItemPreview } from '../ItemPreview';
+import { balanceExtras, canRenew, categoryText, formatCoins, formatVerifiedAt, itemAction, ownedExpiry } from '../labels';
 import { useShopController, type ShopController } from '../useShopController';
 import { HistoryDialog, PurchaseDialog, TryOnDialog } from './ShopDialogs';
 
@@ -29,6 +32,8 @@ export function ShopPage(): JSX.Element {
           <p className="ksp-head-sub">用 CCW 金币换聊天里的装扮</p>
           {data ? (
             <div className="ksp-head-actions">
+              <RedPacketRecordsButton className="kui-btn kui-btn--ghost kui-btn--sm"><Icon name="redPacket" className="h-3.5 w-3.5" />红包记录</RedPacketRecordsButton>
+              <GiftRecordsButton className="kui-btn kui-btn--ghost kui-btn--sm"><Icon name="gift" className="h-3.5 w-3.5" />礼物记录</GiftRecordsButton>
               <button type="button" className="kui-btn kui-btn--ghost kui-btn--sm" data-action="history" onClick={() => shop.setHistoryOpen(true)}><Icon name="clock" className="h-3.5 w-3.5" />购买记录</button>
             </div>
           ) : null}
@@ -41,15 +46,6 @@ export function ShopPage(): JSX.Element {
               : <ShopSkeleton />}
           </div>
         </div>
-        {shop.notice ? (
-          <div className="ksp-toasts" aria-live="polite">
-            <div key={shop.notice.id} className={cx('ksp-toast', shop.notice.tone === 'danger' && 'is-danger')} role="status">
-              <Icon name={shop.notice.tone === 'danger' ? 'alert' : 'check'} className="h-4 w-4" />
-              <span>{shop.notice.text}</span>
-              <button type="button" className="kui-icon-btn" aria-label="关闭提示" onClick={shop.dismissNotice}><Icon name="close" className="h-3.5 w-3.5" /></button>
-            </div>
-          </div>
-        ) : null}
       </div>
       {/* 页面外层带 transform（进场动画的结束帧），position: fixed 的后代会被圈在里面；对话框挂到窗口根上才能盖住整个窗口 */}
       {shop.tryOnTarget ? createPortal(<TryOnDialog item={shop.tryOnTarget} shop={shop} />, getDesktopPortalRoot()) : null}
@@ -112,7 +108,7 @@ function BalanceCard({ shop, openBinding }: { shop: ShopController; openBinding:
   return (
     <section className="ksp-card ksp-balance" data-shop="balance">
       <div className="ksp-balance-main">
-        <span className="ksp-coin"><Icon name="coins" className="h-5 w-5" /></span>
+        <span className="ksp-coin"><CoinIcon size={26} /></span>
         <div className="ksp-balance-figure">
           <p className="ksp-balance-label">金币余额</p>
           <p className="ksp-balance-number" data-shop="balance-number">{formatCoins(balance.balance)}</p>
@@ -128,6 +124,8 @@ function BalanceCard({ shop, openBinding }: { shop: ShopController; openBinding:
       <dl className="ksp-stats">
         <div><dt>累计投币</dt><dd>{formatCoins(balance.donated)}</dd></div>
         <div><dt>已花</dt><dd>{formatCoins(balance.spent)}</dd></div>
+        {/* 红包、礼物进出的几项：服务端给了、不是 0 才有 */}
+        {balanceExtras(balance).map((row) => <div key={row.key} data-shop={`balance-${row.key}`}><dt>{row.label}</dt><dd>{row.text}</dd></div>)}
         <div><dt>核实</dt><dd>{formatVerifiedAt(balance.verified_at, shop.now)}</dd></div>
       </dl>
       {balance.stale ? <p className="kui-note kui-note--warn" data-shop="stale">上次向 CCW 核实没有成功，这里显示的是之前的余额，可能不是最新的。过一会儿再点「刷新余额」。</p> : null}
@@ -149,17 +147,22 @@ function WardrobeCard({ shop }: { shop: ShopController }): JSX.Element | null {
   return (
     <section className="ksp-card ksp-wardrobe" data-shop="wardrobe">
       <header className="ksp-card-head"><h2><Icon name="shirt" className="h-4 w-4" />我的装扮</h2></header>
-      {shop.wardrobe.map(({ category, sku, item }) => (
-        <div key={category.key} className="ksp-slot">
-          <div className="ksp-slot-text">
-            <p className="ksp-slot-label">{category.label}</p>
-            <p className="ksp-slot-name">{item ? item.name : sku ? '已装备一件装扮' : '没有装备'}</p>
-            <p className="ksp-slot-hint">{sku ? '你发出的消息会用这个气泡，别人也看得到。' : '用的是主题自带的气泡。在下面挑一件换上。'}</p>
+      {shop.wardrobe.map(({ category, sku, item }) => {
+        // 装备着的是限时商品：写还剩几天，不超过 3 天时标红；能续期的给一个「续期」
+        const expiry = item ? ownedExpiry(item, shop.now) : null;
+        return (
+          <div key={category.key} className="ksp-slot" data-slot={category.slot}>
+            <div className="ksp-slot-text">
+              <p className="ksp-slot-label">{category.label}</p>
+              <p className="ksp-slot-name">{item ? item.name : sku ? '已装备一件装扮' : '没有装备'}{expiry ? <span className={cx('ksp-expiry', expiry.soon && 'is-soon')} data-shop="slot-expiry" data-soon={expiry.soon || undefined}><Icon name="clock" className="h-3 w-3" />{expiry.text}</span> : null}</p>
+              <p className="ksp-slot-hint">{expiry?.soon ? '快到期了，到期后会自动卸下。续期可以接着用。' : sku ? categoryText(category.key).slotEquipped : categoryText(category.key).slotEmpty}</p>
+            </div>
+            <ItemPreview category={category.key} style={item?.style} previewText={item?.preview_text} variant="slot" layout="desktop" />
+            {item && canRenew(item) ? <button type="button" className={cx('kui-btn kui-btn--sm', expiry?.soon && 'kui-btn--primary')} data-action="renew-slot" onClick={() => shop.openPurchase(item)}>续期</button> : null}
+            {sku ? <button type="button" className="kui-btn kui-btn--sm" data-action="unequip-slot" disabled={shop.equipPending !== null} onClick={() => shop.unequip(category.slot)}>{shop.equipPending === category.slot ? '卸下中…' : '卸下'}</button> : null}
           </div>
-          <BubbleStage style={item?.style} messages={[{ mine: true, text: item?.preview_text.trim() || DEFAULT_PREVIEW_TEXT }]} layout="desktop" className="ksp-stage--slot" />
-          {sku ? <button type="button" className="kui-btn kui-btn--sm" data-action="unequip-slot" disabled={shop.equipPending !== null} onClick={() => shop.unequip(category.slot)}>{shop.equipPending === category.slot ? '卸下中…' : '卸下'}</button> : null}
-        </div>
-      ))}
+        );
+      })}
     </section>
   );
 }
@@ -175,7 +178,7 @@ function ItemCard({ item, shop }: { item: ShopItem; shop: ShopController }): JSX
           shop.openTryOn(item);
         }
       }}>
-        <BubbleStage style={item.style} messages={cardSamples(item.preview_text)} layout="desktop" />
+        <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="card" layout="desktop" />
         <span className="ksp-item-try"><Icon name="eye" className="h-3.5 w-3.5" />试穿</span>
       </div>
       <div className="ksp-item-body">

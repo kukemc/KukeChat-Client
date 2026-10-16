@@ -13,7 +13,7 @@
  * 初始状态可以写在地址里，方便截图：
  *   form=tauri|ext   theme=dark   open=1（一进来就点开卡片）   font=0..4   w=980 h=680（窗口大小）   x= y=（扩展浮窗的位置）
  *   level=23|none（none：服务端没有账号等级）   jury=trainee|regular|senior   admin=1   ccw=0（没绑定 CCW）
- *   skin=starry|sakura|…|none   shop=missing（服务端没有商店）   bio=0（没写签名）   long=1（很长的昵称和签名）
+ *   skin=starry|sakura|…|none   frame=cat|crowned|…（头像框，默认不带）   shop=missing（服务端没有商店）   bio=0（没写签名）   long=1（很长的昵称和签名）
  *   posts=images|few|text|none|error|slow    online=0
  *
  * 脚本测试用 window.__selfcard：scenario / requests / store / queryClient / drags。
@@ -26,7 +26,7 @@ import '@/styles/tailwind.css';
 import { shadowStyles } from '@/styles/shadowStyles';
 import { featureMocks } from './mocks';
 import { MAX_LEVEL, daysForLevel, iconsOf, levelScenario, levelState } from './mocks/level';
-import { SKINS, shopScenario, shopState } from './mocks/shop';
+import { FRAMES, SKINS, shopScenario, shopState } from './mocks/shop';
 import { createPostsMock, me as postsMe, type PostsMock } from './posts-harness.mock';
 import { ChatDashboard } from '@/components/chat/ChatDashboard';
 import { handleLevelEvent } from '@/components/level/data';
@@ -61,8 +61,12 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false,
 const SKIN_NAMES = ['starry', 'sakura', 'aurora', 'candy', 'pixel'] as const;
 type SkinName = (typeof SKIN_NAMES)[number];
 
+/** 地址里 frame= 指定的头像框：标题栏上的头像、资料卡里的头像都会带上 */
+const frameParam = new URLSearchParams(window.location.search).get('frame') ?? '';
+const frameCosmetic: User['cosmetics'] = frameParam in FRAMES ? { frame: { sku: `frame.${frameParam}`, style: FRAMES[frameParam as keyof typeof FRAMES] } } : {};
+
 function wearing(name: SkinName | null): User['cosmetics'] {
-  return name ? { bubble: { sku: `bubble.${name}`, style: SKINS[name] } } : {};
+  return name ? { bubble: { sku: `bubble.${name}`, style: SKINS[name] }, ...frameCosmetic } : { ...frameCosmetic };
 }
 
 /** 画一张渐变的小图当头像 */
@@ -351,6 +355,8 @@ async function start(): Promise<void> {
   const skinParam = params.get('skin');
   const skin: SkinName | null = skinParam === 'none' ? null : SKIN_NAMES.includes(skinParam as SkinName) ? skinParam as SkinName : 'starry';
   shopState.setEquipped(skin ? `bubble.${skin}` : null);
+  // 假后端里也要装备上：商店的主数据一拉回来，就会按它把用户对象上的装扮对齐
+  shopState.setEquipped(frameParam in FRAMES ? `frame.${frameParam}` : null, 'frame');
   const juryParam = params.get('jury');
   const bound = params.get('ccw') !== '0';
   const long = flag('long');

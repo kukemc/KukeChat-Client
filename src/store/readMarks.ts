@@ -19,7 +19,8 @@ function isLocallyRead(conversation: Conversation): boolean {
 
 /** 给从服务端拿到的会话数据套上本机的已读位置。 */
 export function applyLocalReadMarks(conversations: Conversation[]): Conversation[] {
-  return conversations.map((conversation) => (conversation.unread_count && isLocallyRead(conversation) ? { ...conversation, unread_count: 0 } : conversation));
+  // 「[有人@我]」是未读消息里的 @，跟着未读数一起清
+  return conversations.map((conversation) => ((conversation.unread_count || conversation.mention_pending) && isLocallyRead(conversation) ? { ...conversation, unread_count: 0, mention_pending: null } : conversation));
 }
 
 /**
@@ -31,11 +32,18 @@ export function markConversationReadLocally(queryClient: QueryClient, conversati
   const cached = queryClient.getQueryData<Conversation[]>(['conversations'])?.find((conversation) => conversation.id === conversationId);
   const mark = Math.max(lastMessageId ?? 0, cached?.last_message?.id ?? 0, readUpTo.get(conversationId) ?? 0);
   readUpTo.set(conversationId, mark);
-  if (cached?.unread_count) {
+  if (cached?.unread_count || cached?.mention_pending) {
     queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current?.map((conversation) => (
-      conversation.id === conversationId ? { ...conversation, unread_count: 0 } : conversation
+      conversation.id === conversationId ? { ...conversation, unread_count: 0, mention_pending: null } : conversation
     )));
   }
   // 服务端这一步失败也不回滚：下次打开会话还会再标一次，而把红点弹回来只会让人困惑
-  void markConversationRead(conversationId, lastMessageId ?? cached?.last_message?.id ?? null).catch(() => undefined);
+  void markConversationRead(conversationId, lastMessageId ?? cached?.last_message?.id ?? null).then((mentionPending) => {
+    // 返回里带着读完之后的 mention_pending：读到的位置后面又来了 @我 的消息时它不是 null，以服务端说的为准
+    if (mentionPending) {
+      queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current?.map((conversation) => (
+        conversation.id === conversationId && (conversation.mention_pending ?? null) !== mentionPending && (conversation.unread_count ?? 0) > 0 ? { ...conversation, mention_pending: mentionPending } : conversation
+      )));
+    }
+  }).catch(() => undefined);
 }

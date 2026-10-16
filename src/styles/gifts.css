@@ -1,0 +1,1166 @@
+/* ───────── 礼物（前缀 kgf-）─────────
+   聊天里的礼物卡片、送礼面板、礼物墙、心意值、心意榜、动效的两层容器。桌面和移动共用一套，移动布局的差异在文件末尾。
+   面板的外壳（遮罩、面板、行、账单、记录列表）用的是红包那一套（krp-，RedPacketLayer），这里只把红色换成礼物自己的玫红。
+   礼物图形和动效本身的样式在 gift-effects.css（kgfx-）。
+   「收到礼物」的提示走统一的提示组件（styles/toast.css），不在这里。 */
+
+.kgf-layer,
+.kgf-card,
+.kgf-wall,
+.kgf-board,
+.kgf-send,
+.kgf-tool {
+  --kgf-fs: var(--kc-font-multiplier, 1);
+  --kgf: #d9468f;
+  --kgf-hi: #f0609f;
+  --kgf-lo: #c2337c;
+  --kgf-soft: color-mix(in srgb, var(--kgf) 12%, transparent);
+  --kgf-gold: #e59a1f;
+}
+
+[data-theme='dark'] .kgf-layer,
+[data-theme='dark'] .kgf-card,
+[data-theme='dark'] .kgf-wall,
+[data-theme='dark'] .kgf-board,
+[data-theme='dark'] .kgf-send,
+[data-theme='dark'] .kgf-tool {
+  --kgf: #ff7db8;
+  --kgf-hi: #ff93c4;
+  --kgf-lo: #e7609f;
+  --kgf-soft: color-mix(in srgb, var(--kgf) 16%, transparent);
+  --kgf-gold: #ffc35c;
+}
+
+/* ───────── 聊天里的卡片 ───────── */
+
+.kgf-card {
+  position: relative;
+  display: flex;
+  width: 252px;
+  max-width: 100%;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  padding: 10px 12px 11px;
+  border: 1px solid color-mix(in srgb, var(--kgf) 22%, transparent);
+  border-radius: clamp(8px, var(--kc-radius, 12px), 14px);
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--kgf) 15%, transparent), transparent 62%),
+    radial-gradient(90% 80% at 100% 100%, color-mix(in srgb, var(--kgf-gold) 14%, transparent), transparent 60%),
+    var(--kc-panel, #ffffff);
+  box-shadow: 0 1px 2px rgba(150, 40, 100, 0.08), 0 6px 14px -10px rgba(150, 40, 100, 0.4);
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kgf-fs));
+  line-height: 1.4;
+  text-align: left;
+}
+
+.kgf-card.is-to-me {
+  border-color: color-mix(in srgb, var(--kgf) 45%, transparent);
+}
+
+.kgf-card-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kgf-fs));
+}
+
+.kgf-card-who {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  color: var(--kc-text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgf-card-verb {
+  flex: none;
+  color: var(--kgf);
+  font-weight: 600;
+}
+
+.kgf-card-body {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.kgf-card-thing {
+  position: relative;
+  display: grid;
+  min-width: 68px;
+  min-height: 68px;
+  flex: none;
+  place-items: center;
+}
+
+/* 图形背后的一团光：平时很淡，刚到的时候跟着图形亮一下 */
+.kgf-card-glow {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--kgf-gold) 34%, transparent) 0%, color-mix(in srgb, var(--kgf) 16%, transparent) 46%, transparent 70%);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.kgf-card-thing > :not(.kgf-card-glow) {
+  position: relative;
+}
+
+.kgf-card-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kgf-card-name {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+  font-size: calc(15px * var(--kgf-fs));
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.kgf-card-count {
+  flex: none;
+  color: var(--kgf);
+  font-size: calc(17px * var(--kgf-fs));
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.kgf-card-term {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kgf-fs));
+}
+
+.kgf-card-message {
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kgf-fs));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* 留言最多 60 字：卡片里最多三行，截断放在里面这一层（外面那层有内边距，直接截会露出半行） */
+.kgf-card-message > span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.kgf-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 -12px -11px;
+  padding: 7px 8px 7px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--kgf) 18%, transparent);
+  background: color-mix(in srgb, var(--kgf) 6%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kgf-fs));
+}
+
+#kukechat-root [data-font-scale] .kgf-card-go,
+.kgf-card-go {
+  flex: none;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--kgf-hi), var(--kgf));
+  color: #ffffff;
+  font-size: calc(12px * var(--kgf-fs));
+  font-weight: 600;
+}
+
+.kgf-card-go:hover {
+  filter: brightness(1.06);
+}
+
+/* 礼物卡片里的小样：头像框留出探出去的装饰，气泡小样别撑太宽 */
+.kgf-thing--frame {
+  display: grid;
+  padding: 8px;
+  place-items: center;
+}
+
+.kgf-thing--bubble {
+  display: block;
+  /* 宽度跟着里面那句话走：放进很窄的格子里（礼物墙、记录）也不会把字挤成一竖条，由各处自己缩小 */
+  width: max-content;
+  max-width: 132px;
+}
+
+.kgf-thing--bubble .kcd-row,
+.kgf-thing--bubble .kc-mobile-message-row {
+  justify-content: center;
+}
+
+.kgf-thing--unknown {
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--kgf-soft);
+  color: var(--kgf);
+}
+
+/* 刚到的那一下（tier 1 的小动画；更大的动效播的时候卡片上也是这一下）：图形弹出来，光晕闪一次，数量跳一下 */
+.kgf-card.is-fresh .kgf-card-thing > :not(.kgf-card-glow) {
+  animation: kgf-pop 720ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.kgf-card.is-fresh .kgf-card-glow {
+  animation: kgf-glow 1400ms ease-out both;
+}
+
+.kgf-card.is-fresh .kgf-card-count {
+  animation: kgf-count 520ms 360ms cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+.kgf-card.is-fresh {
+  animation: kgf-card-in 320ms cubic-bezier(0.2, 0.85, 0.2, 1) both;
+}
+
+@keyframes kgf-card-in {
+  from {
+    transform: translateY(6px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+@keyframes kgf-pop {
+  0% {
+    transform: scale(0.3) rotate(-14deg);
+    opacity: 0;
+  }
+
+  55% {
+    transform: scale(1.14) rotate(5deg);
+    opacity: 1;
+  }
+
+  78% {
+    transform: scale(0.96) rotate(-2deg);
+  }
+
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes kgf-glow {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+
+  35% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+
+  100% {
+    transform: none;
+    opacity: 0.75;
+  }
+}
+
+@keyframes kgf-count {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* ───────── 动效的两层容器 ───────── */
+
+/* tier 2：铺在聊天面板上，不挡操作 */
+.kgf-stage {
+  position: absolute;
+  z-index: 55;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* tier 3：铺满整个窗口，压一层暗，点一下跳过 */
+.kgf-fullscreen {
+  position: fixed;
+  z-index: 2147483640;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 46%, rgba(40, 18, 60, 0.62), rgba(10, 8, 22, 0.86));
+  cursor: pointer;
+  animation: kgf-fullscreen 2800ms ease both;
+}
+
+@keyframes kgf-fullscreen {
+  0% {
+    opacity: 0;
+  }
+
+  8%,
+  88% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.kgf-fullscreen-skip {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--kc-native-safe-bottom, env(safe-area-inset-bottom, 0px)) + 18px);
+  left: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* ───────── 入口 ───────── */
+
+/* 工具栏上的礼物图标带一点玫红，和别的工具分开；禁用时跟着变灰 */
+.kgf-tool:not(:disabled) {
+  color: var(--kgf);
+}
+
+/* 移动端的工具栏是固定五列的格子：多一个礼物是六列，红包和礼物都有是七列 */
+.kc-mobile-composer-toolbar:has(.kgf-tool) {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.kc-mobile-composer-toolbar:has(.kgf-tool):has(.krp-tool) {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+/* 「送礼物」按钮：所在的界面没给样子时的默认长相（一个小礼盒 + 字） */
+.kgf-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+#kukechat-root [data-font-scale] .kgf-send--block,
+.kgf-send--block {
+  width: 100%;
+  height: 38px;
+  border-radius: 16px;
+  background: var(--kgf-soft);
+  color: var(--kgf);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ───────── 送礼面板 ───────── */
+
+.kgf-layer .kgf-panel {
+  width: 430px;
+}
+
+/* 面板里的东西多（一屏礼物 / 装扮）：让外面那层有确定的高度，面板的 max-height: 100% 才算得出来，超出的部分在面板里面滚 */
+.kgf-layer .krp-stage {
+  height: 100%;
+}
+
+.kgf-layer .kgf-panel--send {
+  max-height: min(720px, 100%);
+}
+
+.kgf-panel-icon.krp-panel-icon {
+  background: linear-gradient(180deg, var(--kgf-hi), var(--kgf));
+  color: #ffffff;
+}
+
+.kgf-link.krp-link {
+  color: var(--kgf);
+}
+
+/* 玫红的主按钮 */
+#kukechat-root [data-font-scale] .kgf-btn,
+.kgf-btn {
+  display: inline-flex;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--kgf-hi), var(--kgf));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(150, 30, 90, 0.3);
+  color: #ffffff;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: filter 120ms ease, transform 60ms ease;
+}
+
+.kgf-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.kgf-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.kgf-btn:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.5);
+  opacity: 0.5;
+}
+
+.kgf-to {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--kc-text) 4%, transparent);
+}
+
+.kgf-to-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.3;
+}
+
+.kgf-to-text small {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kgf-fs));
+}
+
+.kgf-to-text b {
+  overflow: hidden;
+  font-size: calc(14px * var(--kgf-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgf-birthday-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kgf-gold) 18%, transparent);
+  color: color-mix(in srgb, var(--kgf-gold) 72%, var(--kc-text));
+  font-size: calc(11.5px * var(--kgf-fs));
+  font-weight: 600;
+}
+
+.kgf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+}
+
+.kgf-grid--items {
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+}
+
+#kukechat-root [data-font-scale] .kgf-tile,
+.kgf-tile {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px 8px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kc-text) 3.5%, transparent);
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kgf-fs));
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.kgf-tile:hover {
+  background: color-mix(in srgb, var(--kgf) 8%, transparent);
+}
+
+.kgf-tile.is-active {
+  border-color: var(--kgf);
+  background: var(--kgf-soft);
+}
+
+.kgf-tile.is-active .kgfx-glyph {
+  transform: scale(1.08);
+}
+
+.kgf-tile .kgfx-glyph {
+  transition: transform 160ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.kgf-tile-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgf-tile-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kgf-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kgf-tile-price > svg {
+  color: var(--kui-warn, #b06a00);
+}
+
+/* 带动效的礼物右上角的小标 */
+.kgf-tile-flag {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kgf-gold) 20%, transparent);
+  color: color-mix(in srgb, var(--kgf-gold) 72%, var(--kc-text));
+  font-size: calc(10px * var(--kgf-fs));
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.kgf-tile--item {
+  align-items: stretch;
+  padding: 8px 8px 9px;
+  text-align: left;
+}
+
+.kgf-tile-preview {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  height: 86px;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: 9px;
+  background: var(--kc-chat, color-mix(in srgb, var(--kc-text) 4%, transparent));
+  place-items: center;
+}
+
+/* 小样比格子宽的时候（长一点的预览文字）：居中、两边裁掉，不把格子撑开 */
+.kgf-tile-preview .kgf-thing--bubble {
+  max-width: none;
+  transform: scale(0.82);
+}
+
+.kgf-tile-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px 6px;
+}
+
+.kgf-term {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-text) 7%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(11px * var(--kgf-fs));
+  line-height: 17px;
+}
+
+.kgf-term.is-limited {
+  background: color-mix(in srgb, var(--kui-warn, #b06a00) 14%, transparent);
+  color: var(--kui-warn, #b06a00);
+}
+
+/* 对方已经永久拥有：整块置灰，角上写明 */
+.kgf-tile.is-owned {
+  opacity: 0.5;
+  filter: grayscale(0.7);
+}
+
+.kgf-tile-owned {
+  position: absolute;
+  top: 13px;
+  left: 13px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(20, 22, 30, 0.72);
+  color: #ffffff;
+  font-size: calc(11px * var(--kgf-fs));
+  line-height: 19px;
+}
+
+.kgf-count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.kgf-count-label {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kgf-fs));
+}
+
+.kgf-stepper {
+  display: inline-flex;
+  height: 30px;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--kc-border-strong, var(--kc-border));
+  border-radius: 8px;
+}
+
+#kukechat-root [data-font-scale] .kgf-stepper button,
+.kgf-stepper button {
+  display: grid;
+  width: 30px;
+  place-items: center;
+  color: var(--kc-text);
+}
+
+.kgf-stepper button:hover:not(:disabled) {
+  background: var(--kc-hover);
+}
+
+.kgf-stepper button:disabled {
+  opacity: 0.35;
+}
+
+#kukechat-root [data-font-scale] .kgf-stepper input,
+.kgf-stepper input {
+  width: 44px;
+  border: 0;
+  border-right: 1px solid var(--kc-border);
+  border-left: 1px solid var(--kc-border);
+  background: transparent;
+  color: var(--kc-text);
+  font-size: calc(14px * var(--kgf-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  outline: none;
+  text-align: center;
+}
+
+.kgf-presets {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#kukechat-root [data-font-scale] .kgf-presets button,
+.kgf-presets button {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kgf-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kgf-presets button.is-active {
+  background: var(--kgf-soft);
+  color: var(--kgf);
+  font-weight: 600;
+}
+
+.kgf-bill .is-cost dd {
+  color: var(--kgf);
+  font-weight: 700;
+}
+
+.kgf-bill dd small {
+  margin-left: 6px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kgf-fs));
+  font-weight: 400;
+}
+
+.kgf-bill dd > svg {
+  display: inline;
+  margin-right: 3px;
+  color: var(--kui-warn, #b06a00);
+  vertical-align: -2px;
+}
+
+/* 选收礼人 */
+.kgf-pick-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 14px 4px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-muted);
+}
+
+#kukechat-root [data-font-scale] .kgf-pick-search input,
+.kgf-pick-search input {
+  min-width: 0;
+  height: 34px;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kgf-fs));
+  outline: none;
+}
+
+.kgf-pick {
+  display: grid;
+  padding: 4px 6px;
+}
+
+#kukechat-root [data-font-scale] .kgf-pick-row,
+.kgf-pick-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: var(--kc-text);
+  font-size: calc(13.5px * var(--kgf-fs));
+  text-align: left;
+}
+
+.kgf-pick-row:hover,
+.kgf-pick-row.is-active {
+  background: var(--kc-hover);
+}
+
+.kgf-pick-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgf-pick-go {
+  flex: none;
+  color: var(--kc-subtle, var(--kc-muted));
+}
+
+/* 没落聊天消息的那种，送完之后的那一页 */
+.kgf-sent {
+  align-items: center;
+  padding-top: 26px;
+  padding-bottom: 22px;
+  text-align: center;
+}
+
+.kgf-sent-thing {
+  animation: kgf-pop 720ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.kgf-sent-title {
+  font-size: calc(15px * var(--kgf-fs));
+  font-weight: 700;
+}
+
+.kgf-sent-note {
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kgf-fs));
+  line-height: 1.6;
+}
+
+/* ───────── 记录 ───────── */
+
+.kgf-record.krp-record {
+  align-items: flex-start;
+}
+
+div.kgf-record.krp-record {
+  cursor: default;
+}
+
+.kgf-record-thing {
+  display: grid;
+  width: 40px;
+  min-height: 36px;
+  flex: none;
+  place-items: center;
+}
+
+.kgf-record-thing .kgf-thing--bubble {
+  max-width: none;
+  transform: scale(0.5);
+}
+
+.kgf-record-thing .kgf-thing--frame {
+  padding: 2px;
+}
+
+.kgf-record .krp-record-greeting {
+  white-space: normal;
+}
+
+.kgf-record-message {
+  color: var(--kc-text);
+  font-size: calc(12.5px * var(--kgf-fs));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.kgf-record-birthday {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kgf-gold, #e59a1f) 18%, transparent);
+  color: color-mix(in srgb, var(--kgf-gold, #e59a1f) 72%, var(--kc-text));
+  font-size: calc(11px * var(--kgf-fs, 1));
+  font-weight: 600;
+  line-height: 18px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.kgf-total .krp-total-number b,
+.kgf-amount--in.krp-record-amount {
+  color: var(--kgf);
+}
+
+/* ───────── 礼物墙 ─────────
+   跟同一页上的「账号等级」卡片一个写法：小标题（旁边一个低调的心意值）、一个数字 + 一行次要信息、规整的格子。
+   颜色走界面的中性色和强调色，礼物自己的玫红只留给礼物图形本身。 */
+
+.kgf-wall {
+  --kgf-wall-cols: 3;
+  display: grid;
+  gap: 10px;
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kgf-fs));
+}
+
+/* 小标题那一行：「礼物墙」在左，心意值在右 */
+.kgf-wall-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kgf-wall-charm {
+  display: inline-flex;
+  flex: none;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kc-font-multiplier, 1));
+  font-weight: 400;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.kgf-wall-charm b {
+  color: var(--kc-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 数字那一行：收到几件、几种，右边是送礼按钮 */
+.kgf-wall-bar {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.kgf-wall-sum {
+  display: inline-flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kgf-fs));
+  white-space: nowrap;
+}
+
+.kgf-wall-sum b {
+  margin-right: 1px;
+  color: var(--kc-text);
+  font-size: calc(17px * var(--kgf-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.kgf-wall-sum i {
+  color: var(--kc-subtle, var(--kc-muted));
+  font-style: normal;
+}
+
+.kgf-wall-send {
+  flex: none;
+}
+
+.kgf-wall-grid {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  grid-template-columns: repeat(var(--kgf-wall-cols), minmax(0, 1fr));
+  list-style: none;
+}
+
+.kgf-wall-grid > li {
+  min-width: 0;
+}
+
+#kukechat-root [data-font-scale] .kgf-wall-tile,
+.kgf-wall-tile {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  justify-items: center;
+  gap: 1px;
+  padding: 8px 4px 7px;
+  border: 1px solid var(--kc-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--kc-text);
+  cursor: pointer;
+  font-size: calc(12px * var(--kgf-fs));
+  line-height: 1.4;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.kgf-wall-tile:hover {
+  border-color: color-mix(in srgb, var(--kc-text) 16%, var(--kc-border));
+  background: var(--kc-hover);
+}
+
+.kgf-wall-tile:focus-visible {
+  outline: 2px solid var(--kc-accent);
+  outline-offset: 1px;
+}
+
+.kgf-wall-tile.is-active {
+  border-color: var(--kc-accent);
+  background: color-mix(in srgb, var(--kc-accent) 8%, transparent);
+}
+
+/* 图形一律放在同样大的格子里：礼物图形、头像框小样、气泡小样都按这个框缩放 */
+.kgf-wall-tile-thing {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 3px;
+  place-items: center;
+  overflow: visible;
+}
+
+.kgf-wall-tile-thing .kgf-thing--bubble {
+  max-width: none;
+  transform: scale(0.6);
+}
+
+.kgf-wall-tile-thing .kgf-thing--frame {
+  padding: 0;
+}
+
+.kgf-wall-tile-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--kc-text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kgf-wall-tile-count {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kgf-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kgf-wall-bone {
+  display: block;
+  height: 82px;
+  border-radius: 8px;
+}
+
+.kgf-wall-quiet {
+  color: var(--kc-subtle, var(--kc-muted));
+  font-size: calc(12px * var(--kgf-fs));
+}
+
+/* 空着的墙：一个线条礼盒、两行字，别人的墙下面是送礼按钮 */
+.kgf-wall-empty {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 14px 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--kc-text) 3%, transparent);
+  text-align: center;
+}
+
+.kgf-wall-empty-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 4px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kc-panel, transparent);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  color: var(--kc-muted);
+}
+
+.kgf-wall-empty-title {
+  font-size: calc(13px * var(--kgf-fs));
+  font-weight: 600;
+}
+
+.kgf-wall-empty-text {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kgf-fs));
+  line-height: 1.55;
+}
+
+.kgf-wall-empty .kgf-wall-send {
+  margin-top: 8px;
+}
+
+.kgf-wall-records {
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--kc-border);
+}
+
+.kgf-wall-records-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: calc(12.5px * var(--kgf-fs));
+  font-weight: 600;
+}
+
+.kgf-wall-records-title span {
+  color: var(--kc-muted);
+  font-weight: 400;
+}
+
+.kgf-wall-list.krp-records {
+  margin: 0 -6px;
+}
+
+.kgf-wall-list .krp-record {
+  padding-right: 6px;
+  padding-left: 6px;
+}
+
+.kgf-wall-more {
+  justify-self: center;
+}
+
+/* ───────── 心意榜（排行榜页的「心意榜」页签）───────── */
+
+.kgf-table.klv-table--desktop .kjr-tr {
+  grid-template-columns: 44px minmax(140px, 1fr) 120px;
+}
+
+.kgf-table.klv-table--mobile .kjr-tr {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+}
+
+/* ───────── 移动布局 ───────── */
+
+[data-layout='mobile'] .kgf-layer .kgf-panel {
+  width: 100%;
+}
+
+[data-layout='mobile'] .kgf-panel :is(.kgf-btn) {
+  height: 40px;
+  border-radius: 12px;
+}
+
+[data-layout='mobile'] .kgf-panel .krp-panel-foot > .kgf-btn:last-child {
+  flex: 1;
+}
+
+[data-layout='mobile'] .kgf-card {
+  width: 248px;
+  font-size: 14px;
+}
+
+[data-layout='mobile'] .kgf-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+[data-layout='mobile'] .kgf-grid--items {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-layout='mobile'] .kgf-stepper {
+  height: 36px;
+}
+
+[data-layout='mobile'] .kgf-stepper button {
+  width: 38px;
+}
+
+[data-layout='mobile'] .kgf-presets button {
+  height: 30px;
+}
+
+[data-layout='mobile'] .kgf-wall {
+  --kgf-wall-cols: 4;
+}
+
+/* 外观里开了「性能优先」（is-still），或者系统开了「减少动态效果」：全部不动 */
+.is-still .kgf-sent-thing {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kgf-card,
+  .kgf-card *,
+  .kgf-sent-thing,
+  .kgf-fullscreen,
+  .kgf-tile .kgfx-glyph,
+  .kgf-wall-tile {
+    animation: none !important;
+    transition: none !important;
+  }
+}

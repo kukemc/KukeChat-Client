@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from 'react';
+import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { VirtualConversationList } from './VirtualConversationList';
 import { conversationTitle, currentMessageSetting, isConversationPinned, lastMessagePreview, matchesConversation, messageSettingLabel, messageSettingPayload } from './conversationMeta';
 import { createPortal } from 'react-dom';
@@ -10,6 +11,9 @@ import { getOnlineUsers } from '@/api/users';
 import type { Conversation, MessageSetting, User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { ConversationPrefixes } from './ConversationPrefixes';
+import { PlusCornerBadge, PlusTierTag } from '@/components/groupPlus/PlusBadge';
+import { conversationTier } from '@/components/groupPlus/tier';
 import { ContextMenuItem, ContextMenuSurface } from '@/components/ui/ContextMenu';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
 import { updateNativeBackgroundRealtimeConversations } from '@/native/backgroundRealtime';
@@ -162,16 +166,19 @@ const ConversationRow = memo(function ConversationRow({ conversation, currentUse
       onTouchStartCapture={(event) => onTouchStart(event, conversation)} onTouchMoveCapture={onTouchMove} onTouchEndCapture={onTouchEnd} onTouchCancelCapture={onTouchEnd}
       onClickCapture={onClickCapture} onClick={() => onSelect(conversation)} className="kc-qq-conversation-item"
       style={index ? { borderTop: '1px solid rgba(15, 23, 42, 0.045)' } : undefined}>
-      <span className="relative shrink-0">
+      <span className="kgp-avatar kgp-avatar--md relative shrink-0">
         {renderMobileConversationAvatar(conversation, title, peer)}
+        {/* 群档位角标：落在头像右下角（会话对象上的 plus_tier，私聊恒为 free） */}
+        <PlusCornerBadge tier={conversationTier(conversation)} />
         {unread && !muted && !blocked ? <span className="kc-qq-unread-badge">{unread > 99 ? '99+' : unread}</span> : null}
       </span>
       <span className="min-w-0 flex-1 overflow-hidden">
         <span className="flex min-w-0 items-start justify-between gap-3">
-          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#151922]">{title}</span>
+          <span className="kgp-name-row flex min-w-0 flex-1 items-center gap-[5px] text-[15px] font-semibold text-[#151922]"><span className="min-w-0 truncate">{title}</span><PlusTierTag tier={conversationTier(conversation)} />{conversation.type === 'direct' ? <FriendBadgeMark userId={peer?.id} size={15} className="shrink-0" /> : null}</span>
           <span className="shrink-0 pt-0.5 text-[11px] font-medium text-[#b0b6c0]">{formatClockTime(conversation.updated_at)}</span>
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden">
+          <ConversationPrefixes conversation={conversation} className="-mr-1 text-[12px] leading-4" />
           <span className="min-w-0 flex-1 truncate text-[12px] leading-4 text-[#8b95a5]">{lastMessagePreview(conversation)}</span>
           <ConversationStatusIcon conversation={conversation} />
           {conversation.pending_join_request_count ? <span className="rounded-full bg-[#168bff] px-2 py-0.5 text-[10px] font-bold text-white">审 {conversation.pending_join_request_count}</span> : null}

@@ -1,0 +1,447 @@
+/* ───────── 生日庆祝画面（前缀 kbds-）─────────
+   components/birthday/BirthdayScene.tsx 的全部样式。.kbds 铺满宿主给的全屏容器，自己不接收点击。
+   两种形态：.kbds--live 是动画版（蛋糕一层层冒出来、点蜡烛、落彩带、出祝福，最后整体淡出）；
+   .kbds--still 是静态贺卡，一条动画都没有。
+   蛋糕和纸屑的颜色是这个画面自己的，不跟主题走；压在暗底上的字用浅色；贺卡的面、字、线取主题的令牌。
+   所有动画只动 transform 和 opacity，常态样式写的就是「演完之后」的样子，藏起来的起始状态都在关键帧里
+   （animation-fill-mode: both 撑着延迟那一段），所以动画被关掉时画面是完整的而不是空的。 */
+
+.kbds {
+  --kbds-fs: var(--kc-font-multiplier, 1);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 16px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.kbds *,
+.kbds *::before,
+.kbds *::after {
+  box-sizing: border-box;
+}
+
+/* ───────── 蛋糕 ───────── */
+
+.kbds-stage {
+  position: relative;
+  /* 第三项是给横屏的手机留的：画面矮的时候蛋糕跟着缩，别把祝福语挤出去 */
+  width: min(232px, 62%, 40vh);
+  flex: none;
+}
+
+.kbds-cake-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* SVG 里的各组按自己的包围盒变形：蛋糕层和蜡烛从底边长出来，火苗绕着烛芯晃 */
+.kbds-plate,
+.kbds-tier,
+.kbds-candle,
+.kbds-flame,
+.kbds-flicker,
+.kbds-glow {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.kbds-glow {
+  transform-origin: 50% 50%;
+}
+
+/* ───────── 祝福语 ───────── */
+
+.kbds-text {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+/* 「生日快乐，」不拆行；名字放得下就跟在后面，放不下就自己占一行，再长就省略 */
+.kbds-title {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  font-size: clamp(26px, 7.4vw, 40px);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+}
+
+.kbds-hello {
+  flex: none;
+  white-space: nowrap;
+}
+
+.kbds-char {
+  display: inline-block;
+}
+
+.kbds-name {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kbds-sub {
+  max-width: 100%;
+  font-size: clamp(14px, 3.9vw, 17px);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  /* 字距会在末尾多出一截，补回去才居中 */
+  padding-left: 0.14em;
+}
+
+/* ───────── 纸屑的形状（动画版和贺卡共用）───────── */
+
+.kbds-bit {
+  display: block;
+  width: var(--kbds-size, 9px);
+  height: calc(var(--kbds-size, 9px) * 0.62);
+  border-radius: 2px;
+  background: var(--kbds-color, #ffd24d);
+}
+
+.kbds-bit--dot {
+  height: calc(var(--kbds-size, 9px) * 0.8);
+  width: calc(var(--kbds-size, 9px) * 0.8);
+  border-radius: 50%;
+}
+
+.kbds-bit--strip {
+  width: calc(var(--kbds-size, 9px) * 0.42);
+  height: calc(var(--kbds-size, 9px) * 1.5);
+  border-radius: 999px;
+}
+
+/* ───────── 动画版 ───────── */
+
+.kbds--live {
+  animation: kbds-out 460ms ease-in calc(var(--kbds-total, 3800ms) - 460ms) both;
+}
+
+.kbds-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(14px, 3vh, 26px);
+}
+
+.kbds--live .kbds-text {
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(20, 8, 40, 0.5), 0 4px 18px rgba(20, 8, 40, 0.45);
+}
+
+.kbds--live .kbds-name {
+  color: #ffe08a;
+}
+
+.kbds--live .kbds-sub {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 蛋糕背后一团暖光，让它从暗底里跳出来 */
+.kbds-halo {
+  position: absolute;
+  top: -22%;
+  right: -34%;
+  bottom: -14%;
+  left: -34%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 214, 130, 0.42), rgba(255, 150, 190, 0.16) 58%, rgba(255, 150, 190, 0) 100%);
+  animation: kbds-halo 900ms ease-out 250ms both;
+}
+
+.kbds-cake {
+  position: relative;
+  animation: kbds-rise 620ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.kbds--live .kbds-plate {
+  transform-origin: 50% 50%;
+  animation: kbds-plate 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.kbds--live .kbds-tier {
+  animation: kbds-pop 560ms cubic-bezier(0.3, 1.3, 0.5, 1) both;
+}
+
+.kbds--live .kbds-tier--lower {
+  animation-delay: 140ms;
+}
+
+.kbds--live .kbds-tier--upper {
+  animation-delay: 330ms;
+}
+
+.kbds--live .kbds-candle {
+  animation: kbds-drop 380ms cubic-bezier(0.3, 1.4, 0.5, 1) calc(620ms + var(--kbds-i, 0) * 90ms) both;
+}
+
+/* 点火和晃动是两层：外层只演一次「点着」，里层一直晃 */
+.kbds--live .kbds-flame {
+  animation: kbds-light 320ms cubic-bezier(0.3, 1.6, 0.5, 1) calc(1040ms + var(--kbds-i, 0) * 130ms) both;
+}
+
+.kbds--live .kbds-flicker {
+  animation: kbds-flicker calc(520ms + var(--kbds-i, 0) * 90ms) ease-in-out calc(1300ms + var(--kbds-i, 0) * 130ms) infinite alternate;
+}
+
+.kbds--live .kbds-glow {
+  animation: kbds-light 320ms ease-out calc(1040ms + var(--kbds-i, 0) * 130ms) both, kbds-glow 900ms ease-in-out calc(1400ms + var(--kbds-i, 0) * 130ms) infinite alternate;
+}
+
+.kbds-sparkle {
+  position: absolute;
+  display: block;
+  animation: kbds-twinkle 1100ms ease-in-out calc(1250ms + var(--kbds-i, 0) * 170ms) infinite alternate both;
+}
+
+.kbds--live .kbds-char {
+  animation: kbds-char 460ms cubic-bezier(0.3, 1.5, 0.5, 1) calc(1180ms + var(--kbds-i, 0) * 70ms) both;
+}
+
+.kbds--live .kbds-name {
+  animation: kbds-up 480ms cubic-bezier(0.2, 0.9, 0.3, 1) 1560ms both;
+}
+
+.kbds--live .kbds-sub {
+  animation: kbds-up 480ms cubic-bezier(0.2, 0.9, 0.3, 1) 1820ms both;
+}
+
+/* 落下来的东西：.kbds-fall 是一根和画面等高、没有宽度的竖轨，纸屑挂在轨顶；把整根轨往下平移自己的高度，
+   纸屑就正好走完一屏。这样落多远跟着容器走，不用 vh，也不用动 top。 */
+.kbds-sky {
+  position: absolute;
+  inset: 0;
+}
+
+.kbds-fall {
+  position: absolute;
+  top: 0;
+  left: var(--kbds-x, 50%);
+  width: 0;
+  height: 100%;
+  animation: kbds-fall var(--kbds-dur, 2400ms) cubic-bezier(0.35, 0.1, 0.75, 0.95) var(--kbds-delay, 0ms) both;
+}
+
+/* 每三片里有一片落在蛋糕和文字前面（.kbds-main 是 z-index 1） */
+.kbds-fall--front {
+  z-index: 2;
+}
+
+.kbds-fall > .kbds-bit {
+  margin-left: calc(var(--kbds-size, 9px) * -0.5);
+  animation: kbds-tumble var(--kbds-tumble, 900ms) ease-in-out var(--kbds-delay, 0ms) infinite alternate;
+}
+
+.kbds-streamer {
+  display: block;
+  width: 16px;
+  height: 60px;
+  margin-left: -8px;
+  overflow: visible;
+  transform-origin: 50% 0;
+  animation: kbds-swing var(--kbds-tumble, 1000ms) ease-in-out var(--kbds-delay, 0ms) infinite alternate;
+}
+
+@keyframes kbds-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes kbds-rise {
+  from { opacity: 0; transform: translateY(44px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes kbds-halo {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes kbds-plate {
+  from { opacity: 0; transform: scaleX(0.3); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+/* 蛋糕层：从底边压扁着弹起来，过头一点再落稳 */
+@keyframes kbds-pop {
+  0% { opacity: 0; transform: scale(0.72, 0.05); }
+  20% { opacity: 1; }
+  62% { transform: scale(0.97, 1.09); }
+  82% { transform: scale(1.02, 0.97); }
+  100% { opacity: 1; transform: scale(1, 1); }
+}
+
+@keyframes kbds-drop {
+  from { opacity: 0; transform: translateY(-22px) scaleY(1.15); }
+  to { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+
+@keyframes kbds-light {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes kbds-flicker {
+  0% { transform: scale(1, 1) rotate(-3deg); }
+  45% { transform: scale(0.92, 1.1) rotate(2deg); }
+  100% { transform: scale(1.05, 0.94) rotate(4deg); }
+}
+
+@keyframes kbds-glow {
+  from { opacity: 0.7; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1.12); }
+}
+
+@keyframes kbds-twinkle {
+  from { opacity: 0; transform: scale(0.3) rotate(-20deg); }
+  to { opacity: 1; transform: scale(1) rotate(12deg); }
+}
+
+@keyframes kbds-char {
+  from { opacity: 0; transform: translateY(18px) scale(0.5) rotate(-10deg); }
+  to { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+
+@keyframes kbds-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 起点在画面上沿之外，终点在下沿之外，两头都被 .kbds 的 overflow 裁掉 */
+@keyframes kbds-fall {
+  from { transform: translateY(-14%); }
+  to { transform: translateY(106%); }
+}
+
+@keyframes kbds-tumble {
+  from { transform: translateX(calc(var(--kbds-sway, 10px) * -1)) rotateZ(0deg) rotateX(0deg); }
+  to { transform: translateX(var(--kbds-sway, 10px)) rotateZ(var(--kbds-spin, 200deg)) rotateX(420deg); }
+}
+
+@keyframes kbds-swing {
+  from { transform: rotate(calc(var(--kbds-tilt, 14deg) * -1)) scaleX(1); }
+  to { transform: rotate(var(--kbds-tilt, 14deg)) scaleX(0.7); }
+}
+
+/* ───────── 静态贺卡 ─────────
+   宿主会在画面下方放自己的「收下祝福」按钮；需要给它让位置时设 --kbds-still-bottom（贺卡整体上移这么多的一半）。 */
+
+.kbds--still {
+  padding-bottom: calc(16px + var(--kbds-still-bottom, 0px));
+}
+
+.kbds-card {
+  position: relative;
+  display: flex;
+  width: min(320px, 100%);
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  overflow: hidden;
+  padding: 26px 22px 24px;
+  border: 1px solid var(--kc-border, rgba(0, 0, 0, 0.1));
+  border-radius: clamp(14px, calc(var(--kc-radius, 12px) + 6px), 22px);
+  background: var(--kc-panel, #ffffff);
+  box-shadow: 0 2px 6px rgba(20, 8, 40, 0.12), 0 22px 48px -18px rgba(20, 8, 40, 0.5);
+  color: var(--kc-text, #1f2329);
+}
+
+/* 卡片上半截一层淡淡的暖色，纸屑撒在这一片里 */
+.kbds-card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 58%;
+  background: linear-gradient(180deg, rgba(255, 127, 163, 0.2) 0%, rgba(255, 210, 77, 0.1) 52%, rgba(255, 210, 77, 0) 100%);
+  content: '';
+}
+
+.kbds-card-bits {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 58%;
+}
+
+.kbds-card-bits > .kbds-bit {
+  position: absolute;
+  opacity: 0.9;
+}
+
+.kbds-card .kbds-stage {
+  width: min(156px, 60%);
+}
+
+.kbds-card .kbds-text {
+  position: relative;
+  gap: 6px;
+}
+
+.kbds-card .kbds-title {
+  font-size: calc(22px * var(--kbds-fs));
+  font-weight: 700;
+}
+
+.kbds-card .kbds-name {
+  color: var(--kc-accent, #e0568a);
+}
+
+.kbds-card .kbds-sub {
+  color: var(--kc-muted, #7a808a);
+  font-size: calc(13.5px * var(--kbds-fs));
+  font-weight: 400;
+}
+
+[data-theme='dark'] .kbds-card {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 22px 48px -18px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme='dark'] .kbds-card::before {
+  background: linear-gradient(180deg, rgba(255, 127, 163, 0.16) 0%, rgba(255, 210, 77, 0.06) 52%, rgba(255, 210, 77, 0) 100%);
+}
+
+/* ───────── 减少动态效果 ─────────
+   宿主在这种情况下本来就该渲染静态贺卡；这里是兜底：万一动画版被渲染出来，也只剩一幅静止的画面。 */
+
+@media (prefers-reduced-motion: reduce) {
+  .kbds,
+  .kbds * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* 不动的纸屑会全堆在画面上沿，干脆不画 */
+  .kbds--live .kbds-sky {
+    display: none;
+  }
+}

@@ -1,89 +1,18 @@
 import { useKukeStore } from '@/store/kukeStore';
 import { Icon } from '@/components/ui/Icon';
-import { MobileStatusBar } from '@/components/mobile/MobileChrome';
-import { useAuthForm, useForgotPassword, type AuthForm } from './authForms';
-import { AuthPanelDesktop } from './desktop/AuthPanelDesktop';
+import { useAuthForm, useForgotPassword } from './authForms';
+import { ForgotPasswordDialog } from './desktop/ForgotPasswordDialog';
+import { AuthScreen } from './login/AuthScreen';
 
 /** 表单状态放在这一层：扩展里切换电脑 / 手机模式时，已经填的内容不丢。 */
 export function AuthPanel(): JSX.Element {
   const isMobile = useKukeStore((state) => state.layoutMode === 'mobile');
   const form = useAuthForm();
-  return isMobile ? <MobileAuthPanel form={form} /> : <AuthPanelDesktop form={form} />;
-}
-
-function MobileAuthPanel({ form }: { form: AuthForm }): JSX.Element {
-  const { isRegister, isNativeApp, usernameError } = form;
-  return (
-    <div className="kc-mobile-auth-native h-full overflow-hidden bg-[#f1f3f8] text-[#111827]">
-      {!isNativeApp ? <MobileStatusBar /> : null}
-      <main className={`kc-qq-scroll overflow-y-auto px-5 pb-6 ${isNativeApp ? 'h-full pt-6' : 'h-[calc(100%-30px)] pt-4'}`}>
-        <section className="kc-ios-page-push mx-auto flex min-h-full max-w-[340px] flex-col justify-center py-5">
-          <div className="mb-7">
-            <div className="grid h-14 w-14 place-items-center rounded-[22px] bg-[#168bff] text-white shadow-[0_16px_34px_rgba(22,139,255,0.30)]">
-              <Icon name="message" className="h-7 w-7" />
-            </div>
-            <h1 className="mt-5 text-[30px] font-black leading-tight tracking-[-0.04em] text-[#101828]">{isRegister ? '创建 KukeChat' : '登录 KukeChat'}</h1>
-            <p className="mt-2 text-[14px] leading-6 text-[#7b8494]">{isRegister ? '设置一个账号，开始和朋友聊天。' : '欢迎回来，继续你的聊天。'}</p>
-          </div>
-
-          <form onSubmit={form.submit} className="grid gap-3">
-            <section className="rounded-[28px] bg-white p-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]">
-              <label className="block">
-                <span className="mb-2 block text-[13px] font-bold text-[#667085]">用户名</span>
-                <input value={form.username} onChange={(event) => form.setUsername(event.target.value)} required className={`h-11 w-full rounded-[16px] border bg-[#f6f8fc] px-3.5 text-[15px] font-semibold text-[#111827] outline-none transition placeholder:text-[#a4adba] focus:bg-white ${usernameError ? 'border-red-300 focus:border-red-400' : 'border-transparent focus:border-[#168bff]'}`} placeholder="请输入用户名" />
-                {isRegister ? <p className={`mt-2 text-[11px] ${usernameError ? 'text-red-500' : 'text-[#98a2b3]'}`}>{usernameError || '字母、数字、下划线、点和短横线。'}</p> : null}
-              </label>
-              {isRegister ? (
-                <label className="kc-ios-field-enter mt-3 block">
-                  <span className="mb-2 block text-[13px] font-bold text-[#667085]">昵称</span>
-                  <input value={form.nickname} onChange={(event) => form.setNickname(event.target.value)} className="h-11 w-full rounded-[16px] border border-transparent bg-[#f6f8fc] px-3.5 text-[15px] font-semibold text-[#111827] outline-none transition placeholder:text-[#a4adba] focus:border-[#168bff] focus:bg-white" placeholder="显示名称" />
-                </label>
-              ) : null}
-            </section>
-
-            <section className="rounded-[28px] bg-white p-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]">
-              <MobilePasswordField label="密码" value={form.password} onChange={form.setPassword} visible={form.showPassword} onToggleVisible={form.toggleShowPassword} error={form.passwordLengthError} placeholder="至少 6 位" />
-              {isRegister ? <MobilePasswordField label="确认密码" value={form.confirmPassword} onChange={form.setConfirmPassword} visible={form.showConfirmPassword} onToggleVisible={form.toggleShowConfirmPassword} error={form.confirmPasswordError} placeholder="再次输入密码" className="mt-3" /> : null}
-            </section>
-
-            {!isRegister ? <button type="button" onClick={() => form.setShowForgotPassword(true)} className="justify-self-end rounded-full px-2 py-1 text-[13px] font-bold text-[#168bff]">忘记密码?</button> : null}
-            {form.error ? <p className="rounded-[20px] bg-red-50 px-4 py-3 text-[13px] leading-5 text-red-500">{form.error}</p> : null}
-
-            <button disabled={form.isPending || Boolean(form.validationError)} className="mt-2 h-12 rounded-[18px] bg-[#168bff] text-[15px] font-black text-white shadow-[0_14px_30px_rgba(22,139,255,0.30)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55" type="submit">
-              {form.isPending ? '连接中...' : isRegister ? '创建账号' : '登录'}
-            </button>
-
-            {!isRegister && !isNativeApp ? (
-              <>
-                <button type="button" onClick={form.startSecureLogin} className="h-11 rounded-[18px] bg-white text-[14px] font-black text-[#168bff] shadow-[0_1px_0_rgba(15,23,42,0.04)] transition active:scale-[0.98]">安全登录</button>
-                {form.secureLoginMessage ? <p className="rounded-[18px] bg-white px-4 py-3 text-[12px] leading-5 text-[#667085]">{form.secureLoginMessage}</p> : null}
-              </>
-            ) : null}
-
-            <button type="button" onClick={() => form.switchMode(isRegister ? 'login' : 'register')} className="mt-1 rounded-[18px] px-4 py-3 text-[14px] font-bold text-[#667085] transition active:scale-[0.98]">
-              {isRegister ? '已有账号，去登录' : '没有账号，创建一个'}
-            </button>
-          </form>
-        </section>
-        {form.showForgotPassword ? <MobileForgotPasswordModal initialUsername={form.trimmedUsername} onClose={() => form.setShowForgotPassword(false)} /> : null}
-      </main>
-    </div>
-  );
-}
-
-function MobilePasswordField({ label, value, onChange, visible, onToggleVisible, error, placeholder, className = '' }: { label: string; value: string; onChange: (value: string) => void; visible: boolean; onToggleVisible: () => void; error?: string; placeholder: string; className?: string }): JSX.Element {
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-2 block text-[13px] font-bold text-[#667085]">{label}</span>
-      <span className="relative block">
-        <input value={value} onChange={(event) => onChange(event.target.value)} required type={visible ? 'text' : 'password'} className={`h-11 w-full rounded-[16px] border bg-[#f6f8fc] px-3.5 pr-11 text-[15px] font-semibold text-[#111827] outline-none transition placeholder:text-[#a4adba] focus:bg-white ${error ? 'border-red-300 focus:border-red-400' : 'border-transparent focus:border-[#168bff]'}`} placeholder={placeholder} />
-        <button type="button" onClick={onToggleVisible} className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-[#98a2b3] transition active:scale-95" aria-label={visible ? '隐藏密码' : '显示密码'}>
-          <Icon name={visible ? 'eyeOff' : 'eye'} className="h-4 w-4" />
-        </button>
-      </span>
-      {error ? <p className="mt-2 text-[11px] text-red-500">{error}</p> : null}
-    </label>
-  );
+  const closeForgot = (): void => form.setShowForgotPassword(false);
+  if (isMobile) {
+    return <AuthScreen form={form} kind="phone" overlay={form.showForgotPassword ? <MobileForgotPasswordModal initialUsername={form.trimmedUsername} onClose={closeForgot} /> : null} />;
+  }
+  return <AuthScreen form={form} kind="desk" overlay={form.showForgotPassword ? <ForgotPasswordDialog initialUsername={form.trimmedUsername} onClose={closeForgot} /> : null} />;
 }
 
 function MobileForgotPasswordModal({ initialUsername, onClose }: { initialUsername: string; onClose: () => void }): JSX.Element {

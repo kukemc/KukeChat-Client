@@ -276,6 +276,14 @@
   flex: none;
 }
 
+/* 通知中心头部右侧：「全部忽略」+ 分类 */
+.kcc-notice-aside {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
 /* 分段里的计数：比标签淡一档，选中时跟着变实 */
 .kcc-pane-header .kui-segment span {
   margin-left: 4px;

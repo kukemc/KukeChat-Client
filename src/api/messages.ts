@@ -77,8 +77,8 @@ function normalizeMessageSearchResponse(response: unknown, fallbackLimit: number
 
   const messages = asList<Message>(response);
   return {
-    // 投票没有单独的搜索分类：它的正文就是文本摘要，按文本命中算
-    items: messages.map((message) => ({ message, match_type: message.type === 'image' && message.metadata?.sticker ? 'sticker' : message.type === 'poll' ? 'text' : message.type, snippet: message.content || null })),
+    // 投票、红包、礼物没有单独的搜索分类：它们的正文就是文本摘要，按文本命中算
+    items: messages.map((message) => ({ message, match_type: message.type === 'image' && message.metadata?.sticker ? 'sticker' : message.type === 'poll' || message.type === 'red_packet' || message.type === 'gift' ? 'text' : message.type, snippet: message.content || null })),
     total: messages.length,
     limit: fallbackLimit,
     has_more: messages.length >= fallbackLimit,
@@ -354,9 +354,18 @@ export async function uploadMessageVoice(file: File): Promise<UploadResponse> {
   return uploadFile<UploadResponse>('/uploads/message-voice', file);
 }
 
-export async function markConversationRead(conversationId: number, lastReadMessageId?: number | null): Promise<void> {
-  await apiRequest<unknown>(`/conversations/${conversationId}/read`, {
+/**
+ * 标记已读。返回里带着读完之后这个会话的 mention_pending（我还没读的消息里有没有 @我）：
+ * 有这个字段就返回它（'me' / 'all' / null），旧后端没有这个字段时返回 undefined。
+ */
+export async function markConversationRead(conversationId: number, lastReadMessageId?: number | null): Promise<'me' | 'all' | null | undefined> {
+  const response = await apiRequest<unknown>(`/conversations/${conversationId}/read`, {
     method: 'POST',
     body: { last_read_message_id: lastReadMessageId ?? null }
   });
+  if (typeof response !== 'object' || response === null || !('mention_pending' in response)) {
+    return undefined;
+  }
+  const pending = (response as { mention_pending?: unknown }).mention_pending;
+  return pending === 'me' || pending === 'all' ? pending : null;
 }

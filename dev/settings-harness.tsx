@@ -18,7 +18,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@/styles/tailwind.css';
 import { AuthPanel } from '@/components/auth/AuthPanel';
 import { AccountSuspensionModal } from '@/components/auth/AccountSuspensionModal';
-import { AuthRestoring } from '@/components/auth/desktop/AuthPanelDesktop';
+import { AuthRestoringScreen } from '@/components/auth/login/AuthScreen';
 import { DesktopJustUpdatedNotice, DesktopUpdateDialog, DesktopUpdatePill } from '@/components/desktop/DesktopUpdateDialog';
 import { DesktopSettingsPanel, type DesktopSettingsTab } from '@/components/settings/desktop/DesktopSettingsPanel';
 import { MobileSettingsPanel, type MobileSettingsPage } from '@/components/settings/MobileSettingsPanel';
@@ -120,10 +120,10 @@ function TauriTitleBar(): JSX.Element {
   const title = currentUser ? getDisplayName(currentUser) : 'KukeChat';
   return (
     <>
-      <header className="kwf-titlebar">
+      <header className={currentUser ? 'kwf-titlebar' : 'kwf-titlebar kwf-titlebar--bare'}>
         <div className="kwf-identity">
           {currentUser ? <Avatar user={currentUser} label={title} size="sm" /> : null}
-          <h1 className="kwf-title">{title}</h1>
+          {currentUser ? <h1 className="kwf-title">{title}</h1> : null}
           {currentUser ? <span className="kwf-bio">{currentUser.bio?.trim() || '咕咕咕~'}</span> : null}
           {currentUser ? (
             <div data-window-action data-harness="online" className="kwf-online" onClick={() => setOpen((value) => !value)}>
@@ -161,7 +161,7 @@ function Harness(): JSX.Element {
   const isMinimized = useKukeStore((state) => state.isMinimized);
 
   // 登录成功后真实应用会进聊天主界面；这里没有那部分，直接落到设置页
-  const content = view === 'restore' ? <AuthRestoring />
+  const content = view === 'restore' ? <AuthRestoringScreen />
     : currentUser ? <DesktopSettingsPanel user={currentUser} initialTab={(params.get('tab') as DesktopSettingsTab | null) ?? 'appearance'} onLogout={() => useKukeStore.getState().logout()} />
     : <AuthPanel />;
   const body = <>{content}{suspension ? <AccountSuspensionModal notice={suspension} onClose={() => setSuspension(null)} /> : null}</>;
@@ -208,7 +208,7 @@ function Harness(): JSX.Element {
       </div>
       <div style={{ position: 'relative', minHeight: 0, flex: 1 }}>
         {shell === 'float' ? <WindowFrame>{body}</WindowFrame> : (
-          <main data-theme={theme} data-layout="desktop" data-font-scale={1} data-kc-wallpaper={themeRoot['data-kc-wallpaper']} style={themeRoot.style} className="kc-desktop-app flex h-full min-h-0 flex-col overflow-hidden [color:var(--kc-text)]">
+          <main data-theme={theme} data-layout="desktop" data-font-scale={1} data-kc-wallpaper={themeRoot['data-kc-wallpaper']} style={themeRoot.style} className="kc-desktop-app relative flex h-full min-h-0 flex-col overflow-hidden [color:var(--kc-text)]">
             <ThemeEffects scheme={theme} />
             <TauriTitleBar />
             <div className="kc-desktop-content relative z-0 min-h-0 flex-1 overflow-hidden [background:var(--kc-window)]">{body}</div>

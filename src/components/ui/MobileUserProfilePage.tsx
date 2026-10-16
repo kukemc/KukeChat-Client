@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { FriendIntimacyCard } from '@/components/intimacy/FriendIntimacyCard';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ccwStudentProfileUrl } from '@/config';
 import { createDirectConversation, updateConversationMemberMute, updateConversationMemberRole } from '@/api/conversations';
@@ -14,6 +15,10 @@ import { Icon } from '@/components/ui/Icon';
 import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { MobilePostDetailPage } from '@/components/posts/MobilePostDetailPage';
 import { MobileProfileSummaryCard } from '@/components/profile/MobileProfileSummaryCard';
+import { BirthdayToday, useBirthdayFact } from '@/components/birthday/BirthdayBits';
+import { isBirthdayToday } from '@/components/birthday/data';
+import { SendGiftButton, useCanGift } from '@/components/gifts/GiftEntry';
+import { GiftWall } from '@/components/gifts/GiftWall';
 import { UserLevelCard } from '@/components/level/UserLevelCard';
 import { MyLikesEntry } from '@/components/likes/MyLikesEntry';
 import { ProfileLikeButton } from '@/components/likes/ProfileLikeButton';
@@ -475,6 +480,8 @@ export function MobileUserProfilePage({ user, label, fallbackUserId, currentUser
   const topicsQuery = useQuery({ queryKey: ['post-topics'], queryFn: () => getTrendingPostTopics(5), enabled: Boolean(effectiveCurrentUser) });
 
   const displayUser = profileQuery.data ?? user ?? (isSelf ? currentUser : null);
+  const birthdayFact = useBirthdayFact(displayUser);
+  const canGiftHere = useCanGift(displayUser);
   const friendUsers = useMemo(() => (friendsQuery.data ?? []).map((friendship) => friendship.friend ?? friendship.user).filter((item): item is User => Boolean(item) && item.id !== currentUserId), [currentUserId, friendsQuery.data]);
   const topicOptions = topicsQuery.data ?? [];
   const posts = useMemo(() => postsQuery.data?.pages.flat() ?? [], [postsQuery.data]);
@@ -886,6 +893,15 @@ export function MobileUserProfilePage({ user, label, fallbackUserId, currentUser
             : <ProfileLikeButton user={displayUser} />}
         />
 
+        {/* 生日：今天生日的话一条醒目的提示，旁边是送礼入口；平时只写哪天生日（对方公开了年份才带年份） */}
+        {isBirthdayToday(displayUser) || birthdayFact || (!isSelf && canGiftHere) ? (
+          <div className="kbd-m-strip mt-3" data-birthday="profile-strip">
+            <BirthdayToday user={displayUser} />
+            {birthdayFact ? <span className="kbd-m-strip-fact" data-birthday="fact"><Icon name="cake" className="h-3.5 w-3.5" />生日 {birthdayFact}</span> : null}
+            {isSelf ? null : <SendGiftButton user={displayUser} className="kbd-m-strip-gift"><Icon name="gift" className="h-4 w-4" />送礼物</SendGiftButton>}
+          </div>
+        ) : null}
+
         <div className="mt-3 grid gap-3">
           {profileEditor}
           {/* 账号等级（docs/account-level.md）：服务端没有等级、对方是机器人时整块不出现；自己的点了进等级页 */}
@@ -893,6 +909,15 @@ export function MobileUserProfilePage({ user, label, fallbackUserId, currentUser
             <section className="kc-qq-card kui p-4" data-level="space-card">
               <h3 className="mb-3 text-[15px] font-black [color:var(--kc-mobile-strong,#111827)]">账号等级</h3>
               {card}
+            </section>
+          )} />
+          {/* 我和 TA 的友谊（docs/intimacy.md）：不是好友时整块不出现 */}
+          {isSelf ? null : <FriendIntimacyCard userId={displayUser?.id} className="kit-row--block" />}
+          {/* 礼物墙：礼物功能关着、对方是机器人时整块不出现 */}
+          <GiftWall user={displayUser} isSelf={isSelf} frame={(wall, charm) => (
+            <section className="kc-qq-card kui p-4" data-gift="space-wall">
+              <div className="kgf-wall-title mb-3"><h3 className="text-[15px] font-black [color:var(--kc-mobile-strong,#111827)]">礼物墙</h3>{charm}</div>
+              {wall}
             </section>
           )} />
           {friendRequestError || directMessageError ? <p className="rounded-[18px] bg-red-50 px-4 py-3 text-[13px] font-bold text-red-500">{friendRequestError || directMessageError}</p> : null}

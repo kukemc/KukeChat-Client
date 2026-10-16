@@ -229,6 +229,22 @@
   color: var(--kc-accent);
 }
 
+/* 等级下面的一行统计（连续活跃、名次、注册天数、心意值），和别人资料卡上的那一行同一套样式（klv-user-facts） */
+.ksc-row > dd.ksc-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ksc-facts {
+  padding-bottom: 3px;
+}
+
+/* 生日：日期后面跟「今天生日」（只在当天） */
+.ksc-row > dd.ksc-birthday {
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
 /* 徽章：一排小标签，放不下就折行 */
 .ksc-row > .ksc-badges {
   flex-wrap: wrap;

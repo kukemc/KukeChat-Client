@@ -18,7 +18,8 @@ import { applyAnnouncementReactionEvent } from '@/components/announcements/annou
 import { AnnouncementModal as GroupAnnouncementModal } from '@/components/chat/AnnouncementModal';
 import { ReportModal } from '@/components/chat/ReportModal';
 import { DesktopChatPanel } from '@/components/chat/desktop/DesktopChatPanel';
-import { ChatSearchModal } from '@/components/chat/message/ChatSearchModal';
+import { ChatSearchHost } from '@/components/search/chat/ChatSearchHost';
+import { useGroupPlusUi } from '@/components/groupPlus/ui';
 import { FeaturedMessagesModal } from '@/components/chat/message/FeaturedMessagesModal';
 import { ForwardBundleDetailModal } from '@/components/chat/message/ForwardBundleDetailModal';
 import { ForwardTargetModal } from '@/components/chat/message/ForwardTargetModal';
@@ -36,6 +37,15 @@ import { useKukeStore } from '@/store/kukeStore';
 import { ThemeEffects } from '@/theme/ThemeEffects';
 import { useThemeRootProps } from '@/theme/useTheme';
 import type { Announcement, Conversation, ConversationMember, Friendship, GroupAnnouncement, Message, User } from '@/types/api';
+
+/** 聊天记录搜索现在由全局宿主（ChatSearchHost）渲染：这里只负责「打开它」。 */
+function ChatSearchOpener(): JSX.Element {
+  useEffect(() => {
+    useGroupPlusUi.getState().openChatSearch({ conversationId: 1, title: 'Scratch 创作交流群 (128)' });
+    return () => useGroupPlusUi.getState().closeChatSearch();
+  }, []);
+  return <ChatSearchHost />;
+}
 
 const LONG_NAME = '一个名字特别特别长的群友用来测试截断到底会发生在什么位置';
 const LONG_TEXT = '说一下思路：先把所有角色的坐标存进列表，每帧只更新移动过的那几个，然后用「碰到颜色」做粗筛，命中了再做精确判断。这样 300 个克隆体也不会掉帧，实测在低配的平板上也能稳定 30 帧以上。另外广播的顺序要注意，先广播「准备」再广播「开始」，不然克隆体会比本体早一帧动起来。';
@@ -140,7 +150,7 @@ async function start(): Promise<void> {
   ];
   const featured = [history[3], history[2], bundle];
   const systemAnnouncements: Announcement[] = [
-    { id: 3, title: '1.4.0 更新内容', pinned: true, cover_url: pictures[3], author: me, created_at: ago(60 * 24), updated_at: ago(60 * 24), content: '# 这次更新了什么\n\n1.4.0 更新内容包括：\n\n- 桌面端界面整体重做，更紧凑也更清楚\n- 群聊支持投票和自定义表情\n- 修复了滚动消息时偶尔回弹的问题\n\n## 需要注意\n\n> 1.3.1 / 1.3.2 的桌面端收不到自动更新，请到官网手动下载。\n\n下载地址：[kuke.ink](https://kuke.ink)\n\n```\nnpm run build\n```\n\n| 平台 | 版本 |\n| --- | --- |\n| 桌面端 | 1.4.0 |\n| 安卓 | 1.2.6 |\n' },
+    { id: 3, title: '1.4.0 更新内容', pinned: true, cover_url: pictures[3], author: me, created_at: ago(60 * 24), updated_at: ago(60 * 24), content: `# 这次更新了什么\n\n1.4.0 更新内容包括：\n\n- 桌面端界面整体重做，更紧凑也更清楚\n- 群聊支持投票和自定义表情\n- 修复了滚动消息时偶尔回弹的问题\n\n## 需要注意\n\n> 1.3.1 / 1.3.2 的桌面端收不到自动更新，请到官网手动下载。\n\n![更新长图 1240x7526](/uploads/announcements/long.png)\n\n下载地址：[kuke.ink](https://kuke.ink)\n\n![第二张长图](/uploads/announcements/long.png)\n\n\`\`\`\nnpm run build\n\`\`\`\n\n| 平台 | 版本 |\n| --- | --- |\n| 桌面端 | 1.4.0 |\n| 安卓 | 1.2.6 |\n` },
     { id: 2, title: `${LONG_NAME}——一条标题很长的公告`, author: people[1], created_at: ago(60 * 24 * 9), updated_at: ago(60 * 24 * 9), content: LONG_TEXT.repeat(6) },
     { id: 1, title: '社区公约', created_at: ago(60 * 24 * 40), updated_at: ago(60 * 24 * 40), content: '请友善交流，不要刷屏。' },
     // 回应的假数据在 mocks/announcementReactions.ts：3 号数量跨量级，2 号种类很多，4 号种类到了上限，1 号还没人回应
@@ -218,7 +228,7 @@ async function start(): Promise<void> {
       return json(url.searchParams.get('before_id') ? [] : history);
     }
     if (/^\/conversations\/\d+\/featured-messages$/.test(path)) {
-      return json(scenario.empty ? [] : featured);
+      return json(scenario.empty ? [] : featured.map((message, index) => ({ id: index + 1, conversation_id: message.conversation_id, message_id: message.id, set_by_id: null, set_by: null, created_at: message.created_at, message, message_exists: true, recalled: false, snapshot_missing: false })));
     }
     if (path === '/announcements') {
       if (announcementLoad.mode === 'hang') {
@@ -430,8 +440,8 @@ async function start(): Promise<void> {
 
         {view?.kind === 'globalSearch' ? <GlobalSearchModal key={serial} currentUser={me} friends={friends} initialKeyword={view.keyword} mobile={mobile} onClose={close} /> : null}
         {view?.kind === 'systemAnnouncements' ? <SystemAnnouncementModal key={serial} initialId={3} mobile={mobile} onClose={close} /> : null}
-        {view?.kind === 'chatSearch' ? <ChatSearchModal key={serial} conversationId={1} title="Scratch 创作交流群 (128)" mobile={mobile} onOpenForwardBundle={() => setView({ kind: 'bundle' })} onOpenImage={(images, index) => setView({ kind: 'viewer', state: { images, index } })} onJump={close} onClose={close} /> : null}
-        {view?.kind === 'featured' ? <FeaturedMessagesModal key={serial} mobile={mobile} items={empty ? [] : featured} isLoading={false} error={null} canManage isToggling={false} onToggleFeature={() => undefined} onOpenForwardBundle={() => setView({ kind: 'bundle' })} onClose={close} /> : null}
+        {view?.kind === 'chatSearch' ? <ChatSearchOpener key={serial} /> : null}
+        {view?.kind === 'featured' ? <FeaturedMessagesModal key={serial} mobile={mobile} conversationId={conversations[0].id} canManage isToggling={false} onToggleFeature={() => undefined} onOpenForwardBundle={() => setView({ kind: 'bundle' })} onClose={close} /> : null}
         {view?.kind === 'forward' ? <ForwardTargetModal key={serial} conversations={empty ? [] : conversations} currentUser={me} activeConversationId={1} messageIds={[801, 802, 803]} isPending={false} onConfirm={close} onClose={close} /> : null}
         {view?.kind === 'bundle' ? <ForwardBundleDetailModal key={serial} message={empty ? { ...bundle, metadata: { title: '空的聊天记录' } } as unknown as Message : bundle} mobile={mobile} onClose={close} /> : null}
         {view?.kind === 'viewer' ? <ImageViewer viewer={view.state} mobile={mobile} onClose={close} onNavigate={(index) => setView({ kind: 'viewer', state: { ...view.state, index } })} /> : null}

@@ -1,4 +1,6 @@
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
+import { conversationTier } from '@/components/groupPlus/tier';
 import { useInfo } from './infoContext';
 
 /** 侧栏顶部的资料头：群聊是群头像 + 群名 + 群号，私聊是对方的头像和签名。 */
@@ -12,9 +14,9 @@ export function InfoHeader(): JSX.Element {
     return (
       <section className="kui-group">
         <div className="kci-head">
-          <Avatar avatarUrl={conversation.avatar_url} label={title} size="lg" toneKey={conversation.id} />
+          <Avatar avatarUrl={conversation.avatar_url} label={title} size="lg" toneKey={conversation.id} plusTier={conversationTier(conversation)} />
           <div className="kci-head-text">
-            <h3 className="kci-head-name">{title}</h3>
+            <h3 className="kci-head-name">{title}<PlusTierTag tier={conversationTier(conversation)} size="md" /></h3>
             <p className="kci-head-meta">群号 {conversation.id} · {memberCount} 名成员{category ? ` · ${category}` : ''}</p>
           </div>
           <button type="button" className="kui-btn kui-btn--sm" onClick={() => {

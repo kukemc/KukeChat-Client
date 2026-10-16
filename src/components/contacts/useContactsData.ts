@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { acceptGroupJoinRequest, createDirectConversation, getIncomingGroupJoinRequests, getOutgoingGroupJoinRequests, rejectGroupJoinRequest } from '@/api/conversations';
-import { acceptFriendRequest, deleteFriend, deleteTemporaryConversationBlock, getIncomingFriendRequests, getOutgoingFriendRequests, getTemporaryConversationBlocks, rejectFriendRequest, sendFriendRequest } from '@/api/friends';
-import { getNotifications } from '@/api/notifications';
+import { acceptFriendRequest, deleteFriend, deleteTemporaryConversationBlock, getIncomingFriendRequests, getOutgoingFriendRequests, getTemporaryConversationBlocks, ignoreAllFriendRequests, ignoreFriendRequest, rejectFriendRequest, sendFriendRequest } from '@/api/friends';
+import { applyNotificationsSeen, getNotifications, hasUnseenNotifications, markNotificationsSeen, notificationNewCount } from '@/api/notifications';
 import { searchUsers } from '@/api/users';
 import { getDisplayName } from '@/components/ui/Avatar';
 import { useKukeStore } from '@/store/kukeStore';
-import type { Conversation, Friendship, User } from '@/types/api';
+import type { Conversation, Friendship, UnifiedNotificationList, User } from '@/types/api';
 import { conversationTitle, friendUser, matchesContactUser, matchesGroupConversation, sortGroupJoinRequestsNewestFirst } from './contactsShared';
 
 interface ContactsDataOptions {
@@ -94,6 +94,14 @@ export function useContactsData({ friends, conversations, currentUser, query, on
     }
   });
   const rejectMutation = useMutation({ mutationFn: rejectFriendRequest, onSuccess: invalidateContacts });
+  const ignoreMutation = useMutation({ mutationFn: ignoreFriendRequest, onSuccess: invalidateContacts });
+  const ignoreAllMutation = useMutation({ mutationFn: ignoreAllFriendRequests, onSuccess: invalidateContacts });
+  const seenMutation = useMutation({
+    mutationFn: markNotificationsSeen,
+    onSuccess: ({ seen_at: seenAt }) => {
+      queryClient.setQueryData<UnifiedNotificationList | undefined>(['notifications'], (current) => applyNotificationsSeen(current, seenAt));
+    }
+  });
   const acceptGroupRequestMutation = useMutation({ mutationFn: (requestId: number) => acceptGroupJoinRequest(requestId), onSuccess: invalidateGroupRequests });
   const rejectGroupRequestMutation = useMutation({ mutationFn: (requestId: number) => rejectGroupJoinRequest(requestId), onSuccess: invalidateGroupRequests });
   const sendRequestMutation = useMutation({ mutationFn: sendFriendRequest, onSuccess: invalidateContacts });
@@ -110,6 +118,10 @@ export function useContactsData({ friends, conversations, currentUser, query, on
   const incomingGroupRequests = sortGroupJoinRequestsNewestFirst(incomingGroupRequestsQuery.data ?? []);
   const outgoingGroupRequests = sortGroupJoinRequestsNewestFirst(outgoingGroupRequestsQuery.data ?? []);
   const notifications = notificationsQuery.data?.items ?? [];
+  const newCount = notificationNewCount(notificationsQuery.data);
+  // 「新朋友」角标：只算还没看过的好友申请通知，看过但没处理的不再一直挂着
+  const newFriendCount = notifications.filter((item) => item.category === 'friend' && item.pending && item.unread).length;
+  const pendingIncomingFriendCount = incoming.filter((request) => request.status === 'pending').length;
   // 通知接口还没回来时，待处理数先按申请列表算
   const pendingIncoming = incoming.filter((request) => request.status === 'pending').length + incomingGroupRequests.filter((request) => request.status === 'pending').length;
 
@@ -131,6 +143,8 @@ export function useContactsData({ friends, conversations, currentUser, query, on
     usersQuery,
     acceptMutation,
     rejectMutation,
+    ignoreMutation,
+    ignoreAllMutation,
     acceptGroupRequestMutation,
     rejectGroupRequestMutation,
     sendRequestMutation,
@@ -144,8 +158,24 @@ export function useContactsData({ friends, conversations, currentUser, query, on
     notifications,
     notificationCount: notificationsQuery.data?.counts?.all ?? notifications.length,
     pendingCount: notificationsQuery.data?.pending_count ?? pendingIncoming,
-    /** 任何一个申请正在处理时，所有「接受 / 拒绝」都先锁住 */
-    requestBusy: acceptMutation.isPending || rejectMutation.isPending || acceptGroupRequestMutation.isPending || rejectGroupRequestMutation.isPending,
+    /** 角标用：上次打开通知中心之后来的（只提醒一次），不是待处理总数 */
+    newCount,
+    newFriendCount,
+    pendingIncomingFriendCount,
+    /** 打开通知中心 / 新朋友页时调：有没看过的才发请求 */
+    markSeen: (): void => {
+      if (!seenMutation.isPending && hasUnseenNotifications(notificationsQuery.data)) {
+        seenMutation.mutate();
+      }
+    },
+    /** 「全部忽略」：先确认，申请方不会知道 */
+    ignoreAll: (): void => {
+      if (pendingIncomingFriendCount > 0 && window.confirm(`忽略全部 ${pendingIncomingFriendCount} 条好友申请？对方不会收到通知，仍会看到「等待验证」。`)) {
+        ignoreAllMutation.mutate();
+      }
+    },
+    /** 任何一个申请正在处理时，所有「接受 / 拒绝 / 忽略」都先锁住 */
+    requestBusy: acceptMutation.isPending || rejectMutation.isPending || ignoreMutation.isPending || ignoreAllMutation.isPending || acceptGroupRequestMutation.isPending || rejectGroupRequestMutation.isPending,
     temporaryBlocks: temporaryBlocksQuery.data ?? [],
     searchResults: usersQuery.data ?? [],
     friendIds: new Set(friends.map((friendship) => friendUser(friendship)?.id).filter((id): id is number => typeof id === 'number')),

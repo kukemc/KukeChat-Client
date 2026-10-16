@@ -46,7 +46,7 @@ function stop(event: SyntheticEvent): void {
 /** 聊天里的一张投票卡。数据全部来自消息缓存里的 `metadata.poll`，自己只管还没提交的勾选。 */
 export function PollCard({ message, poll }: { message: Message; poll: Poll }): JSX.Element {
   const { currentUser, currentRole, isGroup, actions } = useChatRow();
-  const { vote, close } = usePollActions(message, poll, actions.showToast);
+  const { vote, close } = usePollActions(message, poll);
   const closesAt = parseApiDate(poll.closes_at)?.getTime() ?? null;
   const now = useDeadlineClock(poll.closed ? null : closesAt);
   const closed = poll.closed || (closesAt !== null && closesAt <= now);

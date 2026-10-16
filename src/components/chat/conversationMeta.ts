@@ -1,6 +1,8 @@
 import { getDisplayName } from '@/components/ui/Avatar';
 import type { Conversation, MessageSetting, User } from '@/types/api';
 import { isConversationPinnedForMe } from '@/utils/conversations';
+import { giftPreview } from '@/utils/gift';
+import { redPacketGreeting, redPacketPreview } from '@/utils/redPacket';
 
 /** 会话列表用到的纯函数：标题、最后一条消息的预览、搜索匹配、消息提醒设置。桌面端和移动端的列表共用。 */
 
@@ -27,6 +29,39 @@ export function conversationTitle(conversation: Conversation, currentUser: User)
   return conversation.display_title?.trim() || getDisplayName(conversation.direct_user ?? directMember, conversation.title || '私聊');
 }
 
+export interface ConversationPrefix {
+  kind: 'mention' | 'red-packet' | 'todo';
+  text: string;
+}
+
+/**
+ * 最后一条消息预览前面的提示前缀，按重要性排：@ 提示 > 有红包（以后有「草稿」排在最后）。免打扰的会话也有。
+ * @ 提示同一个会话只出一个，点名优先于 @全体成员。画它们的是 ConversationPrefixes。
+ */
+export function conversationPrefixes(conversation: Conversation): ConversationPrefix[] {
+  const prefixes: ConversationPrefix[] = [];
+  if (conversation.mention_pending === 'all' && isTodoReminder(conversation)) {
+    // 群待办的提醒走 @全体成员 链路：这里换成更具体的「[群待办]」，预览正文里的同名前缀由 lastMessagePreview 去掉
+    prefixes.push({ kind: 'todo', text: '[群待办]' });
+  } else if (conversation.mention_pending === 'me') {
+    prefixes.push({ kind: 'mention', text: '[有人@我]' });
+  } else if (conversation.mention_pending === 'all') {
+    prefixes.push({ kind: 'mention', text: '[@全体成员]' });
+  }
+  if (conversation.red_packet_pending) {
+    prefixes.push({ kind: 'red-packet', text: '[有红包]' });
+  }
+  return prefixes;
+}
+
+/** 最后一条是不是群待办的提醒消息（metadata.group_todo，content 是「[群待办] 摘要」） */
+function isTodoReminder(conversation: Conversation): boolean {
+  const todo = conversation.last_message?.metadata?.group_todo;
+  return typeof todo === 'object' && todo !== null && !conversation.last_message?.recalled_at;
+}
+
+const TODO_PREFIX = '[群待办]';
+
 export function lastMessagePreview(conversation: Conversation): string {
   const message = conversation.last_message;
   if (!message) {
@@ -49,6 +84,21 @@ export function lastMessagePreview(conversation: Conversation): string {
   }
   if (message.type === 'forward_bundle') {
     return `${senderPrefix}[聊天记录]`;
+  }
+  const redPacket = redPacketPreview(message);
+  if (redPacket) {
+    // 有能领的红包时列表在预览前面另画一个红色的「[有红包]」（conversationPrefixes），这里只接祝福语，免得写成「[有红包] [红包] …」
+    return `${senderPrefix}${conversation.red_packet_pending ? redPacketGreeting(message) : redPacket}`;
+  }
+  // 礼物：「[礼物] 送给 阿夸 蛋糕 ×3」。content 是给旧客户端的兜底文字，不直接显示
+  const gift = giftPreview(message);
+  if (gift) {
+    return `${senderPrefix}${gift}`;
+  }
+
+  // 待办提醒：列表上已经单独画了「[群待办]」前缀，预览里去掉重复的那一段；已读（没有前缀）时保留原文
+  if (conversation.mention_pending === 'all' && isTodoReminder(conversation) && message.content.startsWith(TODO_PREFIX)) {
+    return `${senderPrefix}${message.content.slice(TODO_PREFIX.length).trim() || '群待办'}`;
   }
 
   const images = imageCount(conversation);

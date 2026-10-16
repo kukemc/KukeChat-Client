@@ -260,7 +260,7 @@ export function LevelRewardsCard({ level, layout }: { level: number; layout: 'de
   );
 }
 
-/** 排行榜的入口（放在「我的等级」里，桌面和移动都有）。 */
+/** 活跃榜的入口（放在「我的等级」里，桌面和移动都有）：点了去排行榜页，停在「活跃榜」上。 */
 export function LevelBoardEntry({ me, onOpenBoard }: { me: LevelMe; onOpenBoard: () => void }): JSX.Element {
   return (
     <button type="button" className="klv-card klv-entry" data-level="board-entry" data-action="open-board" onClick={onOpenBoard}>

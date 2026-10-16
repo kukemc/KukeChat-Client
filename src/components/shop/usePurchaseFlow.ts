@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import type { ShopItem } from '@/types/shop';
 import { usePurchaseItem } from './data';
-import { describePurchaseError, itemAction, type PurchaseFailure, type ShopItemAction } from './labels';
+import { canRenew, describePurchaseError, itemAction, type PurchaseFailure, type ShopItemAction } from './labels';
 import type { ShopController } from './useShopController';
 
 /**
  * 购买确认框现在该显示哪一种画面：
- *   confirm   确认购买 / 确认免费领取
+ *   confirm   确认购买 / 确认免费领取 / 确认续期（已经拥有的限时商品，renewing 为 true）
  *   short     余额不够：还差多少、去投币、投完刷新
  *   unbound   还没绑定 CCW 账号
  *   blocked   这件现在拿不到（已下架、等级不够、不出售）
@@ -19,6 +19,10 @@ export interface PurchaseFlow {
   action: ShopItemAction;
   /** 免费领取（等级解锁），不扣币 */
   free: boolean;
+  /** 这次是给已经拥有的限时商品续期：确认框要写明续到哪天 */
+  renewing: boolean;
+  /** 刚刚续期成功（打开时就是来续期的） */
+  renewed: boolean;
   balance: number;
   /** 买完之后的余额 */
   balanceAfter: number;
@@ -47,10 +51,15 @@ export function usePurchaseFlow(item: ShopItem, shop: ShopController): PurchaseF
   // verifiedAt：失败那一刻手头余额的核实时间，用来判断之后有没有刷新出新的余额
   const [failure, setFailure] = useState<(PurchaseFailure & { verifiedAt: string | null }) | null>(null);
   const [justObtained, setJustObtained] = useState(false);
+  // 打开弹窗的那一刻是不是来续期的（买到之后它也会变成「可以续期」，不能现算）
+  const [openedToRenew] = useState(() => canRenew(item));
   const action = itemAction(item);
   const balance = shop.balance?.balance ?? 0;
   const bound = shop.balance?.bound ?? false;
-  const free = action === 'claim' || (action === 'buy' && item.price <= 0);
+  // 续期：已经拥有的限时商品再买一次。续成功之后它还是「可以续期」，所以靠 justObtained 分辨「要不要再问一遍」
+  const renewing = canRenew(item) && !justObtained;
+  const paying = action === 'buy' || renewing;
+  const free = action === 'claim' || (paying && item.price <= 0);
   const verifiedAt = shop.balance?.verified_at ?? null;
   // 服务端说不够（它是先向 CCW 重新核实过的），但手头的余额看着够：以服务端给的差额为准，直到用户刷新出新的余额
   const serverShortfall = failure?.code === 'insufficient_coins' && failure.verifiedAt === verifiedAt ? failure.shortfall ?? 1 : 0;
@@ -58,9 +67,9 @@ export function usePurchaseFlow(item: ShopItem, shop: ShopController): PurchaseF
   const shortfall = Math.max(localShortfall, serverShortfall);
 
   let view: PurchaseView;
-  if (action === 'owned' || action === 'equipped') {
+  if ((action === 'owned' || action === 'equipped') && !renewing) {
     view = 'done';
-  } else if (action !== 'buy' && action !== 'claim') {
+  } else if (!paying && action !== 'claim') {
     view = 'blocked';
   } else if ((!bound && action !== 'claim') || failure?.code === 'ccw_not_bound') {
     // 等级够了的免费领取不要求绑定 CCW（docs/shop.md 3.6）：没绑定的人照样走确认框。花币买的才要先绑定
@@ -87,6 +96,8 @@ export function usePurchaseFlow(item: ShopItem, shop: ShopController): PurchaseF
     view,
     action,
     free,
+    renewing,
+    renewed: justObtained && openedToRenew,
     balance,
     balanceAfter: free ? balance : balance - item.price,
     shortfall,

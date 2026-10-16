@@ -2,7 +2,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { ImageViewer } from '@/components/ui/ImageViewer';
 import type { BookmarkedMessageRead, Conversation, Message, User } from '@/types/api';
-import { renderMessageContentPreview } from '../messageContent';
+import { MessageView } from '../MessageView';
 import { formatMessageTime, messageSenderLabel } from '../messageMeta';
 import { ConversationAvatar } from '../messageText';
 import { FAVORITE_FILTERS, useFavorites } from '../useFavorites';
@@ -58,7 +58,7 @@ export function FavoritesDesktop({ conversations, currentUser, items, isLoading,
                         <strong>{sender}</strong>
                         <time>{formatMessageTime(item.message.created_at)}</time>
                       </div>
-                      <div className="kfv-item-content">{renderMessageContentPreview(item.message, onOpenForwardBundle, openImage)}</div>
+                      <div className="kfv-item-content"><MessageView message={item.message} variant="compact" conversationId={item.conversation_id} onOpenImages={openImage} onOpenBundle={onOpenForwardBundle} /></div>
                       <div className="kfv-item-from">
                         <ConversationAvatar conversation={conversation} title={title} size="sm" />
                         <span>{title}</span>

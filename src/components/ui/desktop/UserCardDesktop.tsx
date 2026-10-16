@@ -1,5 +1,10 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { FriendIntimacyCard } from '@/components/intimacy/FriendIntimacyCard';
 import { cx } from '@/components/chat/desktop/runtime';
+import { BirthdayToday, useBirthdayFact } from '@/components/birthday/BirthdayBits';
+import { isBirthdayToday } from '@/components/birthday/data';
+import { SendGiftButton } from '@/components/gifts/GiftEntry';
 import { JuryBadge } from '@/components/jury/growth/JuryBadge';
 import { UserLevelCard } from '@/components/level/UserLevelCard';
 import { ProfileLikeButton } from '@/components/likes/ProfileLikeButton';
@@ -24,6 +29,7 @@ export function UserCardDesktop({ user, anchor, label, action, onClose }: UserCa
   const openUserSpace = useKukeStore((state) => state.openUserSpace);
   const { name, isBot, online, statusLabel, ccwProfileUrl } = useUserCardData(user, label);
   const cardRef = useRef<HTMLElement>(null);
+  const birthday = useBirthdayFact(user);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   useEscapeLayer(onClose);
 
@@ -57,11 +63,11 @@ export function UserCardDesktop({ user, anchor, label, action, onClose }: UserCa
       <section ref={cardRef} role="dialog" aria-label={`${name} 的资料卡`} className="kmd-card kui-scroll" style={position ? position : { visibility: 'hidden' }} onMouseDown={(event) => event.stopPropagation()}>
         <header className="kmd-card-head">
           <span className="kmd-card-avatar">
-            <Avatar user={user} label={name} size="lg" />
+            <Avatar user={user} label={name} size="lg" frame />
             <i className={online ? 'is-online' : undefined} />
           </span>
           <div className="kmd-card-id">
-            <h3>{name}</h3>
+            <h3>{name}<FriendBadgeMark userId={user?.id} size={18} openable /></h3>
             {user ? <p>{isBot ? '机器人账号' : user.username ? `@${user.username}` : '未设置用户名'}<span>ID {user.id}</span></p> : null}
             <p className={cx('kmd-card-status', online && 'is-online')}>{statusLabel}</p>
           </div>
@@ -79,14 +85,23 @@ export function UserCardDesktop({ user, anchor, label, action, onClose }: UserCa
           </div>
         ) : null}
 
-        {/* 账号等级（docs/account-level.md）：等级图标、累计活跃天、连续天数、名次、注册天数；自己的点了进等级页 */}
-        <UserLevelCard user={user} onNavigate={onClose} />
+        {/* 账号等级（docs/account-level.md）：等级图标、累计活跃天，下面一行统计（连续天数、名次、注册天数、心意值）；自己的点了进等级页 */}
+        <UserLevelCard user={user} charm onNavigate={onClose} />
+        {/* 是我的好友的话：我们的友谊等级、亲密度，点开「我们的友谊」（先把资料卡关掉） */}
+        {isBot ? null : <FriendIntimacyCard userId={user?.id} className="kit-row--card" onOpen={onClose} />}
 
         <dl className="kmd-card-rows">
           <div>
             <dt>简介</dt>
             <dd className={user?.bio?.trim() ? undefined : 'is-empty'}>{user?.bio?.trim() || (isBot ? '这个机器人还没有写介绍' : '这个人还没有写简介')}</dd>
           </div>
+          {/* 生日：填了就一直显示（对方公开了年份才带年份）；生日当天后面跟一个「今天生日」，底部的送礼按钮也换成「送生日礼物」 */}
+          {birthday ? (
+            <div data-birthday="fact">
+              <dt>生日</dt>
+              <dd className="kmd-card-birthday">{birthday}<BirthdayToday user={user} /></dd>
+            </div>
+          ) : null}
           {ccwProfileUrl ? (
             <div>
               <dt>CCW</dt>
@@ -109,6 +124,8 @@ export function UserCardDesktop({ user, anchor, label, action, onClose }: UserCa
               openUserSpace(user.id);
               onClose();
             }}>个人主页</button>
+            {/* 从资料卡送礼物不落聊天消息。礼物功能关着、是自己时不出现 */}
+            <SendGiftButton user={user} className="kui-btn" onOpen={onClose}>{isBirthdayToday(user) ? '送生日礼物' : '送礼物'}</SendGiftButton>
             {showAction && action ? <button type="button" className={cx('kui-btn', action.tone !== 'muted' && 'kui-btn--primary')} disabled={action.disabled || !action.onClick} onClick={() => action.onClick?.(user)}>{action.label}</button> : null}
           </footer>
         ) : null}

@@ -1,0 +1,554 @@
+{
+ "levels": [
+  {
+   "level": 0,
+   "name": "点头之交",
+   "threshold": 0
+  },
+  {
+   "level": 1,
+   "name": "初识",
+   "threshold": 20
+  },
+  {
+   "level": 2,
+   "name": "熟络",
+   "threshold": 100
+  },
+  {
+   "level": 3,
+   "name": "好友",
+   "threshold": 300
+  },
+  {
+   "level": 4,
+   "name": "密友",
+   "threshold": 700
+  },
+  {
+   "level": 5,
+   "name": "挚友",
+   "threshold": 1500
+  },
+  {
+   "level": 6,
+   "name": "知己",
+   "threshold": 3000
+  },
+  {
+   "level": 7,
+   "name": "莫逆之交",
+   "threshold": 6000
+  },
+  {
+   "level": 8,
+   "name": "灵魂之友",
+   "threshold": 10000
+  },
+  {
+   "level": 9,
+   "name": "永恒之友",
+   "threshold": 16000
+  }
+ ],
+ "series": [
+  {
+   "key": "clover",
+   "name": "友谊幸运草",
+   "condition": "你们互相发的消息累计 {n} 条",
+   "stat": "messages_total",
+   "icon": "clover",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "友谊幸运草",
+     "tier": 1,
+     "threshold": 30
+    },
+    {
+     "level": 2,
+     "name": "三叶之约",
+     "tier": 1,
+     "threshold": 300
+    },
+    {
+     "level": 3,
+     "name": "四叶奇迹",
+     "tier": 2,
+     "threshold": 1500
+    },
+    {
+     "level": 4,
+     "name": "幸运草原",
+     "tier": 3,
+     "threshold": 6000
+    },
+    {
+     "level": 5,
+     "name": "永恒幸运草",
+     "tier": 4,
+     "threshold": 20000
+    }
+   ]
+  },
+  {
+   "key": "together",
+   "name": "朝夕相伴",
+   "condition": "累计 {n} 天互相聊过天",
+   "stat": "mutual_days",
+   "icon": "sparkle",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "初次相识",
+     "tier": 1,
+     "threshold": 7
+    },
+    {
+     "level": 2,
+     "name": "常来常往",
+     "tier": 1,
+     "threshold": 30
+    },
+    {
+     "level": 3,
+     "name": "心照不宣",
+     "tier": 2,
+     "threshold": 60
+    },
+    {
+     "level": 4,
+     "name": "如影随形",
+     "tier": 2,
+     "threshold": 120
+    },
+    {
+     "level": 5,
+     "name": "形影不离",
+     "tier": 3,
+     "threshold": 240
+    },
+    {
+     "level": 6,
+     "name": "岁月同行",
+     "tier": 4,
+     "threshold": 500
+    }
+   ]
+  },
+  {
+   "key": "streak",
+   "name": "约定",
+   "condition": "连续 {n} 天互相聊天",
+   "stat": "best_streak",
+   "icon": "rings",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "三日之约",
+     "tier": 1,
+     "threshold": 3
+    },
+    {
+     "level": 2,
+     "name": "一周不断",
+     "tier": 1,
+     "threshold": 7
+    },
+    {
+     "level": 3,
+     "name": "月月相守",
+     "tier": 2,
+     "threshold": 30
+    },
+    {
+     "level": 4,
+     "name": "百日同行",
+     "tier": 3,
+     "threshold": 100
+    },
+    {
+     "level": 5,
+     "name": "年轮",
+     "tier": 4,
+     "threshold": 365
+    }
+   ]
+  },
+  {
+   "key": "night",
+   "name": "月下夜话",
+   "condition": "{n} 天在深夜（0:00–4:59）互相发过消息",
+   "stat": "night_days",
+   "icon": "moon",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "月下夜话",
+     "tier": 1,
+     "threshold": 1
+    },
+    {
+     "level": 2,
+     "name": "夜猫搭档",
+     "tier": 2,
+     "threshold": 7
+    },
+    {
+     "level": 3,
+     "name": "星河守望",
+     "tier": 3,
+     "threshold": 30
+    },
+    {
+     "level": 4,
+     "name": "永夜同盟",
+     "tier": 4,
+     "threshold": 100
+    }
+   ]
+  },
+  {
+   "key": "dawn",
+   "name": "晨光",
+   "condition": "{n} 天在清晨（5:00–7:59）互相发过消息",
+   "stat": "dawn_days",
+   "icon": "sun",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "第一缕晨光",
+     "tier": 1,
+     "threshold": 1
+    },
+    {
+     "level": 2,
+     "name": "早起二人组",
+     "tier": 2,
+     "threshold": 7
+    },
+    {
+     "level": 3,
+     "name": "晨曦之约",
+     "tier": 3,
+     "threshold": 30
+    },
+    {
+     "level": 4,
+     "name": "永昼之光",
+     "tier": 4,
+     "threshold": 100
+    }
+   ]
+  },
+  {
+   "key": "chatter",
+   "name": "话匣子",
+   "condition": "有一天互发消息达到 {n} 条",
+   "stat": "best_day_messages",
+   "icon": "balloons",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "聊不停",
+     "tier": 1,
+     "threshold": 100
+    },
+    {
+     "level": 2,
+     "name": "话匣子",
+     "tier": 2,
+     "threshold": 300
+    },
+    {
+     "level": 3,
+     "name": "停不下来",
+     "tier": 3,
+     "threshold": 666
+    }
+   ]
+  },
+  {
+   "key": "weekend",
+   "name": "周末搭子",
+   "condition": "{n} 个周末日（周六、周日）互相聊过天",
+   "stat": "weekend_days",
+   "icon": "weekend",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "周末见",
+     "tier": 1,
+     "threshold": 4
+    },
+    {
+     "level": 2,
+     "name": "周末搭子",
+     "tier": 2,
+     "threshold": 20
+    },
+    {
+     "level": 3,
+     "name": "假日常客",
+     "tier": 3,
+     "threshold": 52
+    },
+    {
+     "level": 4,
+     "name": "无尽周末",
+     "tier": 4,
+     "threshold": 150
+    }
+   ]
+  },
+  {
+   "key": "gifts",
+   "name": "心意",
+   "condition": "互相送过 {n} 次礼物",
+   "stat": "gift_count",
+   "icon": "gems",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "第一份心意",
+     "tier": 1,
+     "threshold": 1
+    },
+    {
+     "level": 2,
+     "name": "礼尚往来",
+     "tier": 2,
+     "threshold": 10
+    },
+    {
+     "level": 3,
+     "name": "心意满满",
+     "tier": 3,
+     "threshold": 50
+    },
+    {
+     "level": 4,
+     "name": "宝藏收藏家",
+     "tier": 4,
+     "threshold": 200
+    }
+   ]
+  },
+  {
+   "key": "birthday",
+   "name": "生日派对",
+   "condition": "在对方生日那天送过礼物，累计 {n} 次",
+   "stat": "birthday_gifts",
+   "icon": "cake",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "生日快乐",
+     "tier": 2,
+     "threshold": 1
+    },
+    {
+     "level": 2,
+     "name": "年年有你",
+     "tier": 3,
+     "threshold": 3
+    },
+    {
+     "level": 3,
+     "name": "岁岁相伴",
+     "tier": 4,
+     "threshold": 6
+    }
+   ]
+  },
+  {
+   "key": "bond",
+   "name": "羁绊",
+   "condition": "亲密度达到 {n}",
+   "stat": "intimacy",
+   "icon": "hearts",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "友谊的火花",
+     "tier": 2,
+     "threshold": 1000
+    },
+    {
+     "level": 2,
+     "name": "默契之信",
+     "tier": 3,
+     "threshold": 5000
+    }
+   ]
+  },
+  {
+   "key": "oldfriend",
+   "name": "老朋友",
+   "condition": "成为好友满 {n} 天",
+   "stat": "friend_days",
+   "icon": "house",
+   "hidden": false,
+   "levels": [
+    {
+     "level": 1,
+     "name": "新邻居",
+     "tier": 1,
+     "threshold": 30
+    },
+    {
+     "level": 2,
+     "name": "老朋友",
+     "tier": 2,
+     "threshold": 100
+    },
+    {
+     "level": 3,
+     "name": "一周年",
+     "tier": 3,
+     "threshold": 365
+    },
+    {
+     "level": 4,
+     "name": "千日之交",
+     "tier": 4,
+     "threshold": 1000
+    }
+   ]
+  },
+  {
+   "key": "newyear",
+   "name": "零点钟声",
+   "condition": "{n} 个元旦（1 月 1 日）互相聊过天",
+   "stat": "newyear_days",
+   "icon": "firework",
+   "hidden": true,
+   "levels": [
+    {
+     "level": 1,
+     "name": "零点钟声",
+     "tier": 3,
+     "threshold": 1
+    },
+    {
+     "level": 2,
+     "name": "岁岁年年",
+     "tier": 4,
+     "threshold": 3
+    }
+   ]
+  },
+  {
+   "key": "sunmoon",
+   "name": "千年之后",
+   "condition": "{n} 天里，你们既在深夜聊过、又在清晨聊过",
+   "stat": "sunmoon_days",
+   "icon": "sunmoon",
+   "hidden": true,
+   "levels": [
+    {
+     "level": 1,
+     "name": "千年之后",
+     "tier": 3,
+     "threshold": 1
+    },
+    {
+     "level": 2,
+     "name": "长夜将尽",
+     "tier": 4,
+     "threshold": 10
+    }
+   ]
+  },
+  {
+   "key": "pinkie",
+   "name": "以糖为誓",
+   "condition": "连续 {n} 天互相聊天，一天都没落下",
+   "stat": "best_streak",
+   "icon": "rings",
+   "hidden": true,
+   "levels": [
+    {
+     "level": 1,
+     "name": "以糖为誓",
+     "tier": 3,
+     "threshold": 30
+    }
+   ]
+  },
+  {
+   "key": "rainboom",
+   "name": "七色音障",
+   "condition": "有一天互发消息达到 {n} 条",
+   "stat": "best_day_messages",
+   "icon": "rainbow",
+   "hidden": true,
+   "levels": [
+    {
+     "level": 1,
+     "name": "七色音障",
+     "tier": 4,
+     "threshold": 1000
+    }
+   ]
+  },
+  {
+   "key": "discord",
+   "name": "混沌茶会",
+   "condition": "有一天在 0:00–4:59 互发消息达到 {n} 条",
+   "stat": "best_night_messages",
+   "icon": "chaos",
+   "hidden": true,
+   "levels": [
+    {
+     "level": 1,
+     "name": "混沌茶会",
+     "tier": 3,
+     "threshold": 200
+    }
+   ]
+  },
+  {
+   "key": "harmony",
+   "name": "和谐之元",
+   "condition": "集齐 {n} 个不同系列的好友成就",
+   "stat": "series_count",
+   "icon": "harmony",
+   "hidden": true,
+   "levels": [
+    {
+     "level": 1,
+     "name": "和谐之元",
+     "tier": 4,
+     "threshold": 6
+    }
+   ]
+  },
+  {
+   "key": "magic",
+   "name": "友谊之书",
+   "condition": "亲密度达到 {n}",
+   "stat": "intimacy",
+   "icon": "horn",
+   "hidden": true,
+   "levels": [
+    {
+     "level": 1,
+     "name": "友谊之书",
+     "tier": 4,
+     "threshold": 15000
+    }
+   ]
+  }
+ ]
+}

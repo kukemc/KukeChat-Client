@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { Announcement } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
-import { Markdown } from '@/components/ui/Markdown';
+import { Markdown, longImageMarkdownProps } from '@/components/ui/Markdown';
+import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { AnnouncementReactionBar } from './AnnouncementReactionBar';
-import { formatAnnouncementDate, useAnnouncementList, useCoverImage, type AnnouncementModalProps } from './announcementData';
+import { formatAnnouncementDate, useAnnouncementImageUrls, useAnnouncementList, useCoverImage, type AnnouncementModalProps } from './announcementData';
 import { AnnouncementCenterDesktop } from './desktop/AnnouncementCenterDesktop';
 
 function delayStyle(ms: number): CSSProperties {
@@ -54,6 +55,9 @@ function MobileAnnouncementCenter({ onClose }: Pick<AnnouncementModalProps, 'onC
   const failed = listQuery.isError && !listQuery.data;
   const empty = !listQuery.isLoading && !failed && list.length === 0;
   const showDetail = selectedId !== null && selected !== null;
+  // 正文里的长图：点开全屏看原图，可以捏合放大、左右切换
+  const images = useAnnouncementImageUrls(selected?.content);
+  const [viewer, setViewer] = useState<ImageViewerState | null>(null);
 
   return (
     <div className={`fixed inset-0 z-[2147483646] h-[100dvh] w-screen overflow-hidden [background:var(--kc-mobile-bg)] [color:var(--kc-text)] ${closing ? 'kc-ann-backdrop-out' : 'kc-ann-backdrop'}`} onClick={requestClose}>
@@ -132,7 +136,7 @@ function MobileAnnouncementCenter({ onClose }: Pick<AnnouncementModalProps, 'onC
                   <span>{formatAnnouncementDate(selected.created_at)}</span>
                 </div>
                 <div className="kc-ann-item mt-5" style={delayStyle(260)}>
-                  <Markdown content={selected.content} className="kc-ann-md kc-ann-md-mobile" />
+                  <Markdown content={selected.content} className="kc-ann-md kc-ann-md-mobile" {...longImageMarkdownProps({ onOpenImage: (src) => setViewer({ images, index: Math.max(images.indexOf(src), 0) }) })} />
                 </div>
                 <div className="mt-6 border-t pt-4 [border-color:var(--kc-border)]">
                   <AnnouncementReactionBar announcement={selected} mobile />
@@ -148,6 +152,8 @@ function MobileAnnouncementCenter({ onClose }: Pick<AnnouncementModalProps, 'onC
           </button>
         </div>
       </div>
+      {/* 长图的大图浮层：portal 出去，不然会被上面这层的 overflow-hidden 裁掉 */}
+      {viewer ? <ImageViewer viewer={viewer} mobile portal onClose={() => setViewer(null)} onNavigate={(index) => setViewer((current) => (current ? { ...current, index } : current))} /> : null}
     </div>
   );
 }

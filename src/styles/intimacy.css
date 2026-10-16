@@ -1,0 +1,811 @@
+/* ───────── 好友亲密度与好友成就（前缀 kit-）─────────
+   好友名字旁的小徽章、资料卡上的友谊一行、「我们的友谊」弹层、好友亲密榜。桌面和移动共用一套，移动布局的差异在文件末尾。
+   弹层的外壳（遮罩、面板、标题栏）用的是红包那一套（krp-，RedPacketLayer），这里只管里面的内容。
+   徽章图形本身是 SVG（components/intimacy/BadgeGlyph.tsx），配色固定，不跟主题走。 */
+
+.kit-layer,
+.kit-row,
+.kit-board,
+.kit-mark {
+  --kit-fs: var(--kc-font-multiplier, 1);
+  --kit: #8b5cf6;
+  --kit-hi: #a78bfa;
+  --kit-pink: #ec4899;
+  --kit-soft: color-mix(in srgb, var(--kit) 11%, transparent);
+  --kit-line: color-mix(in srgb, var(--kit) 22%, transparent);
+}
+
+[data-theme='dark'] .kit-layer,
+[data-theme='dark'] .kit-row,
+[data-theme='dark'] .kit-board,
+[data-theme='dark'] .kit-mark {
+  --kit: #a78bfa;
+  --kit-hi: #c4b5fd;
+  --kit-pink: #f472b6;
+  --kit-soft: color-mix(in srgb, var(--kit) 16%, transparent);
+  --kit-line: color-mix(in srgb, var(--kit) 30%, transparent);
+}
+
+.kit-glyph {
+  display: block;
+  flex: none;
+}
+
+.kit-glyph.is-locked {
+  filter: grayscale(1);
+  opacity: 0.38;
+}
+
+/* ───────── 名字旁的小徽章 ───────── */
+
+.kit-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  margin: 0 2px;
+  vertical-align: -0.2em;
+  line-height: 0;
+}
+
+.kit-mark.is-openable {
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.kit-mark.is-openable:hover {
+  transform: scale(1.18);
+}
+
+.kit-mark.is-openable:focus-visible {
+  outline: 2px solid var(--kit);
+  outline-offset: 1px;
+}
+
+.kit-mark--inline {
+  margin-left: 4px;
+}
+
+.kit-new {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--kit-pink);
+  color: #ffffff;
+  font-size: calc(10px * var(--kit-fs, 1));
+  font-weight: 700;
+  line-height: 15px;
+}
+
+.kit-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--kit-pink);
+}
+
+/* ───────── 资料卡上的一行 ───────── */
+
+.kit-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--kit-line);
+  border-radius: clamp(8px, var(--kc-radius, 12px), 14px);
+  background:
+    radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--kit-pink) 10%, transparent), transparent 60%),
+    var(--kit-soft);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--kit-fs));
+  text-align: left;
+  transition: border-color 100ms ease, background-color 100ms ease;
+}
+
+.kit-row:hover {
+  border-color: color-mix(in srgb, var(--kit) 45%, transparent);
+}
+
+.kit-row-badge {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--kit-pink);
+}
+
+.kit-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kit-row-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.kit-row-sub {
+  overflow: hidden;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kit-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kit-row-arrow {
+  flex: none;
+  color: var(--kc-subtle);
+}
+
+.kit-row--profile {
+  max-width: 360px;
+  margin: 2px auto 0;
+}
+
+.kit-row--card {
+  width: auto;
+  margin: 0 14px 10px;
+}
+
+/* ───────── 「我们的友谊」弹层 ───────── */
+
+.kit-panel {
+  width: 560px;
+  height: min(680px, 100%);
+}
+
+.kit-panel-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--kit-pink), var(--kit));
+  color: #ffffff;
+}
+
+.kit-quiet {
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kit-fs));
+}
+
+.kit-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.kit-hero {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px 12px;
+  background:
+    radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--kit-pink) 14%, transparent), transparent 65%),
+    radial-gradient(90% 140% at 100% 0%, color-mix(in srgb, var(--kit) 16%, transparent), transparent 65%);
+}
+
+.kit-pair {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.kit-pair > :last-child {
+  margin-left: -10px;
+}
+
+.kit-pair-heart {
+  position: absolute;
+  z-index: 1;
+  bottom: -4px;
+  left: 50%;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 2px solid var(--kc-panel, #ffffff);
+  border-radius: 999px;
+  background: var(--kit-pink);
+  color: #ffffff;
+  transform: translateX(-50%);
+}
+
+.kit-hero-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.kit-hero-level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(18px * var(--kit-fs));
+}
+
+.kit-hero-level b {
+  background: linear-gradient(90deg, var(--kit-pink), var(--kit));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 800;
+}
+
+.kit-hero-lv {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--kit-soft);
+  color: var(--kit);
+  font-size: calc(11px * var(--kit-fs));
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.kit-hero-sub {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kit-fs));
+}
+
+.kit-hero-sub b {
+  color: var(--kc-text);
+}
+
+.kit-bar,
+.kit-source-bar {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kit-bar > i,
+.kit-source-bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 4px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--kit-pink), var(--kit));
+  transition: width 320ms ease;
+}
+
+.kit-source-bar {
+  height: 5px;
+}
+
+.kit-tabs {
+  flex: none;
+  align-self: center;
+  margin: 2px 0 8px;
+}
+
+.kit-tabs button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.kit-tab-count {
+  margin-left: 4px;
+  color: var(--kc-subtle);
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kit-body {
+  gap: 12px;
+  padding-top: 4px;
+  overflow-y: auto;
+}
+
+.kit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--kc-border);
+  border-radius: clamp(8px, var(--kc-radius, 12px), 14px);
+  background: var(--kc-panel, #ffffff);
+}
+
+.kit-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kit-card-head h3 {
+  font-size: calc(13.5px * var(--kit-fs));
+  font-weight: 700;
+}
+
+.kit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--kit);
+  font-size: calc(12px * var(--kit-fs));
+  font-weight: 600;
+}
+
+.kit-sources {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kit-source {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--kit-soft);
+}
+
+.kit-source-label {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kit-fs));
+}
+
+.kit-source-value {
+  font-size: calc(16px * var(--kit-fs));
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.kit-source-value small {
+  margin-left: 1px;
+  color: var(--kc-subtle);
+  font-size: 0.7em;
+  font-weight: 600;
+}
+
+.kit-source.is-full .kit-source-value {
+  color: var(--kit);
+}
+
+.kit-today-note {
+  margin-top: -2px;
+}
+
+.kit-spark {
+  display: flex;
+  height: 54px;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.kit-spark-col {
+  display: flex;
+  height: 100%;
+  flex: 1;
+  align-items: flex-end;
+}
+
+.kit-spark-col > i {
+  width: 100%;
+  border-radius: 4px 4px 2px 2px;
+  background: color-mix(in srgb, var(--kit) 32%, transparent);
+}
+
+.kit-spark-col.is-mutual > i {
+  background: linear-gradient(180deg, var(--kit-pink), var(--kit));
+}
+
+.kit-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 8px;
+}
+
+.kit-stats > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kit-stats dt {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kit-fs));
+}
+
+.kit-stats dd {
+  font-size: calc(15px * var(--kit-fs));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.kit-recent {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kit-recent li {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+}
+
+.kit-recent-name {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: calc(11.5px * var(--kit-fs));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kit-recent-sub {
+  color: var(--kc-subtle);
+  font-size: calc(10.5px * var(--kit-fs));
+}
+
+.kit-recent li.is-new .kit-recent-name {
+  color: var(--kit-pink);
+}
+
+/* 徽章墙 */
+
+.kit-display-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: calc(12.5px * var(--kit-fs));
+  font-weight: 600;
+}
+
+.kit-display-mode {
+  align-self: flex-start;
+}
+
+.kit-wall {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.kit-series {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 10px;
+  border: 1px solid var(--kc-border);
+  border-radius: clamp(8px, var(--kc-radius, 12px), 14px);
+  background: var(--kc-panel, #ffffff);
+}
+
+.kit-series.is-unlocked {
+  border-color: var(--kit-line);
+  background:
+    radial-gradient(110% 90% at 0% 0%, var(--kit-soft), transparent 70%),
+    var(--kc-panel, #ffffff);
+}
+
+.kit-series.is-chosen {
+  box-shadow: 0 0 0 2px var(--kit) inset;
+}
+
+.kit-series-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.kit-series-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kit-series-name {
+  display: inline-flex;
+  align-items: center;
+  font-size: calc(13.5px * var(--kit-fs));
+  font-weight: 700;
+}
+
+.kit-series-level {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kit-fs));
+}
+
+.kit-series-level small {
+  color: var(--kc-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.kit-series.is-mystery .kit-series-name {
+  color: var(--kc-muted);
+}
+
+.kit-series-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.kit-series-progress .kit-quiet {
+  font-size: calc(11px * var(--kit-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+.kit-series-done {
+  font-size: calc(11px * var(--kit-fs));
+}
+
+.kit-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.kit-pip {
+  border-radius: 999px;
+  line-height: 0;
+  transition: transform 100ms ease;
+}
+
+.kit-pip:hover {
+  transform: translateY(-1px) scale(1.12);
+}
+
+.kit-wear {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--kit-line);
+  border-radius: 999px;
+  color: var(--kit);
+  font-size: calc(11px * var(--kit-fs));
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.kit-wear:hover,
+.kit-wear.is-on {
+  border-color: var(--kit);
+  background: var(--kit);
+  color: #ffffff;
+}
+
+.kit-focus {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--kc-panel, #ffffff) 70%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.kit-focus-card {
+  display: flex;
+  width: 260px;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 18px 16px;
+  border: 1px solid var(--kc-border);
+  border-radius: 16px;
+  background: var(--kc-panel, #ffffff);
+  box-shadow: 0 18px 40px -18px rgba(60, 30, 120, 0.45);
+  text-align: center;
+  animation: kit-pop 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+.kit-focus-card.is-unlocked .kit-focus-glyph {
+  animation: kit-wobble 900ms ease-in-out 120ms;
+}
+
+.kit-focus-name {
+  font-size: calc(17px * var(--kit-fs));
+  font-weight: 800;
+}
+
+.kit-focus-series {
+  color: var(--kit);
+  font-size: calc(12px * var(--kit-fs));
+  font-weight: 600;
+}
+
+.kit-focus-cond {
+  font-size: calc(13px * var(--kit-fs));
+}
+
+.kit-focus-card .kui-btn {
+  margin-top: 6px;
+}
+
+@keyframes kit-pop {
+  from { opacity: 0; transform: scale(0.86); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes kit-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-7deg) scale(1.04); }
+  60% { transform: rotate(5deg) scale(1.02); }
+}
+
+.krp-backdrop.is-still .kit-focus-card,
+.krp-backdrop.is-still .kit-focus-glyph {
+  animation: none;
+}
+
+/* 规则 */
+
+.kit-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kit-rules li {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  font-size: calc(12.5px * var(--kit-fs));
+}
+
+.kit-rules small {
+  color: var(--kc-subtle);
+}
+
+.kit-levels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+}
+
+.kit-levels li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(12.5px * var(--kit-fs));
+}
+
+/* ───────── 好友亲密榜 ───────── */
+
+.kit-board-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--kit-pink);
+  font-size: calc(14px * var(--kit-fs));
+  font-weight: 700;
+}
+
+.kit-board-title > svg + * {
+  color: var(--kc-text);
+}
+
+.kit-table.klv-table--desktop .kjr-tr {
+  grid-template-columns: 44px minmax(160px, 1.4fr) minmax(100px, 0.8fr) 120px;
+}
+
+.kit-table.klv-table--mobile .kjr-tr {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+}
+
+.kit-table .klv-lb-id {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.kit-lb-level {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.kit-lb-level small {
+  color: var(--kc-subtle);
+  font-weight: 500;
+}
+
+.kit-table .klv-lb-num {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.kit-lb-today {
+  color: var(--kit-pink);
+  font-size: 0.78em;
+  font-weight: 600;
+}
+
+.kit-lb-today.is-quiet {
+  color: var(--kc-subtle);
+  font-weight: 500;
+}
+
+/* ───────── 移动布局 ───────── */
+
+[data-layout='mobile'] .kit-panel {
+  height: 88%;
+}
+
+[data-layout='mobile'] .kit-hero {
+  padding: 14px 16px 10px;
+}
+
+[data-layout='mobile'] .kit-sources,
+[data-layout='mobile'] .kit-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-layout='mobile'] .kit-recent {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+[data-layout='mobile'] .kit-wall {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+[data-layout='mobile'] .kit-levels {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+[data-layout='mobile'] .kit-card {
+  background: var(--kc-mobile-card, var(--kc-panel));
+  border-color: var(--kc-mobile-border, var(--kc-border));
+}
+
+.kit-row--block {
+  padding: 12px 14px;
+  border-radius: var(--kc-mobile-profile-card-radius, 18px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kit-focus-card,
+  .kit-focus-glyph,
+  .kit-mark.is-openable {
+    animation: none;
+    transition: none;
+  }
+}

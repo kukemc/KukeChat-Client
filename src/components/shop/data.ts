@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
 import { ApiError } from '@/api/client';
 import { isRecord } from '@/api/normalizers';
-import { getShop, getShopPurchases, purchaseShopItem, refreshShopBalance, setShopEquipped } from '@/api/shop';
+import { getShop, getShopPurchases, normalizeShopBalance, purchaseShopItem, refreshShopBalance, setShopEquipped } from '@/api/shop';
 import type { MobileSortableFeatureId } from '@/mobile/features';
 import { handleCosmeticsEvent } from '@/realtime/userPatch';
 import { useKukeStore } from '@/store/kukeStore';
@@ -24,7 +24,7 @@ export const shopKeys = {
 };
 
 /** 客户端认识的商品类别。不认识的类别连同它的商品一起不显示（docs/shop.md 2.1）。 */
-export const KNOWN_CATEGORIES: ReadonlySet<string> = new Set(['bubble']);
+export const KNOWN_CATEGORIES: ReadonlySet<string> = new Set(['bubble', 'frame']);
 
 /** 服务端错误的 detail：新接口是 { code, message, … }，包在响应体的 detail 字段里。 */
 export function shopErrorDetail(error: unknown): Record<string, unknown> {
@@ -258,9 +258,14 @@ export function useShopPurchases(limit: number, offset: number, enabled: boolean
  *   · shop.changed 是发给所有在线用户的。这里只把目录标成过期、不重拉 —— 不然每改一次价，全站在线的人都会来拉一遍；
  *     商店页开着的时候由页面自己订阅事件去重拉（useShopController），没开着的下次打开时会重拉。
  *     例外：手头是「服务端没有商店」时重拉一次，商店刚上线的话入口就出来了。
+ *   · shop.balance.changed 只发给本人：余额变了（发红包、领红包、没领完的退了回来、送礼物）。事件里带着完整的余额对象，直接用；没带才重拉。
  *   · shop.item.granted 只发给本人：目录里这件变成已拥有，购买记录多一条，直接重拉。提示由 ShopGrantToasts 自己订阅事件。
+ *   · shop.item.expiring / shop.item.expired 只发给本人：一件限时商品快到期了（提前 3 天，一次）/ 已经到期。到期的那件不再拥有、
+ *     装备着的话也被卸下了，重拉目录（重拉之后 syncMyCosmetics 会把当前用户对象上的装扮对齐）；提示同样由 ShopGrantToasts 出。
+ *     到期时服务端另外照常发一条 user.cosmetics.updated，聊天里已经显示出来的气泡、头像框靠它当场摘掉。
  *   · user.cosmetics.updated（{ user_id, cosmetics }）也是发给所有在线用户的：有人换了装扮。把本地所有缓存里这个人的 cosmetics 换掉
- *     （realtime/userPatch.ts），已经显示出来的气泡跟着变，不发任何请求。是我自己在别的设备上换的，就把商店的主数据标成过期，下次打开商店时重拉。
+ *     （realtime/userPatch.ts），已经显示出来的气泡跟着变，不发任何请求。是我自己的装扮、而且和手头的商店数据对不上
+ *     （在别的设备上换的、限时商品到期被卸下），就把商店的主数据重拉一次。
  */
 export function handleShopEvent(queryClient: QueryClient, rawType: string, data?: unknown): void {
   if (rawType === 'user.cosmetics.updated') {
@@ -273,7 +278,9 @@ export function handleShopEvent(queryClient: QueryClient, rawType: string, data?
         return (isRecord(slot) && typeof slot.sku === 'string' ? slot.sku : null) !== (overview.equipped[category.slot] ?? null);
       });
       if (differs) {
-        void queryClient.invalidateQueries({ queryKey: shopKeys.overview, refetchType: 'none' });
+        // 我的装扮和手头的商店数据对不上了：在别的设备上换的，或者装备着的限时商品到期被服务端卸下了。
+        // 这种事件只有本人的才会走到这里（很少），直接重拉：商店页开着的话「使用中」当场消失，重拉后 syncMyCosmetics 再对齐一次
+        refetchShop(queryClient);
       }
     }
     return;
@@ -285,8 +292,22 @@ export function handleShopEvent(queryClient: QueryClient, rawType: string, data?
       void queryClient.invalidateQueries({ queryKey: shopKeys.overview, refetchType: 'none' });
     }
   }
+  // 余额因为别的原因变了（发了红包、领到了、过期 / 撤回退回来的、送了礼物……），只发给本人。
+  // data 是 { reason, change, balance, red_packet_id }（docs/red-packets.md 第 4 节），balance 是完整的余额对象：直接换进缓存，不用重拉；
+  // 没带 balance（或者形状不对）、手头还没有商店数据时才重拉（GET /shop 不会去问 CCW，很轻）
+  if (rawType === 'shop.balance.changed') {
+    const pushed = isRecord(data) && isRecord(data.balance) && typeof data.balance.balance === 'number' ? normalizeShopBalance(data.balance) : null;
+    if (pushed && queryClient.getQueryData<ShopOverview | null>(shopKeys.overview)) {
+      applyShopPatch(queryClient, { balance: pushed });
+    } else {
+      refetchShop(queryClient);
+    }
+  }
   if (rawType === 'shop.item.granted') {
     refetchShop(queryClient);
     void queryClient.invalidateQueries({ queryKey: shopKeys.purchases });
+  }
+  if (rawType === 'shop.item.expired' || rawType === 'shop.item.expiring') {
+    refetchShop(queryClient);
   }
 }

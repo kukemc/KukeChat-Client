@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LevelNotificationIcon, isLevelNotification } from '@/components/level/LevelNotificationIcon';
 import { PenaltyCenterModal } from '@/components/moderation/PenaltyCenter';
 import { Avatar } from '@/components/ui/Avatar';
@@ -18,6 +18,13 @@ export function NotificationsPane({ data }: { data: ContactsData }): JSX.Element
   const { notificationsQuery, notifications, notificationCount, pendingCount, requestBusy } = data;
   const counts = notificationsQuery.data?.counts;
   const visible = filter === 'all' ? notifications : notifications.filter((item) => item.category === filter);
+
+  // 打开着通知中心就算看过了：角标清零，之后来的才是新的（只提醒一次）
+  const { markSeen } = data;
+  useEffect(() => {
+    markSeen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notificationsQuery.data]);
 
   function open(target: NotificationTarget): void {
     if (target.kind === 'penalty') {
@@ -43,12 +50,17 @@ export function NotificationsPane({ data }: { data: ContactsData }): JSX.Element
       title="通知中心"
       meta={notificationsQuery.isLoading ? undefined : <>{notificationCount} 条通知{pendingCount ? <> · <b>{pendingCount} 条待处理</b></> : null}</>}
       aside={(
+        <div className="kcc-notice-aside">
+        {data.pendingIncomingFriendCount > 0 && (filter === 'all' || filter === 'friend') ? (
+          <button type="button" className="kui-btn kui-btn--sm kui-btn--ghost" disabled={requestBusy} title="对方不会收到通知" onClick={data.ignoreAll}>全部忽略</button>
+        ) : null}
         <div className="kui-segment" role="radiogroup" aria-label="通知分类">
           {FILTERS.map((category) => (
             <button key={category} type="button" role="radio" aria-checked={filter === category} className={filter === category ? 'is-active' : undefined} onClick={() => setFilter(category)}>
               {NOTIFICATION_CATEGORY_LABELS[category]}{counts?.[category] ? <span>{counts[category]}</span> : null}
             </button>
           ))}
+        </div>
         </div>
       )}
     >
@@ -63,6 +75,7 @@ export function NotificationsPane({ data }: { data: ContactsData }): JSX.Element
             onOpen={open}
             onAcceptFriend={(id) => data.acceptMutation.mutate(id)}
             onRejectFriend={(id) => data.rejectMutation.mutate(id)}
+            onIgnoreFriend={(id) => data.ignoreMutation.mutate(id)}
             onAcceptGroup={(id) => data.acceptGroupRequestMutation.mutate(id)}
             onRejectGroup={(id) => data.rejectGroupRequestMutation.mutate(id)}
           />
@@ -79,18 +92,19 @@ interface NotificationItemProps {
   onOpen: (target: NotificationTarget) => void;
   onAcceptFriend: (requestId: number) => void;
   onRejectFriend: (requestId: number) => void;
+  onIgnoreFriend: (requestId: number) => void;
   onAcceptGroup: (requestId: number) => void;
   onRejectGroup: (requestId: number) => void;
 }
 
-function NotificationItem({ notification, busy, onOpen, onAcceptFriend, onRejectFriend, onAcceptGroup, onRejectGroup }: NotificationItemProps): JSX.Element {
+function NotificationItem({ notification, busy, onOpen, onAcceptFriend, onRejectFriend, onIgnoreFriend, onAcceptGroup, onRejectGroup }: NotificationItemProps): JSX.Element {
   const source = notificationAvatarSource(notification);
   const target = notificationTarget(notification);
   const friendRequestId = notification.action === 'friend_request' ? notification.friend_request_id : null;
   const groupRequestId = notification.action === 'group_join_request' ? notification.group_join_request_id : null;
   const meta = [NOTIFICATION_CATEGORY_LABELS[notification.category], notification.conversation_title, formatNotificationTime(notification.time)].filter(Boolean).join(' · ');
 
-  // 整行可点，但行里还有「接受 / 拒绝」按钮，所以用 div 而不是 button 套 button
+  // 整行可点，但行里还有「接受 / 拒绝 / 忽略」按钮，所以用 div 而不是 button 套 button
   const linkProps = target ? {
     role: 'button',
     tabIndex: 0,
@@ -121,6 +135,7 @@ function NotificationItem({ notification, busy, onOpen, onAcceptFriend, onReject
         <div className="kcc-row-actions" onClick={(event) => event.stopPropagation()}>
           <button type="button" className="kui-btn kui-btn--sm kui-btn--primary" disabled={busy} onClick={() => onAcceptFriend(friendRequestId)}>接受</button>
           <button type="button" className="kui-btn kui-btn--sm" disabled={busy} onClick={() => onRejectFriend(friendRequestId)}>拒绝</button>
+          <button type="button" className="kui-btn kui-btn--sm kui-btn--ghost" disabled={busy} title="对方不会收到通知" onClick={() => onIgnoreFriend(friendRequestId)}>忽略</button>
         </div>
       ) : groupRequestId ? (
         <div className="kcc-row-actions" onClick={(event) => event.stopPropagation()}>

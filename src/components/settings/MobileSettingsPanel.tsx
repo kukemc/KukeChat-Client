@@ -23,6 +23,8 @@ import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
 import { isTauriDesktopApp } from '@/utils/appMode';
 import { openExternalUrl } from '@/utils/openExternalUrl';
 import { MobileUserProfilePage } from '@/components/ui/MobileUserProfilePage';
+import { useRankingBoards } from '@/components/ranking/boards';
+import { BirthdaySetting } from '@/components/birthday/BirthdaySetting';
 import { MobileProfileSummaryCard } from '@/components/profile/MobileProfileSummaryCard';
 import { useResolvedThemeMode } from '@/utils/theme';
 import { presenceLabel, presenceOptions } from '@/utils/presence';
@@ -33,6 +35,7 @@ import { useHiddenMobileFeatures, useShopAvailable } from '@/components/shop/dat
 import { useShopPrefs } from '@/store/shopPrefs';
 import { MOBILE_APP_VERSION, isMobileUpdateSupported } from '@/native/appUpdate';
 import { requestMobileUpdateCheck } from '@/components/settings/MobileUpdateModal';
+import { ReleaseNotesDialog } from '@/components/update/ReleaseNotes';
 import { MobileSoundSettings } from '@/components/settings/MobileSoundSettings';
 import packageJson from '../../../package.json';
 
@@ -260,6 +263,7 @@ function FontSizeControl({ value, onChange, compact = false }: { value: UiFontSc
 
 export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLogout, initialTab = 'account', initialMobilePage, focusKey = 0, mobileIntent = null, onMobileIntentConsumed, onMobileDetailActiveChange }: SettingsPanelProps): JSX.Element {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const [mobileSettingsPage, setMobileSettingsPage] = useState<MobileSettingsPage>(isMobile ? mobileIntent?.page ?? initialMobilePage ?? (initialTab !== 'account' ? initialTab : null) : null);
   const [nickname, setNickname] = useState(user.nickname ?? '');
   const [avatarUrl, setAvatarUrl] = useState(user.avatar_url ?? '');
@@ -306,6 +310,9 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
   // 账号等级（docs/account-level.md）：服务端没有等级时，「我的等级」入口和聊天里的图标开关都不出现
   const levelAvailable = useLevelAvailable();
   const openLevel = useKukeStore((state) => state.openLevel);
+  const openRanking = useKukeStore((state) => state.openRanking);
+  // 排行榜：活跃 / 心意 / 风纪至少一个开着时才有这一行
+  const rankingBoards = useRankingBoards();
   const setCurrentUser = useKukeStore((state) => state.setCurrentUser);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>(() => (typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'));
   const [ccwConfirmAction, setCcwConfirmAction] = useState<CcwConfirmAction>(null);
@@ -978,7 +985,8 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
     const showAppearanceSettings = settingMatches('通用外观', `${themeModeLabel(themeMode)} · 字体${fontScaleLabel(uiFontScale)}`, '主题 显示 字体 通知 音效 提示音 声音 音量 试听 自定义提示音 上传音频 appearance theme font sound volume');
     const showReportsSettings = settingMatches('举报中心', '进度与处理结果', 'reports report moderation');
     const showMobileMenuSettings = settingMatches('空间菜单', '底栏图标 空间入口 排序', 'mobile menu nav order space');
-    const showLevelSettings = levelAvailable && settingMatches('我的等级', '活跃天数、排行榜和规则', '账号等级 星星 月亮 太阳 皇冠 level rank');
+    const showLevelSettings = levelAvailable && settingMatches('我的等级', '活跃天数和规则', '账号等级 星星 月亮 太阳 皇冠 level');
+    const showRankingSettings = rankingBoards.length > 0 && settingMatches('排行榜', rankingBoards.map((board) => board.label).join('、'), '排行 榜单 名次 活跃榜 心意榜 风纪榜 leaderboard rank');
     const showAboutSettings = settingMatches('关于 KukeChat', `v${APP_VERSION}`, 'about version 版本');
     const showSupportSettings = settingMatches('赞助支持', '爱发电与作品投币', 'support afdian sponsor');
     const showDeveloperSettings = settingMatches('开发者', APP_DEVELOPER, 'developer author');
@@ -1078,6 +1086,9 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
 
                 {renderPresenceSettings(true)}
 
+                {/* 生日：自己保存（里面的按钮不提交外面这张表单）。服务端没有这个功能时整块不出现 */}
+                <BirthdaySetting variant="mobile" />
+
                 <section className="kc-qq-card grid gap-3 p-4">
                   <p className="kc-qq-section-title">操作</p>
                   {avatarMutation.error ? <p className="rounded-[18px] bg-red-50 px-4 py-3 text-[13px] text-red-500">头像上传失败，请稍后重试。</p> : null}
@@ -1148,7 +1159,7 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
                 <FontSizeControl value={uiFontScale} onChange={setUiFontScale} compact />
                 {shopAvailable ? (
                   <section className="kc-qq-card p-0">
-                    <MobileSettingsRow icon="store" label="商店" detail="用 CCW 金币换气泡皮肤" onClick={openShop} />
+                    <MobileSettingsRow icon="store" label="商店" detail="用 CCW 金币换气泡和头像框" onClick={openShop} />
                     <MobileSwitchRow icon="eye" label="显示别人的气泡皮肤" detail="关掉后别人的气泡按你的主题显示" checked={showOthersSkins} onClick={() => setShowOthersSkins(!showOthersSkins)} />
                   </section>
                 ) : null}
@@ -1192,6 +1203,17 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
                       <span className="min-w-0 flex-1"><span className="block text-[16px] font-semibold text-[#111827]">版本号</span><span className="mt-0.5 block text-[12px] text-[#9aa3af]">v{APP_VERSION}</span></span>
                     </div>
                   )}
+                  <button type="button" onClick={() => setReleaseNotesOpen(true)} className="kc-qq-settings-row w-full text-left">
+                    <span className="kc-qq-settings-icon"><Icon name="fileText" className="h-5 w-5" /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-[16px] font-semibold text-[#111827]">更新日志</span><span className="mt-0.5 block text-[12px] text-[#9aa3af]">每个版本更新了什么</span></span>
+                    <Icon name="chevron" className="h-4 w-4 text-[#c3c8d1]" />
+                  </button>
+                  <ReleaseNotesDialog
+                    open={releaseNotesOpen}
+                    onClose={() => setReleaseNotesOpen(false)}
+                    platforms={isMobileUpdateSupported() ? ['android'] : ['windows', 'android']}
+                    currentVersion={isMobileUpdateSupported() ? MOBILE_APP_VERSION : null}
+                  />
                   {APP_DEVELOPERS.map((developer) => (
                     <a key={developer.profileUrl} href={developer.profileUrl} target="_blank" rel="noreferrer" className="kc-qq-settings-row">
                       <span className="kc-qq-settings-icon"><Icon name="profile" className="h-5 w-5" /></span>
@@ -1295,12 +1317,13 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
               <input value={settingsSearchQuery} onChange={(event) => setSettingsSearchQuery(event.target.value)} className="min-w-0 flex-1 border-0 bg-transparent text-[15px] font-medium outline-none text-[#111827] placeholder:text-[#a4adba]" placeholder="搜索设置项" />
             </label>
 
-            {showAccountSettings || showAppearanceSettings || showReportsSettings || showCcwSettings || showMobileMenuSettings || showLevelSettings ? (
+            {showAccountSettings || showAppearanceSettings || showReportsSettings || showCcwSettings || showMobileMenuSettings || showLevelSettings || showRankingSettings ? (
               <section className="mt-5">
                 <p className="kc-qq-section-title">功能</p>
                 <div className="kc-qq-card overflow-hidden p-0">
                   {showAccountSettings ? <MobileSettingsRow icon="profile" label="账号资料" detail="昵称、简介、头像" active={activeTab === 'account'} onClick={() => openMobileSettingsPage('account')} /> : null}
-                  {showLevelSettings ? <MobileSettingsRow icon="star" label="我的等级" detail="活跃天数、排行榜和规则" onClick={() => openLevel('me')} /> : null}
+                  {showLevelSettings ? <MobileSettingsRow icon="star" label="我的等级" detail="活跃天数和规则" onClick={() => openLevel('me')} /> : null}
+                  {showRankingSettings ? <MobileSettingsRow icon="trophy" label="排行榜" detail={rankingBoards.map((board) => board.label).join('、')} onClick={() => openRanking()} /> : null}
                   {showCcwSettings ? <MobileSettingsRow icon="ccw" label="CCW 账号" detail={user.ccw_student_oid ? `已绑定 ${user.ccw_name || 'CCW'}` : '绑定与同步资料'} active={activeTab === 'ccw'} onClick={() => openMobileSettingsPage('ccw')} /> : null}
                   {showMobileMenuSettings ? <MobileSettingsRow icon="mobileMode" label="空间菜单" detail="底栏图标与空间入口排序" active={mobileSettingsPage === 'mobileMenu'} onClick={() => openMobileSettingsPage('mobileMenu')} /> : null}
                   {showAppearanceSettings ? <MobileSettingsRow icon="settings" label="通用外观" detail={`${themeModeLabel(themeMode)} · 字体${fontScaleLabel(uiFontScale)}`} active={activeTab === 'appearance'} onClick={() => openMobileSettingsPage('appearance')} /> : null}

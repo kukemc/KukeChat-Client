@@ -1,11 +1,12 @@
 import { ccwExtensionInfoUrl } from '@/config';
+import { ensureKukeChatWindow } from '@/app/windowManager';
+import { toast } from '@/components/ui/toast';
 import { extensionId } from './assets';
 import type { ScratchRuntime } from '@/types/scratch';
 import packageInfo from '../../package.json';
 
 const EXTENSION_INFO_URL = ccwExtensionInfoUrl(extensionId);
 const LOG_PREFIX = '[KukeChat]';
-const TOAST_CONTAINER_ID = 'kukechat-extension-update-toasts';
 
 let latestAssetUrl: string | null = null;
 const patchedVMs = new WeakSet<object>();
@@ -124,144 +125,36 @@ function getCurrentSavedUrl(runtime: ScratchRuntime): string | null {
     ?? null;
 }
 
-type ToastKind = 'info' | 'success' | 'error';
-interface ToastOptions {
-  actionLabel?: string;
-  action?: () => void;
-  duration?: number;
+/**
+ * 检查更新是 Scratch 工具栏上的按钮，点的时候 KukeChat 窗口可能压根没开着 —— 这时候
+ * 没有 React 树在跑，也就没有提示层。所以先把窗口挂上（会把 KukeChat 打开），再往全站
+ * 统一的提示里塞一条：外观和别处完全一致，也保证一定有人看得见。
+ *
+ * 窗口已经开着时 ensureKukeChatWindow 只是重新挂一次根菜单，不会打扰用户。
+ */
+function ensureToastHost(): void {
+  try {
+    ensureKukeChatWindow();
+  } catch (error) {
+    console.warn(`${LOG_PREFIX} 打开 KukeChat 窗口失败，提示可能看不到`, error);
+  }
 }
 
-function getToastColor(kind: ToastKind): string {
-  if (kind === 'success') {
-    return '#22c55e';
-  }
-  if (kind === 'error') {
-    return '#ef4444';
-  }
-  return '#3b82f6';
-}
-
-function getToastIcon(kind: ToastKind): string {
-  if (kind === 'success') {
-    return '✓';
-  }
-  if (kind === 'error') {
-    return '!';
-  }
-  return 'i';
-}
-
-function ensureToastContainer(): HTMLElement | null {
-  if (typeof document === 'undefined') {
-    return null;
-  }
-
-  const existing = document.getElementById(TOAST_CONTAINER_ID);
-  if (existing) {
-    return existing;
-  }
-
-  const container = document.createElement('div');
-  container.id = TOAST_CONTAINER_ID;
-  container.style.position = 'fixed';
-  container.style.top = '44px';
-  container.style.left = '50%';
-  container.style.transform = 'translateX(-50%)';
-  container.style.zIndex = '2147483647';
-  container.style.display = 'flex';
-  container.style.flexDirection = 'column';
-  container.style.gap = '10px';
-  container.style.pointerEvents = 'none';
-  document.body.appendChild(container);
-  return container;
-}
-
-function showToast(message: string, kind: ToastKind = 'info', options: ToastOptions = {}): void {
+function showUpdateToast(kind: 'info' | 'success' | 'error', message: string, options: { actionLabel?: string; action?: () => void; duration?: number } = {}): void {
   console.log(`${LOG_PREFIX} ${message}`);
-
-  const container = ensureToastContainer();
-  if (!container) {
-    return;
-  }
-
-  const color = getToastColor(kind);
-  const toast = document.createElement('div');
-  toast.style.display = 'flex';
-  toast.style.alignItems = 'center';
-  toast.style.gap = '8px';
-  toast.style.maxWidth = '360px';
-  toast.style.padding = '9px 10px';
-  toast.style.borderRadius = '8px';
-  toast.style.border = '1px solid rgba(148, 163, 184, 0.22)';
-  toast.style.background = 'rgba(255, 255, 255, 0.98)';
-  toast.style.boxShadow = '0 10px 26px rgba(15, 23, 42, 0.18)';
-  toast.style.color = '#1f2937';
-  toast.style.fontSize = '13px';
-  toast.style.fontWeight = '500';
-  toast.style.lineHeight = '1.35';
-  toast.style.opacity = '0';
-  toast.style.pointerEvents = 'auto';
-  toast.style.transform = 'translateY(-6px) scale(0.98)';
-  toast.style.transition = 'opacity 160ms ease, transform 160ms ease';
-
-  const icon = document.createElement('span');
-  icon.textContent = getToastIcon(kind);
-  icon.style.display = 'inline-flex';
-  icon.style.alignItems = 'center';
-  icon.style.justifyContent = 'center';
-  icon.style.width = '18px';
-  icon.style.height = '18px';
-  icon.style.flex = '0 0 18px';
-  icon.style.borderRadius = '999px';
-  icon.style.background = color;
-  icon.style.color = '#ffffff';
-  icon.style.fontSize = '12px';
-  icon.style.fontWeight = '900';
-
-  const text = document.createElement('span');
-  text.textContent = message;
-  text.style.flex = '1 1 auto';
-
-  toast.append(icon, text);
-
-  if (options.actionLabel && options.action) {
-    const actionButton = document.createElement('button');
-    actionButton.type = 'button';
-    actionButton.textContent = options.actionLabel;
-    actionButton.style.flex = '0 0 auto';
-    actionButton.style.border = '0';
-    actionButton.style.borderRadius = '6px';
-    actionButton.style.padding = '5px 8px';
-    actionButton.style.background = color;
-    actionButton.style.color = '#ffffff';
-    actionButton.style.fontSize = '12px';
-    actionButton.style.fontWeight = '700';
-    actionButton.style.cursor = 'pointer';
-    actionButton.onclick = options.action;
-    toast.appendChild(actionButton);
-  }
-
-  container.appendChild(toast);
-
-  window.setTimeout(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateY(0) scale(1)';
-  }, 0);
-
-  window.setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(-6px) scale(0.98)';
-    window.setTimeout(() => {
-      toast.remove();
-      if (!container.childElementCount) {
-        container.remove();
-      }
-    }, 180);
-  }, options.duration ?? (kind === 'error' ? 4200 : 3200));
+  ensureToastHost();
+  toast.show({
+    tone: kind,
+    message,
+    duration: options.duration,
+    // 一次性的事件，不去重：连着点两次更新应当各说一次
+    dedupe: false,
+    actions: options.actionLabel && options.action ? [{ label: options.actionLabel, onClick: options.action }] : undefined
+  });
 }
 
 function showRefreshToast(message: string): void {
-  showToast(message, 'success', {
+  showUpdateToast('success', message, {
     actionLabel: '刷新网页',
     action: () => window.location.reload(),
     duration: 8000
@@ -358,17 +251,17 @@ function patchProjectSerialization(runtime: ScratchRuntime): void {
 export async function updateToLatestExtensionUrl(runtime?: ScratchRuntime): Promise<void> {
   if (!runtime || typeof fetch !== 'function') {
     console.log(`${LOG_PREFIX} 跳过扩展更新检测：runtime 或 fetch 不可用`);
-    showToast('KukeChat 更新失败：当前环境不支持更新检测', 'error');
+    showUpdateToast('error', 'KukeChat 更新失败：当前环境不支持更新检测');
     return;
   }
 
-  showToast('KukeChat 正在检测最新扩展版本...', 'info');
+  showUpdateToast('info', 'KukeChat 正在检测最新扩展版本...');
   const currentUrl = getCurrentSavedUrl(runtime);
   console.log(`${LOG_PREFIX} 当前项目保存的扩展 URL`, currentUrl ?? '未找到');
   const latestVersion = await fetchLatestVersionInfo();
 
   if (!latestVersion || !isHttpUrl(latestVersion.assetUri)) {
-    showToast('KukeChat 更新失败：没有获取到最新扩展文件', 'error');
+    showUpdateToast('error', 'KukeChat 更新失败：没有获取到最新扩展文件');
     return;
   }
 
@@ -381,7 +274,7 @@ export async function updateToLatestExtensionUrl(runtime?: ScratchRuntime): Prom
 
   if (currentUrl === assetUrl) {
     console.log(`${LOG_PREFIX} 当前项目扩展 URL 与最新版本一致，无需更新`);
-    showToast('KukeChat 已是最新版本，无需更新', 'success');
+    showUpdateToast('success', 'KukeChat 已是最新版本，无需更新');
     return;
   }
 

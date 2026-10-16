@@ -117,6 +117,8 @@ export function useSelfCardData(user: User) {
     level,
     /** 累计活跃天；还没取到、取不到都是 null */
     activeDays: levelQuery.data?.active_days ?? null,
+    /** 等级明细（连续活跃、名次、注册天数）；还没取到、取不到都是 null */
+    levelCard: levelQuery.data ?? null,
     levelLoading: levelAvailable && levelQuery.isPending,
     skin,
     ccwProfileUrl: user.ccw_student_oid ? ccwStudentProfileUrl(user.ccw_student_oid) : null,

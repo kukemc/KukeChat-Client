@@ -6,7 +6,7 @@ export type GroupJoinRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type JoinMode = 'approval' | 'question' | 'invite_only' | 'open';
 export type MemberRole = 'owner' | 'admin' | 'member';
 export type MessageSetting = 'notify' | 'silent' | 'ignore';
-export type MessageType = 'text' | 'image' | 'sticker' | 'voice' | 'forward_bundle' | 'system' | 'poll';
+export type MessageType = 'text' | 'image' | 'sticker' | 'voice' | 'forward_bundle' | 'system' | 'poll' | 'red_packet' | 'gift';
 export type MessageSearchCategory = 'all' | 'text' | 'image' | 'sticker' | 'voice' | 'link' | 'forward_bundle' | 'system';
 export type MessageSearchMatchType = Exclude<MessageSearchCategory, 'all'>;
 export type ReportTargetType = 'message' | 'user' | 'conversation' | 'post';
@@ -76,6 +76,12 @@ export interface User {
   account_level?: number | null;
   /** 资料累计收到的赞（docs/chat-features.md 第 6 节）。旧后端没有这个字段，按没有资料点赞处理 */
   profile_like_count?: number | null;
+  /** 收到礼物累计涨的「心意值」（叫法见 utils/gift.ts）。旧后端没有这个字段，按没有礼物功能处理 */
+  charm?: number | null;
+  /** 生日：没填是 null；year 只有本人选择公开时才给。用之前过 utils/birthday.ts 的 normalizeBirthday */
+  birthday?: { month: number; day: number; year?: number | null } | null;
+  /** 今天（北京时间）是不是这个人的生日 */
+  is_birthday_today?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -420,6 +426,10 @@ export interface MessageMetadata {
   ccw_creations?: CcwCreationPreview[];
   voice?: VoiceMessageMetadata;
   poll?: import('./polls').Poll;
+  /** type 为 red_packet 的消息带的红包信息，只有不会变的字段 */
+  red_packet?: import('./redPacket').RedPacketMeta;
+  /** type 为 gift 的消息带的礼物信息：谁收、送的什么、留言。用之前过 utils/gift.ts 的 normalizeGiftMeta */
+  gift?: import('./gift').GiftMeta;
   [key: string]: unknown;
 }
 
@@ -618,9 +628,14 @@ export interface UnifiedNotification {
 
 export interface UnifiedNotificationList {
   items: UnifiedNotification[];
+  /** 兼容旧字段，和 new_count 相同 */
   unread_count: number;
   pending_count: number;
   counts: Record<string, number>;
+  /** 上次打开通知中心的时间（POST /notifications/seen），从没打开过为 null */
+  seen_at?: string | null;
+  /** 角标数：seen_at 之后来的非动态通知 + 未读动态通知 */
+  new_count?: number;
 }
 
 export interface PostLikeToggleRead {
@@ -1108,11 +1123,25 @@ export interface Conversation {
   my_do_not_disturb?: boolean;
   my_message_setting?: MessageSetting | null;
   pending_join_request_count?: number;
+  /** 我未读的消息里有没有 @我：me 有人点名 @我；all 没有点名、但有 @全体成员；null 都没有。自己发的不算，读过之后变回 null。旧后端没有这个字段，按 null */
+  mention_pending?: 'me' | 'all' | null;
+  /** 这个会话里有我还能领的红包（active、没过期、我没领过、不是私聊里我自己发的）。旧后端没有这个字段，按 false */
+  red_packet_pending?: boolean;
   /** 是否在昵称旁显示等级头衔。由群主/管理员开启 */
   level_titles_enabled?: boolean;
   /** 生效的等级头衔分档，按 min_level 升序；群没自定义时是服务端的默认分档 */
   level_titles?: LevelTitleTier[];
   joined?: boolean;
+  /** 群升级的有效档位（记录的档位已过期就是 free）。私聊恒为 free；旧后端没有这个字段，按 free */
+  plus_tier?: import('./groupPlus').GroupPlusTier;
+  /** 档位到期时间；免费为 null */
+  plus_expires_at?: string | null;
+  /** 永久档位（后台给的，plus_expires_at 是 2999 年的哨兵值）；旧后端没有这个字段，按到期年份判断（tier.ts 的 isPermanentPlus） */
+  plus_permanent?: boolean;
+  /** 群文件默认保留时长（小时）：24 / 168 / 720 */
+  file_default_ttl_hours?: number;
+  /** 群待办；没有为 null。旧后端没有这个字段，按 null */
+  group_todo?: import('./groupPlus').GroupTodo | null;
 }
 
 export interface Bot {
@@ -1343,6 +1372,8 @@ export interface UpdateGroupSettingsPayload {
   level_titles_enabled?: boolean;
   /** 整体替换；传空数组恢复默认分档 */
   level_titles?: LevelTitleTier[];
+  /** 群文件默认保留时长（小时），只能是 24 / 168 / 720，只影响之后上传的文件 */
+  file_default_ttl_hours?: number;
 }
 
 export interface UpdateMyConversationSettingsPayload {

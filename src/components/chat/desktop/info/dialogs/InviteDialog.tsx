@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { addConversationMembers } from '@/api/conversations';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { groupPlusErrorCode } from '@/components/groupPlus/data';
+import { useGroupPlusUi } from '@/components/groupPlus/ui';
 import { Icon } from '@/components/ui/Icon';
 import type { User } from '@/types/api';
 import { friendshipUser, memberUserId } from '../../../message/messageMeta';
@@ -12,9 +14,11 @@ import { invalidateConversationData } from '../infoData';
 
 /** 邀请好友入群：列出还不在群里的好友，可多选。 */
 export function InviteDialog(): JSX.Element {
-  const { conversation, currentUser, members, friends, notify, closeDialog } = useInfo();
+  const { conversation, currentUser, members, friends, notify, closeDialog, canManage } = useInfo();
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  // 409 group_full：群满员了，提示后面带「去升级」（群主 / 管理员）
+  const [fullText, setFullText] = useState<string | null>(null);
 
   const inviteMutation = useMutation({
     mutationFn: (memberIds: number[]) => addConversationMembers(conversation.id, memberIds),
@@ -23,7 +27,13 @@ export function InviteDialog(): JSX.Element {
       notify('');
       invalidateConversationData(queryClient, conversation.id);
     },
-    onError: () => notify('邀请失败，请稍后重试。', 'error')
+    onError: (error) => {
+      if (groupPlusErrorCode(error) === 'group_full') {
+        setFullText(error.message || '群人数已经达到上限，不能再邀请新成员了。');
+        return;
+      }
+      notify('邀请失败，请稍后重试。', 'error');
+    }
   });
 
   const memberIds = new Set(members.map(memberUserId));
@@ -47,6 +57,15 @@ export function InviteDialog(): JSX.Element {
         </button>
       </>
     )}>
+      {fullText ? (
+        <p className="kui-note kui-note--warn" role="alert" data-plus="group-full">
+          {fullText}
+          {canManage ? <button type="button" className="kgp-upsell" onClick={() => {
+            closeDialog();
+            useGroupPlusUi.getState().openUpgrade({ conversationId: conversation.id, reason: 'members' });
+          }}><Icon name="sparkles" className="h-3.5 w-3.5" />去升级</button> : null}
+        </p>
+      ) : null}
       <DialogList empty={candidates.length === 0 ? '暂无可邀请的好友。' : null}>
         {candidates.map((friend) => {
           const selected = selectedIds.includes(friend.id);

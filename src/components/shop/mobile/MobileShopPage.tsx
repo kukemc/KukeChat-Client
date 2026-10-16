@@ -1,12 +1,16 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { cx } from '@/components/chat/desktop/runtime';
 import { Icon } from '@/components/ui/Icon';
+import { CoinIcon } from '@/components/ui/CoinIcon';
 import { registerNativeBackHandler } from '@/native/back';
+import { GiftRecordsButton } from '@/components/gifts/GiftEntry';
+import { RedPacketRecordsButton } from '@/components/redpacket/RedPacketEntry';
 import type { ShopItem } from '@/types/shop';
-import { BubbleStage, cardSamples, tryOnSamples } from '../BubbleSample';
 import { useShopPurchases } from '../data';
-import { ItemButton, ItemTags, PriceLine } from '../ItemParts';
-import { DEFAULT_PREVIEW_TEXT, formatCoins, formatShopTime, formatVerifiedAt, itemAction, sourceLabel } from '../labels';
+import { doneText, ItemButton, ItemTags, PriceLine, TermRows } from '../ItemParts';
+import { ItemPreview } from '../ItemPreview';
+import { balanceExtras, canRenew, categoryText, expiryDateLabel, formatCoins, formatShopTime, formatVerifiedAt, itemAction, ownedExpiry, purchaseSourceLabel } from '../labels';
+import { durationLabel } from '@/utils/shopExpiry';
 import { usePurchaseFlow, type PurchaseView } from '../usePurchaseFlow';
 import { useShopController, type ShopController } from '../useShopController';
 
@@ -55,13 +59,6 @@ export function MobileShopPage({ onMobileBack, onOpenCcwBinding, transitionStyle
           : <div className="ksp-m-loading" role="status" aria-label="正在加载商店"><span className="kcr-bone ksp-m-bone--hero" /><span className="kcr-bone ksp-m-bone--row" /><div className="ksp-m-grid"><span className="kcr-bone ksp-m-bone--item" /><span className="kcr-bone ksp-m-bone--item" /></div></div>}
       </div>
 
-      {shop.notice ? (
-        <div key={shop.notice.id} className={cx('ksp-m-toast', shop.notice.tone === 'danger' && 'is-danger')} role="status" onClick={shop.dismissNotice}>
-          <Icon name={shop.notice.tone === 'danger' ? 'alert' : 'check'} className="h-4 w-4" />
-          <span>{shop.notice.text}</span>
-        </div>
-      ) : null}
-
       {shop.historyOpen ? <HistorySheet onClose={() => shop.setHistoryOpen(false)} /> : null}
       {shop.tryOnTarget ? <TryOnSheet item={shop.tryOnTarget} shop={shop} /> : null}
       {shop.purchaseTarget ? <PurchaseSheet key={shop.purchaseTarget.id} item={shop.purchaseTarget} shop={shop} onOpenCcwBinding={onOpenCcwBinding} /> : null}
@@ -87,9 +84,9 @@ function MobileContent({ shop, onOpenCcwBinding }: { shop: ShopController; onOpe
               <p className="ksp-m-hero-label">金币余额</p>
               <p className="ksp-m-hero-number" data-shop="balance-number">{formatCoins(balance.balance)}</p>
             </div>
-            <span className="ksp-m-hero-icon"><Icon name="coins" className="h-6 w-6" /></span>
+            <span className="ksp-m-hero-icon"><CoinIcon size={30} /></span>
           </div>
-          <p className="ksp-m-hero-stats">累计投币 {formatCoins(balance.donated)} · 已花 {formatCoins(balance.spent)} · {formatVerifiedAt(balance.verified_at, shop.now)}</p>
+          <p className="ksp-m-hero-stats">累计投币 {formatCoins(balance.donated)} · 已花 {formatCoins(balance.spent)}{balanceExtras(balance).map((row) => ` · ${row.label} ${row.text}`).join('')} · {formatVerifiedAt(balance.verified_at, shop.now)}</p>
           <div className="ksp-m-hero-actions">
             <button type="button" className="ksp-m-hero-btn" data-action="refresh" disabled={shop.refreshing || shop.refreshWait > 0} onClick={shop.refresh}>
               <Icon name="refresh" className={cx('h-4 w-4', shop.refreshing && 'animate-spin')} />
@@ -99,6 +96,10 @@ function MobileContent({ shop, onOpenCcwBinding }: { shop: ShopController; onOpe
           </div>
         </section>
       ) : null}
+
+      {/* 余额除了买装扮，还会因为发红包、抢红包变：记录的入口放在余额下面 */}
+      <RedPacketRecordsButton className="ksp-m-link-row"><Icon name="redPacket" className="h-4 w-4" /><span>红包记录</span><Icon name="chevron" className="h-4 w-4" /></RedPacketRecordsButton>
+      <GiftRecordsButton className="ksp-m-link-row"><Icon name="gift" className="h-4 w-4" /><span>礼物记录</span><Icon name="chevron" className="h-4 w-4" /></GiftRecordsButton>
 
       {balance?.bound ? (
         <div className="ksp-m-notes">
@@ -115,15 +116,21 @@ function MobileContent({ shop, onOpenCcwBinding }: { shop: ShopController; onOpe
       {shop.wardrobe.length > 0 ? (
         <section className="kc-qq-card ksp-m-card mt-3" data-shop="wardrobe">
           <p className="kc-qq-section-title">我的装扮</p>
-          {shop.wardrobe.map(({ category, sku, item }) => (
-            <div key={category.key} className="ksp-m-slot">
-              <div className="min-w-0 flex-1">
-                <p className="ksp-m-slot-name"><span>{category.label}</span>{item ? item.name : sku ? '已装备一件装扮' : '没有装备'}</p>
-                <BubbleStage style={item?.style} messages={[{ mine: true, text: item?.preview_text.trim() || DEFAULT_PREVIEW_TEXT }]} layout="mobile" className="ksp-stage--slot" />
+          {shop.wardrobe.map(({ category, sku, item }) => {
+            const expiry = item ? ownedExpiry(item, shop.now) : null;
+            return (
+              <div key={category.key} className="ksp-m-slot" data-slot={category.slot}>
+                <div className="min-w-0 flex-1">
+                  <p className="ksp-m-slot-name"><span>{category.label}</span>{item ? item.name : sku ? '已装备一件装扮' : '没有装备'}{expiry ? <span className={cx('ksp-expiry', expiry.soon && 'is-soon')} data-shop="slot-expiry" data-soon={expiry.soon || undefined}><Icon name="clock" className="h-3 w-3" />{expiry.text}</span> : null}</p>
+                  <ItemPreview category={category.key} style={item?.style} previewText={item?.preview_text} variant="slot" layout="mobile" />
+                </div>
+                <div className="ksp-m-slot-actions">
+                  {item && canRenew(item) ? <button type="button" className={cx(BUTTON, expiry?.soon && BUTTON_PRIMARY)} data-action="renew-slot" onClick={() => shop.openPurchase(item)}>续期</button> : null}
+                  {sku ? <button type="button" className={BUTTON} data-action="unequip-slot" disabled={shop.equipPending !== null} onClick={() => shop.unequip(category.slot)}>{shop.equipPending === category.slot ? '卸下中…' : '卸下'}</button> : null}
+                </div>
               </div>
-              {sku ? <button type="button" className={BUTTON} data-action="unequip-slot" disabled={shop.equipPending !== null} onClick={() => shop.unequip(category.slot)}>{shop.equipPending === category.slot ? '卸下中…' : '卸下'}</button> : null}
-            </div>
-          ))}
+            );
+          })}
         </section>
       ) : null}
 
@@ -151,7 +158,7 @@ function MobileItemCard({ item, shop }: { item: ShopItem; shop: ShopController }
   return (
     <article className={cx('kc-qq-card ksp-m-item', action === 'equipped' && 'is-equipped')} data-sku={item.sku} data-state={action}>
       <div className="ksp-m-item-preview" role="button" tabIndex={0} aria-label={`试穿 ${item.name}`} onClick={() => shop.openTryOn(item)}>
-        <BubbleStage style={item.style} messages={cardSamples(item.preview_text)} layout="mobile" />
+        <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="card" layout="mobile" />
       </div>
       <div className="ksp-m-item-body">
         <h3>{item.name}</h3>
@@ -196,11 +203,11 @@ function Sheet({ title, subtitle, tall, onClose, footer, children, dataShop }: {
 function TryOnSheet({ item, shop }: { item: ShopItem; shop: ShopController }): JSX.Element {
   return (
     <Sheet title="试穿" subtitle={item.name} tall onClose={shop.closeTryOn} dataShop="tryon" footer={<><PriceLine item={item} /><ItemButton item={item} shop={shop} className={`${BUTTON} is-large`} primaryClassName={BUTTON_PRIMARY} /></>}>
-      <BubbleStage style={item.style} messages={tryOnSamples(item.preview_text)} layout="mobile" avatars className="ksp-stage--boxed" />
+      <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="tryon" layout="mobile" />
       <div className="ksp-m-tryon-info">
         <ItemTags item={item} now={shop.now} />
         {item.description ? <p>{item.description}</p> : null}
-        <p className="ksp-m-quiet">左边是别人看到的你，右边是你自己看到的。只是预览，没有真的换上。</p>
+        <p className="ksp-m-quiet">{categoryText(item.category).tryOnNote}</p>
       </div>
     </Sheet>
   );
@@ -211,11 +218,11 @@ const PURCHASE_TITLE: Record<PurchaseView, string> = { confirm: '确认购买', 
 function PurchaseSheet({ item, shop, onOpenCcwBinding }: { item: ShopItem; shop: ShopController; onOpenCcwBinding?: () => void }): JSX.Element {
   const flow = usePurchaseFlow(item, shop);
   const close = shop.closePurchase;
-  const title = flow.view === 'confirm' && flow.free ? '免费领取' : flow.view === 'done' && flow.justObtained ? '到手了' : PURCHASE_TITLE[flow.view];
+  const title = flow.view === 'confirm' && flow.free ? '免费领取' : flow.view === 'confirm' && flow.renewing ? '续期' : flow.view === 'done' && flow.justObtained ? (flow.renewed ? '已续期' : '到手了') : PURCHASE_TITLE[flow.view];
 
   let footer: JSX.Element;
   if (flow.view === 'confirm') {
-    footer = <button type="button" className={`${BUTTON} ${BUTTON_PRIMARY} is-large is-block`} data-action="confirm-purchase" disabled={flow.pending} onClick={flow.confirm}>{flow.pending ? '处理中…' : flow.free ? '免费领取' : `确认购买（${formatCoins(item.price)} 币）`}</button>;
+    footer = <button type="button" className={`${BUTTON} ${BUTTON_PRIMARY} is-large is-block`} data-action="confirm-purchase" disabled={flow.pending} onClick={flow.confirm}>{flow.pending ? '处理中…' : flow.free ? '免费领取' : `${flow.renewing ? '确认续期' : '确认购买'}（${formatCoins(item.price)} 币）`}</button>;
   } else if (flow.view === 'short') {
     footer = (
       <>
@@ -242,13 +249,14 @@ function PurchaseSheet({ item, shop, onOpenCcwBinding }: { item: ShopItem; shop:
   return (
     <Sheet title={title} subtitle={item.name} onClose={flow.pending ? () => undefined : close} dataShop="purchase" footer={footer}>
       <div data-view={flow.view}>
-        <BubbleStage style={item.style} messages={[{ mine: true, text: item.preview_text.trim() || DEFAULT_PREVIEW_TEXT }]} layout="mobile" className="ksp-stage--boxed" />
+        <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="buy" layout="mobile" />
         {flow.view === 'confirm' ? (
           flow.free ? <p className="ksp-m-lead">{item.unlock_level !== null ? `你的账号等级已经达到 Lv.${item.unlock_level}，` : ''}这件可以免费领取，不扣金币。</p> : (
             <dl className="ksp-bill">
-              <div><dt>价格</dt><dd><Icon name="coins" className="h-3.5 w-3.5" />{formatCoins(item.price)}</dd></div>
+              <div><dt>价格</dt><dd><CoinIcon size={14} className="h-3.5 w-3.5" />{formatCoins(item.price)}</dd></div>
               <div><dt>现在的余额</dt><dd>{formatCoins(flow.balance)}</dd></div>
-              <div className="is-total"><dt>买完之后</dt><dd>{formatCoins(flow.balanceAfter)}</dd></div>
+              <div className="is-total"><dt>{flow.renewing ? '续完之后' : '买完之后'}</dt><dd>{formatCoins(flow.balanceAfter)}</dd></div>
+              <TermRows item={item} renewing={flow.renewing} now={shop.now} />
             </dl>
           )
         ) : null}
@@ -256,7 +264,7 @@ function PurchaseSheet({ item, shop, onOpenCcwBinding }: { item: ShopItem; shop:
           <>
             <p className="ksp-buy-short">还差 <b>{formatCoins(flow.shortfall)}</b> 个币</p>
             <dl className="ksp-bill">
-              <div><dt>价格</dt><dd><Icon name="coins" className="h-3.5 w-3.5" />{formatCoins(item.price)}</dd></div>
+              <div><dt>价格</dt><dd><CoinIcon size={14} className="h-3.5 w-3.5" />{formatCoins(item.price)}</dd></div>
               <div><dt>现在的余额</dt><dd>{formatCoins(flow.balance)}</dd></div>
             </dl>
             <p className="ksp-m-note">点「去投币」打开 KukeChat 官方作品页，给作品投币，回来点「我投完了，刷新余额」。币是投给 KukeChat 官方作品的。</p>
@@ -266,7 +274,7 @@ function PurchaseSheet({ item, shop, onOpenCcwBinding }: { item: ShopItem; shop:
         ) : null}
         {flow.view === 'unbound' ? <p className="ksp-m-lead">金币是按你绑定的 CCW 账号核实的：你在 CCW 给 KukeChat 官方作品投过多少币，这里就有多少。绑定之后，以前投过的也算数。</p> : null}
         {flow.view === 'blocked' ? <p className="ksp-m-lead">{flow.blockedText}</p> : null}
-        {flow.view === 'done' ? <p className="ksp-m-lead">{flow.action === 'equipped' ? `「${item.name}」正在使用中，你发出的消息已经是这个气泡了。` : `「${item.name}」${flow.justObtained ? '已经是你的了' : '已经在你的装扮里'}。现在就换上？`}</p> : null}
+        {flow.view === 'done' ? <p className="ksp-m-lead" data-shop="done-text">{doneText(item, flow.action, flow.justObtained, categoryText(item.category).inUse, shop.now, flow.renewed)}</p> : null}
         {flow.error ? <p className="ksp-m-note is-danger" role="alert" data-shop="purchase-error">{flow.error}</p> : null}
       </div>
     </Sheet>
@@ -304,11 +312,12 @@ function HistorySheet({ onClose }: { onClose: () => void }): JSX.Element {
               <li key={record.id} className={record.revoked_at ? 'is-revoked' : undefined} data-record={record.id}>
                 <span className="ksp-history-name">{record.item.name}</span>
                 <span className="ksp-history-tags">
-                  <span className="kui-tag">{sourceLabel(record.source)}</span>
+                  <span className="kui-tag">{purchaseSourceLabel(record)}</span>
+                  {durationLabel(record.duration_days) ? <span className="kui-tag kui-tag--warn" title={record.expires_at ? `到 ${expiryDateLabel(record.expires_at, Date.now())}` : undefined}>{durationLabel(record.duration_days)}</span> : null}
                   {record.revoked_at ? <span className="kui-tag kui-tag--danger">已收回</span> : null}
                   {record.refunded ? <span className="kui-tag kui-tag--ok">已退币</span> : null}
                 </span>
-                <span className="ksp-history-price">{record.price > 0 ? <><Icon name="coins" className="h-3.5 w-3.5" />{formatCoins(record.price)}</> : '免费'}</span>
+                <span className="ksp-history-price">{record.price > 0 ? <><CoinIcon size={14} className="h-3.5 w-3.5" />{formatCoins(record.price)}</> : '免费'}</span>
                 <time className="ksp-history-time">{formatShopTime(record.created_at)}</time>
               </li>
             ))}

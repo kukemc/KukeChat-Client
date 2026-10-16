@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/api/client';
 import { createGroupJoinRequest, getOutgoingGroupJoinRequests, getRecommendedGroups, joinGroup, searchGroups } from '@/api/conversations';
 import { getOutgoingFriendRequests, sendFriendRequest } from '@/api/friends';
-import { searchConversationsMessages } from '@/api/messages';
+import { searchChatSummary } from '@/api/messageSearch';
+import { useGroupPlusUi } from '@/components/groupPlus/ui';
+import { chatSearchTitle } from './chat/util';
+import { useDebounced } from './chat/useChatSearch';
 import { getRecommendedUsers, searchUsers } from '@/api/users';
 import { friendshipUser } from '@/components/chat/message/messageMeta';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation, Friendship, GroupJoinRequest, Message, User } from '@/types/api';
+import { giftPreview } from '@/utils/gift';
+import { redPacketPreview } from '@/utils/redPacket';
 
 // 全局搜索的数据和操作。手机端的整页和桌面端的搜索面板共用，各自只管怎么画。
 
@@ -29,7 +34,8 @@ export interface GlobalSearchModalProps {
   onClose: () => void;
 }
 
-const MESSAGE_SEARCH_PAGE_SIZE = 50;
+/** 全局搜索里「聊天记录」分区：全部页签只列前几个会话，聊天记录页签才列满 */
+export const CHAT_SUMMARY_PREVIEW = 5;
 const FRIEND_REQUEST_SENT = '好友申请已发送';
 const GROUP_JOINED = '已加入群聊';
 const GROUP_REQUEST_SENT = '已提交加群申请';
@@ -65,6 +71,14 @@ export function messagePreview(message: Message): string {
   }
   if (message.type === 'system') {
     return message.content || '系统消息';
+  }
+  const redPacket = redPacketPreview(message);
+  if (redPacket) {
+    return redPacket;
+  }
+  const gift = giftPreview(message);
+  if (gift) {
+    return gift;
   }
   const images = Array.isArray(message.metadata?.images) ? message.metadata.images.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
   const suffix = images.length > 0 ? ` ${images.length > 1 ? `[图片] ${images.length}张图片` : '[图片]'}` : '';
@@ -112,7 +126,6 @@ export function useGlobalSearch({ currentUser, friends, initialKeyword = '', onO
   const [friendResultText, setFriendResultText] = useState<Record<number, string>>({});
   const [groupResultText, setGroupResultText] = useState<Record<number, string>>({});
   const queryClient = useQueryClient();
-  const requestJumpToMessage = useKukeStore((state) => state.requestJumpToMessage);
   const conversationIds = useKukeStore((state) => state.searchableConversationIds);
   const cleanKeyword = submittedKeyword.trim();
   const showingRecommendations = cleanKeyword.length === 0;
@@ -134,12 +147,16 @@ export function useGlobalSearch({ currentUser, friends, initialKeyword = '', onO
     queryFn: () => (showingRecommendations ? getRecommendedGroups() : searchGroups(cleanKeyword)),
     enabled: tab === 'all' || tab === 'groups'
   });
-  const messagesQuery = useInfiniteQuery({
-    queryKey: ['global-search', 'messages', cleanKeyword, conversationIds.join(',')],
-    queryFn: ({ pageParam }) => searchConversationsMessages(conversationIds, { query: cleanKeyword, category: 'all', beforeId: pageParam, limit: MESSAGE_SEARCH_PAGE_SIZE }),
-    initialPageParam: undefined as number | undefined,
-    getNextPageParam: (lastPage) => lastPage.has_more ? lastPage.next_before_id ?? undefined : undefined,
-    enabled: cleanKeyword.length > 0 && conversationIds.length > 0 && (tab === 'all' || tab === 'messages')
+  // 聊天记录：边打边查（防抖 250ms），先按会话聚合命中数；点进某个会话才看明细（ChatSearchHost）。
+  // 用输入框里的值而不是「回车提交」的值：这一分区要像 QQ 一样即时出结果，旧请求由 react-query 的 signal 取消
+  const chatKeyword = useDebounced(inputValue.trim());
+  const messagesQuery = useQuery({
+    queryKey: ['global-search', 'chat-summary', chatKeyword],
+    queryFn: ({ signal }) => searchChatSummary({ q: chatKeyword, limit: 50 }, signal),
+    enabled: chatKeyword.length > 0 && (tab === 'all' || tab === 'messages'),
+    retry: false,
+    staleTime: 15_000,
+    gcTime: 60_000
   });
 
   const friendIds = new Set(friends.map((friendship) => friendshipUser(friendship)?.id).filter((id): id is number => typeof id === 'number'));
@@ -147,7 +164,8 @@ export function useGlobalSearch({ currentUser, friends, initialKeyword = '', onO
   const pendingOutgoingGroupIds = new Set((outgoingGroupRequestsQuery.data ?? []).filter((request: GroupJoinRequest) => request.status === 'pending').map((request) => request.conversation_id));
   const users = usersQuery.data ?? [];
   const groups = (groupsQuery.data ?? []).filter((group) => group.join_mode !== 'invite_only');
-  const messages = messagesQuery.data?.pages.flatMap((page) => page.items.map((item) => item.message)) ?? [];
+  const chatConversations = messagesQuery.data?.items ?? [];
+  const chatTotal = messagesQuery.data?.total ?? 0;
 
   const friendMutation = useMutation({
     mutationFn: sendFriendRequest,
@@ -186,10 +204,10 @@ export function useGlobalSearch({ currentUser, friends, initialKeyword = '', onO
     setGroupResultText({});
   }
 
-  function openMessageResult(message: Message): void {
-    const conversationId = message.conversation_id;
-    requestJumpToMessage(conversationId, message.id);
-    onOpenConversation?.(conversationId);
+  /** 点聚合列表里的一个会话（conversationId）或「查看全部」（null）：交给聊天记录搜索面板，关掉全局搜索。 */
+  function openChatHistory(conversationId: number | null): void {
+    const item = chatConversations.find((entry) => entry.conversation.id === conversationId);
+    useGroupPlusUi.getState().openChatSearch({ conversationId, keyword: chatKeyword, title: item ? chatSearchTitle(item.conversation) : undefined });
     onClose();
   }
 
@@ -260,11 +278,13 @@ export function useGlobalSearch({ currentUser, friends, initialKeyword = '', onO
     usersQuery,
     groupsQuery,
     messagesQuery,
+    chatKeyword,
+    chatConversations,
+    chatTotal,
     users,
     groups,
-    messages,
     submitSearch,
-    openMessageResult,
+    openChatHistory,
     userRowState,
     groupRowState,
     sendFriendRequest: (userId: number) => friendMutation.mutate(userId),

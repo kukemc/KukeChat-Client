@@ -1,154 +1,149 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
+import { toast } from '@/components/ui/toast';
+import { ChangelogText } from '@/components/update/ChangelogText';
+import { UpdateProgress } from '@/components/update/UpdateProgress';
+import { FORCED_UPDATE_TITLE, formatBytes, formatReleaseDate } from '@/components/update/updateFormat';
 import {
   cancelDesktopUpdateDownload, checkForDesktopUpdate, dismissJustUpdated, downloadDesktopUpdate, installDesktopUpdate,
   setDesktopUpdateDialogOpen, skipDesktopUpdateVersion, useDesktopUpdate
 } from '@/native/desktopUpdate';
 import { openExternalUrl } from '@/utils/openExternalUrl';
 
+export { formatBytes };
+
 function portalRoot(): Element {
   return document.querySelector('.kc-desktop-app') ?? document.body;
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
 export function UpdateProgressBar({ downloaded, total }: { downloaded: number; total: number | null }): JSX.Element {
-  const percent = total ? Math.min(100, Math.floor((downloaded / total) * 100)) : null;
-  return (
-    <div>
-      <div className="h-2 overflow-hidden rounded-full [background:var(--kc-panel-muted)]">
-        <div className={`h-full rounded-full transition-[width] duration-200 [background:var(--kc-accent)] ${percent === null ? 'w-1/3 animate-pulse' : ''}`} style={percent === null ? undefined : { width: `${percent}%` }} />
-      </div>
-      <div className="mt-1.5 flex justify-between text-xs tabular-nums [color:var(--kc-muted)]">
-        <span>{formatBytes(downloaded)}{total ? ` / ${formatBytes(total)}` : ''}</span>
-        <span>{percent === null ? '下载中…' : `${percent}%`}</span>
-      </div>
-    </div>
-  );
+  return <UpdateProgress downloaded={downloaded} total={total} />;
 }
 
-// 外观用 kui.css 的按钮和对话框，对话框自己的排版（kwf-update-*）在 desktop-settings.css
-const primary = 'kui-btn kui-btn--primary';
-const secondary = 'kui-btn';
-const ghost = 'kui-btn kui-btn--ghost';
-
-/** Global update dialog for the desktop app; opened by automatic checks, the title-bar pill and settings. */
+/**
+ * Global update dialog for the desktop app; opened by automatic checks, the title-bar pill and settings.
+ * 样式在 styles/app-update.css（kup-），和群升级同一套克制的黑白。强制更新时遮罩不透明、对话框关不掉。
+ */
 export function DesktopUpdateDialog(): JSX.Element | null {
   const state = useDesktopUpdate();
-  const { phase, dialogOpen, latestVersion, currentVersion } = state;
+  const { phase, dialogOpen, latestVersion, currentVersion, forced } = state;
+  const busy = phase === 'installing' || phase === 'downloading';
   const close = (): void => setDesktopUpdateDialogOpen(false);
 
   useEffect(() => {
-    if (!dialogOpen) return undefined;
+    if (!dialogOpen || forced) return undefined;
     const onKey = (event: KeyboardEvent): void => { if (event.key === 'Escape' && phase !== 'installing') close(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dialogOpen, phase]);
+  }, [dialogOpen, phase, forced]);
 
   if (!dialogOpen) return null;
 
-  let icon: IconName = 'download';
-  let tone = '';
+  const meta: string[] = [];
+  const date = formatReleaseDate(state.publishedAt);
+  if (date) meta.push(date);
+  if (state.installerSize) meta.push(formatBytes(state.installerSize));
+  meta.push(`当前 v${currentVersion}`);
+
+  let eyebrow = '软件更新';
   let title = '';
   let body: JSX.Element | null = null;
   let actions: JSX.Element | null = null;
+  const changelog = state.changelog ? <ChangelogText text={state.changelog} /> : null;
+  const forcedNote = forced ? <p className="kup-forced">{FORCED_UPDATE_TITLE}<span>更新完成前暂时无法使用 KukeChat，聊天记录不会丢失。</span></p> : null;
 
   if (phase === 'checking' || phase === 'idle') {
-    icon = 'refresh';
     title = '正在检查更新…';
-    body = <p className="text-sm [color:var(--kc-muted)]">当前版本 v{currentVersion}</p>;
-    actions = <button type="button" className={secondary} onClick={close}>关闭</button>;
+    body = <p className="kup-text">当前版本 v{currentVersion}</p>;
+    actions = <button type="button" className="kup-btn-quiet" onClick={close}>关闭</button>;
   } else if (phase === 'upToDate') {
-    icon = 'check';
-    tone = 'is-ok';
-    title = state.message === '已是最新版本' ? '已是最新版本' : '暂无可用更新';
-    body = <p className="text-sm [color:var(--kc-muted)]">当前版本 v{currentVersion}{state.message && state.message !== '已是最新版本' ? `。${state.message}。` : '，无需更新。'}</p>;
-    actions = <button type="button" className={primary} onClick={close}>好的</button>;
+    title = state.message === '已是最新版本' || !state.message ? '已是最新版本' : '暂无可用更新';
+    body = <p className="kup-text">当前版本 v{currentVersion}{state.message && state.message !== '已是最新版本' ? `。${state.message}。` : '，无需更新。'}</p>;
+    actions = <button type="button" className="kup-btn" onClick={close}>好的</button>;
   } else if (phase === 'available') {
-    title = `发现新版本 v${latestVersion}`;
-    body = (
-      <div className="grid gap-3 text-sm">
-        <p className="[color:var(--kc-muted)]">当前版本 v{currentVersion}。更新包会在后台下载，下载期间可以继续聊天。</p>
-        <p className="kui-note">安装时 KukeChat 会短暂关闭，装好后自动重新打开。Windows 可能会弹出一次管理员权限确认。</p>
-      </div>
-    );
+    eyebrow = forced ? '需要更新' : '发现新版本';
+    title = `KukeChat ${latestVersion}`;
+    body = <>
+      {forcedNote}
+      {changelog ?? <p className="kup-text">新版本已经可以下载。</p>}
+      <p className="kup-text">安装时 KukeChat 会短暂关闭，装好后自动重新打开。Windows 可能会弹出一次管理员权限确认。</p>
+    </>;
     actions = <>
-      <button type="button" className={`${ghost} mr-auto`} onClick={skipDesktopUpdateVersion}>跳过这个版本</button>
-      <button type="button" className={secondary} onClick={close}>稍后</button>
-      <button type="button" className={primary} onClick={() => void downloadDesktopUpdate()}><Icon name="download" className="h-4 w-4" />立即更新</button>
+      {forced ? null : <button type="button" className="kup-link kup-foot-start" onClick={skipDesktopUpdateVersion}>跳过此版本</button>}
+      {forced ? null : <button type="button" className="kup-btn-quiet" onClick={close}>稍后</button>}
+      <button type="button" className="kup-btn" onClick={() => void downloadDesktopUpdate()}><Icon name="download" className="h-4 w-4" />下载并安装</button>
     </>;
   } else if (phase === 'downloading') {
-    title = `正在下载 v${latestVersion}`;
-    body = <UpdateProgressBar downloaded={state.downloaded} total={state.total} />;
+    eyebrow = forced ? '需要更新' : '正在下载';
+    title = `KukeChat ${latestVersion}`;
+    body = <>
+      {forcedNote}
+      <UpdateProgress downloaded={state.downloaded} total={state.total} />
+      {changelog}
+    </>;
     actions = <>
-      <button type="button" className={`${ghost} mr-auto`} onClick={cancelDesktopUpdateDownload}>取消下载</button>
-      <button type="button" className={secondary} onClick={close}>后台下载</button>
+      <button type="button" className="kup-link kup-foot-start" onClick={cancelDesktopUpdateDownload}>取消下载</button>
+      {forced ? null : <button type="button" className="kup-btn-quiet" onClick={close}>后台下载</button>}
     </>;
   } else if (phase === 'ready') {
-    icon = 'check';
-    tone = 'is-ok';
-    title = `v${latestVersion} 已准备好`;
-    body = <p className="text-sm [color:var(--kc-muted)]">现在安装会关闭 KukeChat，安装完成后自动重新打开，大约需要半分钟。也可以稍后在设置里安装。</p>;
+    eyebrow = '已准备好';
+    title = `KukeChat ${latestVersion}`;
+    body = <>
+      {forcedNote}
+      <p className="kup-text">安装包已下载并校验。现在安装会关闭 KukeChat，安装完成后自动重新打开，大约需要半分钟。</p>
+      {changelog}
+    </>;
     actions = <>
-      <button type="button" className={secondary} onClick={close}>稍后安装</button>
-      <button type="button" className={primary} onClick={() => void installDesktopUpdate()}>重启并安装</button>
+      {forced ? null : <button type="button" className="kup-btn-quiet" onClick={close}>稍后安装</button>}
+      <button type="button" className="kup-btn" onClick={() => void installDesktopUpdate()}>安装并重启</button>
     </>;
   } else if (phase === 'installing') {
-    icon = 'refresh';
+    eyebrow = '正在安装';
     title = '正在启动安装程序…';
-    body = <p className="text-sm [color:var(--kc-muted)]">KukeChat 即将关闭，安装完成后会自动重新打开。</p>;
+    body = <p className="kup-text">KukeChat 即将关闭，安装完成后会自动重新打开。</p>;
   } else {
-    icon = 'alert';
-    tone = 'is-danger';
+    eyebrow = forced ? '需要更新' : '软件更新';
     title = '更新失败';
-    body = (
-      <div className="grid gap-2 text-sm">
-        <p className="break-words [color:var(--kc-muted)]">{state.error ?? '发生未知错误'}</p>
-        {state.installerUrl ? <p className="text-xs [color:var(--kc-muted)]">也可以手动下载安装包，覆盖安装即可，聊天记录不会丢失。</p> : null}
-      </div>
-    );
+    body = <>
+      {forcedNote}
+      <p className="kup-error">{state.error ?? '发生未知错误'}</p>
+      {state.installerUrl ? <p className="kup-text">也可以手动下载安装包，覆盖安装即可，聊天记录不会丢失。</p> : null}
+    </>;
     actions = <>
-      {state.installerUrl ? <button type="button" className={`${ghost} mr-auto`} onClick={() => void openExternalUrl(state.installerUrl as string)}><Icon name="external" className="h-4 w-4" />手动下载</button> : null}
-      <button type="button" className={secondary} onClick={close}>关闭</button>
-      <button type="button" className={primary} onClick={() => void (state.installerUrl && latestVersion ? downloadDesktopUpdate() : checkForDesktopUpdate({ manual: true }))}>重试</button>
+      {state.installerUrl ? <button type="button" className="kup-link kup-foot-start" onClick={() => void openExternalUrl(state.installerUrl as string)}><Icon name="external" className="h-4 w-4" />手动下载</button> : null}
+      {forced ? null : <button type="button" className="kup-btn-quiet" onClick={close}>关闭</button>}
+      <button type="button" className="kup-btn" onClick={() => void (state.installerUrl && latestVersion ? downloadDesktopUpdate() : checkForDesktopUpdate({ manual: true }))}>重试</button>
     </>;
   }
 
+  const showMeta = phase === 'available' || phase === 'downloading' || phase === 'ready';
   return createPortal(
-    <div className="kui-backdrop" onMouseDown={() => { if (phase !== 'installing' && phase !== 'downloading') close(); }}>
-      <section role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()} className="kui-dialog kwf-update">
-        <div className="kwf-update-head">
-          <span className={`kwf-update-icon ${tone}`}><Icon name={icon} className={`h-5 w-5 ${phase === 'checking' || phase === 'installing' ? 'animate-spin' : ''}`} /></span>
-          <h2>{title}</h2>
-        </div>
-        {body ? <div className="kwf-update-body">{body}</div> : null}
-        {actions ? <div className="kui-dialog-footer kwf-update-actions">{actions}</div> : null}
+    <div className={`kup-layer ${forced ? 'is-forced' : ''}`} onMouseDown={() => { if (!forced && !busy) close(); }}>
+      <section role={forced ? 'alertdialog' : 'dialog'} aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()} className="kup-sheet">
+        <header className="kup-head">
+          <span className="kup-eyebrow">{eyebrow}</span>
+          <h2 className="kup-title">{title}</h2>
+          {showMeta ? <div className="kup-meta">{meta.map((item) => <span key={item}>{item}</span>)}</div> : null}
+        </header>
+        {body ? <div className="kup-body">{body}</div> : null}
+        {actions ? <footer className="kup-foot">{actions}</footer> : null}
       </section>
     </div>,
     portalRoot()
   );
 }
 
-/** One-off notice on the first launch after an update. */
-export function DesktopJustUpdatedNotice(): JSX.Element | null {
+/** One-off notice on the first launch after an update. Rendered by the app-wide toast host. */
+export function DesktopJustUpdatedNotice(): null {
   const version = useDesktopUpdate((state) => state.justUpdatedTo);
   useEffect(() => {
-    if (!version) return undefined;
-    const timer = window.setTimeout(dismissJustUpdated, 6000);
-    return () => window.clearTimeout(timer);
+    if (!version) return;
+    toast.success(`已更新到 v${version}`, { id: 'desktop.just-updated', duration: 6000 });
+    // The flag only drives this one-off notice; clear it once the toast has been queued.
+    dismissJustUpdated();
   }, [version]);
-  if (!version) return null;
-  return createPortal(
-    <div role="status" className="kwf-toast">
-      <Icon name="check" className="h-4 w-4" />已更新到 v{version}
-      <button type="button" onClick={dismissJustUpdated} className="kui-icon-btn" aria-label="关闭"><Icon name="close" className="h-3.5 w-3.5" /></button>
-    </div>,
-    portalRoot()
-  );
+  return null;
 }
 
 /** Title-bar entry point while an update is pending. */

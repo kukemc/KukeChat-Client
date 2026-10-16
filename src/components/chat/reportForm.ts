@@ -6,6 +6,8 @@ import { getReportOptions, getReportQuota } from '@/api/moderation';
 import { isRecord } from '@/api/normalizers';
 import type { CreateReportPayload, Message, ReportTargetType } from '@/types/api';
 import type { ReportOptions } from '@/types/moderation';
+import { giftPreview } from '@/utils/gift';
+import { redPacketPreview } from '@/utils/redPacket';
 
 export interface ReportModalProps {
   targetType: ReportTargetType;
@@ -46,6 +48,8 @@ const MAX_COMPRESSIBLE_ATTACHMENT_ORIGINAL_BYTES = 12 * 1024 * 1024;
 export function evidencePreview(message: Message): string {
   if (message.type === 'image') return '[图片]';
   if (message.type === 'voice') return '[语音]';
+  if (message.type === 'red_packet') return redPacketPreview(message) ?? '[红包]';
+  if (message.type === 'gift') return giftPreview(message) ?? '[礼物]';
   return message.content?.trim() || `[${message.type}]`;
 }
 

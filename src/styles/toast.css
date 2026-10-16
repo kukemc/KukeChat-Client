@@ -1,0 +1,314 @@
+/*
+ * 全站统一的提示（toast）样式。渲染处只有一处：components/ui/toast/ToastHost.tsx。
+ *
+ * 取向（跟 kui.css 的「利落」走）：
+ *   · 一张小浮卡：10px 圆角、浮层那一档阴影（--kui-shadow，自带一圈发丝线），面是浮层的面，玻璃材质下跟着半透明 + 模糊。
+ *   · 正文 13px 常规字重，第二行 12px 灰字；不用粗体大字。
+ *   · 语气只点在一枚线条图标上（info 强调色 / success 绿 / warning 橙 / error 红），卡片本身不染色、不加色条。
+ *   · 顺滑靠三件事：进场（从上方落下 + 轻微放大）、让位（卡片外面套一层「槽」，进出时高度 0↔自然高度，
+ *     下面的卡片跟着滑动而不是瞬移）、离场（淡出 + 上移，同时槽收起）。
+ *
+ * 结构：.ktst-host > .ktst-layer > .ktst-slot > .ktst-clip > .ktst-item
+ *   · 槽用 grid-template-rows 0fr↔1fr 做高度动画；clip 负责在动画里裁切，并用 padding / 负 margin
+ *     给投影留出空间，所以平时看不出被裁。
+ *
+ * 位置：桌面顶部居中（标题栏下方），手机顶部安全区下方。
+ *   · 2.0 的标题栏右侧是窗口按钮、聊天头部右侧是搜索 / 资料等按钮，右侧栏也在右边：放右上角会压住它们；
+ *     顶部中间在聊天头部里是空白（会话名靠左），扩展的窄窗口里也不会顶到边。
+ *   · 手机只能放顶上居中，桌面也放中间，三种形态同一个落点，眼睛不用找。
+ *   · 卡片宽度随内容（「已复制」就是一枚小条），最宽 420px。
+ *
+ * 层级：2147483647 顶格，并且容器一直是根的最后一个子节点（ToastHost 负责），
+ * 礼物 tier 3 全屏动效、庆生动画、.kui-backdrop（2147483000）都在它下面。
+ */
+
+.ktst-host {
+  display: contents;
+}
+
+/* 扩展的窗口最小化成圆圈时不显示 */
+.kc-window-minimized > .ktst-host {
+  display: none;
+}
+
+.ktst-layer {
+  position: absolute;
+  z-index: 2147483647;
+  top: 48px;
+  right: 12px;
+  left: 12px;
+  display: grid;
+  justify-items: center;
+  color: var(--kc-text);
+  /* 层本身不接鼠标，只有每条提示接：中间的空白不能挡住下面的操作 */
+  pointer-events: none;
+}
+
+/* 手机：顶部安全区下方 */
+.ktst-layer.is-mobile {
+  top: calc(var(--kc-native-safe-top, env(safe-area-inset-top, 0px)) + 10px);
+}
+
+/* ───────── 槽：负责让位 ───────── */
+
+.ktst-slot {
+  display: grid;
+  max-width: min(420px, 100%);
+  grid-template-rows: 1fr;
+  animation: ktst-slot-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ktst-slot.is-exiting {
+  grid-template-rows: 0fr;
+  animation: ktst-slot-out var(--ktst-exit, 220ms) cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* clip 比卡片四周各大一圈（padding），再用负 margin 抵回去：布局上不占地方，投影不会被裁掉 */
+.ktst-clip {
+  min-height: 0;
+  padding: 4px 14px 14px;
+  margin: -4px -14px -14px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@keyframes ktst-slot-in {
+  from {
+    grid-template-rows: 0fr;
+  }
+}
+
+@keyframes ktst-slot-out {
+  from {
+    grid-template-rows: 1fr;
+  }
+  to {
+    grid-template-rows: 0fr;
+  }
+}
+
+/* ───────── 卡片 ───────── */
+
+.ktst-item {
+  position: relative;
+  display: grid;
+  align-items: start;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  /* 卡片之间的间距放在卡片下面（在 clip 里面），这样槽收起时间距也一起收 */
+  margin-bottom: 8px;
+  padding: 8px 6px 8px 11px;
+  border-radius: var(--kui-r-lg, 10px);
+  background: var(--kc-overlay-surface, var(--kui-raised, var(--kc-panel)));
+  -webkit-backdrop-filter: var(--kc-overlay-filter, none);
+  backdrop-filter: var(--kc-overlay-filter, none);
+  box-shadow: var(--kui-shadow, 0 0 0 1px rgba(18, 22, 38, 0.11), 0 8px 20px -8px rgba(18, 22, 38, 0.22));
+  font-size: calc(13px * var(--kui-fs, 1));
+  font-weight: 400;
+  line-height: 20px;
+  pointer-events: auto;
+  transform-origin: 50% 0;
+  animation: ktst-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 手机：字大一号，四周多留一点，和移动端的密度对上 */
+.ktst-layer.is-mobile .ktst-item {
+  padding: 10px 8px 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.ktst-item.is-exiting {
+  animation: ktst-out var(--ktst-exit, 220ms) cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes ktst-in {
+  from {
+    transform: translateY(-10px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+@keyframes ktst-out {
+  to {
+    transform: translateY(-8px) scale(0.98);
+    opacity: 0;
+  }
+}
+
+/* ───────── 语气图标：线条图标，颜色只点在这里 ───────── */
+
+.ktst-icon {
+  display: grid;
+  height: 20px;
+  place-items: center;
+  color: var(--kc-accent);
+}
+
+.ktst-icon--success {
+  color: var(--kui-ok, #0d8f69);
+}
+
+.ktst-icon--warning {
+  color: var(--kui-warn, #b06a00);
+}
+
+.ktst-icon--error {
+  color: var(--kui-danger, #e0383e);
+}
+
+/* ───────── 内容 ───────── */
+
+.ktst-main {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.ktst-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 短时间内重复出现的次数：小胶囊，每多一次弹一下 */
+.ktst-repeat {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 7px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--kc-hover);
+  color: var(--kc-muted);
+  font-size: calc(11px * var(--kui-fs, 1));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+  vertical-align: 1px;
+  animation: ktst-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes ktst-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+}
+
+.ktst-subtitle {
+  margin: -3px 0 0;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs, 1));
+  line-height: 17px;
+  overflow-wrap: anywhere;
+}
+
+/* ───────── 图形（收到礼物 / 装扮这类通知的前导内容） ───────── */
+
+.ktst-leading {
+  display: grid;
+  width: 40px;
+  min-height: 36px;
+  place-items: center;
+}
+
+.ktst-figure {
+  display: grid;
+  place-items: center;
+}
+
+/* ───────── 动作按钮 ───────── */
+
+.ktst-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.ktst-btn {
+  padding: 2px 10px;
+  border: 1px solid var(--kc-border-strong);
+  border-radius: var(--kui-r-sm, 7px);
+  background: transparent;
+  color: var(--kc-text);
+  font-size: calc(12px * var(--kui-fs, 1));
+  line-height: 18px;
+  white-space: nowrap;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.ktst-btn:hover {
+  background: var(--kc-hover);
+}
+
+.ktst-btn:active {
+  transform: scale(0.96);
+}
+
+.ktst-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ktst-btn.is-primary {
+  border-color: transparent;
+  background: var(--kui-fill);
+  color: var(--kui-on-fill);
+  font-weight: 500;
+}
+
+.ktst-btn.is-primary:hover {
+  background: color-mix(in srgb, var(--kui-fill) 88%, var(--kc-text));
+}
+
+.ktst-btn.is-primary:disabled {
+  background: color-mix(in srgb, var(--kui-fill) 55%, transparent);
+}
+
+/* ───────── 关闭 ───────── */
+
+.ktst-close {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--kc-subtle);
+  opacity: 0.7;
+  transition: background-color 120ms ease, color 120ms ease, opacity 120ms ease;
+}
+
+.ktst-item:hover .ktst-close,
+.ktst-close:focus-visible {
+  opacity: 1;
+}
+
+.ktst-close:hover {
+  background: var(--kc-hover);
+  color: var(--kc-text);
+}
+
+/* ───────── 少动、不动 ───────── */
+
+/* 「性能优先」开着时连淡入淡出也不要，直接出现 */
+.ktst-layer.is-still .ktst-slot,
+.ktst-layer.is-still .ktst-item,
+.ktst-layer.is-still .ktst-repeat {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ktst-slot,
+  .ktst-slot.is-exiting,
+  .ktst-item,
+  .ktst-item.is-exiting,
+  .ktst-repeat {
+    animation: none;
+  }
+
+  /* 没有动画就不能等动画放完，收起必须是「立刻」——由宿主组件在 startExit 之后同步移除 */
+  .ktst-slot.is-exiting {
+    display: none;
+  }
+}

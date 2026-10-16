@@ -4,6 +4,7 @@ import { useKukeStore } from '@/store/kukeStore';
 import type { BotShareCardMetadata, Conversation, GroupShareCardMetadata, Message, PostShareCardMetadata, TeamupShareCardMetadata, TeamupSkill, UserShareCardMetadata } from '@/types/api';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { toast } from '@/components/ui/toast';
 import { resolveThumbnailUrl } from '@/utils/assetUrl';
 import { FORWARD_PREVIEW_LIMIT } from './constants';
 import { parseForwardBundle, snapshotPreview } from './messageMeta';
@@ -256,7 +257,7 @@ export function TeamupShareCard({ card }: { card: TeamupShareCardMetadata }): JS
   );
 }
 
-export function GroupShareCard({ card, conversations, onToast, onError }: { card: GroupShareCardMetadata; conversations: Conversation[]; onToast: (message: string, tone?: 'info' | 'error') => void; onError: (message: string) => void }): JSX.Element {
+export function GroupShareCard({ card, conversations, onError }: { card: GroupShareCardMetadata; conversations: Conversation[]; onError: (message: string) => void }): JSX.Element {
   const queryClient = useQueryClient();
   const setActiveConversationId = useKukeStore((state) => state.setActiveConversationId);
   const joinedConversation = conversations.find((item) => item.id === card.conversation_id);
@@ -271,7 +272,7 @@ export function GroupShareCard({ card, conversations, onToast, onError }: { card
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
       void queryClient.invalidateQueries({ queryKey: ['group-join-requests'] });
       setActiveConversationId(result.conversation_id ?? card.conversation_id);
-      onToast(result.status === 'joined' ? '已加入群聊' : '已处理群邀请');
+      toast.success(result.status === 'joined' ? '已加入群聊' : '已处理群邀请');
     },
     onError: (error) => onError(error instanceof Error ? error.message : '加入群聊失败，请稍后重试。')
   });

@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getConversationMember, removeConversationMember, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle } from '@/api/conversations';
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuSurface, MenuLayer } from '@/components/ui/ContextMenu';
 import { getDisplayName } from '@/components/ui/Avatar';
+import { toast } from '@/components/ui/toast';
+import { useCanGift } from '@/components/gifts/GiftEntry';
 import type { ConversationMember, MemberRole, User } from '@/types/api';
 import { parseApiDate } from '@/utils/dateTime';
 import { clampOverlayPosition } from '../message/chatDom';
@@ -10,7 +12,6 @@ import { MUTE_MENU_OPTIONS } from '../message/constants';
 import { memberUserId } from '../message/messageMeta';
 import type { ConversationMembersPageData, CustomMuteState, MessagesInfiniteData, MuteMenuOption, OverlayPosition } from '../message/types';
 import { PokeActionMenu } from './poke/PokeActionMenu';
-import type { ShowToast } from './runtime';
 
 export interface MemberMenuTarget extends OverlayPosition {
   member: ConversationMember;
@@ -29,6 +30,8 @@ interface MemberMenuProps {
   isPendingFriend: (userId?: number | null) => boolean;
   canRequestFriend: (userId?: number | null) => boolean;
   onClose: () => void;
+  /** 送礼物（礼物功能开着、对方不是自己和机器人时菜单里才有这一项） */
+  onGift: (member: ConversationMember) => void;
   onSendMessage: (member: ConversationMember) => void;
   onAddFriend: (member: ConversationMember) => void;
   onMention: (member: ConversationMember) => void;
@@ -37,7 +40,6 @@ interface MemberMenuProps {
   onViewProfile: (member: ConversationMember, anchor: OverlayPosition) => void;
   onReport: (member: ConversationMember) => void;
   setError: (message: string) => void;
-  showToast: ShowToast;
 }
 
 const MEMBER_MENU_WIDTH = 188;
@@ -58,7 +60,7 @@ function customMuteMinutes(state: CustomMuteState): number | null {
 }
 
 /** 成员右键菜单及其群管操作（管理员、头衔、禁言、移出）。禁言相关的乐观更新也收在这里。 */
-export function MemberMenu({ target, conversationId, isGroup, currentUser, currentRole, overlayRoot, directPending, pokePending, isFriend, isPendingFriend, canRequestFriend, onClose, onSendMessage, onAddFriend, onMention, onPoke, onViewProfile, onReport, setError, showToast }: MemberMenuProps): JSX.Element | null {
+export function MemberMenu({ target, conversationId, isGroup, currentUser, currentRole, overlayRoot, directPending, pokePending, isFriend, isPendingFriend, canRequestFriend, onClose, onGift, onSendMessage, onAddFriend, onMention, onPoke, onViewProfile, onReport, setError }: MemberMenuProps): JSX.Element | null {
   const queryClient = useQueryClient();
   const [freshMember, setFreshMember] = useState<ConversationMember | null>(null);
   const [loading, setLoading] = useState(false);
@@ -66,6 +68,7 @@ export function MemberMenu({ target, conversationId, isGroup, currentUser, curre
   const [customMute, setCustomMute] = useState<CustomMuteState | null>(null);
   const [muteOverrides, setMuteOverrides] = useState<Record<number, { muted: boolean; muted_until: string | null }>>({});
   const submenuTimerRef = useRef<number | null>(null);
+  const canGift = useCanGift(target?.member.user);
 
   const targetUserId = target ? memberUserId(target.member) : null;
   useEffect(() => {
@@ -136,7 +139,7 @@ export function MemberMenu({ target, conversationId, isGroup, currentUser, curre
     onSuccess: (member, { userId }) => {
       setError('');
       setMuteOverrides((current) => ({ ...current, [userId]: { muted: Boolean(member.muted), muted_until: member.muted_until ?? null } }));
-      showToast(member.muted ? '已禁言' : '已解除禁言');
+      toast.info(member.muted ? '已禁言' : '已解除禁言');
     },
     onError: () => setError('成员禁言更新失败，请稍后重试。'),
     onSettled: invalidateMembers
@@ -154,7 +157,7 @@ export function MemberMenu({ target, conversationId, isGroup, currentUser, curre
     },
     onSuccess: (_member, { title }) => {
       setError('');
-      showToast(title ? '群头衔已更新' : '群头衔已清除');
+      toast.info(title ? '群头衔已更新' : '群头衔已清除');
     },
     onError: () => setError('群头衔更新失败，请稍后重试。'),
     onSettled: invalidateMembers
@@ -209,11 +212,11 @@ export function MemberMenu({ target, conversationId, isGroup, currentUser, curre
     }
     const minutes = customMuteMinutes(customMute);
     if (!minutes) {
-      showToast('请输入有效的禁言时长', 'error');
+      toast.error('请输入有效的禁言时长');
       return;
     }
     if (minutes > 365 * 24 * 60) {
-      showToast('禁言时长不能超过365天', 'error');
+      toast.error('禁言时长不能超过365天');
       return;
     }
     applyMute(customMute.member, minutes);
@@ -295,7 +298,7 @@ export function MemberMenu({ target, conversationId, isGroup, currentUser, curre
   const position = clampOverlayPosition(target, MEMBER_MENU_WIDTH, MEMBER_MENU_HEIGHT, overlayRoot);
   const submenuVisible = submenu === 'mute' && canMute && !muted && !loading;
   // 「互动」那一行在自己的菜单里才有，它把下面的禁言项往下推了一行
-  const submenuPosition = clampOverlayPosition({ left: position.left + MEMBER_MENU_WIDTH + 4, top: position.top + (isSelf ? 168 : 168 + MENU_ROW_HEIGHT) }, MUTE_SUBMENU_WIDTH, MUTE_SUBMENU_HEIGHT, overlayRoot);
+  const submenuPosition = clampOverlayPosition({ left: position.left + MEMBER_MENU_WIDTH + 4, top: position.top + (isSelf ? 168 : 168 + MENU_ROW_HEIGHT) + (canGift ? MENU_ROW_HEIGHT : 0) }, MUTE_SUBMENU_WIDTH, MUTE_SUBMENU_HEIGHT, overlayRoot);
   const hideSubmenu = (): void => closeSubmenu(false);
   const showAddFriend = !isFriend(userId) && !isPendingFriend(userId);
   // 「互动」排在 发送消息 /（添加好友）/ @TA 之后，子菜单贴着这一行展开
@@ -315,6 +318,10 @@ export function MemberMenu({ target, conversationId, isGroup, currentUser, curre
             onClose();
           }} />
           {userId && !isSelf ? <ContextMenuItem label="互动" icon="poke" suffix="›" onMouseEnter={() => openSubmenu('poke')} onClick={() => openSubmenu('poke')} /> : null}
+          {canGift ? <ContextMenuItem label="送礼物" icon="gift" onMouseEnter={hideSubmenu} onClick={() => {
+            onGift(member);
+            onClose();
+          }} /> : null}
           <ContextMenuItem label="查看资料" icon="profile" onMouseEnter={hideSubmenu} onClick={() => {
             onViewProfile(member, { left: target.left, top: target.top });
             onClose();

@@ -1,0 +1,1046 @@
+/*
+ * 登录 / 注册（klg-）。设计稿是 dev/login-concepts/live/template.html（方案 C「积木」）。
+ *
+ * 左边是 Scratch 的点阵工作区：KukeChat NEXT 字标、背景里缓慢漂移的描边积木、跟着表单实时变化的真积木
+ * （scratchblocks 渲染，components/auth/blocks/），桌面布局下还有口号和版本号；右边（手机是下面）是表单。
+ * 积木舞台里的类名（sb-*、ol-*）是 blockStage.ts / outlines.ts 生成的，这里一律挂在 .klg 下面。
+ *
+ * 配色：设计稿自己的一套值做默认（手机布局用它）；桌面布局改用主题令牌，自定义主题、强调色照样生效。
+ * 找回密码对话框沿用 desktop-settings.css 里的 kau-overlay / kau-dialog，盖在表单那一面上。
+ */
+
+.klg {
+  --klg-fill: #1f6bff;
+  --klg-accent: #1f6bff;
+  --klg-on: #ffffff;
+  --klg-text: #12141a;
+  --klg-muted: #676d7c;
+  --klg-subtle: #a0a6b3;
+  --klg-border: rgba(18, 22, 38, 0.08);
+  --klg-bs: rgba(18, 22, 38, 0.15);
+  --klg-panel: #ffffff;
+  --klg-pm: #f0f1f5;
+  --klg-danger: #e0383e;
+  --klg-ok: #0d8f69;
+  --klg-ws: #f3f4f8;
+  --klg-dot: rgba(18, 22, 38, 0.09);
+  --klg-ol: #1a1f33;
+  --klg-ol-k: 1;
+  --klg-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --klg-sp: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --klg-fs: var(--kc-font-multiplier, 1);
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--klg-panel);
+  color: var(--klg-text);
+  font-family: Inter, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif;
+  font-size: calc(14px * var(--klg-fs));
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: light;
+}
+
+:where([data-theme='dark']) .klg {
+  --klg-accent: #5b93ff;
+  --klg-text: #e1e4ea;
+  --klg-muted: #8d93a2;
+  --klg-subtle: #636979;
+  --klg-border: rgba(255, 255, 255, 0.075);
+  --klg-bs: rgba(255, 255, 255, 0.14);
+  --klg-panel: #1b1d23;
+  --klg-pm: #212329;
+  --klg-danger: #ff6369;
+  --klg-ok: #3ecf9f;
+  --klg-ws: #111217;
+  --klg-dot: rgba(255, 255, 255, 0.06);
+  --klg-ol: #c9d0e6;
+  --klg-ol-k: 0.62;
+  color-scheme: dark;
+}
+
+/* 桌面布局：表单这一面跟主题令牌走 */
+[data-layout='desktop'] .klg {
+  --klg-fill: var(--kc-accent-fill, var(--kc-accent));
+  --klg-accent: var(--kc-accent);
+  --klg-on: var(--kc-accent-contrast, #ffffff);
+  --klg-text: var(--kc-text);
+  --klg-muted: var(--kc-muted);
+  --klg-subtle: var(--kc-subtle);
+  --klg-border: var(--kc-border);
+  --klg-bs: var(--kc-border-strong);
+  --klg-panel: var(--kc-panel);
+  --klg-pm: var(--kc-panel-muted);
+}
+
+.klg *,
+.klg *::before,
+.klg *::after {
+  box-sizing: border-box;
+}
+
+:where(.klg) :where(p, h1, h2) {
+  margin: 0;
+}
+
+.klg [hidden] {
+  display: none !important;
+}
+
+/* ───────── 两种布局的骨架 ───────── */
+
+.klg--desk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(400px, 43%, 470px);
+  container-type: inline-size;
+}
+
+.klg--phone {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 扩展的手机模式：顶上那条拖动窗口用的状态栏压在工作区上，透明 */
+.klg--phone > .kc-mobile-statusbar {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  right: 0;
+  left: 0;
+  border: 0;
+  background: transparent;
+}
+
+/* ───────── 工作区（点阵画板） ───────── */
+
+.klg-ws {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--klg-ws);
+  background-image: radial-gradient(circle, var(--klg-dot) 1px, transparent 1.6px);
+  background-size: 22px 22px;
+}
+
+.klg--desk .klg-ws {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: 30px 40px 32px;
+  border-right: 1px solid var(--klg-border);
+}
+
+/* 手机：原生应用顶上留出系统状态栏，扩展里留出 30px 的拖动条 */
+.klg--phone {
+  --klg-safe: var(--kc-native-safe-top, 30px);
+}
+
+.klg--phone .klg-ws {
+  flex: none;
+  height: calc(314px + var(--klg-safe));
+  padding: calc(var(--klg-safe) + 22px) 22px 0;
+  border-bottom: 1px solid var(--klg-border);
+  transition: height 0.42s var(--klg-sp);
+}
+
+.klg--phone.is-kb .klg-ws {
+  height: calc(186px + var(--klg-safe));
+}
+
+.klg-brand {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  pointer-events: none;
+}
+
+.klg--phone .klg-brand {
+  height: 30px;
+}
+
+.klg-brand img {
+  display: block;
+  width: auto;
+  height: 100%;
+  user-select: none;
+}
+
+.klg-wm-dark,
+:where([data-theme='dark']) .klg .klg-wm-light {
+  display: none !important;
+}
+
+:where([data-theme='dark']) .klg .klg-wm-dark {
+  display: block !important;
+}
+
+.klg-stage {
+  position: relative;
+  z-index: 3;
+}
+
+.klg--desk .klg-stage {
+  --bs: 1;
+  min-height: 0;
+  flex: 1;
+  margin: 6px -40px 10px;
+}
+
+.klg--phone .klg-stage {
+  --bs: 0.8;
+  position: absolute;
+  top: calc(var(--klg-safe) + 62px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+/* 手机键盘弹起：积木缩小留在原处，镜头跟着正在填的那块积木走，上下沿淡出 */
+.klg--phone.is-kb .klg-stage {
+  --bs: 0.6;
+  -webkit-mask-image: linear-gradient(transparent, #000 18px, #000 calc(100% - 26px), transparent);
+  mask-image: linear-gradient(transparent, #000 18px, #000 calc(100% - 26px), transparent);
+}
+
+.klg-claim {
+  position: relative;
+  z-index: 4;
+  font-size: calc(22px * var(--klg-fs));
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.klg-claim span {
+  color: var(--klg-accent);
+}
+
+.klg-meta {
+  position: relative;
+  z-index: 4;
+  margin-top: 10px;
+  color: var(--klg-subtle);
+  font-size: calc(12px * var(--klg-fs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── 背景里的描边积木 ───────── */
+
+.klg-ol {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+}
+
+.klg .ol-d {
+  position: absolute;
+  inset: 0;
+  transition: transform 1.2s var(--klg-ease);
+  will-change: transform;
+}
+
+.klg .ol-s {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  color: var(--klg-ol);
+  opacity: calc(var(--o) * var(--klg-ol-k));
+  transform-origin: 50% 50%;
+  animation: klg-drift var(--t, 60s) ease-in-out var(--dl, 0s) infinite alternate;
+}
+
+.klg .ol-s * {
+  fill: none !important;
+  filter: none !important;
+  stroke: currentColor !important;
+  stroke-linejoin: round;
+  stroke-width: var(--sw) !important;
+}
+
+@keyframes klg-drift {
+  from { translate: 0 0; }
+  to { translate: var(--dx, 10px) var(--dy, -14px); }
+}
+
+/* ───────── Scratch 3 积木 ───────── */
+
+.klg .sb-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% / var(--bs, 1));
+  height: calc(100% / var(--bs, 1));
+  transform: translateY(var(--py, 0px)) scale(var(--bs, 1));
+  transform-origin: 0 0;
+  transition: transform 0.42s var(--klg-sp);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.klg .sb-probe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100px;
+  height: 0;
+  visibility: hidden;
+}
+
+.klg .sb-blk {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  transform-origin: 0 0;
+  transition: transform 0.4s var(--klg-sp), opacity 0.25s;
+}
+
+.klg .sb-blk svg {
+  display: block;
+  overflow: visible;
+  transition: filter 0.12s;
+}
+
+.klg .sb-blk .sb3-label {
+  font-family: 'Helvetica Neue', Helvetica, Arial, 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
+}
+
+.klg .sb-blk :is(path, rect, text, use, image) {
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.klg .sb-blk.leaving,
+.klg .sb-blk.leaving * {
+  pointer-events: none !important;
+}
+
+.klg .sb-blk .pw-bool {
+  transition: fill 0.32s var(--klg-sp), stroke 0.32s var(--klg-sp);
+}
+
+.klg .sb-blk.glow svg {
+  filter: drop-shadow(0 0 1px #fff200) drop-shadow(0 0 2px #fff200) drop-shadow(0 0 5px rgba(255, 228, 0, 0.75));
+}
+
+.klg .sb-drag {
+  position: absolute;
+  z-index: 500;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.klg .sb-lift {
+  transition: transform 0.16s var(--klg-ease), filter 0.16s;
+}
+
+.klg .sb-lift.on {
+  filter: drop-shadow(0 14px 14px rgba(18, 22, 38, 0.26)) drop-shadow(0 2px 3px rgba(18, 22, 38, 0.16));
+  transform: scale(1.04);
+}
+
+:where([data-theme='dark']) .klg .sb-lift.on {
+  filter: drop-shadow(0 16px 16px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.klg .sb-drag .sb-blk {
+  transition: none;
+}
+
+.klg .sb-drag .sb-blk :is(path, rect, text, use) {
+  cursor: grabbing;
+}
+
+.klg .sb-ghost {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.klg .sb-ghost svg {
+  position: absolute;
+  left: 0;
+  overflow: visible;
+}
+
+.klg .sb-ghost path {
+  fill: #000000 !important;
+  stroke: none !important;
+}
+
+:where([data-theme='dark']) .klg .sb-ghost {
+  opacity: 0.22;
+}
+
+:where([data-theme='dark']) .klg .sb-ghost path {
+  fill: #ffffff !important;
+}
+
+.klg .sb-say {
+  position: absolute;
+  z-index: 3;
+  bottom: calc(100% - 6px);
+  left: calc(100% - 26px);
+  padding: 7px 13px;
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  border-radius: 16px;
+  background: #ffffff;
+  background-clip: padding-box;
+  color: #575e75;
+  font: 600 14px/1.3 'Helvetica Neue', Helvetica, Arial, 'Microsoft YaHei UI', sans-serif;
+  pointer-events: none;
+  transform-origin: 18px 100%;
+  white-space: nowrap;
+  animation: klg-pop 0.3s cubic-bezier(0.19, 1.18, 0.22, 1);
+}
+
+.klg .sb-say::after {
+  position: absolute;
+  bottom: -9px;
+  left: 14px;
+  width: 12px;
+  height: 12px;
+  border: solid rgba(0, 0, 0, 0.15);
+  border-width: 0 0 2px 2px;
+  border-bottom-left-radius: 3px;
+  background: #ffffff;
+  content: '';
+  transform: skewY(-38deg);
+}
+
+.klg .sb-say.out {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+@keyframes klg-pop {
+  from { opacity: 0; transform: scale(0.6); }
+}
+
+.klg .sb-val {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  padding: 3px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.15);
+  color: #575e75;
+  font: 600 13px/1.4 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.klg .sb-val::before {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border: solid rgba(0, 0, 0, 0.15);
+  border-width: 1px 0 0 1px;
+  background: #ffffff;
+  content: '';
+  transform: rotate(45deg);
+}
+
+/* scratchblocks 没加载出来（离线、出错）时的静态积木：只是一张图，不能拖 */
+.klg-fallback {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  transform: scale(var(--bs, 1));
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.klg-fallback text {
+  fill: #ffffff;
+  font: 500 12pt 'Helvetica Neue', Helvetica, Arial, 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+}
+
+.klg-fallback .fb-slot {
+  fill: #ffffff;
+}
+
+.klg-fallback .fb-slot-text {
+  fill: #575e75;
+}
+
+/* ───────── 表单 ───────── */
+
+.klg-form {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  margin: 0;
+}
+
+.klg--desk .klg-side {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.klg--desk .klg-form {
+  height: 100%;
+  padding: 40px 52px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.klg-form-in {
+  display: flex;
+  flex-direction: column;
+}
+
+/* justify-content: center 在内容比容器高时会把顶部裁掉，用 margin auto 居中 */
+.klg--desk .klg-form-in {
+  margin-block: auto;
+}
+
+.klg--phone .klg-form-in {
+  flex: 1 0 auto;
+}
+
+.klg--phone .klg-form {
+  flex: 1;
+  padding: 24px 22px calc(26px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.klg--phone .klg-form::-webkit-scrollbar {
+  display: none;
+}
+
+/* 窄窗口放不下两栏（扩展浮窗缩小时）：收起工作区，表单顶上补一个字标 */
+.klg-form-brand {
+  display: none;
+  height: 28px;
+  margin-bottom: 22px;
+}
+
+.klg-form-brand img {
+  display: block;
+  width: auto;
+  height: 100%;
+}
+
+/* 容器查询改不了容器自己的网格，表单这一栏直接横跨两列 */
+@container (max-width: 760px) {
+  .klg--desk .klg-ws {
+    display: none;
+  }
+
+  .klg--desk .klg-form-brand {
+    display: block;
+  }
+
+  .klg--desk .klg-side {
+    grid-column: 1 / -1;
+    width: min(100%, 470px);
+    justify-self: center;
+  }
+
+  .klg--desk .klg-form {
+    padding: 32px 28px;
+  }
+}
+
+.klg-tabs {
+  position: relative;
+  display: flex;
+  flex: none;
+  gap: 22px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--klg-border);
+}
+
+.klg-tabs button {
+  padding: 0 0 10px;
+  border: 0;
+  background: none;
+  color: var(--klg-muted);
+  cursor: pointer;
+  font-weight: 600;
+  transition: color 0.3s var(--klg-sp);
+}
+
+.klg-tabs button.is-on {
+  color: var(--klg-text);
+}
+
+.klg-tab-ink {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--klg-fill);
+  transition: transform 0.42s var(--klg-sp), width 0.42s var(--klg-sp);
+}
+
+.klg-h1 {
+  font-size: calc(26px * var(--klg-fs));
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.klg-sub {
+  margin-top: 6px;
+  color: var(--klg-muted);
+  font-size: calc(13.5px * var(--klg-fs));
+  line-height: 1.6;
+}
+
+.klg--phone :is(.klg-h1, .klg-sub) {
+  display: none;
+}
+
+.klg-swap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  will-change: transform, opacity;
+}
+
+.klg-fields {
+  margin-top: 10px;
+}
+
+.klg--phone .klg-fields {
+  margin-top: -14px;
+}
+
+.klg-f {
+  padding-top: 14px;
+}
+
+/* 只在一种模式里出现的东西：高度从 0fr 展开到 1fr，同时淡入；内容外面留 3px 给聚焦光圈 */
+.klg-clp {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.42s var(--klg-sp), opacity 0.22s ease;
+}
+
+.klg-clp.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 0.42s var(--klg-sp), opacity 0.3s ease 0.06s;
+}
+
+.klg-clp > div {
+  min-height: 0;
+  margin: -3px;
+  padding: 3px;
+  overflow: hidden;
+}
+
+.klg-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: color-mix(in srgb, var(--klg-text) 74%, var(--klg-muted));
+  font-size: calc(12.5px * var(--klg-fs));
+  font-weight: 600;
+}
+
+.klg-label em {
+  color: var(--klg-subtle);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.klg-box {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 0 16px;
+  border: 1px solid var(--klg-bs);
+  border-radius: 22px;
+  background: var(--klg-panel);
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.klg-box:focus-within {
+  border-color: var(--klg-fill);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--klg-fill) 18%, transparent);
+}
+
+.klg-f.is-err .klg-box {
+  border-color: color-mix(in srgb, var(--klg-danger) 65%, transparent);
+}
+
+.klg-f.is-err .klg-box:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--klg-danger) 15%, transparent);
+}
+
+.klg-box > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--klg-subtle);
+}
+
+.klg-box:focus-within > svg {
+  color: var(--klg-accent);
+}
+
+.klg-box input {
+  height: 100%;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: inherit;
+  font-size: calc(14.5px * var(--klg-fs));
+}
+
+.klg-box input::placeholder {
+  color: var(--klg-subtle);
+}
+
+.klg-eye {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  color: var(--klg-muted);
+  cursor: pointer;
+}
+
+.klg-eye:hover {
+  background: var(--klg-pm);
+}
+
+.klg-eye svg {
+  width: 16px;
+  height: 16px;
+}
+
+.klg-hint {
+  padding-top: 6px;
+  color: var(--klg-subtle);
+  font-size: calc(12px * var(--klg-fs));
+  line-height: 1.5;
+}
+
+.klg-hint.is-err {
+  color: var(--klg-danger);
+}
+
+.klg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  color: var(--klg-muted);
+  font-size: calc(12.5px * var(--klg-fs));
+}
+
+.klg-link {
+  flex: none;
+  padding: 0;
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  color: var(--klg-accent);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.klg-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.klg-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--klg-danger) 8%, var(--klg-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--klg-danger) 24%, transparent);
+  color: var(--klg-danger);
+  font-size: calc(13px * var(--klg-fs));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.klg-alert--info {
+  background: color-mix(in srgb, var(--klg-text) 3.5%, var(--klg-panel));
+  box-shadow: inset 0 0 0 1px var(--klg-bs);
+  color: var(--klg-muted);
+}
+
+.klg-alert > svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 2px;
+}
+
+.klg-btn {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: calc(14.5px * var(--klg-fs));
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* 主按钮 = 一条 SVG 路径：圆角矩形 + 顶部 Scratch 凹口 + 底部凸起，没有叠加的伪元素，也就没有接缝线 */
+.klg-btn--pri {
+  --bg: var(--klg-fill);
+  margin-top: 20px;
+  background: none;
+  color: var(--klg-on);
+  outline: none;
+}
+
+.klg-btn-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 52px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.klg-btn-bg path {
+  fill: var(--bg);
+  shape-rendering: geometricPrecision;
+  transition: fill 0.3s var(--klg-sp);
+}
+
+.klg-btn--pri > .klg-swap {
+  position: relative;
+}
+
+.klg-btn--pri:hover:not(:disabled) {
+  --bg: color-mix(in srgb, var(--klg-fill) 92%, #000000);
+}
+
+.klg-btn--pri:active:not(:disabled) {
+  --bg: color-mix(in srgb, var(--klg-fill) 84%, #000000);
+}
+
+.klg-btn--pri:focus-visible .klg-btn-bg {
+  filter: drop-shadow(0 0 0 var(--klg-fill)) drop-shadow(0 0 3px color-mix(in srgb, var(--klg-fill) 55%, transparent));
+}
+
+.klg-btn--pri.is-loading {
+  --bg: color-mix(in srgb, var(--klg-fill) 82%, var(--klg-panel));
+  cursor: progress;
+}
+
+.klg-btn--pri:disabled:not(.is-loading) {
+  --bg: color-mix(in srgb, var(--klg-fill) 50%, var(--klg-panel));
+  cursor: not-allowed;
+}
+
+.klg-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.klg-btn--pri .klg-arrow {
+  margin-left: -2px;
+}
+
+.klg-spin {
+  width: 17px !important;
+  height: 17px !important;
+  animation: klg-spin 0.8s linear infinite;
+}
+
+@keyframes klg-spin {
+  to { transform: rotate(360deg); }
+}
+
+.klg-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 18px;
+  color: var(--klg-subtle);
+  font-size: calc(12px * var(--klg-fs));
+}
+
+.klg-or::before,
+.klg-or::after {
+  height: 1px;
+  flex: 1;
+  background: var(--klg-border);
+  content: '';
+}
+
+.klg-btn--sec {
+  margin-top: 14px;
+  border: 1px solid var(--klg-bs);
+  background: var(--klg-panel);
+  color: var(--klg-text);
+  transition: background-color 0.18s;
+}
+
+.klg-btn--sec:hover {
+  background: color-mix(in srgb, var(--klg-text) 3%, var(--klg-panel));
+}
+
+.klg-btn--sec svg {
+  width: 17px;
+  height: 17px;
+  color: var(--klg-accent);
+}
+
+.klg-badge {
+  padding: 0 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--klg-fill) 13%, transparent);
+  color: var(--klg-accent);
+  font-size: calc(11px * var(--klg-fs));
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.klg-note {
+  margin-top: 8px;
+  color: var(--klg-subtle);
+  font-size: calc(12px * var(--klg-fs));
+  text-align: center;
+}
+
+.klg-foot {
+  margin-top: auto;
+  padding-top: 16px;
+  color: var(--klg-subtle);
+  font-size: calc(11.5px * var(--klg-fs));
+  text-align: center;
+}
+
+/* 恢复登录：表单那一面换成一个转圈 */
+.klg-restoring {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--klg-muted);
+  text-align: center;
+}
+
+.klg-restoring .klg-spin {
+  width: 26px !important;
+  height: 26px !important;
+  margin-bottom: 14px;
+  color: var(--klg-fill);
+}
+
+.klg-restoring h2 {
+  color: var(--klg-text);
+  font-size: calc(17px * var(--klg-fs));
+  font-weight: 600;
+}
+
+.klg-restoring p {
+  margin-top: 6px;
+}
+
+/* 全局的字号规则（#kukechat-root [data-font-scale] 下按钮、输入框 font-size: inherit）比这里的类名重，补回来 */
+#kukechat-root [data-font-scale] .klg-box input {
+  font-size: calc(14.5px * var(--klg-fs));
+}
+
+#kukechat-root [data-font-scale] .klg-tabs button {
+  font-size: calc(14px * var(--klg-fs));
+}
+
+#kukechat-root [data-font-scale] .klg-btn {
+  font-size: calc(14.5px * var(--klg-fs));
+}
+
+#kukechat-root [data-font-scale] :is(.klg-link, .klg-row button) {
+  font-size: calc(12.5px * var(--klg-fs));
+}
+
+/* ───────── 不要动效 ───────── */
+
+.klg.is-still :is(.sb-blk, .sb-lift, .sb-blk svg, .sb-layer, .pw-bool, .klg-clp, .klg-tab-ink, .ol-d),
+.klg.is-still.klg--phone .klg-ws {
+  transition: none !important;
+}
+
+.klg.is-still .sb-lift.on {
+  transform: none;
+}
+
+.klg.is-still :is(.sb-say, .ol-s) {
+  animation: none;
+}
+
+.klg.is-still .ol-d {
+  transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .klg :is(.sb-blk, .sb-lift, .sb-blk svg, .sb-layer, .pw-bool, .klg-clp, .klg-tab-ink, .ol-d),
+  .klg--phone .klg-ws {
+    transition: none !important;
+  }
+
+  .klg .sb-lift.on {
+    transform: none;
+  }
+
+  .klg :is(.sb-say, .ol-s) {
+    animation: none;
+  }
+
+  .klg .ol-d {
+    transform: none !important;
+  }
+}

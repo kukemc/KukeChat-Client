@@ -1,9 +1,15 @@
 import {
   Download,
+  File as FileGlyph,
+  FileArchive,
+  FileText,
   RefreshCw,
   Palette,
   Info,
   Lock,
+  Smile,
+  ArrowRight,
+  LoaderCircle,
   TriangleAlert,
   Monitor,
   AtSign,
@@ -16,12 +22,13 @@ import {
   Camera,
   ChartColumn,
   Check,
+  CircleAlert,
+  CircleCheck,
   CheckSquare,
   Code2,
   ChevronLeft,
   ChevronRight,
   CircleUserRound,
-  Coins,
   Clock,
   ContactRound,
   Copy,
@@ -34,6 +41,9 @@ import {
   Flag,
   Filter,
   Folder,
+  Gift,
+  Cake,
+  Trophy,
   Heart,
   Heading,
   House,
@@ -87,6 +97,30 @@ import {
   X,
   type LucideIcon
 } from 'lucide-react';
+import type { ComponentType } from 'react';
+
+interface GlyphProps {
+  className?: string;
+  strokeWidth?: number | string;
+  'aria-hidden'?: boolean | 'true' | 'false';
+}
+
+type Glyph = ComponentType<GlyphProps>;
+
+/**
+ * 红包：图标库里没有，自己画的。竖着的信封，上沿一道弧形封口，封口正中一个圆形封扣。
+ * 画板、线宽、圆头圆角都照 lucide 的规矩来（24×24，四周留 2），和旁边的图标摆在一起是一样的分量。
+ */
+function RedPacket({ className, strokeWidth = 2, ...rest }: GlyphProps): JSX.Element {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} {...rest}>
+      <rect x="5" y="2" width="14" height="20" rx="2.5" />
+      <path d="M5 7.6C6.9 9.6 8.4 10.6 9.9 11" />
+      <path d="M19 7.6C17.1 9.6 15.6 10.6 14.1 11" />
+      <circle cx="12" cy="11.6" r="2.2" />
+    </svg>
+  );
+}
 
 const icons = {
   message: MessageCircle,
@@ -120,11 +154,17 @@ const icons = {
   clock: Clock,
   emoji: SmilePlus,
   upload: Upload,
+  file: FileGlyph,
+  fileText: FileText,
+  fileArchive: FileArchive,
   download: Download,
   refresh: RefreshCw,
   palette: Palette,
   info: Info,
   lock: Lock,
+  smile: Smile,
+  arrowRight: ArrowRight,
+  loader: LoaderCircle,
   alert: TriangleAlert,
   monitor: Monitor,
   trash: Trash2,
@@ -134,6 +174,9 @@ const icons = {
   chevron: ChevronRight,
   ccw: CircleUserRound,
   check: Check,
+  /** 提示里的语气图标：成功 / 出错（线条圆圈，不是实心圆） */
+  checkCircle: CircleCheck,
+  alertCircle: CircleAlert,
   checkSquare: CheckSquare,
   copy: Copy,
   database: Database,
@@ -173,9 +216,14 @@ const icons = {
   poke: Pointer,
   scale: Scale,
   store: Store,
-  coins: Coins,
-  shirt: Shirt
-} satisfies Record<string, LucideIcon>;
+  /** 礼物：礼盒。只给礼物相关的地方用 */
+  gift: Gift,
+  /** 红包：只给红包相关的地方用，别拿礼盒顶替 */
+  redPacket: RedPacket,
+  shirt: Shirt,
+  cake: Cake,
+  trophy: Trophy
+} satisfies Record<string, LucideIcon | Glyph>;
 
 export type IconName = keyof typeof icons;
 
@@ -185,6 +233,6 @@ interface IconProps {
 }
 
 export function Icon({ name, className = 'h-5 w-5' }: IconProps): JSX.Element {
-  const LucideIconComponent = icons[name];
-  return <LucideIconComponent className={className} strokeWidth={1.9} aria-hidden="true" />;
+  const IconComponent: Glyph = icons[name];
+  return <IconComponent className={className} strokeWidth={1.9} aria-hidden="true" />;
 }

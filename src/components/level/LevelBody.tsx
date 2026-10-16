@@ -1,21 +1,21 @@
 import { Icon } from '@/components/ui/Icon';
-import type { LevelRules, LevelTab } from '@/types/level';
+import { useKukeStore } from '@/store/kukeStore';
+import type { LevelRules } from '@/types/level';
 import { useMyLevel } from './data';
-import { LevelLeaderboard } from './LevelLeaderboard';
 import { LevelBoardEntry, LevelHero, LevelHistoryCard, LevelRewardsCard, LevelRulesCard, LevelTodayCard } from './LevelSections';
 
 /**
- * 等级页的内容：「我的等级」和「排行榜」两个页签。桌面和移动两套外框（desktop/LevelPage、mobile/MobileLevelPage）里放的是同一个。
+ * 等级页的内容：当前等级、今天、近 30 天、规则、等级解锁的装扮。桌面和移动两套外框（desktop/LevelPage、mobile/MobileLevelPage）里放的是同一个。
+ * 活跃榜不在这里了：它和心意榜、风纪榜一起收进了排行榜页（components/ranking），这里的入口跳过去，停在「活跃榜」上。
  * 规则已经拿到了才会渲染到这里（外框负责「还没开放 / 出错 / 加载中」）。
  */
-export function LevelBody({ rules, tab, layout, onTab, pinnedSlot }: { rules: LevelRules; tab: LevelTab; layout: 'desktop' | 'mobile'; onTab: (tab: LevelTab) => void; /** 移动端：排行榜里「我的位置」那一行放到这个页脚里 */ pinnedSlot?: HTMLElement | null }): JSX.Element {
+export function LevelBody({ rules, layout }: { rules: LevelRules; layout: 'desktop' | 'mobile' }): JSX.Element {
   // 页面开着的时候每分钟重拉一次：今天的在线时长、加成是实时累计的
-  const query = useMyLevel(true, tab === 'me');
+  const query = useMyLevel(true, true);
   const me = query.data;
+  const openRanking = useKukeStore((state) => state.openRanking);
+  const openBoard = (): void => openRanking('level');
 
-  if (tab === 'board') {
-    return <LevelLeaderboard layout={layout} pinnedSlot={pinnedSlot} />;
-  }
   if (!me) {
     return query.error ? (
       <div className="klv-card klv-fail" role="alert" data-level="me-error">
@@ -33,8 +33,8 @@ export function LevelBody({ rules, tab, layout, onTab, pinnedSlot }: { rules: Le
     <>
       <div className="klv-grid">
         <div className="klv-col">
-          <LevelHero me={me} rules={rules} onOpenBoard={() => onTab('board')} />
-          <LevelBoardEntry me={me} onOpenBoard={() => onTab('board')} />
+          <LevelHero me={me} rules={rules} onOpenBoard={openBoard} />
+          <LevelBoardEntry me={me} onOpenBoard={openBoard} />
           <LevelHistoryCard />
         </div>
         <div className="klv-col">

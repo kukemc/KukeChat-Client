@@ -8,7 +8,7 @@ import { registerNativeBackHandler } from '@/native/back';
 import { FavoritesDesktop } from './desktop/FavoritesDesktop';
 import { formatMessageTime, messageSenderLabel } from './messageMeta';
 import { ConversationAvatar } from './messageText';
-import { renderMessageContentPreview } from './messageContent';
+import { MessageView } from './MessageView';
 import { FAVORITE_FILTERS, useFavorites } from './useFavorites';
 
 
@@ -161,7 +161,7 @@ function FavoritesMobile({ conversations, currentUser, items, isLoading, error, 
                       <span className="shrink-0 text-[11px] font-semibold text-[#b0b6c0]">{formatMessageTime(item.message.created_at)}</span>
                     </div>
                     <p className="mt-1 truncate text-[12px] font-semibold text-[#8b95a5]">{messageSenderLabel(item.message)}</p>
-                    <div className="mt-2 line-clamp-2 text-[13px] leading-5 text-[#526070]">{renderMessageContentPreview(item.message, onOpenForwardBundle, openImage)}</div>
+                    <div className="mt-2 line-clamp-2 text-[13px] leading-5 text-[#526070]"><MessageView message={item.message} variant="compact" conversationId={item.conversation_id} onOpenImages={openImage} onOpenBundle={onOpenForwardBundle} /></div>
                   </div>
                 </article>
               );

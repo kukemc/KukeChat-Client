@@ -5,12 +5,19 @@ import { useKukeStore } from '@/store/kukeStore';
 import { emitRealtimeEvent, parseRealtimePayload } from './events';
 import { emitPoke } from './poke';
 import { isRecord, pickNumber } from '@/api/normalizers';
+import { applyNotificationsSeen } from '@/api/notifications';
 import { handleJuryGrowthEvent } from '@/components/jury/data/growth';
 import { handleLevelEvent } from '@/components/level/data';
 import { handleProfileLikeEvent } from '@/components/likes/data';
+import { handleGiftEvent, refreshGiftsAfterReconnect } from '@/components/gifts/data';
+import { handleIntimacyEvent, refreshIntimacyAfterReconnect } from '@/components/intimacy/data';
+import { noteGiftArrival } from '@/components/gifts/ui';
+import { handleRedPacketEvent, noteRedPacketMessage, refreshRedPacketsAfterReconnect } from '@/components/redpacket/data';
 import { handleShopEvent } from '@/components/shop/data';
+import { groupPlusKeys, handleGroupPlusEvent, refreshGroupPlusAfterReconnect } from '@/components/groupPlus/data';
 import { useModerationStore } from '@/store/moderationStore';
-import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead } from '@/types/api';
+import { messageMentionKind } from '@/utils/mentions';
+import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead, UnifiedNotificationList } from '@/types/api';
 import { requestDesktopAttention } from '@/utils/desktopAttention';
 import { applyCreatedMessageToConversations, recordReceivedMessage, shouldAlertIncomingMessage, patchConversation, patchMemberPages, patchMemberPresence, patchMembers, patchMessageInPages, patchUserPresence, upsertMessageIntoFirstPage } from './cache';
 import type { MessagesInfiniteData, ConversationMembersPageData } from './cache';
@@ -161,6 +168,10 @@ export function useRealtime(enabled: boolean): void {
       if (conversationId !== null) {
         void queryClient.resetQueries({ queryKey: ['messages', conversationId], exact: true });
       }
+      refreshRedPacketsAfterReconnect(queryClient);
+      refreshGiftsAfterReconnect(queryClient);
+      refreshIntimacyAfterReconnect(queryClient);
+      refreshGroupPlusAfterReconnect(queryClient);
     };
 
     const scheduleReconnect = (event?: CloseEvent): void => {
@@ -272,8 +283,12 @@ export function useRealtime(enabled: boolean): void {
               notifyIncomingMessage(message, currentConversation);
               if (canAlertConversation(currentConversation)) void requestDesktopAttention();
             }
-            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyCreatedMessageToConversations(current, message, currentVisibleConversationId, !shouldIncrementUnread));
+            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyCreatedMessageToConversations(current, message, currentVisibleConversationId, !shouldIncrementUnread, messageMentionKind(message, currentUser?.id)));
             queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', conversationId], (current) => upsertMessageIntoFirstPage(current, message));
+            // 来了一个我能领的红包：会话列表上标「[有红包]」
+            noteRedPacketMessage(queryClient, message);
+            // 来了一条礼物消息、而且这个会话正开着：卡片上的小动画和聊天区 / 全屏的动效播一次（翻历史不会走到这里）
+            noteGiftArrival(message);
           }
           if (event.type === 'message.recalled' && conversationId !== null) {
             const message = event.data as Message;
@@ -320,6 +335,8 @@ export function useRealtime(enabled: boolean): void {
           if (conversationId !== null) {
             if (event.type === 'message.featured.updated') {
               void queryClient.invalidateQueries({ queryKey: ['featured-messages', conversationId] });
+              // 精华「已用 / 上限」在档位详情里
+              void queryClient.invalidateQueries({ queryKey: groupPlusKeys.info(conversationId) });
             }
           }
         }
@@ -328,11 +345,18 @@ export function useRealtime(enabled: boolean): void {
           event.type === 'friend.request.created' ||
           event.type === 'friend.request.accepted' ||
           event.type === 'friend.request.rejected' ||
+          event.type === 'friend.request.ignored' ||
           event.type === 'friendship.deleted'
         ) {
           void queryClient.invalidateQueries({ queryKey: ['friends'] });
           void queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
           void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        }
+
+        // 本人在另一台设备上打开过通知中心：角标跟着清（条目高亮留到下次刷新）
+        if (event.type === 'notification.seen' && isRecord(event.data) && typeof event.data.seen_at === 'string') {
+          const seenAt = event.data.seen_at;
+          queryClient.setQueryData<UnifiedNotificationList | undefined>(['notifications'], (current) => applyNotificationsSeen(current, seenAt));
         }
 
         if (
@@ -381,8 +405,9 @@ export function useRealtime(enabled: boolean): void {
             if (readId !== null && readId >= previousReadId) {
               lastReadMessageIds.set(conversationId, readId);
               queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => patchConversation(current, conversationId, (conversation) => {
-                if (!conversation.unread_count || (conversation.last_message?.id ?? 0) > readId) return conversation;
-                return { ...conversation, unread_count: 0 };
+                // 读过了：未读数和「[有人@我]」一起清
+                if ((!conversation.unread_count && !conversation.mention_pending) || (conversation.last_message?.id ?? 0) > readId) return conversation;
+                return { ...conversation, unread_count: 0, mention_pending: null };
               }));
             }
           }
@@ -554,8 +579,13 @@ export function useRealtime(enabled: boolean): void {
         }
 
         // 商店（docs/shop.md 第 4 节）：目录有变化、我得到了一件商品、有人换了装扮。缓存怎么跟上写在 components/shop/data.ts
-        if (event.rawType === 'shop.changed' || event.rawType === 'shop.item.granted' || event.rawType === 'user.cosmetics.updated') {
+        if (event.rawType === 'shop.changed' || event.rawType === 'shop.item.granted' || event.rawType === 'shop.item.expiring' || event.rawType === 'shop.item.expired' || event.rawType === 'shop.balance.changed' || event.rawType === 'user.cosmetics.updated') {
           handleShopEvent(queryClient, event.rawType, event.data);
+        }
+        // 群升级、群待办、群文件（docs/group-plus.md 第 4 节）：缓存怎么跟上写在 components/groupPlus/data.ts。
+        // 购买人的余额变动走上面的 shop.balance.changed（reason 为 group_plus）
+        if (event.rawType === 'group.plus.updated' || event.rawType === 'group.todo.updated' || event.rawType === 'group.file.updated') {
+          handleGroupPlusEvent(queryClient, event.rawType, event.data);
         }
         // 账号等级（docs/account-level.md 第 4 节）：我升级了。缓存怎么跟上写在 components/level/data.ts
         if (event.rawType === 'account.level.up') {
@@ -564,6 +594,19 @@ export function useRealtime(enabled: boolean): void {
         // 资料点赞（docs/chat-features.md 6.4）：有人赞了我。缓存怎么跟上写在 components/likes/data.ts
         if (event.rawType === 'user.profile.liked') {
           handleProfileLikeEvent(queryClient, event.data);
+        }
+        // 红包：有人领了、抢完了、过期了、被撤回了（不带金额）。缓存怎么跟上写在 components/redpacket/data.ts
+        if (event.rawType === 'red_packet.updated') {
+          handleRedPacketEvent(queryClient, event.data);
+        }
+        // 礼物：有人送了我礼物（只发给收礼人）。心意值、礼物墙、记录怎么跟上写在 components/gifts/data.ts，提示由 GiftToasts 出
+        if (event.rawType === 'gift.received') {
+          handleGiftEvent(queryClient, event.data);
+        }
+        // 好友亲密度（KukeChat-Server/docs/intimacy.md 第 4 节）：亲密度涨了、解锁了好友徽章、友谊升级了；加删好友时好友亲密榜也要重拉。
+        // 缓存怎么跟上写在 components/intimacy/data.ts，提示由 IntimacyToasts 出
+        if (event.rawType.startsWith('intimacy.') || event.rawType === 'friendship.deleted' || event.rawType === 'friend_request.accepted') {
+          handleIntimacyEvent(queryClient, event.rawType, event.data);
         }
 
         emitRealtimeEvent(event);

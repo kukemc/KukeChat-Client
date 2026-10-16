@@ -1,5 +1,6 @@
 import { registerPlugin } from '@capacitor/core';
 import type { PluginListenerHandle } from '@capacitor/core';
+import { fetchLatestRelease } from '@/api/releases';
 import { MOBILE_UPDATE_METADATA_URL } from '@/config';
 import { isNativeMobileApp } from '@/utils/appMode';
 
@@ -16,6 +17,13 @@ export interface MobileUpdateInfo {
   currentVersion: string;
   latestVersion: string;
   downloadUrl: string | null;
+  /** 以下几项只有发版服务给得出；走旧的元数据时为空 / false */
+  changelog: string | null;
+  publishedAt: string | null;
+  size: number | null;
+  sha256: string | null;
+  /** 当前版本低于 min_supported_version：弹窗关不掉 */
+  forced: boolean;
 }
 
 export interface DownloadProgress {
@@ -26,7 +34,7 @@ export interface DownloadProgress {
 
 interface KukeUpdaterPlugin {
   getCurrentVersion(): Promise<{ versionName: string; versionCode: number }>;
-  downloadApk(options: { url: string }): Promise<{ path: string }>;
+  downloadApk(options: { url: string; sha256?: string | null }): Promise<{ path: string }>;
   installApk(options: { path: string }): Promise<void>;
   addListener(
     eventName: 'downloadProgress',
@@ -69,10 +77,39 @@ interface UpdateMetadata {
 }
 
 /**
- * Fetch the release metadata and decide whether a newer mobile build exists.
- * The metadata is served from the API host root (not under /api/v1).
+ * 先问发版服务（GET /releases/latest?platform=android，KukeChat-Server/docs/releases.md），拿更新日志、强制更新、
+ * 大小和 sha256。接口不可用（旧后端 404、网络）或还没有任何 android 发布时，退回旧的元数据。
  */
 export async function checkMobileUpdate(): Promise<MobileUpdateInfo> {
+  try {
+    const result = await fetchLatestRelease({ platform: 'android', current: MOBILE_APP_VERSION });
+    const latest = result.latest;
+    if (latest) {
+      const artifact = latest.artifact;
+      const hasUpdate = result.updateAvailable && artifact !== null;
+      return {
+        hasUpdate,
+        currentVersion: MOBILE_APP_VERSION,
+        latestVersion: latest.version,
+        downloadUrl: artifact?.url ?? null,
+        changelog: latest.changelog.trim() || null,
+        publishedAt: latest.publishedAt,
+        size: artifact?.size ?? null,
+        sha256: artifact?.sha256 ?? null,
+        forced: hasUpdate && result.forced
+      };
+    }
+  } catch {
+    /* 退回旧的元数据 */
+  }
+  return checkLegacyMobileUpdate();
+}
+
+/**
+ * Fetch the legacy release metadata and decide whether a newer mobile build exists.
+ * The metadata is served from the API host root (not under /api/v1).
+ */
+async function checkLegacyMobileUpdate(): Promise<MobileUpdateInfo> {
   const response = await fetch(MOBILE_UPDATE_METADATA_URL, {
     method: 'GET',
     cache: 'no-store'
@@ -88,7 +125,12 @@ export async function checkMobileUpdate(): Promise<MobileUpdateInfo> {
     hasUpdate,
     currentVersion: MOBILE_APP_VERSION,
     latestVersion: latestVersion || MOBILE_APP_VERSION,
-    downloadUrl
+    downloadUrl,
+    changelog: null,
+    publishedAt: null,
+    size: null,
+    sha256: null,
+    forced: false
   };
 }
 
@@ -97,10 +139,11 @@ export async function onDownloadProgress(listener: (progress: DownloadProgress) 
 }
 
 /**
- * Download the APK to app cache. Resolves with the local file path.
+ * Download the APK to app cache. Resolves with the local file path. With a sha256 the native plugin verifies the
+ * file and rejects with code CHECKSUM_MISMATCH (older APKs ignore the option and skip the check).
  */
-export async function downloadUpdateApk(url: string): Promise<string> {
-  const result = await KukeUpdater.downloadApk({ url });
+export async function downloadUpdateApk(url: string, sha256?: string | null): Promise<string> {
+  const result = await KukeUpdater.downloadApk({ url, sha256: sha256 ?? null });
   return result.path;
 }
 

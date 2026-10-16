@@ -167,14 +167,27 @@
   gap: 6px;
 }
 
+/* 标题是一行 flex：名字截断，后面的档位标签、好友标记不跟着被截掉 */
 .ksh-conv-title {
+  display: flex;
   min-width: 0;
   flex: 1;
+  align-items: center;
+  gap: 5px;
   overflow: hidden;
   color: var(--kc-text);
   letter-spacing: 0.005em;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ksh-conv-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ksh-conv-title > :not(.ksh-conv-name) {
+  flex: none;
 }
 
 .ksh-conv-time {
@@ -190,6 +203,60 @@
   color: var(--kc-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 预览前面的提示前缀（「[有人@我]」「[有红包]」，components/chat/ConversationPrefixes.tsx）。移动端的会话列表也用这几条。
+   和预览正文并排：前缀不收缩、不截断，窄的时候截的是后面的正文。都是红的、不跟主题的强调色走；深色下提亮一档 */
+.kc-conv-prefixes {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.kc-conv-prefix--mention {
+  color: #e5383f;
+}
+
+.kc-conv-prefix--red-packet {
+  color: #e0463a;
+}
+
+/* 群待办：用强调色，和「有人@我」的红区分开（待办是提醒，不是点名） */
+.kc-conv-prefix--todo {
+  color: var(--kc-accent, #2f6fed);
+}
+
+[data-theme='dark'] .kc-conv-prefix--mention {
+  color: #ff6b70;
+}
+
+[data-theme='dark'] .kc-conv-prefix--todo {
+  color: #8fb4ff;
+}
+
+[data-theme='dark'] .kc-conv-prefix--red-packet {
+  color: #ff7a66;
+}
+
+/* 桌面的选中行是强调色实底，红字压在上面看不清：换成白和红包的米金色 */
+.ksh-conv.is-active .kc-conv-prefix--mention {
+  color: #ffffff;
+}
+
+.ksh-conv.is-active .kc-conv-prefix--todo {
+  color: #ffffff;
+}
+
+.ksh-conv.is-active .kc-conv-prefix--red-packet {
+  color: #ffe7a8;
+}
+
+#kukechat-root [data-font-scale] .ksh-conv-line > .kc-conv-prefixes {
+  margin-right: -2px;
+  font-size: calc(12px * var(--kui-fs));
+  line-height: 18px;
 }
 
 .ksh-conv-quiet {

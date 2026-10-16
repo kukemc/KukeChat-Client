@@ -1849,6 +1849,7 @@ name = "kukechat"
 version = "2.0.0"
 dependencies = [
  "serde",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-notification",

@@ -2,9 +2,12 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties
 import { cx } from '@/components/chat/desktop/runtime';
 import { copyText } from '@/components/chat/message/chatDom';
 import { JuryBadge } from '@/components/jury/growth/JuryBadge';
-import { formatDays } from '@/components/level/labels';
+import { formatDays, formatRank } from '@/components/level/labels';
 import { LevelIcons } from '@/components/level/LevelIcons';
 import { LikedByList } from '@/components/likes/LikedByList';
+import { BirthdayToday, useBirthdayFact } from '@/components/birthday/BirthdayBits';
+import { useMyBirthday } from '@/components/birthday/data';
+import { useCharmFact } from '@/components/gifts/data';
 import { MyLikesButton } from '@/components/likes/ProfileLikeButton';
 import { useKukeStore } from '@/store/kukeStore';
 import type { User } from '@/types/api';
@@ -48,6 +51,7 @@ export function SelfCardDesktop({ user, anchorRef, id, onClose }: SelfCardDeskto
   const openLevel = useKukeStore((state) => state.openLevel);
   const openShop = useKukeStore((state) => state.openShop);
   const data = useSelfCardData(user);
+  const charmFact = useCharmFact(user);
   const cardRef = useRef<HTMLElement>(null);
   const [place, setPlace] = useState<{ left: number; top: number; maxWidth: number; maxHeight: number } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -143,6 +147,15 @@ export function SelfCardDesktop({ user, anchorRef, id, onClose }: SelfCardDeskto
   const bio = user.bio?.trim();
   const admin = user.platform_role === 'admin';
   const hasBadges = Boolean(user.jury_badge || user.ccw_student_oid || admin || data.skin);
+  // 等级下面那一行统计，和别人的资料卡（UserLevelCard）同一套：连续活跃、全站名次、注册天数，再加心意值
+  const levelFacts: Array<{ label: string; value: string; title?: string }> = data.levelCard ? [
+    { label: '连续活跃', value: `${data.levelCard.streak} 天` },
+    { label: '全站名次', value: formatRank(data.levelCard.rank) },
+    { label: '注册', value: `${data.levelCard.registered_days.toLocaleString('zh-CN')} 天` }
+  ] : [];
+  if (charmFact && (data.levelCard || !data.levelLoading)) {
+    levelFacts.push(charmFact);
+  }
   const ccwStats = [
     typeof user.ccw_follower_count === 'number' ? `粉丝 ${formatCompactCount(user.ccw_follower_count)}` : null,
     typeof user.ccw_creation_count === 'number' ? `作品 ${formatCompactCount(user.ccw_creation_count)}` : null
@@ -161,7 +174,7 @@ export function SelfCardDesktop({ user, anchorRef, id, onClose }: SelfCardDeskto
       >
         <header className="kmd-card-head">
           <span className="kmd-card-avatar">
-            <Avatar user={user} label={data.name} size="lg" />
+            <Avatar user={user} label={data.name} size="lg" frame />
             <i className={data.online ? 'is-online' : undefined} />
           </span>
           <div className="kmd-card-id">
@@ -198,14 +211,25 @@ export function SelfCardDesktop({ user, anchorRef, id, onClose }: SelfCardDeskto
           {data.levelAvailable ? (
             <div className="ksc-row" data-row="level">
               <dt>等级</dt>
-              <dd>
+              <dd className="ksc-stack">
                 <button type="button" className="ksc-link ksc-level" title="查看我的等级" onClick={leave(() => openLevel('me'))}>
                   {data.level > 0 ? <LevelIcons level={data.level} variant="full" plain /> : null}
                   <b>Lv.{data.level}</b>
                   {data.activeDays !== null ? <span className="ksc-level-days">累计活跃 {formatDays(data.activeDays)} 天</span> : data.levelLoading ? <span className="ksc-bone ksc-level-days" aria-hidden="true" /> : null}
                   <Icon name="chevron" className="ksc-arrow h-3.5 w-3.5" />
                 </button>
+                {levelFacts.length > 0 ? (
+                  <span className="klv-user-facts ksc-facts">
+                    {levelFacts.map((fact) => <span key={fact.label} title={fact.title}><i>{fact.label}</i>{fact.value}</span>)}
+                  </span>
+                ) : null}
               </dd>
+            </div>
+          ) : charmFact ? (
+            // 服务端没有账号等级：心意值自己占一行，样子和其它资料行一样
+            <div className="ksc-row" data-row="charm">
+              <dt>{charmFact.label}</dt>
+              <dd title={charmFact.title}>{charmFact.value}</dd>
             </div>
           ) : null}
 
@@ -229,6 +253,8 @@ export function SelfCardDesktop({ user, anchorRef, id, onClose }: SelfCardDeskto
                 : <button type="button" className="ksc-link ksc-empty" onClick={editProfile}>还没有写签名，点这里写一句<Icon name="edit" className="h-3 w-3" /></button>}
             </dd>
           </div>
+
+          <BirthdayRow user={user} onEdit={editProfile} />
 
           <div className="ksc-row" data-row="ccw">
             <dt>CCW</dt>
@@ -319,6 +345,26 @@ function PostsRow({ userId, onOpen }: { userId: number; onOpen: () => void }): J
             </span>
           ) : null}
         </button>
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * 「生日」那一行：填了就一直显示（「5 月 7 日」，公开了年份带年份），生日当天后面跟一个「今天生日」。
+ * 没填的话给一个去填的入口（设置 → 我的资料）；服务端没有生日功能时整行不出现。
+ */
+function BirthdayRow({ user, onEdit }: { user: User; onEdit: () => void }): JSX.Element | null {
+  const text = useBirthdayFact(user);
+  const available = Boolean(useMyBirthday().data);
+  if (!text && !available) {
+    return null;
+  }
+  return (
+    <div className="ksc-row" data-row="birthday" data-birthday="fact">
+      <dt>生日</dt>
+      <dd className="ksc-birthday">
+        {text ? <>{text}<BirthdayToday user={user} /></> : <button type="button" className="ksc-link ksc-empty" onClick={onEdit}>还没有填生日，点这里填<Icon name="edit" className="h-3 w-3" /></button>}
       </dd>
     </div>
   );

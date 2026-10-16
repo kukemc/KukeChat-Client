@@ -89,20 +89,20 @@ const ORNAMENT_RISE = 0.4;
 const ORNAMENT_INSET = 8;
 const ORNAMENT_FREE_SPACE = 3;
 
-function absent(value: unknown): value is null | undefined {
+export function absent(value: unknown): value is null | undefined {
   return value === null || value === undefined;
 }
 
-function onlyKnownFields(source: Record<string, unknown>, known: ReadonlySet<string>): boolean {
+export function onlyKnownFields(source: Record<string, unknown>, known: ReadonlySet<string>): boolean {
   return Object.keys(source).every((key) => known.has(key));
 }
 
-function inRange(value: unknown, min: number, max: number): value is number {
+export function inRange(value: unknown, min: number, max: number): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 }
 
 /** `#rgb` / `#rrggbb` / `#rrggbbaa`，统一成小写。 */
-function readColor(value: unknown): string | null {
+export function readColor(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
   }
@@ -111,13 +111,16 @@ function readColor(value: unknown): string | null {
 }
 
 /** 去掉透明度，统一成 #rrggbb。 */
-function opaque(color: string): string {
+export function opaque(color: string): string {
   const hex = color.slice(1);
   return hex.length === 3 ? `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}` : `#${hex.slice(0, 6)}`;
 }
 
-/** 一个颜色，或一个 linear-gradient / radial-gradient：里面只能有角度（仅线性、仅第一项）、颜色和百分比。 */
-function readBackground(value: unknown): { value: string; gradient: boolean } | null {
+/**
+ * 一个颜色，或一个 linear-gradient / radial-gradient：里面只能有角度（仅线性、仅第一项）、颜色和百分比。
+ * allowConic 为 true 时还接受 conic-gradient（头像框的环用，见 avatarFrame.ts）：第一项可以是「from 角度」，色标的位置可以是角度；气泡不接受它。
+ */
+export function readBackground(value: unknown, allowConic = false): { value: string; gradient: boolean } | null {
   if (typeof value !== 'string' || value.length > MAX_BACKGROUND_LENGTH) {
     return null;
   }
@@ -127,11 +130,15 @@ function readBackground(value: unknown): { value: string; gradient: boolean } | 
     return { value: solid, gradient: false };
   }
   // 括号里不许再有括号：嵌套函数（url()、var()、calc() …）一律进不来
-  const match = /^(linear|radial)-gradient\(([^()]*)\)$/i.exec(text);
+  const match = /^(linear|radial|conic)-gradient\(([^()]*)\)$/i.exec(text);
   if (!match) {
     return null;
   }
   const kind = match[1].toLowerCase();
+  const conic = kind === 'conic';
+  if (conic && !allowConic) {
+    return null;
+  }
   const parts = match[2].split(',');
   const output: string[] = [];
   let stops = 0;
@@ -145,14 +152,18 @@ function readBackground(value: unknown): { value: string; gradient: boolean } | 
       output.push(tokens[0].toLowerCase());
       continue;
     }
+    if (index === 0 && conic && tokens.length === 2 && tokens[0].toLowerCase() === 'from' && ANGLE.test(tokens[1])) {
+      output.push(`from ${tokens[1].toLowerCase()}`);
+      continue;
+    }
     const color = readColor(tokens[0]);
     if (color) {
       // 颜色后面最多跟两个位置
       const positions = tokens.slice(1);
-      if (positions.length > 2 || !positions.every((position) => PERCENT.test(position))) {
+      if (positions.length > 2 || !positions.every((position) => PERCENT.test(position) || (conic && ANGLE.test(position)))) {
         return null;
       }
-      output.push([color, ...positions].join(' '));
+      output.push([color, ...positions.map((position) => position.toLowerCase())].join(' '));
       stops += 1;
       previousWasHint = false;
       continue;
@@ -217,9 +228,9 @@ function readShadow(value: unknown): string | null {
 }
 
 /** 读一个可空的对象字段时的三种结果之外的两种：值不合法（只丢这一项）、里面有不认识的字段（整件作废）。 */
-const INVALID = Symbol('invalid');
-const UNKNOWN_FIELD = Symbol('unknown-field');
-type Read<T> = T | typeof INVALID | typeof UNKNOWN_FIELD;
+export const INVALID = Symbol('invalid');
+export const UNKNOWN_FIELD = Symbol('unknown-field');
+export type Read<T> = T | typeof INVALID | typeof UNKNOWN_FIELD;
 
 /** 宽度 0 也是合法的边框：表示不要边框。 */
 function readBorder(value: unknown): Read<{ color: string; width: number }> {
