@@ -2,13 +2,14 @@
  * 「添加表情回应」面板的本地预览页：只挂面板本身。
  *
  *   http://127.0.0.1:5195/dev/reaction-harness.html?theme=dark
+ *   加 &closed=1 时一开始不打开面板，用来量第一次打开的耗时；再加 &prewarm=1 模拟聊天面板挂上后的字体预热。
  *
  * 假消息上带两条自己已经点过的回应（👍 ❤️），用来看「已回应」的样子。只用于开发，不进构建产物。
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@/styles/tailwind.css';
-import { ReactionPickerPanel } from '@/components/chat/desktop/reactions/ReactionPickerPanel';
+import { prewarmReactionPicker, ReactionPickerPanel } from '@/components/chat/desktop/reactions/ReactionPickerPanel';
 import type { Message } from '@/types/api';
 
 const params = new URLSearchParams(window.location.search);
@@ -28,9 +29,14 @@ const message = {
 
 function Harness(): JSX.Element {
   const [theme, setTheme] = useState<'light' | 'dark'>(params.get('theme') === 'dark' ? 'dark' : 'light');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(params.get('closed') !== '1');
   const [log, setLog] = useState<string[]>([]);
   const overlayRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (params.get('prewarm') === '1') {
+      prewarmReactionPicker(overlayRef.current);
+    }
+  }, []);
   const control = { padding: '6px 10px', border: '1px solid var(--kc-border-strong)', borderRadius: 7, textAlign: 'left' } as const;
 
   return (

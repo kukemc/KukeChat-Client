@@ -1,7 +1,10 @@
 /*
  * 「添加表情回应」面板（components/chat/desktop/reactions/ReactionPickerPanel.tsx）。
  * 固定宽高（和组件里的 PICKER_WIDTH / PICKER_HEIGHT 一致），顶部分类页签，下面整块滚动。
- * 面板本身只用墨色灰阶和细描边，彩色只留给表情；页签上的代表表情去色，选中时才恢复颜色。
+ * 面板本身只用墨色灰阶和细描边，彩色只留给表情；页签上的代表表情压低透明度，选中时才恢复。
+ *
+ * 性能：这里有近 500 个按钮，别在页签和格子上用 filter / 常驻 box-shadow 这类贵的效果；
+ * 格子的行高写死（组件里的 CELL_ROW / CELL_GAP 跟着它算占位高度），每个分类块带 content-visibility: auto。
  */
 .kcrp-picker {
   display: flex;
@@ -36,9 +39,8 @@
 }
 
 .kcrp-tab-icon {
-  filter: grayscale(1);
-  opacity: 0.42;
-  transition: filter 140ms ease, opacity 140ms ease;
+  opacity: 0.32;
+  transition: opacity 140ms ease;
 }
 
 .kcrp-tab:hover {
@@ -50,7 +52,6 @@
 }
 
 .kcrp-tab.is-active .kcrp-tab-icon {
-  filter: none;
   opacity: 1;
 }
 
@@ -75,6 +76,11 @@
   padding: 0 8px 10px;
 }
 
+/* 滚不到的分类不参与布局和绘制；占位高度由组件按表情个数算好，写在行内的 contain-intrinsic-block-size 上 */
+.kcrp-section {
+  content-visibility: auto;
+}
+
 .kcrp-title {
   margin: 0;
   padding: 12px 6px 6px;
@@ -88,12 +94,12 @@
 .kcrp-grid {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-auto-rows: 39px;
   gap: 2px;
 }
 
 .kcrp-grid button {
   display: grid;
-  aspect-ratio: 1;
   place-items: center;
   border-radius: 9px;
   line-height: 1;

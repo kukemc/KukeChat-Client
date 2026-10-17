@@ -39,6 +39,7 @@ import { ChatInfoDrawer } from './info/ChatInfoDrawer';
 import { MemberMenu, type MemberMenuTarget } from './MemberMenu';
 import { MessageList, type MessageListHandle } from './MessageList';
 import { MessageMenu, ReactionPicker } from './MessageMenus';
+import { prewarmReactionPicker } from './reactions/ReactionPickerPanel';
 import { GroupTodoBar } from '@/components/groupPlus/todo/GroupTodoBar';
 import { useTodoMenu } from '@/components/groupPlus/todo/useTodoMenu';
 import { usePollRealtime } from './polls/usePollRealtime';
@@ -150,6 +151,9 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   });
 
   const outgoingFriendRequestsQuery = useQuery({ queryKey: ['friend-requests', 'outgoing'], queryFn: getOutgoingFriendRequests, staleTime: 15_000 });
+
+  // 趁空闲预热表情回应面板要用的彩色表情字体，第一次打开面板就不会卡（整个应用只做一次）
+  useEffect(() => prewarmReactionPicker(overlayRootRef.current), []);
 
   useEffect(() => {
     setVisibleConversationId(conversationId);
