@@ -96,6 +96,8 @@ export function prewarmReactionPicker(container?: HTMLElement | null): void {
       host.appendChild(span);
       // 读一次尺寸逼浏览器现在就排版（宿主在屏幕外、隐藏且 contain 住，只排这一小块）
       void span.offsetWidth;
+      // 排完就拿掉：留着的话宿主越来越大，每次 offsetWidth 都要把之前的全部重排一遍（之前这样跑满主线程约 40 秒）
+      span.remove();
     }
     if (jobs.length > 0) {
       whenIdle(step, 2000);

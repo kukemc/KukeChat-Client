@@ -1,4 +1,5 @@
 import { memo, useState } from 'react';
+import { prewarmReactionPicker } from './reactions/ReactionPickerPanel';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { useQuery } from '@tanstack/react-query';
 import { getConversations } from '@/api/conversations';
@@ -358,7 +359,7 @@ function Reactions({ message, actions }: { message: Message; actions: ChatRowAct
           </button>
         );
       })}
-      <button type="button" className="kcd-reaction kcd-reaction--add" aria-label="添加回应" onClick={(event) => actions.openReactionPicker(event, message)} onDoubleClick={(event) => event.stopPropagation()}>
+      <button type="button" className="kcd-reaction kcd-reaction--add" aria-label="添加回应" onPointerEnter={() => prewarmReactionPicker()} onClick={(event) => actions.openReactionPicker(event, message)} onDoubleClick={(event) => event.stopPropagation()}>
         <Icon name="plus" className="h-3 w-3" />
       </button>
     </div>
@@ -490,7 +491,7 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
             </div>
             {selectMode || local ? null : (
               <div className="kcd-toolbar" role="toolbar" aria-label="消息操作" onDoubleClick={(event) => event.stopPropagation()}>
-                <button type="button" title="表情回应" onClick={(event) => actions.openReactionPicker(event, message)}><Icon name="emoji" className="h-4 w-4" /></button>
+                <button type="button" title="表情回应" onPointerEnter={() => prewarmReactionPicker()} onClick={(event) => actions.openReactionPicker(event, message)}><Icon name="emoji" className="h-4 w-4" /></button>
                 <button type="button" title="引用" onClick={() => actions.quote(message)}><Icon name="quote" className="h-4 w-4" /></button>
                 {/* 红包、礼物不能转发 */}
                 {isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) ? null : <button type="button" title="转发" onClick={() => actions.forward(message)}><Icon name="share" className="h-4 w-4" /></button>}
