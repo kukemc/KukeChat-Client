@@ -42,7 +42,8 @@ function useBilibiliPreview(link: BilibiliLinkRef): BilibiliVideoPreview | null 
   return useQuery({
     queryKey: ['link-preview', 'bilibili', link.key],
     queryFn: () => fetchPreview(link.url),
-    staleTime: Infinity,
+    // 拿到了就一直用；没拿到（服务端暂时解析失败、旧后端）只记 2 分钟，之后重新进聊天会再试，别把一次失败记一整个会话
+    staleTime: (query) => (query.state.data ? Infinity : 2 * 60_000),
     gcTime: 60 * 60_000,
     retry: false,
     refetchOnWindowFocus: false,
