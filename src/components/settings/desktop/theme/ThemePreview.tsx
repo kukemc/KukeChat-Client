@@ -51,7 +51,7 @@ export function ThemeStage({ mode }: { mode: WallpaperMode }): JSX.Element {
         <div className="ksh-pane-header"><span className="kui-field ksh-pane-search"><Icon name="search" className="h-3.5 w-3.5" /><span className="kth-stage-placeholder">搜索</span></span></div>
         <div className="ksh-pane-list">
           {CONVERSATIONS.map((item, index) => (
-            <div key={item.name} className={`ksh-conv ${index === 0 ? 'is-active' : ''}`}>
+            <div key={item.name} className={`ksh-conv ${index === 0 ? 'is-active' : ''}${item.unread ? ' has-unread' : ''}`}>
               <Avatar label={item.name} toneKey={index + 3} size="md" />
               <span className="ksh-conv-main">
                 <span className="ksh-conv-line"><span className="ksh-conv-title"><span className="ksh-conv-name">{item.name}</span></span><span className="ksh-conv-time">{item.time}</span></span>

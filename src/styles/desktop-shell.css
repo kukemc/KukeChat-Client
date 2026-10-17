@@ -309,12 +309,16 @@
   color: var(--kc-subtle);
 }
 
-/* 有未读的会话：标题加粗、时间换强调色，一眼能从列表里挑出来 */
-.ksh-conv:has(.kui-badge:not(.kui-badge--quiet)) .ksh-conv-title {
+/*
+ * 有未读的会话：标题加粗、时间换强调色，一眼能从列表里挑出来。
+ * 按行上的 has-unread 类（ConversationPane 给）而不是 :has(.kui-badge)：用 :has 的话，
+ * 页面里每插入一个节点（比如来一条消息）都要把整个会话列表的标题、时间重算一遍样式。
+ */
+.ksh-conv.has-unread .ksh-conv-title {
   font-weight: 700;
 }
 
-.ksh-conv:not(.is-active):has(.kui-badge:not(.kui-badge--quiet)) .ksh-conv-time {
+.ksh-conv.has-unread:not(.is-active) .ksh-conv-time {
   color: var(--kc-accent);
 }
 
