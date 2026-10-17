@@ -142,7 +142,7 @@
  * 聊天里可能同时有几十个带动效的气泡，所以：
  *   · 会动的都只动 transform / opacity —— 不触发布局，也不重绘气泡里的文字，交给合成器就行；
  *   · 节奏都很慢（一次呼吸八九秒、一道扫光八秒里只走两秒多），同屏的气泡用 --kcsk-delay 错开；
- *   · 消息列表是虚拟的，屏幕外的气泡不在 DOM 里，自然也不跑动画；
+ *   · 消息列表不是虚拟的，屏幕外的气泡也在 DOM 里：滚出视口、窗口不在前台时由下面「看不见的时候不动」暂停；
  *   · 纯色底的 flow 没有东西可流，SkinDecor 根本不渲染；外观里开了「性能优先」时会动的层都不渲染；
  *   · 系统设了「减少动态效果」时会动的层隐藏、角饰不动，纹样和角饰本身照常画（契约：此时 animation 当作 none）。
  */
@@ -150,7 +150,13 @@
   position: absolute;
   z-index: -1;
   inset: 0;
+  /*
+   * 用 clip 而不是 hidden：overflow: hidden 会让它成为滚动容器，里面的层一动（flow 平移、shimmer 扫光），
+   * 浏览器就要每一帧回主线程重算它的可滚动范围，合成器上的动画也就白放了（实测一个就能让主线程每秒多跑十几帧）。
+   * clip 只裁不滚，没有这个问题。不认识 clip 的老内核退回到上一行的 hidden。
+   */
   overflow: hidden;
+  overflow: clip;
   border-radius: inherit;
   contain: strict;
   pointer-events: none;
@@ -267,9 +273,16 @@
   z-index: 1;
   width: var(--kcsk-os);
   height: var(--kcsk-os);
+  pointer-events: none;
+}
+
+/* 外层 span 管位置和动（HTML 元素上的 transform 动画才能交给合成器），里面的 svg 只管画 */
+.kcsk-orn > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
   overflow: visible;
   filter: drop-shadow(0 0 0.5px rgba(15, 18, 30, 0.5)) drop-shadow(0 1px 1.5px rgba(15, 18, 30, 0.2));
-  pointer-events: none;
 }
 
 .kcsk-orn--tl {
@@ -406,7 +419,7 @@
  * 值（--kcaf-* 浅色、--kcaf-d-* 深色）来自 avatarFrame.ts，这里只管用哪一组、画到哪。
  *
  * 聊天里同屏可能有几十个带框的头像：会动的只动 transform / opacity（环的旋转是转里面一层铺了渐变的方块，不是重画渐变），
- * 节奏慢，不同人用 --kcaf-delay 错开；屏幕外的消息不在 DOM 里；「性能优先」时会动的层不渲染；
+ * 节奏慢，不同人用 --kcaf-delay 错开；屏幕外、窗口不在前台时暂停（「看不见的时候不动」）；「性能优先」时会动的层不渲染；
  * 系统设了「减少动态效果」时一律不动（契约：此时 animation 当作 none）。
  */
 .kcaf {
@@ -488,7 +501,9 @@
   position: absolute;
   z-index: 2;
   inset: calc(var(--kcaf-out) * -1);
+  /* clip 而不是 hidden：同 .kcsk-fx，免得里面转着的那层每帧都拉主线程重算滚动范围 */
   overflow: hidden;
+  overflow: clip;
   padding: var(--kcaf-w);
   border-radius: var(--kcaf-r);
   background: var(--kcaf-c-bg);
@@ -565,7 +580,13 @@
   z-index: 0;
 }
 
-.kcaf-orn > svg {
+.kcaf-orn > i {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.kcaf-orn > i > svg {
   display: block;
   width: 100%;
   height: 100%;
@@ -574,24 +595,24 @@
 }
 
 /* 闪、晃、浮、跳和气泡角饰用同一组关键帧 */
-.kcaf-orn--twinkle > svg {
+.kcaf-orn--twinkle > i {
   animation: kcsk-twinkle 3.6s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
 }
 
-.kcaf-orn--sway > svg {
+.kcaf-orn--sway > i {
   animation: kcsk-sway 4.4s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
 }
 
-.kcaf-orn--float > svg {
+.kcaf-orn--float > i {
   animation: kcsk-float 4.8s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
 }
 
-.kcaf-orn--pulse > svg {
+.kcaf-orn--pulse > i {
   animation: kcsk-pulse 3.2s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
 }
 
 /* 耳朵：绕着根部偶尔抖一下，大部分时间不动 */
-.kcaf-orn--twitch > svg {
+.kcaf-orn--twitch > i {
   transform-origin: 50% 92%;
   animation: kcaf-twitch 6.5s ease-in-out var(--kcaf-delay, 0s) infinite;
 }
@@ -617,7 +638,7 @@
 }
 
 /* 翅膀：绕着根部慢慢扇 */
-.kcaf-orn--flap > svg {
+.kcaf-orn--flap > i {
   transform-origin: 8% 64%;
   animation: kcaf-flap 3.6s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
 }
@@ -651,9 +672,22 @@
 
   .kcaf-glow--pulse,
   .kcaf-spin,
-  .kcaf-orn > svg {
+  .kcaf-orn > i {
     animation: none;
   }
+}
+
+/* ───────── 看不见的时候不动 ───────── */
+
+/*
+ * 皮肤和头像框的动效都是无限循环的，同屏几十个，停在聊天页什么都不做时它们也一直在耗 CPU / GPU。看不见的就让它停下：
+ *   · 滚出视口的消息行：桌面消息列表（MessageList）用 IntersectionObserver 给视口外的行打上 data-kc-offscreen；
+ *   · 窗口不在前台（最小化、藏到托盘、切到别的程序）：useWindowMotionPause 给 #kukechat-root 打上 data-kc-motion="paused"。
+ * 停用的是 animation-play-state: paused，回到视口 / 窗口回到前台时接着原来的进度播，不会从头跳一下。
+ */
+[data-kc-offscreen] :is(.kcsk-glow, .kcsk-fx-flow, .kcsk-fx-shine, .kcsk-orn, .kcaf-glow--pulse, .kcaf-spin, .kcaf-shine, .kcaf-orn > i),
+[data-kc-motion='paused'] :is(.kcsk-glow, .kcsk-fx-flow, .kcsk-fx-shine, .kcsk-orn, .kcaf-glow--pulse, .kcaf-spin, .kcaf-shine, .kcaf-orn > i) {
+  animation-play-state: paused !important;
 }
 
 /* ───────── 气泡预览（商店里用真的气泡画） ───────── */

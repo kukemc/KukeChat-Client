@@ -2215,8 +2215,12 @@ button.kjr-tr:hover + .kjr-tr {
     white-space: nowrap;
   }
 
-  /* 还没开放的板块：图标调淡 */
-  .kjr-nav-item:has(.kjr-nav-soon) > svg {
+  /*
+   * 还没开放的板块：图标调淡。用类名（JuryPage 给按钮加 is-soon），不用 :has(.kjr-nav-soon) > svg ——
+   * 那种写法让浏览器在页面里任何地方插入节点时都去重算全部 svg 的样式（聊天里每条消息的操作条都是 svg），
+   * 实测停在大群里每来一条消息要多重算四五百个 svg。
+   */
+  .kjr-nav-item.is-soon > svg {
     opacity: 0.45;
   }
 

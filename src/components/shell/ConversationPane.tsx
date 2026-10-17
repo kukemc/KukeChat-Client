@@ -60,7 +60,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, currentUse
   const unread = visible ? 0 : Math.max(0, conversation.unread_count ?? 0);
   const peer = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
   return (
-    <button type="button" className={`ksh-conv${active ? ' is-active' : ''}${pinned ? ' is-pinned' : ''}`} onClick={() => onSelect(conversation)} onContextMenu={(event) => onContextMenu(event, conversation)}>
+    <button type="button" className={`ksh-conv${active ? ' is-active' : ''}${pinned ? ' is-pinned' : ''}${unread && !quiet ? ' has-unread' : ''}`} onClick={() => onSelect(conversation)} onContextMenu={(event) => onContextMenu(event, conversation)}>
       {conversation.type === 'group' ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} plusTier={conversationTier(conversation)} /> : <Avatar user={peer} label={title} />}
       <span className="ksh-conv-main">
         <span className="ksh-conv-line">

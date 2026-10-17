@@ -84,7 +84,7 @@ export function JuryPage(): JSX.Element {
                       const count = section.id === 'desk' ? status?.available_cases ?? 0 : section.id === 'senior' ? seniorQueueCount(status) : 0;
                       return (
                         // title：浮窗很窄时导航收成一列图标（见 desktop-jury.css 末尾），悬停要能看到名字
-                        <button key={section.id} type="button" data-section={section.id} title={!config.loading && !isReady(section) ? `${section.label}（即将开放）` : section.label} className={cx('kjr-nav-item', active.id === section.id && 'is-active')} aria-current={active.id === section.id ? 'page' : undefined} onClick={() => nav.goSection(section.id)}>
+                        <button key={section.id} type="button" data-section={section.id} title={!config.loading && !isReady(section) ? `${section.label}（即将开放）` : section.label} className={cx('kjr-nav-item', active.id === section.id && 'is-active', count <= 0 && !config.loading && !isReady(section) && 'is-soon')} aria-current={active.id === section.id ? 'page' : undefined} onClick={() => nav.goSection(section.id)}>
                           <Icon name={section.icon} className="h-4 w-4" />
                           <span className="kjr-nav-label">{section.label}</span>
                           {count > 0 ? <span className="kui-badge">{count > 99 ? '99+' : count}</span> : !config.loading && !isReady(section) ? <span className="kjr-nav-soon">即将开放</span> : null}

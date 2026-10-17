@@ -184,7 +184,6 @@
   from {
     opacity: 0;
     transform: translate3d(12px, 0, 0) scale(0.994);
-    filter: blur(6px);
   }
 
   to {
@@ -193,8 +192,24 @@
   }
 }
 
+/*
+ * 模糊单独一条动画，而且只 fill backwards：结束帧不写 filter 也没用 —— 浏览器插值时把 none 当成 blur(0)，
+ * fill: both 会把 blur(0px) 一直留在元素上（实测放完之后 computed filter 仍是 blur(0px)）。
+ * 只往前填充的话，动画一结束滤镜就回到 none。
+ */
+@keyframes kui-view-blur {
+  from {
+    filter: blur(6px);
+  }
+
+  to {
+    filter: blur(0);
+  }
+}
+
 #kukechat-root [data-layout='desktop'] :is(.kc-pc-dashboard, .kc-pc-view) {
-  animation-name: kui-view-in;
+  animation-name: kui-view-in, kui-view-blur;
+  animation-fill-mode: both, backwards;
 }
 
 /* 头像形状。Avatar 组件自带 rounded-full，这里按主题改写 */

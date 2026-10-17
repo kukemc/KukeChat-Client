@@ -327,6 +327,9 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
       : targetRect.top - scrollerRect.top - (scroller.clientHeight - targetRect.height) / 2;
   }, []);
 
+  const fetchingOlderRef = useRef(false);
+  fetchingOlderRef.current = messagesQuery.isFetchingNextPage;
+
   const loadOlder = (): void => {
     if (messagesQuery.hasNextPage && !messagesQuery.isFetchingNextPage) {
       growthRef.current = 'older';
@@ -374,6 +377,11 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
     if (distance < STICK_THRESHOLD_PX) {
       stickRef.current = true;
+      // 往上翻过历史、又自己滚回了底部：那次「往上加载」已经结束，不能再挡着贴底裁剪，
+      // 否则翻过一次历史之后 DOM 里就一直留着几百行，之后每来一条消息都要排版这几百行
+      if (growthRef.current === 'older' && !fetchingOlderRef.current && performance.now() < userScrollUntilRef.current) {
+        growthRef.current = null;
+      }
     } else if (performance.now() < userScrollUntilRef.current) {
       // 只有用户自己滚开才解除贴底；内容变高不算
       stickRef.current = false;
@@ -435,6 +443,44 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     observer.observe(content);
     return () => observer.disconnect();
   }, [centerOn, pinToBottom]);
+
+  // 视口外的行打上 data-kc-offscreen，样式表据此让行里皮肤、头像框的无限动画停下（shop.css「看不见的时候不动」）。
+  // 列表不是虚拟的，贴底时 DOM 里有上百行，不停的话屏幕外的几百个动效也一直在跑。上下各留一段余量，滚进来之前就已经在动了。
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    const content = contentRef.current;
+    if (!scroller || !content || typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+    const visibility = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.removeAttribute('data-kc-offscreen');
+        } else {
+          entry.target.setAttribute('data-kc-offscreen', '');
+        }
+      }
+    }, { root: scroller, rootMargin: '240px 0px' });
+    const observeRows = (nodes: Iterable<Node>): void => {
+      for (const node of nodes) {
+        if (node instanceof HTMLElement) {
+          visibility.observe(node);
+        }
+      }
+    };
+    observeRows(content.children);
+    const rows = new MutationObserver((records) => {
+      for (const record of records) {
+        observeRows(record.addedNodes);
+        record.removedNodes.forEach((node) => node instanceof HTMLElement && visibility.unobserve(node));
+      }
+    });
+    rows.observe(content, { childList: true });
+    return () => {
+      rows.disconnect();
+      visibility.disconnect();
+    };
+  }, []);
 
   // 内容提交后的定位：首次出现内容落到底部；跳转则把目标消息居中
   useLayoutEffect(() => {
