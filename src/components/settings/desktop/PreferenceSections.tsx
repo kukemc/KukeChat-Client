@@ -9,6 +9,7 @@ import { getDesktopAutostartEnabled, setDesktopAutostartEnabled } from '@/native
 import { requestDesktopNotificationPermission } from '@/native/desktopNotifications';
 import { useKukeStore, type ThemeMode, type UiFontScale } from '@/store/kukeStore';
 import { useShopPrefs } from '@/store/shopPrefs';
+import { useComposerPrefs, type PasteImageMode } from '@/store/composerPrefs';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { isTauriDesktopApp } from '@/utils/appMode';
 import { ReportReconsider } from './ReportReconsider';
@@ -127,13 +128,14 @@ export function GeneralSection(): JSX.Element {
   }
 
   return (
-    <SettingsPage title="通用" description="消息提醒和启动方式。">
+    <SettingsPage title="通用" description="消息提醒、聊天输入和启动方式。">
       <Card title="消息提醒">
         <Row icon="bell" title={desktop ? 'Windows 系统通知' : '系统通知'} description={notificationDetail(permission, desktop)}>
           <Toggle label="系统通知" checked={notifyMode === 'on'} onChange={(on) => void toggleNotifications(on)} />
         </Row>
       </Card>
       <SoundCard />
+      <ComposerCard />
       <Card title="隐私">
         <ShareTypingRow />
       </Card>
@@ -146,6 +148,26 @@ export function GeneralSection(): JSX.Element {
         </Card>
       ) : null}
     </SettingsPage>
+  );
+}
+
+const PASTE_IMAGE_MODES: Array<{ value: PasteImageMode; label: string }> = [
+  { value: 'inline', label: '放进输入框' },
+  { value: 'confirm', label: '弹出确认框' }
+];
+
+/** 聊天输入：粘贴 / 拖进来 / 选的图片怎么处理。输入框里有待发图片时，缩略图那一行末尾也能直接切换。 */
+function ComposerCard(): JSX.Element {
+  const mode = useComposerPrefs((state) => state.pasteImageMode);
+  const setMode = useComposerPrefs((state) => state.setPasteImageMode);
+  return (
+    <Card title="聊天输入">
+      <Row icon="image" title="粘贴图片时" wrap description={mode === 'inline'
+        ? '图片显示在输入框里，可以接着打字，按发送时图文合成一条发出。拖进来和从工具栏选的图片也一样。'
+        : '先弹出「发送图片」确认框，可以加一句说明，确认后单独发出。拖进来和从工具栏选的图片也一样。'}>
+        <Choice value={mode} options={PASTE_IMAGE_MODES} onChange={setMode} />
+      </Row>
+    </Card>
   );
 }
 

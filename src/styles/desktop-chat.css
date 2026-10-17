@@ -1430,25 +1430,28 @@
   color: var(--kc-text);
 }
 
+/* 放进输入框的待发图片（Composer 的「放进输入框」模式）：细描边缩略图，末尾是张数和切换模式的小按钮 */
 .kcd-staged-images {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   cursor: default;
 }
 
 .kcd-staged-image {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   overflow: hidden;
-  border: 1px solid var(--kc-border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--kc-panel-muted);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
 }
 
 .kcd-staged-image img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1456,22 +1459,74 @@
 
 .kcd-staged-image button {
   position: absolute;
-  top: 3px;
-  right: 3px;
+  top: 4px;
+  right: 4px;
   display: grid;
   width: 18px;
   height: 18px;
   place-items: center;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.56);
+  background: rgba(17, 17, 17, 0.62);
   color: #ffffff;
   opacity: 0;
-  transition: opacity 120ms ease;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: opacity 120ms ease, background-color 100ms ease;
+}
+
+.kcd-staged-image button:hover {
+  background: rgba(17, 17, 17, 0.86);
 }
 
 .kcd-staged-image:hover button,
 .kcd-staged-image button:focus-visible {
   opacity: 1;
+}
+
+.kcd-staged-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 56px;
+  padding-left: 2px;
+}
+
+.kcd-staged-count {
+  padding-left: 9px;
+  color: var(--kc-subtle);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.kcd-staged-mode,
+.kcd-imgsend-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--kc-border);
+  border-radius: 999px;
+  color: var(--kc-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  transition: border-color 100ms ease, color 100ms ease, background-color 100ms ease;
+}
+
+.kcd-staged-mode:hover,
+.kcd-imgsend-mode:hover {
+  border-color: color-mix(in srgb, var(--kc-text) 36%, transparent);
+  background: color-mix(in srgb, var(--kc-text) 4%, transparent);
+  color: var(--kc-text);
+}
+
+.kcd-staged-mode:focus-visible,
+.kcd-imgsend-mode:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--kc-text) 40%, transparent);
+  outline-offset: 1px;
 }
 
 .kcd-editor-wrap {
@@ -2312,8 +2367,17 @@
   width: 100%;
 }
 
+.kcd-imgsend-footer-start {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-right: auto;
+}
+
 .kcd-imgsend-note {
-  margin: 0 auto 0 0;
+  margin: 0;
   min-width: 0;
   color: var(--kc-muted);
   font-size: 12px;

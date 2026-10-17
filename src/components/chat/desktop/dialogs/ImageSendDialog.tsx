@@ -20,6 +20,8 @@ interface ImageSendDialogProps {
   onRemove: (id: string) => void;
   onCancel: () => void;
   onSend: (caption: string) => void;
+  /** 「改为放进输入框」：以后不再弹框；这几张图连同已经写的说明挪回输入框 */
+  onSwitchToInline?: (caption: string) => void;
 }
 
 /**
@@ -28,7 +30,7 @@ interface ImageSendDialogProps {
  *
  * 触发它的地方在输入框表单里：挂到聊天面板的根上，并且不让提交、粘贴、双击这些事件沿 React 树冒回输入框。
  */
-export function ImageSendDialog({ images, notice, onAdd, onRemove, onCancel, onSend }: ImageSendDialogProps): JSX.Element {
+export function ImageSendDialog({ images, notice, onAdd, onRemove, onCancel, onSend, onSwitchToInline }: ImageSendDialogProps): JSX.Element {
   const markerRef = useRef<HTMLSpanElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [host, setHost] = useState<Element | null>(null);
@@ -70,7 +72,14 @@ export function ImageSendDialog({ images, notice, onAdd, onRemove, onCancel, onS
         onClose={onCancel}
         footer={(
           <>
-            {notice ? <p className="kcd-imgsend-note" role="status">{notice}</p> : null}
+            <div className="kcd-imgsend-footer-start">
+              {notice ? <p className="kcd-imgsend-note" role="status">{notice}</p> : null}
+              {onSwitchToInline ? (
+                <button type="button" className="kcd-imgsend-mode" title="以后粘贴、拖进来的图片直接放进输入框，可以在 设置 › 通用 里改回" onClick={() => onSwitchToInline(caption.trim())}>
+                  <Icon name="edit" className="h-3.5 w-3.5" />改为放进输入框
+                </button>
+              ) : null}
+            </div>
             <button type="button" className="kui-btn kcd-imgsend-pill" onClick={onCancel}>取消</button>
             <button type="submit" className="kui-btn kui-btn--primary kcd-imgsend-pill" data-action="send-images" disabled={count === 0 || tooLong}>发送（{count}）</button>
           </>

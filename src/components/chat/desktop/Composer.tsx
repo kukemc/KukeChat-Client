@@ -15,6 +15,7 @@ import { activeMentionQuery, composerText, focusAtEnd, insertMentionToken, inser
 import { EmojiPanel } from './emojis/EmojiPanel';
 import { ImageSendDialog, MAX_IMAGES_PER_MESSAGE } from './dialogs/ImageSendDialog';
 import { formatMuteEnd, useMuteStatus } from '@/store/moderationStore';
+import { useComposerPrefs } from '@/store/composerPrefs';
 import { matchBotCommandInput } from '@/utils/botCommands';
 import { PollComposerButton } from './polls/PollComposerButton';
 import { FileComposerButton } from '@/components/groupPlus/files/FileComposerButton';
@@ -74,7 +75,11 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
   // 参数提示看的是已经上屏的文字：组词期间编辑器里是带空格的拼音，按它数参数个数会让提示条来回跳
   const [committedText, setCommittedText] = useState('');
   const [quote, setQuote] = useState<MessageQuoteMetadata | null>(null);
-  // 选好、拖进来、粘贴进来的图先进「发送图片」确认框（ImageSendDialog），点发送才发
+  // 选好、拖进来、粘贴进来的图：「放进输入框」模式下显示在输入框里，和文字一起发；
+  // 「弹出确认框」模式下进「发送图片」确认框（ImageSendDialog），点发送才发。模式记在本机（store/composerPrefs）
+  const pasteImageMode = useComposerPrefs((state) => state.pasteImageMode);
+  const setPasteImageMode = useComposerPrefs((state) => state.setPasteImageMode);
+  const inlineImages = pasteImageMode === 'inline';
   const [stagedImages, setStagedImages] = useState<StagedImage[]>([]);
   const [imageNotice, setImageNotice] = useState('');
   const [stagedVoice, setStagedVoice] = useState<StagedVoice | null>(null);
@@ -130,6 +135,15 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
       URL.revokeObjectURL(stagedRef.current.stagedVoice.previewUrl);
     }
   }, []);
+
+  // 放进输入框的图多了一行缩略图，把输入框滚到底，正在打的那行别被挤出视野
+  const inlineImageCount = inlineImages ? stagedImages.length : 0;
+  useEffect(() => {
+    const body = editorRef.current?.closest('.kcd-composer-body');
+    if (inlineImageCount > 0 && body) {
+      body.scrollTop = body.scrollHeight;
+    }
+  }, [inlineImageCount]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -237,21 +251,34 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
       notes.push(`一次最多发送 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出的 ${valid.length - room} 张没有加进来。`);
     }
     const note = notes.join(' ');
-    if (accepted.length === 0) {
+    if (inlineImages) {
+      // 放进输入框：提示都放到输入框上方的错误条里
+      setError(note);
+      setImageNotice('');
+    } else if (accepted.length === 0) {
       // 确认框还没开：提示放到输入框上方；开着就放在框里
       if (already > 0) {
         setImageNotice(note);
       } else {
         setError(note);
       }
+    }
+    if (accepted.length === 0) {
       return;
     }
-    setError('');
-    setImageNotice(note);
+    if (!inlineImages) {
+      setError('');
+      setImageNotice(note);
+    }
     setStagedImages((current) => [
       ...current,
       ...accepted.map((file, index) => ({ id: `${Date.now()}-${current.length + index}-${file.name}`, file, previewUrl: URL.createObjectURL(file) }))
     ]);
+    // 从工具栏选图或拖进来时焦点不在输入框里，放进输入框后接着就能打字
+    const editor = editorRef.current;
+    if (inlineImages && editor && document.activeElement !== editor) {
+      focusAtEnd(editor);
+    }
   }
 
   function clearStagedImages(): void {
@@ -276,6 +303,28 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
     setError('');
     onSend({ content: caption, type: files.length === 1 && !caption ? 'image' : 'text', metadata: nextMetadata, files });
     editorRef.current?.focus({ preventScroll: true });
+  }
+
+  /** 输入框里缩略图那一行末尾的「改为确认后发送」：记住新模式，已经放进来的图直接进确认框（输入框里的文字不动）。 */
+  function switchToConfirm(): void {
+    setError('');
+    setImageNotice('');
+    setPasteImageMode('confirm');
+  }
+
+  /** 确认框里的「改为放进输入框」：记住新模式，图回到输入框，已经写的说明接到输入框末尾。 */
+  function switchToInline(caption: string): void {
+    setImageNotice('');
+    setPasteImageMode('inline');
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+    focusAtEnd(editor);
+    if (caption) {
+      insertText(editor, composerText(editor).trim() ? ` ${caption}` : caption);
+      syncText();
+    }
   }
 
   function removeStagedImage(id: string): void {
@@ -654,7 +703,21 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
             <button type="button" aria-label="取消引用" onMouseDown={(event) => event.preventDefault()} onClick={() => setQuote(null)}><Icon name="close" className="h-3 w-3" /></button>
           </div>
         ) : null}
-        {stagedImages.length > 0 ? <ImageSendDialog images={stagedImages} notice={imageNotice} onAdd={stageFiles} onRemove={removeStagedImage} onCancel={clearStagedImages} onSend={sendStagedImages} /> : null}
+        {stagedImages.length > 0 && inlineImages ? (
+          <div className="kcd-staged-images">
+            {stagedImages.map((image) => (
+              <div key={image.id} className="kcd-staged-image">
+                <img src={image.previewUrl} alt={image.file.name || '待发送图片'} draggable={false} />
+                <button type="button" aria-label="移除图片" title="移除" onMouseDown={(event) => event.preventDefault()} onClick={() => removeStagedImage(image.id)}><Icon name="close" className="h-3 w-3" /></button>
+              </div>
+            ))}
+            <div className="kcd-staged-side">
+              <span className="kcd-staged-count">{stagedImages.length} / {MAX_IMAGES_PER_MESSAGE}</span>
+              <button type="button" className="kcd-staged-mode" title="以后粘贴、拖进来的图片先弹确认框再发，可以在 设置 › 通用 里改回" onMouseDown={(event) => event.preventDefault()} onClick={switchToConfirm}>改为确认后发送</button>
+            </div>
+          </div>
+        ) : null}
+        {stagedImages.length > 0 && !inlineImages ? <ImageSendDialog images={stagedImages} notice={imageNotice} onAdd={stageFiles} onRemove={removeStagedImage} onCancel={clearStagedImages} onSend={sendStagedImages} onSwitchToInline={switchToInline} /> : null}
         {stagedVoice ? <StagedVoicePreview voice={stagedVoice} onRemove={clearStagedVoice} /> : null}
         <div className="kcd-editor-wrap">
           {!text && !quote ? <span className="kcd-editor-placeholder">{isGroup ? '发消息，@ 可以提醒群成员' : '发消息'}</span> : null}
