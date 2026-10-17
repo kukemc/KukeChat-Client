@@ -44,6 +44,8 @@ export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, o
   const system = message.type === 'system';
   // 红包、礼物、群文件消息不能转发（服务端对带文件的合并转发整个拒绝），也不进多选（多选是为了合并转发）
   const redPacket = isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) !== null;
+  // 系统消息（戳一戳、入群提示）也不能转发、不进多选：它们没有发送者，转出去后别处的界面画不了
+  const notForwardable = redPacket || system;
   const position = clampOverlayPosition(menu, MENU_WIDTH, MENU_HEIGHT, overlayRoot);
   // 快捷回应：最近用过的排前面，不够 6 个用默认的补
   const quickReactions = [...new Set([...readRecentReactions(), ...QUICK_REACTION_EMOJIS])].slice(0, QUICK_REACTION_EMOJIS.length);
@@ -75,8 +77,8 @@ export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, o
         {message.type !== 'image' ? <ContextMenuItem label="复制" icon="copy" disabled={recalled} onClick={run(() => onCopy(message))} /> : null}
         {menu.clickedImageUrl ? <ContextMenuItem label="添加到表情" icon="heart" disabled={recalled} onClick={run(() => onFavoriteImage(menu.clickedImageUrl ?? ''))} /> : null}
         {system ? null : <ContextMenuItem label="引用" icon="quote" disabled={recalled} onClick={run(() => onQuote(message))} />}
-        {redPacket ? null : <ContextMenuItem label="转发" icon="send" disabled={recalled} onClick={run(() => onForward(message))} />}
-        {redPacket ? null : <ContextMenuItem label="多选" icon="checkSquare" disabled={recalled} onClick={run(() => onMultiSelect(message))} />}
+        {notForwardable ? null : <ContextMenuItem label="转发" icon="send" disabled={recalled} onClick={run(() => onForward(message))} />}
+        {notForwardable ? null : <ContextMenuItem label="多选" icon="checkSquare" disabled={recalled} onClick={run(() => onMultiSelect(message))} />}
         <ContextMenuSeparator />
         <ContextMenuItem label={message.bookmarked_by_me ? '取消收藏' : '收藏'} icon="star" disabled={recalled} onClick={run(() => onBookmark(message))} />
         {canManageFeatured ? <ContextMenuItem label={message.featured ? '取消精华' : '设为精华'} icon="sparkles" disabled={recalled} onClick={run(() => onFeature(message))} /> : null}
