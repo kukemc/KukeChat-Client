@@ -1,0 +1,95 @@
+name: macOS Beta
+
+# macOS 测试版：手动触发（Actions → macOS Beta → Run workflow），或推 mac-beta 分支，在 macos-latest 上打通用包
+# （Apple Silicon + Intel 一个包），产物上传为 Actions artifact，不建 Release。
+#
+# 产物：
+#   KukeChat-<版本>-macos-universal.dmg      给用户下载安装（网页下载页 / 手动安装）
+#   KukeChat-<版本>-macos-universal.app.tar.gz  给客户端内的自动更新用（src-tauri/src/updater.rs 解压后替换 .app）
+#
+# 没有 Apple 开发者证书：应用是 ad-hoc 签名（tauri.conf.json 里 bundle.macOS.signingIdentity = "-"），
+# 没有公证。用户第一次打开会提示「无法验证开发者」，需要右键 → 打开，或去「系统设置 › 隐私与安全性」点「仍要打开」。
+#
+# 构建所需的生产地址和 release.yml 一样来自仓库变量。
+
+on:
+  workflow_dispatch:
+  # workflow_dispatch 只认默认分支上的工作流文件；合并进 main 之前，推 mac-beta 分支来触发
+  push:
+    branches: [mac-beta]
+
+permissions:
+  contents: read
+
+env:
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  VITE_WS_URL: ${{ vars.VITE_WS_URL }}
+  VITE_MOBILE_UPDATE_URL: ${{ vars.VITE_MOBILE_UPDATE_URL }}
+  VITE_EXTENSION_ASSET_URL: ${{ vars.VITE_EXTENSION_ASSET_URL }}
+  VITE_BOT_API_DOCS_URL: ${{ vars.VITE_BOT_API_DOCS_URL }}
+
+jobs:
+  macos:
+    name: 构建 macOS 通用包
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 必填变量是否已配置
+        run: |
+          missing=""
+          [ -n "$VITE_API_BASE_URL" ] || missing="$missing VITE_API_BASE_URL"
+          [ -n "$VITE_WS_URL" ] || missing="$missing VITE_WS_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少仓库变量:$missing"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: universal-apple-darwin
+
+      - run: npm ci
+
+      - name: 打包（universal-apple-darwin）
+        run: npm run tauri:build -- --target universal-apple-darwin --bundles app,dmg
+
+      - name: 收集产物
+        id: collect
+        run: |
+          version=$(node -p "require('./package.json').version")
+          bundle=src-tauri/target/universal-apple-darwin/release/bundle
+          ls -la "$bundle/macos" "$bundle/dmg"
+          mkdir -p out
+          dmg=$(find "$bundle/dmg" -maxdepth 1 -name "*.dmg" | head -n 1)
+          app=$(find "$bundle/macos" -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$dmg" ] || [ -z "$app" ]; then
+            echo "::error::没有找到 dmg 或 .app"
+            exit 1
+          fi
+          cp "$dmg" "out/KukeChat-$version-macos-universal.dmg"
+          # COPYFILE_DISABLE：别把 ._ 开头的扩展属性文件打进压缩包
+          COPYFILE_DISABLE=1 tar -czf "out/KukeChat-$version-macos-universal.app.tar.gz" -C "$(dirname "$app")" "$(basename "$app")"
+          echo "--- 架构 ---"
+          lipo -info "$app/Contents/MacOS/"*
+          echo "--- 签名 ---"
+          codesign -dv "$app" 2>&1 || true
+          (cd out && shasum -a 256 * | tee SHA256SUMS.txt)
+          ls -la out
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kukechat-macos-${{ steps.collect.outputs.version }}
+          path: out/*
+          if-no-files-found: error

@@ -12,6 +12,7 @@ import { useShopPrefs } from '@/store/shopPrefs';
 import { useComposerPrefs, type PasteImageMode } from '@/store/composerPrefs';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { isTauriDesktopApp } from '@/utils/appMode';
+import { isMacPlatform } from '@/utils/platform';
 import { ReportReconsider } from './ReportReconsider';
 import { SoundCard } from './SoundCard';
 import { Card, Choice, Notice, Row, SettingsPage, Toggle, btn, formatChinaDateTime } from './settingsUi';
@@ -104,17 +105,19 @@ function LevelIconCard(): JSX.Element | null {
 
 function notificationDetail(permission: NotificationPermission | 'unsupported', desktop: boolean): string {
   if (permission === 'unsupported') return desktop ? '当前客户端不支持系统通知，请更新到最新版本。' : '当前浏览器不支持系统通知。';
-  if (permission === 'denied') return desktop ? '通知权限被 Windows 关闭了，请在系统设置 → 通知中允许 KukeChat。' : '通知权限被浏览器拒绝了，请在网站设置中允许。';
+  if (permission === 'denied') return desktop ? (isMacPlatform() ? '通知权限被 macOS 关闭了，请在「系统设置 › 通知」中允许 KukeChat。' : '通知权限被 Windows 关闭了，请在系统设置 → 通知中允许 KukeChat。') : '通知权限被浏览器拒绝了，请在网站设置中允许。';
   return '收到新消息时在屏幕角落弹出提醒。每个聊天自己的免打扰设置仍然生效。';
 }
 
 export function GeneralSection(): JSX.Element {
   const desktop = isTauriDesktopApp();
+  // macOS 测试版还没做开机自启和托盘，这两项先不显示
+  const mac = isMacPlatform();
   const queryClient = useQueryClient();
   const notifyMode = useKukeStore((state) => state.browserNotificationMode);
   const setNotifyMode = useKukeStore((state) => state.setBrowserNotificationMode);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() => (typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'));
-  const autostart = useQuery({ queryKey: ['desktop-autostart'], queryFn: getDesktopAutostartEnabled, enabled: desktop, retry: false });
+  const autostart = useQuery({ queryKey: ['desktop-autostart'], queryFn: getDesktopAutostartEnabled, enabled: desktop && !mac, retry: false });
   const setAutostart = useMutation({ mutationFn: setDesktopAutostartEnabled, onSuccess: (enabled) => queryClient.setQueryData(['desktop-autostart'], enabled) });
 
   async function toggleNotifications(on: boolean): Promise<void> {
@@ -130,7 +133,7 @@ export function GeneralSection(): JSX.Element {
   return (
     <SettingsPage title="通用" description="消息提醒、聊天输入和启动方式。">
       <Card title="消息提醒">
-        <Row icon="bell" title={desktop ? 'Windows 系统通知' : '系统通知'} description={notificationDetail(permission, desktop)}>
+        <Row icon="bell" title={desktop && !mac ? 'Windows 系统通知' : '系统通知'} description={notificationDetail(permission, desktop)}>
           <Toggle label="系统通知" checked={notifyMode === 'on'} onChange={(on) => void toggleNotifications(on)} />
         </Row>
       </Card>
@@ -139,7 +142,11 @@ export function GeneralSection(): JSX.Element {
       <Card title="隐私">
         <ShareTypingRow />
       </Card>
-      {desktop ? (
+      {desktop && mac ? (
+        <Card title="窗口">
+          <Row icon="close" title="关闭窗口时" description="点左上角的红色按钮只会隐藏窗口，点程序坞里的 KukeChat 图标重新打开；按 ⌘Q 退出。" />
+        </Card>
+      ) : desktop ? (
         <Card title="启动">
           <Row icon="monitor" title="开机自动启动" description={setAutostart.isError ? '保存失败，请重试。' : '登录 Windows 后自动打开 KukeChat。'}>
             <Toggle label="开机自动启动" checked={Boolean(autostart.data)} disabled={autostart.isLoading || setAutostart.isPending} onChange={(on) => setAutostart.mutate(on)} />

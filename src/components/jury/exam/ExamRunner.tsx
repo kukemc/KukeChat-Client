@@ -15,6 +15,7 @@ import { CaseEvidence } from '../widgets/Evidence';
 import { SectionFrame } from '../widgets/Frame';
 import { examNow, useExamNow } from './clock';
 import { draftToAnswers, readExamDraft, writeExamDraft, type ExamDraft } from './draft';
+import { modKeyLabel } from '@/utils/platform';
 
 /**
  * 到时间怎么办（docs/jury-v2.md 2.3）：没答完也可以交，没作答的题按答错算；过了 expires_at 还有一小段宽限。
@@ -231,15 +232,15 @@ export function ExamRunner({ attempt, graceSeconds, onSubmitted, onClosed, onLea
                   <p>确认交卷？<span>{missing > 0 ? `还有 ${missing} 题没作答，没作答的题按答错算。` : `${total} 题都已作答。`}交卷后不能修改。</span></p>
                   <div className="kjr-btn-row">
                     <button type="button" className="kui-btn" disabled={pending} onClick={() => setArmed(false)}>继续作答<kbd className="kjr-key">Esc</kbd></button>
-                    <button type="button" className="kui-btn kui-btn--primary" data-action="exam-confirm" disabled={pending} onClick={() => mutate()}>{pending ? '交卷中…' : '确认交卷'}{pending ? null : <kbd className="kjr-key">Ctrl ↵</kbd>}</button>
+                    <button type="button" className="kui-btn kui-btn--primary" data-action="exam-confirm" disabled={pending} onClick={() => mutate()}>{pending ? '交卷中…' : '确认交卷'}{pending ? null : <kbd className="kjr-key">{modKeyLabel()} ↵</kbd>}</button>
                   </div>
                 </div>
               ) : (
                 <button type="button" className="kui-btn kui-btn--primary kui-btn--block" data-action="exam-submit" disabled={pending || answeredCount === 0} onClick={() => setArmed(true)}>
-                  {answeredCount === 0 ? '还没有作答' : missing > 0 ? `交卷（已答 ${answeredCount} / ${total}）` : '交卷'}{answeredCount > 0 ? <kbd className="kjr-key">Ctrl ↵</kbd> : null}
+                  {answeredCount === 0 ? '还没有作答' : missing > 0 ? `交卷（已答 ${answeredCount} / ${total}）` : '交卷'}{answeredCount > 0 ? <kbd className="kjr-key">{modKeyLabel()} ↵</kbd> : null}
                 </button>
               )}
-              <p className="kjr-vote-keys"><kbd className="kjr-key">1</kbd>–<kbd className="kjr-key">{options.length}</kbd> 选择<i /><kbd className="kjr-key">←</kbd><kbd className="kjr-key">→</kbd> 换题<i />两次 <kbd className="kjr-key">Ctrl ↵</kbd> 交卷</p>
+              <p className="kjr-vote-keys"><kbd className="kjr-key">1</kbd>–<kbd className="kjr-key">{options.length}</kbd> 选择<i /><kbd className="kjr-key">←</kbd><kbd className="kjr-key">→</kbd> 换题<i />两次 <kbd className="kjr-key">{modKeyLabel()} ↵</kbd> 交卷</p>
             </footer>
           </aside>
         </div>

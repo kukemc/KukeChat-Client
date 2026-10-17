@@ -8,6 +8,7 @@ import { useTaskDetail, type TaskDetailState } from '../taskFormHooks';
 import { remindOffsetOf } from '../taskPanelModel';
 import { CheckMark, DueText, PriorityTag, Progress, cx } from './parts';
 import { DuePicker, GroupPicker, MemberPicker, PriorityPicker } from './pickers';
+import { modKeyCombo } from '@/utils/platform';
 
 interface TaskDetailDesktopProps {
   taskId: number;
@@ -179,7 +180,7 @@ export function TaskDetailDesktop({ taskId, onClose, onOpenTask, onCreateSubtask
           className="kui-textarea"
           rows={1}
           value={detail.commentDraft}
-          placeholder="写评论，Ctrl+Enter 发送"
+          placeholder={`写评论，${modKeyCombo('Enter')} 发送`}
           aria-label="评论"
           onChange={(event) => detail.setCommentDraft(event.target.value)}
           onKeyDown={(event) => {

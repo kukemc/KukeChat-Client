@@ -4,7 +4,6 @@ mod updater;
 use std::{
     fs,
     path::PathBuf,
-    process::Command,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -13,12 +12,7 @@ use std::{
     time::Duration,
 };
 
-use tauri::{
-    image::Image,
-    menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, PhysicalSize, WindowEvent,
-};
+use tauri::{image::Image, AppHandle, Emitter, Manager, PhysicalSize, WindowEvent};
 
 const MAIN_TRAY_ID: &str = "main";
 const TRAY_BLINK_EVENT: &str = "kukechat-tray-blink";
@@ -38,43 +32,7 @@ pub fn run() {
         .setup(|app| {
             let version = app.package_info().version.to_string();
             thread::spawn(move || updater::cleanup_old_installers(&version));
-            let show_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
-            let hide_item = MenuItem::with_id(app, "hide", "隐藏到托盘", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let tray_menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])?;
-
-            let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
-                .menu(&tray_menu)
-                .show_menu_on_left_click(false)
-                .tooltip("KukeChat")
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "show" => show_main_window(app),
-                    "hide" => hide_main_window(app),
-                    "quit" => app.exit(0),
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        show_main_window(&tray.app_handle());
-                    }
-                });
-
-            if let Some(icon) = app.default_window_icon().cloned() {
-                let icon = icon.to_owned();
-                app.manage(TrayBlinkState {
-                    default_icon: icon.clone(),
-                    empty_icon: Image::new_owned(vec![0, 0, 0, 0], 1, 1),
-                    generation: Arc::new(AtomicU64::new(0)),
-                });
-                tray_builder = tray_builder.icon(icon);
-            }
-
-            tray_builder.build(app)?;
+            setup_tray(app)?;
             restore_main_window_size(app.handle());
             Ok(())
         })
@@ -98,10 +56,74 @@ pub fn run() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![open_external_url, flash_tray_for_message, updater::desktop_update_check, updater::desktop_update_download, updater::desktop_update_cancel, updater::desktop_update_install, downloads::desktop_download_file, downloads::desktop_reveal_download, get_desktop_autostart_enabled, set_desktop_autostart_enabled])
-        .run(tauri::generate_context!())
-        .expect("error while running KukeChat desktop app");
+        .build(tauri::generate_context!())
+        .expect("error while building KukeChat desktop app")
+        .run(|app, event| {
+            // macOS：点红叉只是隐藏窗口（见上面的 CloseRequested），点程序坞图标时把它重新显示出来
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                show_main_window(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }
 
+/// Windows / Linux：系统托盘（左键显示主窗口，右键菜单），新消息时图标闪烁。
+#[cfg(not(target_os = "macos"))]
+fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
+    use tauri::{
+        menu::{Menu, MenuItem},
+        tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    };
+    let show_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
+    let hide_item = MenuItem::with_id(app, "hide", "隐藏到托盘", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let tray_menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])?;
+
+    let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
+        .menu(&tray_menu)
+        .show_menu_on_left_click(false)
+        .tooltip("KukeChat")
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "show" => show_main_window(app),
+            "hide" => hide_main_window(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main_window(&tray.app_handle());
+            }
+        });
+
+    if let Some(icon) = app.default_window_icon().cloned() {
+        let icon = icon.to_owned();
+        app.manage(TrayBlinkState {
+            default_icon: icon.clone(),
+            empty_icon: Image::new_owned(vec![0, 0, 0, 0], 1, 1),
+            generation: Arc::new(AtomicU64::new(0)),
+        });
+        tray_builder = tray_builder.icon(icon);
+    }
+
+    tray_builder.build(app)?;
+    Ok(())
+}
+
+/// macOS 测试版先不放菜单栏图标（彩色图标放在菜单栏里不合规范，要单独做模板图）：
+/// 窗口隐藏后点程序坞图标重新打开，新消息时程序坞图标跳一下（见 flash_tray_for_message）。
+#[cfg(target_os = "macos")]
+fn setup_tray(_app: &mut tauri::App) -> tauri::Result<()> {
+    Ok(())
+}
+
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 struct TrayBlinkState {
     default_icon: Image<'static>,
     empty_icon: Image<'static>,
@@ -117,6 +139,7 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 fn hide_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
@@ -189,6 +212,20 @@ fn flash_tray_for_message(app: AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
+    #[cfg(target_os = "macos")]
+    {
+        // 没有托盘图标：让程序坞图标跳一下，窗口获得焦点时系统自己停
+        let _ = window.request_user_attention(Some(tauri::UserAttentionType::Informational));
+        let _ = app.emit(TRAY_BLINK_EVENT, true);
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    start_tray_blink(app)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn start_tray_blink(app: AppHandle) -> Result<(), String> {
     let Some(state) = app.try_state::<TrayBlinkState>() else {
         return Ok(());
     };
@@ -286,7 +323,7 @@ fn set_desktop_autostart_enabled(enabled: bool) -> Result<bool, String> {
 
 #[cfg(target_os = "windows")]
 fn get_desktop_autostart_enabled_platform() -> Result<bool, String> {
-    let output = Command::new("reg")
+    let output = std::process::Command::new("reg")
         .args(["query", windows_run_key(), "/v", windows_autostart_value_name()])
         .output()
         .map_err(|error| format!("读取自启动设置失败：{error}"))?;
@@ -304,7 +341,7 @@ fn set_desktop_autostart_enabled_platform(enabled: bool) -> Result<bool, String>
     if enabled {
         let exe_path = current_exe_path_string()?;
         let quoted_path = format!("\"{exe_path}\"");
-        let status = Command::new("reg")
+        let status = std::process::Command::new("reg")
             .args(["add", windows_run_key(), "/v", windows_autostart_value_name(), "/t", "REG_SZ", "/d", &quoted_path, "/f"])
             .status()
             .map_err(|error| format!("开启自启动失败：{error}"))?;
@@ -314,7 +351,7 @@ fn set_desktop_autostart_enabled_platform(enabled: bool) -> Result<bool, String>
         return Ok(true);
     }
 
-    let status = Command::new("reg")
+    let status = std::process::Command::new("reg")
         .args(["delete", windows_run_key(), "/v", windows_autostart_value_name(), "/f"])
         .status()
         .map_err(|error| format!("关闭自启动失败：{error}"))?;
@@ -350,5 +387,6 @@ fn get_desktop_autostart_enabled_platform() -> Result<bool, String> {
 
 #[cfg(not(target_os = "windows"))]
 fn set_desktop_autostart_enabled_platform(_enabled: bool) -> Result<bool, String> {
-    Err("当前自启动设置仅支持 Windows 桌面端".to_string())
+    // macOS 测试版还没做开机自启（设置页里也不显示这一项）；这里不报错，免得旧界面调用时弹出失败
+    Ok(false)
 }

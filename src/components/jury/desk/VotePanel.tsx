@@ -9,6 +9,7 @@ import { slotResetText } from '../growth/labels';
 import { KIND_LABEL } from '../labels';
 import { isMachineCase, MachineOriginBlock } from '../senior/caseOrigin';
 import { useRestoreFocus } from '../widgets/focus';
+import { modKeyLabel } from '@/utils/platform';
 
 /** 这一版界面认识的选项种类。配置里出现别的种类时先不显示，等对应的界面做出来。 */
 const KNOWN_KINDS = ['clean', 'violation', 'abstain', 'recuse'];
@@ -248,15 +249,15 @@ export const VotePanel = forwardRef<VotePanelHandle, VotePanelProps>(function Vo
               : <p>确认提交「<b>{selected.label}</b>」？<span>{pickingCategory && category ? `类别：${categories.find((item) => item.key === category)?.label ?? category}。` : ''}提交后不能修改，并且会真实生效。</span></p>}
             <div className="kjr-btn-row">
               <button type="button" className="kui-btn" disabled={pending} onClick={() => setArmed(false)}>返回修改<kbd className="kjr-key">Esc</kbd></button>
-              <button type="button" className="kui-btn kui-btn--primary" data-action="confirm-vote" disabled={pending} onClick={submit}>{pending ? '提交中…' : recusing ? '确认回避' : '确认提交'}{pending ? null : <kbd className="kjr-key">Ctrl ↵</kbd>}</button>
+              <button type="button" className="kui-btn kui-btn--primary" data-action="confirm-vote" disabled={pending} onClick={submit}>{pending ? '提交中…' : recusing ? '确认回避' : '确认提交'}{pending ? null : <kbd className="kjr-key">{modKeyLabel()} ↵</kbd>}</button>
             </div>
           </div>
         ) : (
           <button type="button" className="kui-btn kui-btn--primary kui-btn--block" data-action="submit-vote" disabled={!selected || pending} onClick={() => setArmed(true)}>
-            {selected ? (recusing ? '回避这个案件' : `提交：${selected.label}`) : '请先选择一个选项'}{selected ? <kbd className="kjr-key">Ctrl ↵</kbd> : null}
+            {selected ? (recusing ? '回避这个案件' : `提交：${selected.label}`) : '请先选择一个选项'}{selected ? <kbd className="kjr-key">{modKeyLabel()} ↵</kbd> : null}
           </button>
         )}
-        <p className="kjr-vote-keys"><kbd className="kjr-key">1</kbd>–<kbd className="kjr-key">{options.length}</kbd> 选择{categories.length > 0 ? <><i /><kbd className="kjr-key">C</kbd> 换类别</> : null}<i />两次 <kbd className="kjr-key">Ctrl ↵</kbd> 提交<i /><kbd className="kjr-key">Esc</kbd> 取消</p>
+        <p className="kjr-vote-keys"><kbd className="kjr-key">1</kbd>–<kbd className="kjr-key">{options.length}</kbd> 选择{categories.length > 0 ? <><i /><kbd className="kjr-key">C</kbd> 换类别</> : null}<i />两次 <kbd className="kjr-key">{modKeyLabel()} ↵</kbd> 提交<i /><kbd className="kjr-key">Esc</kbd> 取消</p>
       </footer>
     </aside>
   );

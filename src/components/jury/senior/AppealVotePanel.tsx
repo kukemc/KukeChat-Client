@@ -9,6 +9,7 @@ import { LEVEL_NAME } from '../labels';
 import { hasRestriction } from './labels';
 import { SeatDots } from './OriginReview';
 import type { VoteKeyTarget } from './useVoteKeys';
+import { modKeyLabel } from '@/utils/platform';
 
 interface ReviewOption {
   value: AppealVote;
@@ -165,15 +166,15 @@ export const AppealVotePanel = forwardRef<VoteKeyTarget, AppealVotePanelProps>(f
             <p>确认提交「<b>{selected.label}</b>」？<span>{overturning && level ? `等级：L${level} ${LEVEL_NAME[level] ?? ''}。` : ''}提交后不能修改，结果会真实生效并通知{review.type === 'reconsider' ? '举报人' : '申诉人'}。</span></p>
             <div className="kjr-btn-row">
               <button type="button" className="kui-btn" disabled={pending} onClick={() => setArmed(false)}>返回修改<kbd className="kjr-key">Esc</kbd></button>
-              <button type="button" className="kui-btn kui-btn--primary" data-action="confirm-vote" disabled={pending} onClick={submit}>{pending ? '提交中…' : '确认提交'}{pending ? null : <kbd className="kjr-key">Ctrl ↵</kbd>}</button>
+              <button type="button" className="kui-btn kui-btn--primary" data-action="confirm-vote" disabled={pending} onClick={submit}>{pending ? '提交中…' : '确认提交'}{pending ? null : <kbd className="kjr-key">{modKeyLabel()} ↵</kbd>}</button>
             </div>
           </div>
         ) : (
           <button type="button" className="kui-btn kui-btn--primary kui-btn--block" data-action="submit-vote" disabled={!ready || pending} onClick={() => setArmed(true)}>
-            {!selected ? '请先选择一项' : !ready ? '请选择改判的等级' : `提交：${selected.label}`}{ready ? <kbd className="kjr-key">Ctrl ↵</kbd> : null}
+            {!selected ? '请先选择一项' : !ready ? '请选择改判的等级' : `提交：${selected.label}`}{ready ? <kbd className="kjr-key">{modKeyLabel()} ↵</kbd> : null}
           </button>
         )}
-        <p className="kjr-vote-keys"><kbd className="kjr-key">1</kbd>–<kbd className="kjr-key">{options.length}</kbd> 选择<i />两次 <kbd className="kjr-key">Ctrl ↵</kbd> 提交<i /><kbd className="kjr-key">Esc</kbd> 取消</p>
+        <p className="kjr-vote-keys"><kbd className="kjr-key">1</kbd>–<kbd className="kjr-key">{options.length}</kbd> 选择<i />两次 <kbd className="kjr-key">{modKeyLabel()} ↵</kbd> 提交<i /><kbd className="kjr-key">Esc</kbd> 取消</p>
       </footer>
     </aside>
   );

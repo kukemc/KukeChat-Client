@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { fetchLatestRelease } from '@/api/releases';
 import { API_BASE_URL } from '@/config';
 import type { ReleaseChannel } from '@/types/release';
+import { toast } from '@/components/ui/toast';
 import { isTauriDesktopApp } from '@/utils/appMode';
+import { isMacPlatform } from '@/utils/platform';
 import packageJson from '../../package.json';
 
 /**
@@ -32,6 +34,8 @@ interface DesktopUpdateState {
   currentVersion: string;
   latestVersion: string | null;
   installerUrl: string | null;
+  /** 发版服务给的文件名，Rust 靠它（没有就看地址）分辨 exe / dmg / .app.tar.gz */
+  installerFileName: string | null;
   /** 以下几项只有发版服务给得出；走旧的元数据时为空 */
   changelog: string | null;
   publishedAt: string | null;
@@ -105,6 +109,7 @@ export const useDesktopUpdate = create<DesktopUpdateState>(() => ({
   currentVersion: packageJson.version,
   latestVersion: null,
   installerUrl: null,
+  installerFileName: null,
   changelog: null,
   publishedAt: null,
   installerSize: null,
@@ -137,16 +142,22 @@ export function isDesktopUpdateSupported(): boolean {
 
 type CheckFields = Pick<
   DesktopUpdateState,
-  'currentVersion' | 'latestVersion' | 'installerUrl' | 'message' | 'changelog' | 'publishedAt' | 'installerSize' | 'installerSha256' | 'forced'
+  'currentVersion' | 'latestVersion' | 'installerUrl' | 'installerFileName' | 'message' | 'changelog' | 'publishedAt' | 'installerSize' | 'installerSha256' | 'forced'
 >;
 type CheckResult = CheckFields & { available: boolean };
+
+/**
+ * 向发版服务报的平台和架构。macOS 是通用包（Apple Silicon + Intel 一个包）：更新器要的是 arch=universal 的
+ * `.app.tar.gz`，网页下载用的 dmg 不填 arch（见 KukeChat-Server/docs/releases.md 的 artifact 挑选规则）。
+ */
+const RELEASE_TARGET = isMacPlatform() ? { platform: 'macos', arch: 'universal' } as const : { platform: 'windows', arch: 'x64' } as const;
 
 /** 发版服务。返回 null 表示「这台服务器没有发版服务的数据」，交给旧的元数据检查。 */
 async function checkReleaseService(): Promise<CheckResult | null> {
   const current = packageJson.version;
   let result;
   try {
-    result = await fetchLatestRelease({ platform: 'windows', channel: get().channel, current, arch: 'x64' });
+    result = await fetchLatestRelease({ ...RELEASE_TARGET, channel: get().channel, current });
   } catch {
     // 旧后端没有这个接口（404）、网络或证明头问题：都退回旧路径，旧路径也失败才报错
     return null;
@@ -159,6 +170,7 @@ async function checkReleaseService(): Promise<CheckResult | null> {
     currentVersion: current,
     latestVersion: latest.version,
     installerUrl: artifact?.url ?? null,
+    installerFileName: artifact?.fileName ?? null,
     installerSize: artifact?.size ?? null,
     installerSha256: artifact?.sha256 ?? null,
     changelog: latest.changelog.trim() || null,
@@ -170,11 +182,19 @@ async function checkReleaseService(): Promise<CheckResult | null> {
 }
 
 async function checkLegacyMetadata(): Promise<CheckResult> {
+  // 旧的 /desktop-update.json 只有 Windows 安装包，macOS 不能走这条路
+  if (isMacPlatform()) {
+    return {
+      currentVersion: packageJson.version, latestVersion: null, installerUrl: null, installerFileName: null, installerSize: null, installerSha256: null,
+      changelog: null, publishedAt: null, forced: false, available: false, message: '服务器暂未发布 Mac 版本'
+    };
+  }
   const result = await invoke<UpdateCheck>('desktop_update_check', { metadataUrl: DESKTOP_UPDATE_METADATA_URL });
   return {
     currentVersion: result.current_version,
     latestVersion: result.latest_version,
     installerUrl: result.installer_url,
+    installerFileName: null,
     installerSize: null,
     installerSha256: null,
     changelog: null,
@@ -209,7 +229,7 @@ export async function checkForDesktopUpdate({ manual = false } = {}): Promise<vo
 }
 
 export async function downloadDesktopUpdate(): Promise<void> {
-  const { installerUrl, latestVersion, phase, installerSha256, installerSize } = get();
+  const { installerUrl, installerFileName, latestVersion, phase, installerSha256, installerSize } = get();
   if (!installerUrl || !latestVersion || phase === 'downloading') return;
   set({ phase: 'downloading', downloaded: 0, total: installerSize, error: null });
   const { listen } = await import('@tauri-apps/api/event');
@@ -219,7 +239,7 @@ export async function downloadDesktopUpdate(): Promise<void> {
   try {
     // sha256 / expectedSize 由 Rust 在落盘前校验，不一致时报「安装包校验失败，请重新下载」
     const path = await invoke<string>('desktop_update_download', {
-      url: installerUrl, version: latestVersion, sha256: installerSha256, expectedSize: installerSize
+      url: installerUrl, version: latestVersion, sha256: installerSha256, expectedSize: installerSize, fileName: installerFileName
     });
     set({ phase: 'ready', installerPath: path, dialogOpen: true });
   } catch (error) {
@@ -242,7 +262,13 @@ export async function installDesktopUpdate(): Promise<void> {
     if (latestVersion) window.localStorage.setItem(PENDING_KEY, latestVersion);
   } catch { /* the "updated" notice is optional */ }
   try {
-    await invoke('desktop_update_install', { path: installerPath });
+    // Rust 返回 "manual"：macOS 上没法自动替换（比如没装进「应用程序」、没有写权限），已经在 Finder 里打开了新版本
+    const mode = await invoke<string | null>('desktop_update_install', { path: installerPath });
+    if (mode === 'manual') {
+      try { window.localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+      set({ phase: 'ready', dialogOpen: false });
+      toast.info('已在访达中打开新版本：把 KukeChat 拖进「应用程序」替换旧版本，然后重新打开。', { id: 'desktop.update-manual', duration: 12000 });
+    }
   } catch (error) {
     set({ phase: 'error', error: errorText(error), installerPath: null });
   }

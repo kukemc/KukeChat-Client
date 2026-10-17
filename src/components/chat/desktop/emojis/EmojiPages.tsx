@@ -8,6 +8,7 @@ import { EMOJI_SECTIONS, SEARCH_SUGGESTIONS, emojiEntry, searchEmojis, type Emoj
 import type { RecentEmojis, StickerItem } from './emojiPrefs';
 import { FAVORITE_IMAGE_TYPES, type PendingFavorite } from './useFavoriteStickers';
 import { useGroupEmojis } from './useGroupEmojis';
+import { modKeyCombo } from '@/utils/platform';
 
 /** 表情面板的各个分类页。它们只管展示；选中、右键之后做什么由面板决定。 */
 
@@ -146,7 +147,7 @@ export const FavoritesPage = memo(function FavoritesPage({ query, pending, disab
         </button>
         {pending.map((item) => <span key={item.id} className="kce-sticker is-pending" title="正在添加…"><img src={item.previewUrl} alt="" /></span>)}
         {stickers.map((sticker) => <StickerButton key={sticker.asset_id} item={favoriteItem(sticker)} source="favorites" disabled={disabled} onSend={onSend} onMenu={onMenu} />)}
-        {empty ? <p className="kce-hint">点「＋」从电脑里选图片，也可以把图片拖进来，或者在这一页按 Ctrl+V 粘贴。<br />在聊天里的图片上右键「添加到表情」，同样会收进这里。</p> : null}
+        {empty ? <p className="kce-hint">点「＋」从电脑里选图片，也可以把图片拖进来，或者在这一页按 {modKeyCombo('V')} 粘贴。<br />在聊天里的图片上右键「添加到表情」，同样会收进这里。</p> : null}
       </div>
     </section>
   );

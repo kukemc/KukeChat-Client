@@ -16,6 +16,7 @@ import { useRealtime } from '@/realtime/client';
 import { useKukeStore } from '@/store/kukeStore';
 import { installDesktopExternalLinkHandler } from '@/utils/desktopExternalLinks';
 import { useResolvedThemeMode } from '@/utils/theme';
+import { isMacPlatform } from '@/utils/platform';
 import '@/styles/tailwind.css';
 import { ThemeEffects } from '@/theme/ThemeEffects';
 import { useThemeRootProps } from '@/theme/useTheme';
@@ -59,6 +60,10 @@ function DesktopAutoUpdater(): JSX.Element {
   useEffect(() => startDesktopUpdateSchedule(), []);
   return <><DesktopUpdateDialog /><DesktopJustUpdatedNotice /></>;
 }
+
+// macOS 用系统红绿灯（tauri.macos.conf.json 里 titleBarStyle: Overlay），左边给它们留位置，自绘的三个按钮不显示
+const IS_MAC = isMacPlatform();
+const MAC_TITLEBAR_STYLE: React.CSSProperties = { paddingLeft: 84, paddingRight: 12 };
 
 function DesktopTitleBar(): JSX.Element {
   const appWindow = getCurrentWindow();
@@ -162,7 +167,7 @@ function DesktopTitleBar(): JSX.Element {
 
   return (
     <>
-    <header onPointerDown={startWindowDrag} className={currentUser ? 'kwf-titlebar' : 'kwf-titlebar kwf-titlebar--bare'}>
+    <header onPointerDown={startWindowDrag} className={currentUser ? 'kwf-titlebar' : 'kwf-titlebar kwf-titlebar--bare'} style={IS_MAC ? MAC_TITLEBAR_STYLE : undefined}>
       <div className="kwf-identity">
         {currentUser ? <SelfCardTrigger user={currentUser} label={title} /> : null}
         {currentUser ? <span className="kwf-bio">{bio}</span> : null}
@@ -175,6 +180,7 @@ function DesktopTitleBar(): JSX.Element {
       </div>
       <div className="kwf-controls">
         <DesktopUpdatePill />
+        {IS_MAC ? null : <>
         <button type="button" onClick={() => void appWindow.minimize()} className="kwf-control" aria-label="最小化窗口" title="最小化">
           <Icon name="minus" className="h-4 w-4" />
         </button>
@@ -184,6 +190,7 @@ function DesktopTitleBar(): JSX.Element {
         <button type="button" onClick={() => void appWindow.close()} className="kwf-control kwf-control--close" aria-label="隐藏到托盘" title="隐藏到托盘">
           <Icon name="close" className="h-4 w-4" />
         </button>
+        </>}
       </div>
     </header>
     {onlineUsersPopover}

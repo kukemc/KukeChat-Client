@@ -10,6 +10,7 @@ import {
   setDesktopUpdateDialogOpen, skipDesktopUpdateVersion, useDesktopUpdate
 } from '@/native/desktopUpdate';
 import { openExternalUrl } from '@/utils/openExternalUrl';
+import { isMacPlatform } from '@/utils/platform';
 
 export { formatBytes };
 
@@ -67,7 +68,7 @@ export function DesktopUpdateDialog(): JSX.Element | null {
     body = <>
       {forcedNote}
       {changelog ?? <p className="kup-text">新版本已经可以下载。</p>}
-      <p className="kup-text">安装时 KukeChat 会短暂关闭，装好后自动重新打开。Windows 可能会弹出一次管理员权限确认。</p>
+      <p className="kup-text">{isMacPlatform() ? '安装时 KukeChat 会短暂关闭，替换好后自动重新打开。' : '安装时 KukeChat 会短暂关闭，装好后自动重新打开。Windows 可能会弹出一次管理员权限确认。'}</p>
     </>;
     actions = <>
       {forced ? null : <button type="button" className="kup-link kup-foot-start" onClick={skipDesktopUpdateVersion}>跳过此版本</button>}

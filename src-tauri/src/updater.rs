@@ -142,18 +142,96 @@ fn update_dir() -> PathBuf {
     std::env::temp_dir().join(UPDATE_DIR)
 }
 
-fn installer_path(version: &str) -> PathBuf {
-    let safe: String = version.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_') { c } else { '_' }).collect();
-    update_dir().join(format!("KukeChat-{safe}-setup.exe"))
+/// 安装包的种类。Windows 只有 NSIS 安装程序；macOS 有两种：更新器优先用 `.app.tar.gz`（能自动替换），
+/// 发版服务只给了 dmg 时也能下载，下载完打开让用户自己拖进「应用程序」。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum PackageKind {
+    WindowsSetup,
+    MacAppArchive,
+    MacDmg,
 }
 
-fn looks_like_installer(path: &Path) -> bool {
+impl PackageKind {
+    /// 按发版服务给的文件名（没有就看地址）判断；判断不出来时按当前平台的默认格式
+    fn detect(file_name: Option<&str>, url: &str) -> Result<Self, String> {
+        let url_path = url.split(['?', '#']).next().unwrap_or(url);
+        let name = file_name.map(str::trim).filter(|name| !name.is_empty()).unwrap_or(url_path).to_ascii_lowercase();
+        let kind = if name.ends_with(".dmg") {
+            Self::MacDmg
+        } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+            Self::MacAppArchive
+        } else if name.ends_with(".exe") {
+            Self::WindowsSetup
+        } else if cfg!(target_os = "macos") {
+            Self::MacAppArchive
+        } else {
+            Self::WindowsSetup
+        };
+        let supported = if cfg!(target_os = "macos") { kind != Self::WindowsSetup } else { kind == Self::WindowsSetup };
+        supported.then_some(kind).ok_or_else(|| "这个安装包不适用于当前系统".to_string())
+    }
+
+    /// 文件名里版本号后面那段（不含扩展名），也用来认出旧的残留文件
+    fn tag(self) -> &'static str {
+        match self {
+            Self::WindowsSetup => "setup",
+            Self::MacAppArchive => "macos-app",
+            Self::MacDmg => "macos-dmg",
+        }
+    }
+
+    fn extension(self) -> &'static str {
+        match self {
+            Self::WindowsSetup => ".exe",
+            Self::MacAppArchive => ".tar.gz",
+            Self::MacDmg => ".dmg",
+        }
+    }
+
+    fn from_path(path: &Path) -> Option<Self> {
+        let name = path.file_name()?.to_str()?;
+        [Self::WindowsSetup, Self::MacAppArchive, Self::MacDmg]
+            .into_iter()
+            .find(|kind| name.ends_with(&format!("-{}{}", kind.tag(), kind.extension())))
+    }
+}
+
+fn safe_version(version: &str) -> String {
+    version.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_') { c } else { '_' }).collect()
+}
+
+/// Windows 仍是 `KukeChat-<v>-setup.exe`（和旧版本一致，旧版本留下的文件照样能清理）
+fn installer_path(version: &str, kind: PackageKind) -> PathBuf {
+    update_dir().join(format!("KukeChat-{}-{}{}", safe_version(version), kind.tag(), kind.extension()))
+}
+
+/// 下载中的临时文件：`KukeChat-<v>-<tag>.download`，下载完整、校验通过才改名成正式文件
+fn partial_path(version: &str, kind: PackageKind) -> PathBuf {
+    update_dir().join(format!("KukeChat-{}-{}.download", safe_version(version), kind.tag()))
+}
+
+fn looks_like_installer(path: &Path, kind: PackageKind) -> bool {
     let Ok(meta) = fs::metadata(path) else { return false };
-    if meta.len() < MIN_INSTALLER_BYTES {
+    if !meta.is_file() || meta.len() < MIN_INSTALLER_BYTES {
         return false;
     }
-    let mut magic = [0u8; 2];
-    fs::File::open(path).and_then(|mut file| file.read_exact(&mut magic)).is_ok() && &magic == b"MZ"
+    let Ok(mut file) = fs::File::open(path) else { return false };
+    match kind {
+        PackageKind::WindowsSetup => {
+            let mut magic = [0u8; 2];
+            file.read_exact(&mut magic).is_ok() && &magic == b"MZ"
+        }
+        PackageKind::MacAppArchive => {
+            let mut magic = [0u8; 2];
+            file.read_exact(&mut magic).is_ok() && magic == [0x1f, 0x8b]
+        }
+        PackageKind::MacDmg => {
+            // UDIF 镜像的最后 512 字节是 koly 尾块
+            use std::io::{Seek, SeekFrom};
+            let mut magic = [0u8; 4];
+            file.seek(SeekFrom::End(-512)).is_ok() && file.read_exact(&mut magic).is_ok() && &magic == b"koly"
+        }
+    }
 }
 
 /// Downloads the installer and returns its local path. Emits `kukechat-update-progress` about 10×/s.
@@ -164,8 +242,10 @@ pub async fn desktop_update_download(
     version: String,
     sha256: Option<String>,
     expected_size: Option<u64>,
+    file_name: Option<String>,
 ) -> Result<String, String> {
     let url = http_url(&url).ok_or("安装包地址无效")?.to_string();
+    let kind = PackageKind::detect(file_name.as_deref(), &url)?;
     // 发版服务给的 sha256（64 位十六进制）；格式不对就当没给，不能因为它挡住更新
     let sha256 = sha256
         .map(|value| value.trim().to_ascii_lowercase())
@@ -176,7 +256,7 @@ pub async fn desktop_update_download(
     }
     state.cancel.store(false, Ordering::SeqCst);
     let (cancel, downloading) = (state.cancel.clone(), state.downloading.clone());
-    let result = tauri::async_runtime::spawn_blocking(move || download_blocking(&app, &url, &version, sha256.as_deref(), expected_size, &cancel))
+    let result = tauri::async_runtime::spawn_blocking(move || download_blocking(&app, &url, &version, kind, sha256.as_deref(), expected_size, &cancel))
         .await
         .map_err(|error| format!("下载任务失败：{error}"))
         .and_then(|inner| inner);
@@ -206,12 +286,13 @@ fn download_blocking(
     app: &AppHandle,
     url: &str,
     version: &str,
+    kind: PackageKind,
     sha256: Option<&str>,
     expected_size: Option<u64>,
     cancel: &AtomicBool,
 ) -> Result<PathBuf, String> {
-    let target = installer_path(version);
-    if looks_like_installer(&target) {
+    let target = installer_path(version, kind);
+    if looks_like_installer(&target, kind) {
         // Finished earlier (e.g. user chose "later"); files are only renamed into place once complete.
         // With a known checksum, re-verify: a stale or tampered file must not be installed.
         match sha256 {
@@ -222,7 +303,7 @@ fn download_blocking(
         }
     }
     fs::create_dir_all(update_dir()).map_err(|error| format!("无法创建更新目录：{error}"))?;
-    let partial = target.with_extension("download");
+    let partial = partial_path(version, kind);
     let _ = fs::remove_file(&partial);
 
     let response = agent().get(url).call().map_err(|error| format!("下载失败：{error}"))?;
@@ -271,7 +352,7 @@ fn download_blocking(
             return fail("安装包校验失败，请重新下载".to_string());
         }
     }
-    if !looks_like_installer(&partial) {
+    if !looks_like_installer(&partial, kind) {
         return fail("下载到的文件不是有效的安装包".to_string());
     }
     let _ = fs::remove_file(&target);
@@ -284,19 +365,26 @@ pub fn desktop_update_cancel(app: AppHandle) {
     app.state::<UpdateState>().cancel.store(true, Ordering::SeqCst);
 }
 
-/// Quits and runs the installer in passive update mode; it closes nothing else and relaunches KukeChat.
+/// Windows：退出并以静默更新模式运行安装程序，安装程序装完会重新打开 KukeChat。返回 "restarting"。
+/// macOS：见 `install_macos`；能自动替换时同样返回 "restarting"，否则在访达里打开新版本、返回 "manual"（不退出）。
 #[tauri::command]
-pub fn desktop_update_install(app: AppHandle, path: String) -> Result<(), String> {
+pub fn desktop_update_install(app: AppHandle, path: String) -> Result<String, String> {
     let path = PathBuf::from(path);
     // Only ever execute files this module downloaded.
     let dir = fs::canonicalize(update_dir()).map_err(|_| "安装包不存在，请重新下载".to_string())?;
     let file = fs::canonicalize(&path).map_err(|_| "安装包不存在，请重新下载".to_string())?;
-    if file.parent() != Some(dir.as_path()) || !looks_like_installer(&file) {
+    let kind = PackageKind::from_path(&file).ok_or("安装包无效，请重新下载")?;
+    if file.parent() != Some(dir.as_path()) || !looks_like_installer(&file, kind) {
         return Err("安装包无效，请重新下载".to_string());
     }
-    launch_after_exit(&file, std::process::id())?;
-    app.exit(0);
-    Ok(())
+    match kind {
+        PackageKind::WindowsSetup => {
+            launch_after_exit(&file, std::process::id())?;
+            app.exit(0);
+            Ok("restarting".to_string())
+        }
+        PackageKind::MacAppArchive | PackageKind::MacDmg => install_macos(&app, &file, kind),
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -318,7 +406,111 @@ fn launch_after_exit(installer: &Path, pid: u32) -> Result<(), String> {
 
 #[cfg(not(target_os = "windows"))]
 fn launch_after_exit(_installer: &Path, _pid: u32) -> Result<(), String> {
-    Err("自动安装目前只支持 Windows".to_string())
+    Err("这个安装包只能在 Windows 上安装".to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn install_macos(_app: &AppHandle, _file: &Path, _kind: PackageKind) -> Result<String, String> {
+    Err("这个安装包只能在 macOS 上安装".to_string())
+}
+
+/// macOS 安装：
+/// - dmg：直接打开（挂载后访达会显示），让用户把 KukeChat 拖进「应用程序」替换。返回 "manual"。
+/// - .app.tar.gz：解压到更新目录。当前程序是从一个可写目录里正常运行的 `.app`（比如 /Applications）时，
+///   起一个独立的 sh 进程：等本进程退出 → 旧 `.app` 改名备份 → 复制新 `.app` 过去 → 失败就还原备份 →
+///   去掉隔离属性 → 重新打开。返回 "restarting" 并退出。
+///   条件不满足（直接从 dmg 里运行、被系统「App 转移」放在只读的随机路径、没有写权限）就在访达里选中解压出来的
+///   新 `.app`，返回 "manual"。
+///
+/// 隔离属性：更新器自己用 HTTP 下载的文件不会被系统打上 com.apple.quarantine（只有浏览器等声明了
+/// LSFileQuarantineEnabled 的程序才会），所以换上去的新版本不会再弹「无法验证开发者」；这里仍然顺手
+/// `xattr -dr` 一次，防止以后改成别的下载方式。
+#[cfg(target_os = "macos")]
+fn install_macos(app: &AppHandle, file: &Path, kind: PackageKind) -> Result<String, String> {
+    use std::os::unix::process::CommandExt;
+    use std::process::Stdio;
+
+    if kind == PackageKind::MacDmg {
+        Command::new("/usr/bin/open").arg(file).spawn().map_err(|error| format!("打开安装包失败：{error}"))?;
+        return Ok("manual".to_string());
+    }
+
+    // 解压到 KukeChat-<v>-macos-app/（压缩包名去掉 .tar.gz），每次重新解压
+    let name = file.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+    let extract_dir = file.with_file_name(name.trim_end_matches(".tar.gz"));
+    let _ = fs::remove_dir_all(&extract_dir);
+    fs::create_dir_all(&extract_dir).map_err(|error| format!("无法创建解压目录：{error}"))?;
+    let status = Command::new("/usr/bin/tar")
+        .arg("-xzf").arg(file).arg("-C").arg(&extract_dir)
+        .status()
+        .map_err(|error| format!("解压安装包失败：{error}"))?;
+    if !status.success() {
+        let _ = fs::remove_dir_all(&extract_dir);
+        return Err("解压安装包失败，请重新下载".to_string());
+    }
+    let new_app = fs::read_dir(&extract_dir)
+        .map_err(|error| format!("读取安装包失败：{error}"))?
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.extension().is_some_and(|ext| ext == "app") && path.join("Contents/Info.plist").is_file())
+        .ok_or("安装包里没有找到 KukeChat.app，请重新下载")?;
+    let _ = Command::new("/usr/bin/xattr").args(["-dr", "com.apple.quarantine"]).arg(&new_app).status();
+
+    let reveal = |path: &Path| -> Result<String, String> {
+        Command::new("/usr/bin/open").arg("-R").arg(path).spawn().map_err(|error| format!("打开访达失败：{error}"))?;
+        Ok("manual".to_string())
+    };
+
+    let Some(current_app) = current_app_bundle() else { return reveal(&new_app) };
+    let text = current_app.to_string_lossy();
+    let parent_writable = current_app.parent().is_some_and(dir_writable);
+    if text.contains("/AppTranslocation/") || text.starts_with("/Volumes/") || !parent_writable {
+        return reveal(&new_app);
+    }
+
+    const SCRIPT: &str = r#"
+PID="$1"; OLD="$2"; NEW="$3"; BACKUP="$OLD.kukechat-old"
+i=0
+while kill -0 "$PID" 2>/dev/null && [ "$i" -lt 150 ]; do sleep 0.2; i=$((i+1)); done
+rm -rf "$BACKUP"
+if mv "$OLD" "$BACKUP"; then
+  if /usr/bin/ditto "$NEW" "$OLD"; then
+    rm -rf "$BACKUP"
+  else
+    rm -rf "$OLD"
+    mv "$BACKUP" "$OLD"
+  fi
+fi
+/usr/bin/xattr -dr com.apple.quarantine "$OLD" 2>/dev/null
+/usr/bin/open "$OLD"
+"#;
+    Command::new("/bin/sh")
+        .arg("-c").arg(SCRIPT).arg("kukechat-update")
+        .arg(std::process::id().to_string()).arg(&current_app).arg(&new_app)
+        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+        // 单独一个进程组：本进程退出时它不受影响
+        .process_group(0)
+        .spawn()
+        .map_err(|error| format!("启动更新失败：{error}"))?;
+    app.exit(0);
+    Ok("restarting".to_string())
+}
+
+/// 当前运行的 `.app` 目录：可执行文件在 `<X>.app/Contents/MacOS/<exe>`
+#[cfg(target_os = "macos")]
+fn current_app_bundle() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let exe = fs::canonicalize(&exe).unwrap_or(exe);
+    let bundle = exe.parent()?.parent()?.parent()?.to_path_buf();
+    bundle.extension().is_some_and(|ext| ext == "app").then_some(bundle)
+}
+
+#[cfg(target_os = "macos")]
+fn dir_writable(dir: &Path) -> bool {
+    let probe = dir.join(format!(".kukechat-update-probe-{}", std::process::id()));
+    let ok = fs::File::create(&probe).is_ok();
+    let _ = fs::remove_file(&probe);
+    ok
 }
 
 /// Removes installers older than the running version (left behind after a successful update).
@@ -326,16 +518,29 @@ pub fn cleanup_old_installers(current_version: &str) {
     let Ok(entries) = fs::read_dir(update_dir()) else { return };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        let Some(version) = name.strip_prefix("KukeChat-").and_then(|rest| rest.strip_suffix("-setup.exe").or_else(|| rest.strip_suffix("-setup.download"))) else { continue };
+        let Some(version) = installer_version(&name) else { continue };
         if compare_versions(version, current_version).is_some_and(|order| order != CmpOrdering::Greater) {
-            let _ = fs::remove_file(entry.path());
+            let path = entry.path();
+            // macOS 的解压目录（KukeChat-<v>-macos-app/）是个文件夹
+            let _ = if path.is_dir() { fs::remove_dir_all(&path) } else { fs::remove_file(&path) };
         }
     }
 }
 
+/// 从更新目录里的文件名认出版本号：`KukeChat-<v>-<tag>(.exe|.tar.gz|.dmg|.download)` 或解压目录 `KukeChat-<v>-macos-app`
+fn installer_version(name: &str) -> Option<&str> {
+    let rest = name.strip_prefix("KukeChat-")?;
+    const SUFFIXES: [&str; 7] = [
+        "-setup.exe", "-setup.download",
+        "-macos-app.tar.gz", "-macos-app.download", "-macos-app",
+        "-macos-dmg.dmg", "-macos-dmg.download",
+    ];
+    SUFFIXES.iter().find_map(|suffix| rest.strip_suffix(suffix))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::compare_versions;
+    use super::{compare_versions, installer_version, PackageKind};
     use std::cmp::Ordering::*;
 
     #[test]
@@ -348,5 +553,28 @@ mod tests {
         assert_eq!(compare_versions("1.4.0-beta.1", "1.4.0"), Some(Less));
         assert_eq!(compare_versions("1.4.0", "1.4.0-beta.1"), Some(Greater));
         assert_eq!(compare_versions("abc", "1.0.0"), None);
+    }
+
+    #[test]
+    fn recognizes_update_files() {
+        assert_eq!(installer_version("KukeChat-2.0.2-setup.exe"), Some("2.0.2"));
+        assert_eq!(installer_version("KukeChat-2.0.2-setup.download"), Some("2.0.2"));
+        assert_eq!(installer_version("KukeChat-2.0.3-macos-app.tar.gz"), Some("2.0.3"));
+        assert_eq!(installer_version("KukeChat-2.0.3-macos-app"), Some("2.0.3"));
+        assert_eq!(installer_version("KukeChat-2.0.3-macos-dmg.dmg"), Some("2.0.3"));
+        assert_eq!(installer_version("other.txt"), None);
+    }
+
+    #[test]
+    fn detects_package_kind() {
+        let exe = PackageKind::detect(Some("KukeChat_2.0.2_x64-setup.exe"), "https://x/a");
+        let tgz = PackageKind::detect(None, "https://x/KukeChat.app.tar.gz?sig=1");
+        if cfg!(target_os = "macos") {
+            assert!(exe.is_err());
+            assert_eq!(tgz, Ok(PackageKind::MacAppArchive));
+        } else {
+            assert_eq!(exe, Ok(PackageKind::WindowsSetup));
+            assert!(tgz.is_err());
+        }
     }
 }
