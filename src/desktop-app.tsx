@@ -16,6 +16,7 @@ import { useRealtime } from '@/realtime/client';
 import { useKukeStore } from '@/store/kukeStore';
 import { installDesktopExternalLinkHandler } from '@/utils/desktopExternalLinks';
 import { useResolvedThemeMode } from '@/utils/theme';
+import { useWindowMotionPause } from '@/utils/windowMotion';
 import '@/styles/tailwind.css';
 import { ThemeEffects } from '@/theme/ThemeEffects';
 import { useThemeRootProps } from '@/theme/useTheme';
@@ -205,6 +206,8 @@ function DesktopAppContent(): JSX.Element {
   }, [setLayoutMode]);
 
   useEffect(() => installDesktopExternalLinkHandler(), []);
+  // 窗口最小化、藏到托盘、切到别的程序时，皮肤 / 头像框这些无限循环的动效停下来
+  useWindowMotionPause(() => document.getElementById('kukechat-root'), (onFocusChange) => getCurrentWindow().onFocusChanged(({ payload }) => onFocusChange(payload)));
 
   useEffect(() => {
     const root = document.getElementById('kukechat-root');

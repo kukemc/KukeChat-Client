@@ -161,18 +161,21 @@ export interface OrnamentSpec {
 /**
  * 一个角饰。绝对定位在气泡的某个角上，位置和探出去多少在 shop.css（.kcsk-orn--tl 等）。
  * motion 为 false（系统设了减少动态效果、或开了性能优先）时不动。
+ *
+ * 动的是外面这层 span，不是里面的 svg：Chrome 不把 SVG 元素上的 transform 动画放到合成器上，
+ * 动 svg 的话每一帧都要在主线程上重算样式、重新分层，几十个角饰同屏时会把主线程占满。
  */
 export function Ornament({ spec, motion, delay }: { spec: OrnamentSpec; motion: boolean; delay: number }): JSX.Element {
   const Shape = ORNAMENT_SHAPES[spec.key];
   return (
-    <svg
-      viewBox="0 0 24 24"
+    <span
       aria-hidden="true"
-      focusable="false"
       className={`kcsk-orn kcsk-orn--${spec.corner}${spec.animated && motion ? ` kcsk-orn--${ORNAMENT_MOTION[spec.key]}` : ''}`}
       style={{ '--kcsk-os': `${spec.size}px`, '--kcsk-delay': `${delay}s`, color: spec.color } as CSSProperties}
     >
-      <Shape />
-    </svg>
+      <svg viewBox="0 0 24 24" focusable="false">
+        <Shape />
+      </svg>
+    </span>
   );
 }

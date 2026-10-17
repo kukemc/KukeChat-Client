@@ -178,14 +178,15 @@ export interface FramePiece {
 }
 
 /**
- * 一片装饰。外层 span 负责位置、大小、朝向（静态的），里面的 svg 负责动（只动 transform / opacity），两层分开才不会互相盖掉 transform。
+ * 一片装饰。外层 span 负责位置、大小、朝向（静态的），里面的 i 负责动（只动 transform / opacity），两层分开才不会互相盖掉 transform。
+ * 动的是 i 而不是 svg：Chrome 不把 SVG 元素上的 transform 动画放到合成器上，动 svg 每一帧都要走主线程。
  * 样式在 shop.css（.kcaf-orn）。motion 为 false（开了性能优先）时不动。
  */
 export function FrameOrnament({ piece, motion, delay }: { piece: FramePiece; motion: boolean; delay: number }): JSX.Element {
   const Shape = shapeOf(piece.key);
   return (
     <span className={`kcaf-orn${piece.back ? ' kcaf-orn--back' : ''}${piece.animated && motion ? ` kcaf-orn--${frameOrnamentMotion(piece.key)}` : ''}`} style={{ ...piece.box, '--kcaf-delay': `${delay}s`, color: piece.color } as CSSProperties} aria-hidden="true">
-      <svg viewBox="0 0 24 24" focusable="false"><Shape /></svg>
+      <i><svg viewBox="0 0 24 24" focusable="false"><Shape /></svg></i>
     </span>
   );
 }

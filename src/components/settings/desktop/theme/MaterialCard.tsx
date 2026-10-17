@@ -84,7 +84,7 @@ export function MaterialCard({ editor, mode }: { editor: ThemeEditor; mode: Wall
         <Option title="性能优先" description={
           realtime.reason === 'reduced-transparency' ? '系统开着「减少透明度」，实时模糊已经自动关闭。'
             : realtime.reason === 'unsupported' ? '当前环境不支持实时模糊，已经自动关闭。'
-            : '关掉所有实时模糊（浮层和气泡）。侧栏、顶栏的毛玻璃用的是预先算好的模糊图，本来就不耗性能，不受影响。'
+            : '省电模式：关掉所有实时模糊（浮层和气泡），聊天里的气泡皮肤、头像框也不再播放动效（样子照旧，只是不动）。侧栏、顶栏的毛玻璃用的是预先算好的模糊图，本来就不耗性能，不受影响。'
         }>
           <Toggle checked={performance || realtime.reason === 'reduced-transparency' || realtime.reason === 'unsupported'} disabled={realtime.reason === 'reduced-transparency' || realtime.reason === 'unsupported'} onChange={setPerformance} label="性能优先" />
         </Option>
