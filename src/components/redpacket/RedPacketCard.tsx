@@ -125,14 +125,17 @@ export function RedPacketCard({ message, meta, mine, isGroup }: { message: Messa
   const forOther = targetId !== null && !forMe;
   const targetName = redPacketTargetName(meta, packet);
   const chainText = meta.chain_text ?? packet?.chain_text ?? null;
+  const voiceText = packet?.voice_text ?? meta.voice_text ?? null;
+  const isVoice = Boolean(meta.voice || packet?.voice || voiceText);
   const state = cardState(packet, expired, mine, isGroup, forOther);
   const dim = state === 'claimed' || state === 'finished' || state === 'expired' || state === 'revoked';
   const count = packet?.count ?? meta.count;
   const stateText = state === 'claimed' ? `已领取 ${formatCoins(packet?.my_claim?.amount ?? 0)} 币`
     : state === 'reserved' ? `仅 ${targetName} 可领`
     : state === 'finished' && count === 1 ? (targetId !== null ? `${targetName} 已领取` : '已被领取')
+    : state === 'open' && isVoice ? '按住说出口令领取'
     : STATE_TEXT[state];
-  const kindText = targetId !== null ? (forMe ? '给你的专属红包' : `给 ${targetName} 的专属红包`) : isGroup ? (meta.kind === 'lucky' ? '拼手气红包' : '普通红包') : '红包';
+  const kindText = targetId !== null ? (forMe ? '给你的专属红包' : `给 ${targetName} 的专属红包`) : isGroup ? (meta.kind === 'lucky' ? '拼手气红包' : '普通红包') : isVoice ? '语音红包' : '红包';
 
   return (
     <button
@@ -142,8 +145,9 @@ export function RedPacketCard({ message, meta, mine, isGroup }: { message: Messa
       data-red-packet={String(meta.id)}
       data-state={state}
       data-chain={chainText ? '' : undefined}
+      data-voice={isVoice ? '' : undefined}
       data-exclusive={targetId !== null ? (forMe ? 'me' : 'other') : undefined}
-      aria-label={`${kindText}：${meta.greeting}${chainText ? `，接龙口令「${chainText}」` : ''}，${stateText}`}
+      aria-label={`${kindText}：${meta.greeting}${chainText ? `，接龙口令「${chainText}」` : ''}${isVoice ? `，语音红包${voiceText ? `，口令「${voiceText}」` : ''}` : ''}，${stateText}`}
       onClick={(event) => {
         event.stopPropagation();
         open({ meta, conversationId: message.conversation_id, sender: message.sender ?? null });
@@ -156,6 +160,7 @@ export function RedPacketCard({ message, meta, mine, isGroup }: { message: Messa
         <span className="krp-card-text">
           <span className="krp-card-greeting">{meta.greeting}</span>
           {chainText ? <span className="krp-card-chain" title="领取时会自动发出这句话"><b>接龙</b><span>{chainText}</span></span> : null}
+          {isVoice ? <span className="krp-card-chain krp-card-voice" title="说出这句口令才能领"><b>语音红包</b>{voiceText ? <span>{voiceText}</span> : null}</span> : null}
           <span className="krp-card-state">{stateText}</span>
         </span>
       </span>

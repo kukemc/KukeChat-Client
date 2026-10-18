@@ -1,5 +1,5 @@
 import type { Message, User } from '@/types/api';
-import type { ClaimRedPacketResult, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketClaim, RedPacketConfig, RedPacketDirection, RedPacketFeature, RedPacketId, RedPacketKind, RedPacketRecord, RedPacketRecordPage, RedPacketStatus, RedPacketUpdate, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
+import type { ClaimRedPacketResult, ClaimRedPacketVoice, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketClaim, RedPacketConfig, RedPacketDirection, RedPacketFeature, RedPacketId, RedPacketKind, RedPacketRecord, RedPacketRecordPage, RedPacketStatus, RedPacketUpdate, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
 import { apiRequest } from './client';
 import { isRecord } from './normalizers';
 import { DEFAULT_RED_PACKET_GREETING, isRedPacketId as isId } from '@/utils/redPacket';
@@ -76,6 +76,9 @@ export function normalizeRedPacket(value: unknown): RedPacket | null {
     greeting: text(value.greeting).trim() || DEFAULT_RED_PACKET_GREETING,
     sender: userOf(value.sender),
     chain_text: chainTextOf(value.chain_text),
+    // 旧服务端没有这两项：当成不是语音红包。有口令没标记的也算（口令就是领取的门槛）
+    voice: value.voice === true || chainTextOf(value.voice_text) !== null,
+    voice_text: chainTextOf(value.voice_text),
     target_user_id: targetIdOf(value.target_user_id),
     target: userOf(value.target),
     conversation_id: count(value.conversation_id),
@@ -124,7 +127,7 @@ function normalizeBalance(value: unknown): RedPacketBalance {
 /** 契约里的默认上限，回包里缺哪一项就用哪一项的默认值。 */
 const DEFAULT_LIMITS = { max_total: 500, max_count: 100, min_each: 1, daily_send_limit: 20, expire_hours: 24 };
 
-const FEATURES: readonly RedPacketFeature[] = ['chain', 'exclusive'];
+const FEATURES: readonly RedPacketFeature[] = ['chain', 'exclusive', 'voice'];
 
 export async function getRedPacketConfig(): Promise<RedPacketConfig> {
   const response = await apiRequest<unknown>('/red-packets/config');
@@ -161,8 +164,9 @@ export async function getRedPacket(id: RedPacketId): Promise<RedPacket> {
   return packet;
 }
 
-export async function claimRedPacket(id: RedPacketId): Promise<ClaimRedPacketResult> {
-  const response = await apiRequest<unknown>(`/red-packets/${encodeURIComponent(String(id))}/claim`, { method: 'POST' });
+/** 抢红包。语音红包带上录音（voice）；普通、接龙红包不带请求体。 */
+export async function claimRedPacket(id: RedPacketId, voice?: ClaimRedPacketVoice): Promise<ClaimRedPacketResult> {
+  const response = await apiRequest<unknown>(`/red-packets/${encodeURIComponent(String(id))}/claim`, voice ? { method: 'POST', body: voice } : { method: 'POST' });
   const source = isRecord(response) ? response : {};
   return { amount: count(source.amount), red_packet: normalizeRedPacket(source.red_packet), balance: normalizeBalance(source.balance), message: messageOf(source.message) };
 }
@@ -218,7 +222,8 @@ function normalizePending(value: unknown): PendingRedPacket | null {
     expires_at: nullableText(value.expires_at),
     created_at: text(value.created_at),
     chain_text: chainTextOf(value.chain_text),
-    target_user_id: targetIdOf(value.target_user_id)
+    target_user_id: targetIdOf(value.target_user_id),
+    voice_text: chainTextOf(value.voice_text)
   };
 }
 

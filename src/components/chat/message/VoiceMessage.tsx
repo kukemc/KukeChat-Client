@@ -4,6 +4,7 @@ import { Icon } from '@/components/ui/Icon';
 import { bubbleSkinClass, type BubbleSkin } from '@/components/shop/skin/bubbleSkin';
 import { SkinDecor } from '@/components/shop/skin/SkinDecor';
 import { resolveAssetUrl } from '@/utils/assetUrl';
+import { redPacketVoiceOf } from '@/utils/redPacket';
 import type { StagedVoice } from './types';
 import { finiteNumber, formatVoiceDuration, voiceMetadataOf, normalizeVoiceDuration, defaultVoiceWaveform } from './messageMeta';
 
@@ -41,6 +42,8 @@ export function VoiceMessageBubble({ message, mine, skin = null, skinMotion = tr
   const src = resolveAssetUrl(message.content);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const metadata = voiceMetadataOf(message);
+  // 领语音红包时发出的那段录音：气泡里标一句
+  const fromRedPacket = redPacketVoiceOf(message) !== null;
   const metadataDuration = finiteNumber(metadata.durationMs, 0) / 1000;
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(metadataDuration);
@@ -112,6 +115,7 @@ export function VoiceMessageBubble({ message, mine, skin = null, skinMotion = tr
           </div>
           <VoiceWaveform waveform={metadata.waveform} progress={progress} onSeek={seekRatio} label="语音进度" />
           {playError ? <p className="mt-0.5 text-[10px] text-red-500">{playError}</p> : null}
+          {fromRedPacket ? <p className="kc-voice-red-packet mt-0.5 inline-flex items-center gap-1 text-[10.5px] leading-4 [color:var(--kc-muted)]" data-red-packet-voice=""><Icon name="redPacket" className="h-3 w-3 [color:#d5392c]" />领取了语音红包</p> : null}
         </div>
       </div>
     </div>

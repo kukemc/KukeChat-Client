@@ -55,13 +55,17 @@ async function analyze(blob: Blob): Promise<{ waveform: number[]; rms: number | 
 interface VoiceRecorder {
   recording: boolean;
   elapsedMs: number;
-  start: () => Promise<void>;
+  /** 开始录音；拿到麦克风、真的开始录了才是 true（不支持、没权限是 false，原因已经交给 onError） */
+  start: () => Promise<boolean>;
   stop: () => void;
   cancel: () => void;
 }
 
-/** 桌面端录音：点一下开始，再点一下结束，录好的语音交给 onRecorded 暂存待发。 */
-export function useVoiceRecorder({ onRecorded, onError }: { onRecorded: (voice: StagedVoice) => void; onError: (message: string) => void }): VoiceRecorder {
+/**
+ * 录音：start 开始、stop 结束（录好的交给 onRecorded）、cancel 作废。桌面输入框点一下开始、再点一下结束，暂存待发；
+ * 领语音红包时按住开始、松开结束（maxDurationMs 给 15 秒，到点自动结束）。
+ */
+export function useVoiceRecorder({ onRecorded, onError, maxDurationMs = MAX_VOICE_RECORDING_MS }: { onRecorded: (voice: StagedVoice) => void; onError: (message: string) => void; /** 最长录多久，到点自动结束；默认和语音消息一样 */ maxDurationMs?: number }): VoiceRecorder {
   const [recording, setRecording] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -72,6 +76,8 @@ export function useVoiceRecorder({ onRecorded, onError }: { onRecorded: (voice: 
   const cancelledRef = useRef(false);
   const callbacksRef = useRef({ onRecorded, onError });
   callbacksRef.current = { onRecorded, onError };
+  const maxDurationRef = useRef(maxDurationMs);
+  maxDurationRef.current = maxDurationMs;
 
   const release = useCallback(() => {
     if (timerRef.current !== null) {
@@ -84,11 +90,11 @@ export function useVoiceRecorder({ onRecorded, onError }: { onRecorded: (voice: 
 
   const start = useCallback(async () => {
     if (recorderRef.current?.state === 'recording') {
-      return;
+      return false;
     }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       callbacksRef.current.onError('当前环境不支持录音。');
-      return;
+      return false;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true } });
@@ -140,14 +146,16 @@ export function useVoiceRecorder({ onRecorded, onError }: { onRecorded: (voice: 
       timerRef.current = window.setInterval(() => {
         const elapsed = Date.now() - startedAtRef.current;
         setElapsedMs(elapsed);
-        if (elapsed >= MAX_VOICE_RECORDING_MS) {
+        if (elapsed >= maxDurationRef.current) {
           recorderRef.current?.stop();
         }
       }, 250);
+      return true;
     } catch {
       release();
       setRecording(false);
       callbacksRef.current.onError('无法访问麦克风，请检查权限设置。');
+      return false;
     }
   }, [release]);
 

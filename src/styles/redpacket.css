@@ -1282,6 +1282,148 @@ label.krp-mode {
   margin-left: 6px;
 }
 
+/* ───────── 语音红包（说出口令领取） ───────── */
+
+/* 卡片上：「语音红包」签 + 口令，和接龙那一行同一个样子 */
+.krp-card-voice b {
+  white-space: nowrap;
+}
+
+/* 正面高一点：「按住说话」下面要放状态、没听清时听到的那句和剩余次数 */
+.krp-envelope.is-voice {
+  height: 456px;
+}
+
+/* 口令替掉祝福语的位置：一行小字说明 + 大字口令 */
+.krp-voice-phrase {
+  display: flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.krp-voice-phrase span {
+  color: rgba(255, 242, 216, 0.72);
+  font-size: calc(12px * var(--krp-fs));
+  letter-spacing: 0.04em;
+}
+
+.krp-voice-phrase b {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--krp-gold-hi);
+  font-size: calc(20px * var(--krp-fs));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* 「按住说话」：就是那枚「开」的金币，字换成话筒。按住时稍微放大、外面一圈呼吸的光；上滑要取消时褪成灰 */
+.krp-envelope .krp-voice-hold {
+  color: #a8261d;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.krp-voice-hold::after {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid rgba(255, 226, 160, 0.7);
+  border-radius: 50%;
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+}
+
+.krp-envelope .krp-voice-hold.is-recording {
+  filter: brightness(1.06);
+  transform: scale(1.08);
+}
+
+.krp-voice-hold.is-recording::after {
+  animation: krp-voice-ring 1.2s ease-out infinite;
+}
+
+.krp-envelope .krp-voice-hold.is-canceling {
+  filter: grayscale(0.85) brightness(0.92);
+  transform: scale(0.96);
+}
+
+.krp-voice-hold.is-canceling::after {
+  animation: none;
+  opacity: 0;
+}
+
+.krp-voice-hold:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.4);
+  opacity: 0.7;
+}
+
+/* 金币下面那一行：按住说出口令领取 / 松开领取，上滑取消 / 识别中… */
+.krp-voice-status {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  color: var(--krp-cream);
+  font-size: calc(13px * var(--krp-fs));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.krp-voice-status.is-canceling {
+  color: var(--krp-gold-hi);
+}
+
+/* 录音中的四根小竖条 */
+.krp-voice-bars {
+  display: inline-flex;
+  height: 14px;
+  align-items: center;
+  gap: 2px;
+}
+
+.krp-voice-bars i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--krp-gold-hi);
+  animation: krp-voice-bar 900ms ease-in-out infinite;
+  transform-origin: center;
+}
+
+.krp-voice-bars i:nth-child(2) { animation-delay: -300ms; }
+.krp-voice-bars i:nth-child(3) { animation-delay: -600ms; }
+.krp-voice-bars i:nth-child(4) { animation-delay: -150ms; }
+
+/* 没听清：听到的是什么、还能试几次，跟在提示后面的小字 */
+.krp-voice-heard {
+  display: block;
+  margin-top: 2px;
+  color: rgba(255, 242, 216, 0.82);
+  font-size: calc(11.5px * var(--krp-fs));
+  overflow-wrap: anywhere;
+}
+
+@keyframes krp-voice-ring {
+  from { opacity: 0.9; transform: scale(0.92); }
+  to { opacity: 0; transform: scale(1.22); }
+}
+
+@keyframes krp-voice-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
 /* ───────── 移动布局 ───────── */
 
 [data-layout='mobile'] .krp-backdrop {

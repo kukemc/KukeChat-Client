@@ -6,10 +6,11 @@ import { Icon } from '@/components/ui/Icon';
 import type { User } from '@/types/api';
 import type { RedPacket, RedPacketStatus } from '@/types/redPacket';
 import { parseApiDate } from '@/utils/dateTime';
-import { describeClaimError, redPacketErrorCode, useClaimRedPacket, useRedPacket } from './data';
+import { describeClaimError, redPacketErrorCode, useClaimRedPacket, useRedPacket, voiceMismatchOf, type RedPacketClaimRecording } from './data';
 import { redPacketTargetName, useRedPacketExpired } from './RedPacketCard';
 import { RedPacketLayer } from './RedPacketLayer';
 import { useRedPacketMotion, useRedPacketUi, type RedPacketTarget } from './ui';
+import { useHoldToRecord, type HoldPhase } from './useHoldToRecord';
 
 /** 「开」至少转这么久再出结果：接口很快的时候不至于一闪而过。不播动效时不等。 */
 const OPEN_SPIN_MS = 720;
@@ -59,6 +60,34 @@ function summaryText(packet: RedPacket, expired: boolean, mine: boolean): string
   return progress;
 }
 
+/** 还剩几秒（向上取整），只用来提示 */
+function seconds(ms: number): string {
+  return `${Math.max(0, Math.ceil(ms / 1000))}`;
+}
+
+/** 语音红包正面「按住说话」下面那一行字 */
+function voiceStatusText(phase: HoldPhase, canceling: boolean, submitting: boolean, exhausted: boolean, elapsedMs: number, limitMs: number): string {
+  if (exhausted) {
+    return '尝试次数用完了';
+  }
+  if (submitting || phase === 'finishing') {
+    return '识别中…';
+  }
+  if (phase === 'starting') {
+    return '正在打开麦克风…';
+  }
+  if (phase === 'recording') {
+    return canceling ? '松开手指，取消这次录音' : `松开领取，上滑取消 · 还能说 ${seconds(limitMs - elapsedMs)} 秒`;
+  }
+  return '按住说出口令领取';
+}
+
+/** 语音红包没念对：服务端听到了什么、还剩几次 */
+interface VoiceMiss {
+  recognized: string | null;
+  attemptsLeft: number | null;
+}
+
 /**
  * 点开一个红包之后的弹层，按情况是两种画面之一：
  *   红包的正面   可以领：一个「开」；领不了（抢完 / 过期 / 被撤回）：一句结果，可以去看大家的手气
@@ -85,6 +114,9 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
   // 接口说领不了的原因：手头的状态还没跟上之前，先按它显示
   const [endedBy, setEndedBy] = useState<Exclude<RedPacketStatus, 'active'> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 语音红包：上一次没念对时听到的、还剩几次；次数用完了就不能再按
+  const [voiceMiss, setVoiceMiss] = useState<VoiceMiss | null>(null);
+  const [voiceExhausted, setVoiceExhausted] = useState(false);
   const timerRef = useRef<number | null>(null);
 
   // 卡片的缓存里可能没有金额（事件不带），谁领了多少也可能是旧的：打开时重取一次。正在取就不重复发
@@ -109,6 +141,8 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
   const forOther = targetId !== null && !forMe;
   const targetName = redPacketTargetName(meta, packet);
   const chainText = meta.chain_text ?? packet?.chain_text ?? null;
+  const voiceText = packet?.voice_text ?? meta.voice_text ?? null;
+  const isVoice = Boolean(meta.voice || packet?.voice || voiceText);
   const showDetail = !opening && (wantDetail || Boolean(claimed) || ownDirect || forOther);
   // 领取名单看不看得到：我领过、我发的、或者已经不是 active
   const canSeeClaims = Boolean(packet && (packet.claims !== null || claimed || mine || ended));
@@ -137,18 +171,30 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
     }, wait);
   }
 
-  function open(): void {
+  /** 开红包；语音红包带上刚录的那段（上传、识别都在这一步里，转圈一直转到结果出来） */
+  function open(voice?: RedPacketClaimRecording): void {
     if (opening || claim.isPending) {
       return;
     }
     const startedAt = Date.now();
     setError(null);
+    setVoiceMiss(null);
     setOpening(true);
-    claim.mutate(meta.id, {
+    claim.mutate({ id: meta.id, voice }, {
       onSuccess: () => reveal(startedAt, () => setJustClaimed(true)),
       onError: (failure) => reveal(startedAt, () => {
         const code = redPacketErrorCode(failure);
-        if (code === 'finished' || code === 'expired' || code === 'revoked') {
+        if (code === 'voice_mismatch') {
+          const miss = voiceMismatchOf(failure);
+          setError(describeClaimError(failure).message);
+          setVoiceMiss(miss);
+          if (miss.attemptsLeft === 0) {
+            setVoiceExhausted(true);
+          }
+        } else if (code === 'voice_attempts_exhausted') {
+          setError(describeClaimError(failure).message);
+          setVoiceExhausted(true);
+        } else if (code === 'finished' || code === 'expired' || code === 'revoked') {
           setEndedBy(code);
         } else if (code === 'already_claimed' || code === 'own_packet') {
           // 其实领过了 / 是自己在私聊里发的：直接看详情
@@ -164,7 +210,16 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
     });
   }
 
-  const closeButton = <button type="button" className="krp-close" aria-label="关闭" disabled={opening} onClick={onClose}><Icon name="close" className="h-4 w-4" /></button>;
+  const canOpen = Boolean(packet) && !ended;
+  const hold = useHoldToRecord({
+    disabled: !isVoice || !canOpen || opening || claim.isPending || voiceExhausted,
+    onStart: () => setError(null),
+    onRecorded: (recording) => open(recording),
+    onError: (message) => setError(message)
+  });
+  const holding = hold.phase !== 'idle';
+
+  const closeButton = <button type="button" className="krp-close" aria-label="关闭" disabled={opening || holding} onClick={onClose}><Icon name="close" className="h-4 w-4" /></button>;
 
   if (showDetail) {
     const kindText = targetId !== null ? '专属红包' : isGroup ? (meta.kind === 'lucky' ? '拼手气红包' : '普通红包') : null;
@@ -174,12 +229,13 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
           <header className="krp-detail-head">
             {closeButton}
             <span className="krp-detail-avatar"><Avatar user={sender} size="md" /></span>
-            <p className="krp-detail-from">{senderName} 的红包{kindText ? <span className="krp-chip">{kindText}</span> : null}{chainText ? <span className="krp-chip">接龙</span> : null}</p>
+            <p className="krp-detail-from">{senderName} 的红包{kindText ? <span className="krp-chip">{kindText}</span> : null}{chainText ? <span className="krp-chip">接龙</span> : null}{isVoice ? <span className="krp-chip">语音</span> : null}</p>
             <p className="krp-detail-greeting">{packet?.greeting ?? meta.greeting}</p>
-            {targetId !== null || chainText ? (
+            {targetId !== null || chainText || voiceText ? (
               <p className="krp-detail-extra" data-red-packet="detail-extra">
                 {targetId !== null ? <span>{forMe ? '给你的专属红包' : `给 ${targetName} 的专属红包`}</span> : null}
                 {chainText ? <span>接龙口令「{chainText}」</span> : null}
+                {voiceText ? <span>语音口令「{voiceText}」</span> : null}
               </p>
             ) : null}
           </header>
@@ -203,7 +259,7 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
               <div className="krp-amount" data-red-packet="ended"><p className="krp-amount-note is-strong">{ENDED_TEXT[ended]}</p></div>
             ) : packet ? (
               // 群里发的人自己也能抢：从「查看领取进度」进来的，给一条回去开的路
-              <div className="krp-amount" data-red-packet="can-open"><button type="button" className="krp-btn-red" data-action="back-to-open" onClick={() => setWantDetail(false)}>我也开一个</button></div>
+              <div className="krp-amount" data-red-packet="can-open"><button type="button" className="krp-btn-red" data-action="back-to-open" onClick={() => setWantDetail(false)}>{isVoice ? '我也领一个' : '我也开一个'}</button></div>
             ) : null}
 
             {packet ? <p className="krp-summary" data-red-packet="summary">{summaryText(packet, ended === 'expired', mine)}</p> : null}
@@ -240,22 +296,58 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
   }
 
   const loading = !packet && !query.error;
-  const canOpen = Boolean(packet) && !ended;
+  const voiceFace = isVoice && !ended;
+  const recordingNow = hold.phase === 'recording';
+  const kindWord = isVoice ? '语音红包' : '红包';
   return (
-    <RedPacketLayer label="红包" onClose={onClose} locked={opening}>
-      <section className={cx('krp-envelope', ended && 'is-ended', opening && 'is-opening')} data-red-packet-view="face" data-status={ended ?? 'active'}>
+    <RedPacketLayer label={kindWord} onClose={onClose} locked={opening || holding}>
+      <section className={cx('krp-envelope', ended && 'is-ended', opening && 'is-opening', voiceFace && 'is-voice')} data-red-packet-view="face" data-status={ended ?? 'active'}>
         {closeButton}
         <span className="krp-envelope-avatar"><Avatar user={sender} size="lg" /></span>
-        <p className="krp-envelope-from">{forMe ? `${senderName} 给你的专属红包` : `${senderName} 发出的红包`}</p>
-        <p className="krp-envelope-greeting">{ended ? ENDED_TEXT[ended] : packet?.greeting ?? meta.greeting}</p>
-        {canOpen ? (
-          <button type="button" className="krp-open" data-action="open-red-packet" disabled={opening} aria-label="开红包" onClick={open}>
+        <p className="krp-envelope-from">{forMe ? `${senderName} 给你的专属${kindWord}` : `${senderName} 发出的${kindWord}`}</p>
+        {voiceFace ? (
+          // 语音红包：祝福语让位给口令（卡片、领取详情里都还有祝福语）
+          <div className="krp-voice-phrase" data-red-packet="voice-text">
+            <span>说出口令领取</span>
+            <b>{voiceText ? `「${voiceText}」` : packet ? '口令没有读出来' : '…'}</b>
+          </div>
+        ) : (
+          <p className="krp-envelope-greeting">{ended ? ENDED_TEXT[ended] : packet?.greeting ?? meta.greeting}</p>
+        )}
+        {canOpen && isVoice ? (
+          <button
+            type="button"
+            className={cx('krp-open krp-voice-hold', recordingNow && 'is-recording', hold.canceling && 'is-canceling')}
+            data-action="hold-to-claim"
+            data-phase={hold.phase}
+            disabled={opening || voiceExhausted}
+            aria-label="按住说出口令领取"
+            aria-pressed={holding}
+            {...hold.bind}
+          >
+            <Icon name="mic" className="h-9 w-9" />
+          </button>
+        ) : canOpen ? (
+          <button type="button" className="krp-open" data-action="open-red-packet" disabled={opening} aria-label="开红包" onClick={() => open()}>
             <span>{opening && !motion ? '…' : '开'}</span>
           </button>
         ) : null}
         <div className="krp-envelope-foot">
+          {voiceFace && canOpen ? (
+            <p className={cx('krp-voice-status', recordingNow && 'is-live', hold.canceling && 'is-canceling')} role="status" data-red-packet="voice-status">
+              {recordingNow && !hold.canceling ? <span className="krp-voice-bars" aria-hidden="true"><i /><i /><i /><i /></span> : null}
+              {voiceStatusText(hold.phase, hold.canceling, opening, voiceExhausted, hold.elapsedMs, hold.limitMs)}
+            </p>
+          ) : null}
           {chainText && !ended ? <p className="krp-envelope-chain" data-red-packet="chain-hint">接龙红包：领取后会以你的名义发出「{chainText}」</p> : null}
-          {error ? <p className="krp-envelope-error" role="alert">{error}</p> : null}
+          {error ? (
+            <p className="krp-envelope-error" role="alert">
+              {error}
+              {voiceMiss?.recognized ? <small className="krp-voice-heard">听到的是：{voiceMiss.recognized}</small> : null}
+              {voiceMiss && voiceMiss.attemptsLeft !== null && voiceMiss.attemptsLeft > 0 ? <small className="krp-voice-heard">还能再试 {voiceMiss.attemptsLeft} 次</small> : null}
+            </p>
+          ) : null}
+          {voiceFace && canOpen && !error && !holding && !opening && !voiceExhausted ? <p className="krp-envelope-hint">领到后，这段录音会以你的名义发到会话里</p> : null}
           {loading ? <p className="krp-envelope-hint" role="status">正在看看还有没有…</p> : null}
           {!packet && query.error ? <p className="krp-envelope-error" role="alert">红包没有加载出来。<button type="button" className="krp-link" onClick={() => void refetch()}>重试</button></p> : null}
           {ended === 'expired' && mine ? <p className="krp-envelope-hint">没领完的金币已退回余额</p> : null}
