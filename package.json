@@ -1,6 +1,6 @@
 {
   "name": "kukechat-client",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "private": true,
   "type": "module",
   "description": "面向 CCW / Scratch 社区的实时聊天客户端，支持社区扩展、桌面端与移动端。",
