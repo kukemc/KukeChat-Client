@@ -9,7 +9,7 @@ import { apiErrorCode } from '@/utils/poke';
  * 语音转文字的状态（按消息 id 记，这次运行里有效）。
  *
  * 右键菜单的「转文字」和气泡下面那行字不在一个组件里，所以放在这里：菜单调 toggleVoiceTranscript，
- * 气泡用 useVoiceTranscript 读。服务端已经转过的（消息带着 voice_transcript）直接显示，不再请求。
+ * 气泡用 useVoiceTranscript 读。和 QQ 一样，自己点了「转文字」才显示；服务端已经转过的（消息带着 voice_transcript）点了马上出来，不再请求。
  * 收起只是不显示，转出来的字还留着，再点「转文字」立刻展开。
  */
 
@@ -52,14 +52,14 @@ function serverTranscriptOf(message: Message): string | null {
   return typeof message.voice_transcript === 'string' ? message.voice_transcript : null;
 }
 
-/** 这条语音现在的转文字状态：本机请求过的以本机为准，否则看消息自己带没带 voice_transcript（带了就展开） */
+/** 这条语音现在的转文字状态：本机请求过的以本机为准；消息自带 voice_transcript 的算已经转好、但先收着，点了「转文字」才展开 */
 export function voiceTranscriptOf(message: Message): VoiceTranscriptView {
   const entry = entries.get(message.id);
   if (entry) {
     return { status: entry.status, text: entry.text, open: entry.open };
   }
   const server = serverTranscriptOf(message);
-  return server !== null ? { status: 'done', text: server, open: true } : { status: 'idle', text: '', open: false };
+  return server !== null ? { status: 'done', text: server, open: false } : { status: 'idle', text: '', open: false };
 }
 
 /** 能不能转：真发出去了的、没撤回的语音 */
