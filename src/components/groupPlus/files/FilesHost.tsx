@@ -17,7 +17,7 @@ import {
 import { formatFileSize, formatRemaining, TIER_META, ttlLabel } from '../tier';
 import { useGroupFileUploads } from '../uploads';
 import { useGroupPlusUi } from '../ui';
-import { downloadAndSave, downloadErrorText, fileIconName, fileRules } from './fileUtils';
+import { downloadAndSave, downloadErrorText, fileIconName, fileRules, isPlayableVideo } from './fileUtils';
 import { DeleteFolderDialog, FolderMenu, FolderNameDialog, folderStats, MoveFileDialog } from './FolderParts';
 import { queueGroupUploads } from './queue';
 
@@ -71,6 +71,7 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
   const motion = useRedPacketMotion();
   const me = useKukeStore((state) => state.currentUser);
   const openUpgrade = useGroupPlusUi((state) => state.openUpgrade);
+  const openVideo = useGroupPlusUi((state) => state.openVideo);
   const { data: conversations } = useQuery({ queryKey: ['conversations'], queryFn: getConversations, enabled: false });
   const conversation = (conversations ?? EMPTY_CONVERSATIONS).find((item) => item.id === conversationId) ?? null;
   const infoQuery = useGroupPlusInfo(conversationId);
@@ -196,6 +197,18 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
     } finally {
       setRowBusy(null);
     }
+  }
+
+  function play(file: GroupFile): void {
+    say(null);
+    openVideo({
+      conversationId,
+      fileId: file.id,
+      name: file.name,
+      size: file.size,
+      // 打开时才发现过期 / 被删了：刷新列表，让这一行消失或变成已过期
+      onUnavailable: () => void filesQuery.refetch()
+    });
   }
 
   function remove(file: GroupFile): void {
@@ -648,6 +661,7 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
           const canPin = staff && (file.permanent || !rules || rules.hasSpace);
           const moveState = movable(file);
           const dragOk = draggable(file);
+          const playable = !file.expired && isPlayableVideo(file.content_type, file.name);
           return (
             <li
               key={file.id}
@@ -664,7 +678,11 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
                 setDropTarget(null);
               } : undefined}
             >
-              <span className="kgp-file-icon"><Icon name={fileIconName(file.content_type, file.name)} className="h-5 w-5" /></span>
+              {playable ? (
+                <button type="button" className="kgp-file-icon kgp-file-play" title={`播放 ${file.name}`} aria-label={`播放 ${file.name}`} onClick={() => play(file)}>
+                  <Icon name="play" className="h-5 w-5" />
+                </button>
+              ) : <span className="kgp-file-icon"><Icon name={fileIconName(file.content_type, file.name)} className="h-5 w-5" /></span>}
               <div className="kgp-files-row-main">
                 <span className="kgp-file-name" title={file.name}>{file.name}</span>
                 <span className="kgp-file-sub">
@@ -685,6 +703,11 @@ function FilesBody({ conversationId, mobile }: PanelProps): JSX.Element {
                 </span>
               </div>
               <div className="kgp-files-row-actions">
+                {playable ? (
+                  <button type="button" className="kui-icon-btn" title="播放" aria-label={`播放 ${file.name}`} onClick={() => play(file)}>
+                    <Icon name="play" className="h-4 w-4" />
+                  </button>
+                ) : null}
                 <button type="button" className="kui-icon-btn" title="下载" aria-label={`下载 ${file.name}`} disabled={rowBusy === file.id || file.expired} onClick={() => void download(file)}>
                   <Icon name={rowBusy === file.id ? 'refresh' : 'download'} className="h-4 w-4" />
                 </button>

@@ -24,10 +24,12 @@ export interface PlusScenario {
   featuredFull: boolean;
   /** 模拟还没有文件夹功能的旧后端：列表不带 folders 等字段 */
   legacyFolders: boolean;
+  /** 视频文件的直连播放地址（GET /files/{id}/link 返回它）；null 时按「没开直连」走，下载回来的是一段假文本，播放器显示「格式不支持」 */
+  videoUrl: string | null;
   delay: number;
 }
 
-export const plusScenario: PlusScenario = { backend: 'ok', staff: true, purchaseError: 'none', uploadError: 'none', featuredFull: false, legacyFolders: false, delay: 200 };
+export const plusScenario: PlusScenario = { backend: 'ok', staff: true, purchaseError: 'none', uploadError: 'none', featuredFull: false, legacyFolders: false, videoUrl: null, delay: 200 };
 
 type Tier = 'free' | 'pro' | 'pro_plus' | 'max';
 
@@ -211,6 +213,7 @@ function buildHistory(cid: number, pictures: string[]): Message[] {
   add(6, plusMe, 1900, 'text', '周六晚上八点开会，请大家准时参加，议题是下个版本的作品征集');
   add(7, aqua, 1500, 'text', '文档整理好了，大家看看', { file: { id: 1, name: '设计稿.zip', size: 3 * MB, content_type: 'application/zip', expires_at: iso(now + 3 * 3_600_000), permanent: false } }, { content: '[文件] 设计稿.zip（3.0 MB）' });
   add(8, mint, 1400, 'text', '好的 开会前我先过一遍');
+  add(90, long, 1300, 'text', '', { file: { id: 4, name: '演示录屏.mp4', size: 48 * MB, content_type: 'video/mp4', expires_at: iso(now + 27 * 86_400_000), permanent: false } }, { content: '[文件] 演示录屏.mp4（48.0 MB）' });
   add(9, aqua, 1200, 'voice', pictures[3] ?? 'https://example.invalid/voice.webm', { voice: { duration_ms: 6400, content_type: 'audio/webm', size: 20480 } });
   add(10, bot, 1000, 'text', '## 本周任务\n- **完成** 开会纪要\n- 更新作品链接\n\n> 来自任务小助手', { markdown: true });
   add(11, long, 900, 'poll', '投票：周末活动选哪个', {
@@ -341,7 +344,7 @@ function seedFiles(group: GroupState): void {
     { id: 1, name: '设计稿.zip', size: 3 * MB, content_type: 'application/zip', uploader_id: 2, created_at: now - 21 * 3_600_000, expires_at: now + 3 * 3_600_000, message_id: group.id * 1000 + 7 },
     { id: 2, name: '活动方案-最终版-v3-改了又改-真的是最终版.docx', size: 580 * 1024, content_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', uploader_id: 3, created_at: now - 2 * DAY, expires_at: now + 5 * DAY, message_id: null },
     { id: 3, name: '成员名单.xlsx', size: 92 * 1024, content_type: 'application/vnd.ms-excel', uploader_id: 1, created_at: now - 10 * DAY, expires_at: null, message_id: null },
-    { id: 4, name: '演示录屏.mp4', size: 48 * MB, content_type: 'video/mp4', uploader_id: 5, created_at: now - 3 * DAY, expires_at: now + 27 * DAY, message_id: null },
+    { id: 4, name: '演示录屏.mp4', size: 48 * MB, content_type: 'video/mp4', uploader_id: 5, created_at: now - 3 * DAY, expires_at: now + 27 * DAY, message_id: group.id * 1000 + 90 },
     // 已过期：列表默认不返回
     { id: 5, name: '过期的文件.pdf', size: 1 * MB, content_type: 'application/pdf', uploader_id: 2, created_at: now - 5 * DAY, expires_at: now - DAY, message_id: null }
   ];
@@ -1228,6 +1231,20 @@ export const groupPlusMock: MockHandler = async ({ path, url, method, body }) =>
       }
     }
     return json({ folder_id: target, moved: rows.length, items: rows.map((file) => (file ? fileView(group, file) : null)) });
+  }
+  const linkMatch = rest.match(/^\/files\/(\d+)\/link$/);
+  if (linkMatch && method === 'GET') {
+    const file = group.files.find((item) => item.id === parseId(linkMatch[1]));
+    if (!file) {
+      return detail('file_not_found', '文件不存在。', {}, 404);
+    }
+    if (file.expires_at !== null && file.expires_at <= Date.now()) {
+      return detail('file_expired', '这个文件已经过期了。', {}, 410);
+    }
+    if (!plusScenario.videoUrl || !file.content_type.startsWith('video/')) {
+      return detail('direct_download_unavailable', '服务器没开直连下载，请用下载接口', {}, 409);
+    }
+    return json({ url: plusScenario.videoUrl, expires_at: iso(Date.now() + 300_000) });
   }
   const fileMatch = rest.match(/^\/files\/(\d+)(\/download)?$/);
   if (fileMatch) {

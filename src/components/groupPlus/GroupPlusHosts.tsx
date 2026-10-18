@@ -1,5 +1,6 @@
 import { ChatSearchHost } from '@/components/search/chat/ChatSearchHost';
 import { GroupFilesHost } from './files/FilesHost';
+import { GroupVideoHost } from './files/VideoPlayer';
 import { GroupTodoDetailHost } from './todo/TodoDetailHost';
 import { GroupUpgradeHost } from './upgrade/UpgradeHost';
 
@@ -14,6 +15,8 @@ export function GroupPlusHosts(): JSX.Element {
       <GroupFilesHost />
       <ChatSearchHost />
       <GroupTodoDetailHost />
+      {/* 放最后：从群文件面板里点开的视频要压在面板上面 */}
+      <GroupVideoHost />
     </>
   );
 }

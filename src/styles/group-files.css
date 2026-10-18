@@ -115,6 +115,79 @@
   to { transform: rotate(360deg); }
 }
 
+/* 视频卡片：左边整块是「播放」，右边单独一个下载按钮；播放图标是实心墨色方块，一眼和普通文件分开 */
+.kgp-file-card.is-video {
+  padding-right: 6px;
+}
+
+.kgp-file-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kgp-file-open:disabled {
+  cursor: default;
+}
+
+.kgp-file-play {
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+}
+
+button.kgp-file-play {
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.12s;
+}
+
+button.kgp-file-play:hover {
+  opacity: 0.86;
+}
+
+.kgp-file-open:active .kgp-file-play,
+button.kgp-file-play:active {
+  transform: scale(0.95);
+}
+
+.kgp-file-play svg {
+  margin-left: 2px;
+}
+
+.kgp-file-dl {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.kgp-file-dl:hover:not(:disabled) {
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-file-card.is-video:hover:not(.is-expired) {
+  background: var(--kc-hover);
+}
+
+.kgp-file-card.is-video.is-expired {
+  cursor: default;
+}
+
 /* ───────── 面板 ─────────
    和群升级面板同一套克制的黑白（令牌在文件开头）：灰底条带放用量，虚线细框是上传区，文件列表用细分隔线，
    操作图标平时是灰的，悬停整行才清楚；红色只在删除悬停时出现，警示色只在「快满 / 快过期 / 失败」。 */
