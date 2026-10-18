@@ -37,8 +37,11 @@ export function VoiceWaveform({ waveform, progress, onSeek, label }: { waveform?
   );
 }
 
-/** skin / skinMotion：发送者装备的气泡皮肤、要不要播它的动效（由消息列表算好传进来），语音气泡和文字气泡穿同一件。 */
-export function VoiceMessageBubble({ message, mine, skin = null, skinMotion = true, onContextMenu }: { message: Message; mine: boolean; skin?: BubbleSkin | null; skinMotion?: boolean; onContextMenu: (event: React.MouseEvent<HTMLElement>, message: Message) => void }): JSX.Element {
+/**
+ * skin / skinMotion：发送者装备的气泡皮肤、要不要播它的动效（由消息列表算好传进来），语音气泡和文字气泡穿同一件。
+ * onContextMenu：聊天里右键 / 长按出消息菜单；收藏、精华这些只读列表不给，事件照常冒泡给外层自己的菜单。
+ */
+export function VoiceMessageBubble({ message, mine, skin = null, skinMotion = true, onContextMenu }: { message: Message; mine: boolean; skin?: BubbleSkin | null; skinMotion?: boolean; onContextMenu?: (event: React.MouseEvent<HTMLElement>, message: Message) => void }): JSX.Element {
   const src = resolveAssetUrl(message.content);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const metadata = voiceMetadataOf(message);
@@ -101,7 +104,7 @@ export function VoiceMessageBubble({ message, mine, skin = null, skinMotion = tr
   }
 
   return (
-    <div onContextMenu={(event) => onContextMenu(event, message)} style={skin?.vars} className={`kc-voice w-[min(260px,68vw)] rounded-[22px] border px-3 py-2 shadow-none ${mine ? 'rounded-tr-sm [background:linear-gradient(135deg,var(--kc-bubble-out),var(--kc-accent-soft))] [border-color:rgba(79,70,229,0.16)]' : 'rounded-tl-sm [background:var(--kc-bubble-in)] [border-color:var(--kc-border)]'} [color:var(--kc-text)] ${skin ? `kcsk-m ${bubbleSkinClass(skin, mine)}` : ''}`}>
+    <div onContextMenu={onContextMenu ? (event) => onContextMenu(event, message) : undefined} style={skin?.vars} className={`kc-voice w-[min(260px,68vw)] rounded-[22px] border px-3 py-2 shadow-none ${mine ? 'rounded-tr-sm [background:linear-gradient(135deg,var(--kc-bubble-out),var(--kc-accent-soft))] [border-color:rgba(79,70,229,0.16)]' : 'rounded-tl-sm [background:var(--kc-bubble-in)] [border-color:var(--kc-border)]'} [color:var(--kc-text)] ${skin ? `kcsk-m ${bubbleSkinClass(skin, mine)}` : ''}`}>
       {skin ? <SkinDecor skin={skin} motion={skinMotion} seed={message.id} /> : null}
       <audio ref={audioRef} src={src} preload="metadata" onLoadedMetadata={(event) => setDuration(normalizeVoiceDuration(event.currentTarget.duration, metadataDuration))} onDurationChange={(event) => setDuration(normalizeVoiceDuration(event.currentTarget.duration, metadataDuration))} onTimeUpdate={(event) => setCurrentTime(finiteNumber(event.currentTarget.currentTime, 0))} onPause={() => setPlaying(false)} onPlay={() => setPlaying(true)} onError={() => { setPlaying(false); setPlayError('播放失败'); }} onEnded={() => { setPlaying(false); setCurrentTime(0); }} />
       <div className="flex items-center gap-3">
