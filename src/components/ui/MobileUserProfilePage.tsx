@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { FriendIntimacyCard } from '@/components/intimacy/FriendIntimacyCard';
+import { FriendSparkRow } from '@/components/spark/FriendSparkRow';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ccwStudentProfileUrl } from '@/config';
 import { createDirectConversation, updateConversationMemberMute, updateConversationMemberRole } from '@/api/conversations';
@@ -914,6 +915,7 @@ export function MobileUserProfilePage({ user, label, fallbackUserId, currentUser
           )} />
           {/* 我和 TA 的友谊（docs/intimacy.md）：不是好友时整块不出现 */}
           {isSelf ? null : <FriendIntimacyCard userId={displayUser?.id} className="kit-row--block" />}
+          {isSelf ? null : <FriendSparkRow userId={displayUser?.id} className="ksk-row--block" />}
           {/* 礼物墙：礼物功能关着、对方是机器人时整块不出现 */}
           <GiftWall user={displayUser} isSelf={isSelf} frame={(wall, charm) => (
             <section className="kc-qq-card kui p-4" data-gift="space-wall">

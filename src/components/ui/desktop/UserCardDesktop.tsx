@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { FriendIntimacyCard } from '@/components/intimacy/FriendIntimacyCard';
+import { FriendSparkRow } from '@/components/spark/FriendSparkRow';
 import { cx } from '@/components/chat/desktop/runtime';
 import { BirthdayToday, useBirthdayFact } from '@/components/birthday/BirthdayBits';
 import { isBirthdayToday } from '@/components/birthday/data';
@@ -90,6 +91,7 @@ export function UserCardDesktop({ user, anchor, label, action, onClose }: UserCa
         <UserLevelCard user={user} charm onNavigate={onClose} />
         {/* 是我的好友的话：我们的友谊等级、亲密度，点开「我们的友谊」（先把资料卡关掉） */}
         {isBot ? null : <FriendIntimacyCard userId={user?.id} className="kit-row--card" onOpen={onClose} />}
+        {isBot ? null : <FriendSparkRow userId={user?.id} className="ksk-row--card" onOpen={onClose} />}
 
         <dl className="kmd-card-rows">
           <div>

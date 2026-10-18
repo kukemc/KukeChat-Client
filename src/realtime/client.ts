@@ -11,6 +11,7 @@ import { handleLevelEvent } from '@/components/level/data';
 import { handleProfileLikeEvent } from '@/components/likes/data';
 import { handleGiftEvent, refreshGiftsAfterReconnect } from '@/components/gifts/data';
 import { handleIntimacyEvent, refreshIntimacyAfterReconnect } from '@/components/intimacy/data';
+import { handleSparkEvent, refreshSparksAfterReconnect } from '@/components/spark/data';
 import { noteGiftArrival } from '@/components/gifts/ui';
 import { handleRedPacketEvent, noteRedPacketMessage, refreshRedPacketsAfterReconnect } from '@/components/redpacket/data';
 import { handleShopEvent } from '@/components/shop/data';
@@ -173,6 +174,7 @@ export function useRealtime(enabled: boolean): void {
       refreshRedPacketsAfterReconnect(queryClient);
       refreshGiftsAfterReconnect(queryClient);
       refreshIntimacyAfterReconnect(queryClient);
+      refreshSparksAfterReconnect(queryClient);
       refreshGroupPlusAfterReconnect(queryClient);
     };
 
@@ -616,6 +618,10 @@ export function useRealtime(enabled: boolean): void {
         // 缓存怎么跟上写在 components/intimacy/data.ts，提示由 IntimacyToasts 出
         if (event.rawType.startsWith('intimacy.') || event.rawType === 'friendship.deleted' || event.rawType === 'friend_request.accepted') {
           handleIntimacyEvent(queryClient, event.rawType, event.data);
+        }
+        // 好友火花（KukeChat-Server/docs/sparks.md 第 4 节）：续上、升级、熄灭、重燃。缓存怎么跟上写在 components/spark/data.ts
+        if (event.rawType === 'spark.updated') {
+          handleSparkEvent(queryClient, event.data);
         }
 
         emitRealtimeEvent(event);

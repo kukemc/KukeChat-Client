@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { conversationSpark } from '@/components/spark/data';
+import { SparkMark } from '@/components/spark/SparkMark';
 import { Avatar } from '@/components/ui/Avatar';
 import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
 import { conversationTier } from '@/components/groupPlus/tier';
@@ -67,6 +69,7 @@ export function ChatHeader({ conversation, name, directUser, onOpenInfo, childre
             <span className="kcd-header-name" role="heading" aria-level={3}>{name}</span>
             {isGroup ? <PlusTierTag tier={conversationTier(conversation)} /> : null}
             {isGroup ? null : <FriendBadgeMark userId={directUser?.id} size={18} openable />}
+            {isGroup ? null : <SparkMark spark={conversationSpark(conversation)} friendId={directUser?.id} size={16} openable hint />}
             {directUser?.is_bot ? <span className="kcd-tag kcd-tag--admin"><Icon name="bot" className="h-3 w-3" />机器人</span> : null}
             {!isGroup && conversation.is_temporary ? <span className="kcd-tag">临时会话</span> : null}
           </span>

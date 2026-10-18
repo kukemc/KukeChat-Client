@@ -1,0 +1,528 @@
+/* ───────── 好友火花（前缀 ksk-）─────────
+   名字旁的火花（图标 + 天数）、资料卡上的一行、说明面板。桌面和移动共用一套。
+   弹层外壳用红包那一套（krp-，RedPacketLayer），这里只管内容。视觉和群升级、亲密度一家：墨色、细描边、大留白；
+   火焰图标本身是唯一的彩色点缀（颜色写在 SparkGlyph.tsx 的 SVG 渐变里）。 */
+
+.ksk-layer,
+.ksk-row,
+.ksk-mark {
+  --ksk-fs: var(--kc-font-multiplier, 1);
+  --ksk-ink: #16171b;
+  --ksk-on-ink: #ffffff;
+  --ksk-line: rgba(22, 23, 27, 0.1);
+  --ksk-line-strong: rgba(22, 23, 27, 0.2);
+  --ksk-wash: rgba(22, 23, 27, 0.04);
+  --ksk-wash-2: rgba(22, 23, 27, 0.07);
+  --ksk-sub: rgba(22, 23, 27, 0.56);
+  --ksk-faint: rgba(22, 23, 27, 0.38);
+  --ksk-warn: #b4610c;
+}
+
+[data-theme='dark'] .ksk-layer,
+[data-theme='dark'] .ksk-row,
+[data-theme='dark'] .ksk-mark {
+  --ksk-ink: #f2f2f4;
+  --ksk-on-ink: #141518;
+  --ksk-line: rgba(255, 255, 255, 0.1);
+  --ksk-line-strong: rgba(255, 255, 255, 0.22);
+  --ksk-wash: rgba(255, 255, 255, 0.045);
+  --ksk-wash-2: rgba(255, 255, 255, 0.08);
+  --ksk-sub: rgba(255, 255, 255, 0.58);
+  --ksk-faint: rgba(255, 255, 255, 0.38);
+  --ksk-warn: #f0ad5a;
+}
+
+/* ───────── 图标 ───────── */
+
+.ksk-glyph {
+  display: block;
+  flex: none;
+  overflow: visible;
+  color: var(--ksk-faint, rgba(120, 120, 130, 0.6));
+}
+
+/* 快熄灭：变暗、去掉一半饱和度 */
+.ksk-glyph.is-dim {
+  opacity: 0.5;
+  filter: saturate(0.45);
+}
+
+.ksk-glyph .ksk-flame {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+/* 高两级的微动效：烈焰轻轻呼吸，永恒之火再加一颗闪烁的星 */
+.ksk-glyph.is-inferno .ksk-flame {
+  animation: ksk-breathe 2.4s ease-in-out infinite;
+}
+
+.ksk-glyph.is-eternal .ksk-flame {
+  animation: ksk-breathe 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 1.5px rgba(139, 92, 246, 0.55));
+}
+
+.ksk-glyph.is-eternal .ksk-star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ksk-twinkle 2.2s ease-in-out infinite;
+}
+
+.ksk-glyph.is-dim .ksk-flame,
+.ksk-glyph.is-dim .ksk-star {
+  animation: none;
+}
+
+@keyframes ksk-breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.04, 1.08); }
+}
+
+@keyframes ksk-twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ksk-glyph .ksk-flame,
+  .ksk-glyph .ksk-star {
+    animation: none;
+  }
+}
+
+/* ───────── 名字旁的火花 ───────── */
+
+.ksk-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  color: var(--ksk-sub);
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.ksk-mark .ksk-days {
+  color: var(--ksk-ink);
+  font-size: calc(11.5px * var(--ksk-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.ksk-mark.is-dying .ksk-days {
+  color: var(--ksk-faint);
+}
+
+.ksk-mark .ksk-hint {
+  margin-left: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--ksk-wash-2);
+  color: var(--ksk-sub);
+  font-size: calc(10.5px * var(--ksk-fs));
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ksk-mark.is-dying .ksk-hint {
+  color: var(--ksk-warn);
+}
+
+.ksk-mark.is-openable {
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 1px 3px;
+  margin: -1px -3px;
+  transition: background-color 140ms ease;
+}
+
+.ksk-mark.is-openable:hover,
+.ksk-mark.is-openable:focus-visible {
+  background: var(--ksk-wash-2);
+  outline: none;
+}
+
+/* 选中的会话行是强调色实底：天数换成白字 */
+.ksh-conv.is-active .ksk-mark .ksk-days,
+.ksh-conv.is-active .ksk-mark {
+  color: var(--kui-on-fill, #ffffff);
+}
+
+/* ───────── 资料卡上的一行 ───────── */
+
+.ksk-row {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--kc-panel, transparent);
+  box-shadow: inset 0 0 0 1px var(--ksk-line);
+  color: var(--kc-text);
+  font-size: calc(13px * var(--ksk-fs));
+  text-align: left;
+  transition: box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.ksk-row:hover {
+  background: var(--ksk-wash);
+  box-shadow: inset 0 0 0 1px var(--ksk-line-strong);
+}
+
+.ksk-row-glyph {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+}
+
+.ksk-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ksk-row-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.ksk-row-title b {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--ksk-ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.ksk-row-days {
+  color: var(--ksk-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.ksk-row-sub {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--ksk-sub);
+  font-size: calc(11.5px * var(--ksk-fs));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksk-row.is-dying .ksk-row-sub {
+  color: var(--ksk-warn);
+}
+
+.ksk-row-arrow {
+  flex: none;
+  color: var(--ksk-faint);
+}
+
+.ksk-row--profile {
+  max-width: 360px;
+  margin: 8px auto 0;
+}
+
+.ksk-row--card {
+  width: calc(100% - 28px);
+  margin: 0 14px 10px;
+}
+
+.ksk-row--block {
+  padding: 14px 16px;
+  border-radius: var(--kc-mobile-profile-card-radius, 18px);
+  background: var(--kc-mobile-card, var(--kc-panel));
+}
+
+/* ───────── 说明面板 ───────── */
+
+.ksk-panel {
+  width: min(460px, 100%);
+  max-height: min(680px, 100%);
+  border-radius: 20px;
+}
+
+.ksk-panel .krp-panel-head {
+  height: 52px;
+  padding: 0 12px 0 22px;
+  border-bottom-color: var(--ksk-line);
+}
+
+.ksk-panel .krp-panel-head h2 {
+  color: var(--ksk-ink);
+  font-size: calc(15px * var(--ksk-fs));
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.ksk-panel .krp-panel-head .kui-icon-btn {
+  border-radius: 999px;
+}
+
+.ksk-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 26px 26px;
+  overflow-y: auto;
+  color: var(--kc-text);
+}
+
+.ksk-quiet {
+  color: var(--ksk-sub);
+  font-size: calc(12px * var(--ksk-fs));
+  line-height: 1.6;
+}
+
+.ksk-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px 0 2px;
+}
+
+.ksk-hero-glyph {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ksk-wash);
+}
+
+.ksk-hero-main {
+  min-width: 0;
+}
+
+.ksk-hero-level {
+  color: var(--ksk-sub);
+  font-size: calc(13px * var(--ksk-fs));
+  font-weight: 500;
+}
+
+.ksk-hero-days {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--ksk-ink);
+}
+
+.ksk-hero-days b {
+  font-size: calc(34px * var(--ksk-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.ksk-hero-days span {
+  color: var(--ksk-sub);
+  font-size: calc(13px * var(--ksk-fs));
+}
+
+.ksk-hero.is-out .ksk-hero-days b {
+  color: var(--ksk-faint);
+}
+
+.ksk-today {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--ksk-wash);
+  color: var(--ksk-ink);
+  font-size: calc(12.5px * var(--ksk-fs));
+  line-height: 1.55;
+}
+
+.ksk-today.is-warn {
+  color: var(--ksk-warn);
+}
+
+.ksk-today.is-out {
+  color: var(--ksk-sub);
+}
+
+.ksk-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ksk-sub);
+  font-size: calc(12px * var(--ksk-fs));
+}
+
+.ksk-bar {
+  overflow: hidden;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ksk-wash-2);
+}
+
+.ksk-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ksk-ink);
+  transition: width 240ms ease;
+}
+
+.ksk-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.ksk-stats div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--ksk-line);
+}
+
+.ksk-stats dt {
+  color: var(--ksk-sub);
+  font-size: calc(11.5px * var(--ksk-fs));
+}
+
+.ksk-stats dd {
+  margin: 3px 0 0;
+  color: var(--ksk-ink);
+  font-size: calc(15px * var(--ksk-fs));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ksk-relight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--ksk-line-strong);
+  color: var(--ksk-sub);
+  font-size: calc(12.5px * var(--ksk-fs));
+  line-height: 1.55;
+}
+
+/* 主按钮：墨色胶囊（深色主题下是近白底深字） */
+.ksk-btn {
+  display: inline-flex;
+  height: 38px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: var(--ksk-ink);
+  color: var(--ksk-on-ink);
+  font-size: calc(13px * var(--ksk-fs));
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: opacity 140ms ease, transform 80ms ease;
+}
+
+.ksk-btn:hover:not(:disabled) { opacity: 0.86; }
+.ksk-btn:active:not(:disabled) { transform: scale(0.98); }
+.ksk-btn:disabled { cursor: not-allowed; opacity: 0.3; }
+
+.ksk-section {
+  margin-top: 6px;
+  color: var(--ksk-ink);
+  font-size: calc(13px * var(--ksk-fs));
+  font-weight: 600;
+}
+
+.ksk-levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ksk-levels li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px 10px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--ksk-line);
+  color: var(--ksk-sub);
+  font-size: calc(11.5px * var(--ksk-fs));
+  opacity: 0.55;
+}
+
+.ksk-levels li.is-reached {
+  opacity: 1;
+}
+
+.ksk-levels li b {
+  color: var(--ksk-ink);
+  font-size: calc(12.5px * var(--ksk-fs));
+  font-weight: 600;
+}
+
+.ksk-levels li.is-current {
+  opacity: 1;
+  box-shadow: inset 0 0 0 1.5px var(--ksk-ink);
+}
+
+.ksk-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ksk-sub);
+  font-size: calc(12px * var(--ksk-fs));
+  line-height: 1.6;
+}
+
+.ksk-confirm {
+  align-items: center;
+  padding: 30px 28px 24px;
+  text-align: center;
+}
+
+.ksk-confirm-main {
+  color: var(--ksk-ink);
+  font-size: calc(15px * var(--ksk-fs));
+  line-height: 1.6;
+}
+
+.ksk-confirm-main b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ksk-foot {
+  border-top-color: var(--ksk-line);
+}
+
+.ksk-foot .kui-btn--ghost {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+}
+
+/* 移动布局：面板从底下升起（外壳 redpacket.css 管），这里只留出底部安全区 */
+[data-layout='mobile'] .ksk-body {
+  padding: 20px 18px calc(22px + env(safe-area-inset-bottom, 0px));
+}

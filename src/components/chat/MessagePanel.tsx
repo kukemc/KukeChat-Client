@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { conversationSpark } from '@/components/spark/data';
+import { SparkMark } from '@/components/spark/SparkMark';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { blockTemporaryConversation, closeTemporaryConversation, createDirectConversation, getConversationMember, pokeMember, removeConversationMember, searchConversationMembers, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle } from '@/api/conversations';
 import { addFavoriteSticker, deleteMessageLocal, forwardMessageBundle, getFavoriteStickers, getMessageContext, getMessages, recallMessage, removeFavoriteSticker, sendMessage, toggleMessageBookmark, toggleMessageFeature, toggleMessageReaction, triggerMessageInteraction, uploadMessageImage, uploadMessageVoice, type FavoriteStickerItem } from '@/api/messages';
@@ -3163,8 +3165,9 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                     <span className="min-w-0 flex-1 truncate">{mobileTitleParts.name}</span>
                     {mobileTitleParts.suffix ? <span className="shrink-0">{mobileTitleParts.suffix}</span> : null}
                     {isGroup ? null : <FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" />}
+                    {isGroup ? null : <SparkMark spark={conversationSpark(conversation)} friendId={directUser?.id} size={15} openable hint className="shrink-0" />}
                   </>
-                ) : <><span className="truncate">{title}</span>{isGroup ? null : <FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" />}</>}
+                ) : <><span className="truncate">{title}</span>{isGroup ? null : <><FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" /><SparkMark spark={conversationSpark(conversation)} friendId={directUser?.id} size={15} openable hint className="shrink-0" /></>}</>}
                 {isGroup ? <PlusTierTag tier={conversationTier(conversation)} className="shrink-0" /> : null}
                 {isTemporaryDirect ? <span className="shrink-0 text-xs font-medium [color:var(--kc-muted)]">临时会话</span> : null}
               </h3>

@@ -1135,6 +1135,8 @@ export interface Conversation {
   file_default_ttl_hours?: number;
   /** 群待办；没有为 null。旧后端没有这个字段，按 null */
   group_todo?: import('./groupPlus').GroupTodo | null;
+  /** 好友火花（KukeChat-Server/docs/sparks.md）：好友私聊才有，没有可画的为 null。旧后端没有这个字段 */
+  spark?: import('./spark').Spark | null;
 }
 
 export interface Bot {
