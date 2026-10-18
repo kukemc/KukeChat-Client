@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { fetchLatestRelease } from '@/api/releases';
 import { API_BASE_URL } from '@/config';
+import { subscribeRealtimeEvents } from '@/realtime/events';
 import type { ReleaseChannel } from '@/types/release';
 import { isTauriDesktopApp } from '@/utils/appMode';
 import packageJson from '../../package.json';
@@ -56,7 +57,15 @@ interface DesktopUpdateState {
 const PREFS_KEY = 'kukechat-desktop-update';
 const PENDING_KEY = 'kukechat-desktop-updating-to';
 const AUTO_CHECK_DELAY_MS = 8_000;
-const AUTO_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const AUTO_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+/** 窗口重新获得焦点 / 变为可见时，距上次检查超过这么久就再查一次 */
+const FOCUS_RECHECK_AFTER_MS = 60 * 60 * 1000;
+/** 收到 release.published 后随机等 0–30 秒再查，免得所有在线客户端同一秒打到服务器 */
+const PUSH_CHECK_JITTER_MS = 30_000;
+/** 自动检查弹出的窗被用户关掉（没点跳过）后，这么久之内自动检查不再为同一个版本弹窗 */
+const DISMISS_QUIET_MS = 4 * 60 * 60 * 1000;
+/** 发版服务里的平台名；桌面端目前只出 Windows 包 */
+const RELEASE_PLATFORM = 'windows';
 export const DESKTOP_UPDATE_METADATA_URL = import.meta.env.VITE_DESKTOP_UPDATE_URL?.trim() || `${API_BASE_URL}/desktop-update.json`;
 
 interface Prefs { autoCheck: boolean; skippedVersion: string | null; channel: ReleaseChannel }
@@ -146,7 +155,7 @@ async function checkReleaseService(): Promise<CheckResult | null> {
   const current = packageJson.version;
   let result;
   try {
-    result = await fetchLatestRelease({ platform: 'windows', channel: get().channel, current, arch: 'x64' });
+    result = await fetchLatestRelease({ platform: RELEASE_PLATFORM, channel: get().channel, current, arch: 'x64' });
   } catch {
     // 旧后端没有这个接口（404）、网络或证明头问题：都退回旧路径，旧路径也失败才报错
     return null;
@@ -197,11 +206,13 @@ export async function checkForDesktopUpdate({ manual = false } = {}): Promise<vo
   try {
     const { available, ...fields } = (await checkReleaseService()) ?? (await checkLegacyMetadata());
     const skipped = !manual && !fields.forced && available && fields.latestVersion === get().skippedVersion;
+    const quiet = !manual && !fields.forced && available && recentlyDismissed(fields.latestVersion);
     set({
       ...fields,
       phase: available ? 'available' : 'upToDate',
       lastCheckedAt: Date.now(),
-      dialogOpen: manual || fields.forced || (available && !skipped && get().autoCheck)
+      // 弹着的窗不因为一次后台检查被关掉
+      dialogOpen: get().dialogOpen || manual || fields.forced || (available && !skipped && !quiet && get().autoCheck)
     });
   } catch (error) {
     set({ phase: 'error', error: errorText(error), lastCheckedAt: Date.now(), dialogOpen: manual || get().forced });
@@ -248,9 +259,18 @@ export async function installDesktopUpdate(): Promise<void> {
   }
 }
 
+/** 用户关掉「发现新版本」窗的版本和时间（只在内存里，重启后照常提醒） */
+let dismissed: { version: string; at: number } | null = null;
+
+function recentlyDismissed(version: string | null): boolean {
+  return Boolean(version && dismissed && dismissed.version === version && Date.now() - dismissed.at < DISMISS_QUIET_MS);
+}
+
 export function setDesktopUpdateDialogOpen(open: boolean): void {
   // 强制更新期间对话框关不掉
   if (!open && get().forced) return;
+  const { phase, latestVersion, dialogOpen } = get();
+  if (!open && dialogOpen && phase === 'available' && latestVersion) dismissed = { version: latestVersion, at: Date.now() };
   set({ dialogOpen: open });
 }
 
@@ -279,14 +299,47 @@ export function dismissJustUpdated(): void {
   set({ justUpdatedTo: null });
 }
 
+function isReleaseEventForMe(data: unknown): boolean {
+  if (typeof data !== 'object' || data === null) return false;
+  const { platform, channel } = data as { platform?: unknown; channel?: unknown };
+  // beta 渠道包含 stable：stable 的发布所有人都要查，beta 的发布只有接收测试版的查
+  return platform === RELEASE_PLATFORM && (channel === 'stable' || (channel === 'beta' && get().channel === 'beta'));
+}
+
 /**
  * Starts background checks: shortly after launch (always — a forced update must be found even with auto-check
- * off; without auto-check the dialog only opens for forced ones), then every few hours while auto-check is on.
+ * off; without auto-check the dialog only opens for forced ones), then hourly while auto-check is on.
+ * 另外两种触发：窗口重新获得焦点且距上次检查超过 1 小时；后端推送 release.published（发版即推，见
+ * KukeChat-Server/docs/releases.md 2.3），随机延迟 0–30 秒后查。都是普通的自动检查，跳过 / 强制规则不变。
  */
 export function startDesktopUpdateSchedule(): () => void {
   if (!isDesktopUpdateSupported()) return () => undefined;
   const tick = (): void => { if (get().autoCheck) void checkForDesktopUpdate(); };
   const first = window.setTimeout(() => void checkForDesktopUpdate(), AUTO_CHECK_DELAY_MS);
   const interval = window.setInterval(tick, AUTO_CHECK_INTERVAL_MS);
-  return () => { window.clearTimeout(first); window.clearInterval(interval); };
+
+  const onFocus = (): void => {
+    if (document.visibilityState === 'hidden') return;
+    const last = get().lastCheckedAt;
+    if (last !== null && Date.now() - last > FOCUS_RECHECK_AFTER_MS) tick();
+  };
+  window.addEventListener('focus', onFocus);
+  document.addEventListener('visibilitychange', onFocus);
+
+  let pushTimer: number | null = null;
+  const unsubscribe = subscribeRealtimeEvents((event) => {
+    if (event.rawType !== 'release.published' || !isReleaseEventForMe(event.data)) return;
+    if (pushTimer !== null) window.clearTimeout(pushTimer);
+    // 强制更新即使关了自动检查也要能发现，所以这里不看 autoCheck，弹不弹窗交给 checkForDesktopUpdate
+    pushTimer = window.setTimeout(() => { pushTimer = null; void checkForDesktopUpdate(); }, Math.random() * PUSH_CHECK_JITTER_MS);
+  });
+
+  return () => {
+    window.clearTimeout(first);
+    window.clearInterval(interval);
+    if (pushTimer !== null) window.clearTimeout(pushTimer);
+    window.removeEventListener('focus', onFocus);
+    document.removeEventListener('visibilitychange', onFocus);
+    unsubscribe();
+  };
 }
