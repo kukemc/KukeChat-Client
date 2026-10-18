@@ -252,7 +252,7 @@ export function MessageView({ message, depth = 0, variant = 'full', conversation
     ) : <UnavailableImageLabel />;
   } else if (message.type === 'voice') {
     // 和聊天里同一个语音气泡：能播、能拖进度。地址缺失时气泡自己显示「语音不可用」
-    body = <VoiceMessageBubble message={message} mine={false} />;
+    body = <VoiceMessageBubble message={message} mine={false} plain />;
   } else if (poll) {
     body = poll;
   } else if (message.type === 'red_packet') {

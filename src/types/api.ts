@@ -453,6 +453,8 @@ export interface Message {
   reactions?: MessageReactionSummary[];
   sender_display_name?: string | null;
   conversation?: Conversation | null;
+  /** 语音消息转出来的文字（服务端转过就带上）；没转过、旧后端都是 null / 没有 */
+  voice_transcript?: string | null;
 }
 
 export interface MessageSearchResult {

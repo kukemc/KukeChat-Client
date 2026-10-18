@@ -1087,7 +1087,7 @@
   transform: translateY(0);
 }
 
-/* 聊天区右上角的浮动提示栈：「↑ N 条新消息」在上，「N 个红包未领」在下，右对齐、上下排开不重叠。
+/* 聊天区右上角的浮动提示栈：从上往下「↑ N 条新消息」「有人@我」「N 个红包未领」，右对齐、上下排开不重叠。
    栈本身不接指针，按钮自己在可见时才接。淡出中的那个脱离排布，不在栈里留一块空位 */
 .kcd-float-hints {
   position: absolute;
@@ -2445,4 +2445,13 @@
   border-color: transparent;
   background: color-mix(in srgb, var(--kc-text) 8%, transparent);
   color: var(--kc-subtle);
+}
+
+/* 「有人@我」（mentions/MentionHint）：胶囊本身借 .krp-pending，这里只给 @ 图标上墨色，不用红包那抹红 */
+.kcd-atme-hint-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--kc-text);
+  opacity: 0.85;
 }

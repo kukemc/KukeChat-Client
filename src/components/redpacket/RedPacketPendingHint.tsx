@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/Icon';
 import type { PendingRedPacket } from '@/types/redPacket';
 import { parseApiDate } from '@/utils/dateTime';
 import { usePendingRedPackets } from './data';
+import { isRedPacketSeen, markRedPacketsSeen, useSeenRedPacketsVersion } from './seenPackets';
 
 export interface RedPacketPendingHintProps {
   conversationId: number;
@@ -22,21 +23,22 @@ function expiresAtOf(item: PendingRedPacket): number | null {
 /**
  * 聊天区右上角的「N 个红包未领」。数据见 data.ts 的 usePendingRedPackets，领完、抢完、过期、撤回后自己消失。
  *
- * 点一下跳到最早的那个没领的；不领、接着点，就往新的一个个跳，跳到最新的之后再回到最早的。
- * 列表一变（领掉一个、来了新的），下一次又从最早的开始 —— 领完一个再点，正好是下一个最早的。
+ * 看过的不算（seenPackets.ts）：点提示跳过去的那个、卡片在视口里露过脸的那些 —— 有的红包就是不想领，看过就别一直催。
+ * 所以点一下总是跳到「最早的、还没看过的」那个，跳过去它就算看过了；再点就是下一个。都看过了提示就消失。
  */
 export function RedPacketPendingHint({ conversationId, onJump }: RedPacketPendingHintProps): JSX.Element | null {
   const query = usePendingRedPackets(conversationId);
   const [now, setNow] = useState(() => Date.now());
+  const seenVersion = useSeenRedPacketsVersion();
 
-  // 还没过期的，最早的在前（接口给的是新的在前）
+  // 还没过期、还没看过的，最早的在前（接口给的是新的在前）
   const items = useMemo(() => (query.data ?? [])
     .filter((item) => {
       const expiresAt = expiresAtOf(item);
-      return expiresAt === null || expiresAt > now;
+      return (expiresAt === null || expiresAt > now) && !isRedPacketSeen(item.message_id);
     })
     .slice()
-    .reverse(), [now, query.data]);
+    .reverse(), [now, query.data, seenVersion]);
 
   // 到下一个过期的点再算一次
   useEffect(() => {
@@ -48,12 +50,6 @@ export function RedPacketPendingHint({ conversationId, onJump }: RedPacketPendin
     const timer = window.setTimeout(() => setNow(Date.now()), wait);
     return () => window.clearTimeout(timer);
   }, [now, query.data]);
-
-  const signature = items.map((item) => item.id).join(',');
-  const cursorRef = useRef(0);
-  useEffect(() => {
-    cursorRef.current = 0;
-  }, [signature]);
 
   const [busy, setBusy] = useState(false);
   // 消失时保留上一次的数字，淡出的那一下不会变成「0 个」
@@ -72,13 +68,16 @@ export function RedPacketPendingHint({ conversationId, onJump }: RedPacketPendin
     if (busy || items.length === 0) {
       return;
     }
-    const index = cursorRef.current % items.length;
-    cursorRef.current = index + 1;
+    const target = items[0].message_id;
     setBusy(true);
-    void Promise.resolve(onJump(items[index].message_id)).finally(() => setBusy(false));
+    void Promise.resolve(onJump(target)).finally(() => {
+      // 跳过去了就算看过（跳的时候拉上下文失败也算：不想让它一直挂着）
+      markRedPacketsSeen([target]);
+      setBusy(false);
+    });
   }
 
-  const hint = items.length > 1 ? '点一下跳到最早的那个，再点依次跳到下一个' : '跳到这个红包';
+  const hint = items.length > 1 ? '跳到最早的那个没看过的红包，再点跳到下一个' : '跳到这个红包';
   return (
     <button
       type="button"

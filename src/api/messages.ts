@@ -355,6 +355,43 @@ export async function uploadMessageVoice(file: File): Promise<UploadResponse> {
   return uploadFile<UploadResponse>('/uploads/message-voice', file);
 }
 
+/** 我还没读的消息里 @我（kind: 'me'）或 @全体成员（kind: 'all'）的那几条，最早的在前 */
+export interface UnreadMentionItem {
+  message_id: number;
+  kind: 'me' | 'all';
+  created_at: string | null;
+}
+
+/**
+ * GET /conversations/{cid}/mentions/unread：已读位置之后 @我 / @全体 的消息。
+ * afterId 是进会话那一刻的已读位置：进会话会马上标已读，带上它服务端就不用管两个请求谁先到（旧后端忽略这个参数）。
+ */
+export async function getUnreadMentions(conversationId: number, afterId?: number | null): Promise<UnreadMentionItem[]> {
+  const query = afterId ? `?after_id=${afterId}` : '';
+  const response = await apiRequest<unknown>(`/conversations/${conversationId}/mentions/unread${query}`);
+  const items = isRecord(response) && Array.isArray(response.items) ? response.items : asList<unknown>(response);
+  return items.flatMap((item): UnreadMentionItem[] => {
+    if (!isRecord(item) || typeof item.message_id !== 'number' || !Number.isFinite(item.message_id)) {
+      return [];
+    }
+    return [{ message_id: item.message_id, kind: item.kind === 'all' ? 'all' : 'me', created_at: typeof item.created_at === 'string' ? item.created_at : null }];
+  }).sort((left, right) => left.message_id - right.message_id);
+}
+
+export interface VoiceTranscriptRead {
+  text: string;
+  cached: boolean;
+}
+
+/** 语音转文字。错误：422 not_voice / voice_too_long，503 transcribe_unavailable，429 transcribe_rate_limited */
+export async function transcribeVoiceMessage(conversationId: number, messageId: number): Promise<VoiceTranscriptRead> {
+  const response = await apiRequest<unknown>(`/conversations/${conversationId}/messages/${messageId}/transcribe`, {
+    method: 'POST'
+  });
+  const record = isRecord(response) ? response : {};
+  return { text: typeof record.text === 'string' ? record.text : '', cached: record.cached === true };
+}
+
 /**
  * 标记已读。返回里带着读完之后这个会话的 mention_pending（我还没读的消息里有没有 @我）：
  * 有这个字段就返回它（'me' / 'all' / null），旧后端没有这个字段时返回 undefined。

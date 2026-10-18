@@ -61,6 +61,7 @@ import { editablePlainText, pointInContainer, elementAnchorInContainer, clampOve
 import { MessageTimeDivider, renderQuoteBlock, renderMentionedText, CcwCreationCards, UnavailableImageLabel, renderLinkedPreview } from './message/messageText';
 import { renderBotElementContent, interactionPayload, renderSafeBotMarkdown } from './message/botMarkdown';
 import { VoiceMessageBubble, StagedVoicePreview } from './message/VoiceMessage';
+import { canTranscribeVoice, toggleVoiceTranscript, voiceTranscriptOf } from './message/voiceTranscripts';
 import { bubbleSkinClass } from '@/components/shop/skin/bubbleSkin';
 import { SkinDecor, messageSkin, useSkinSettings } from '@/components/shop/skin/SkinDecor';
 import { ForwardBundleCard, PostShareCard, BotShareCard, UserShareCard, TeamupShareCard, GroupShareCard } from './message/shareCards';
@@ -3623,6 +3624,10 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               {isRedPacketMessage(messageMenu.message) || isGiftMessage(messageMenu.message) || groupFileMetaOf(messageMenu.message) ? null : <ContextMenuItem label="转发" icon="send" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => openForwardModal([messageMenu.message.id])} />}
               <ContextMenuItem label={messageMenu.message.bookmarked_by_me ? '取消收藏' : '收藏'} icon="star" disabled={Boolean(messageMenu.message.recalled_at) || bookmarkMutation.isPending} onClick={() => toggleSelectedMessageBookmark(messageMenu.message)} />
               {isRedPacketMessage(messageMenu.message) || isGiftMessage(messageMenu.message) || groupFileMetaOf(messageMenu.message) ? null : <ContextMenuItem label="多选" icon="checkSquare" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => startMultiSelect(messageMenu.message)} />}
+              {canTranscribeVoice(messageMenu.message) ? <ContextMenuItem label={voiceTranscriptOf(messageMenu.message).open ? '收起文字' : '转文字'} icon="fileText" onClick={() => {
+                toggleVoiceTranscript(messageMenu.message);
+                setMessageMenu(null);
+              }} /> : null}
               <ContextMenuItem label="引用" icon="quote" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => quoteMessage(messageMenu.message)} />
               {todoMenuAction ? <ContextMenuItem label={todoMenuAction.label} icon="checkSquare" onClick={() => { todoMenuAction.run(); setMessageMenu(null); }} /> : null}
               {isGroup && (currentRole === 'owner' || currentRole === 'admin') ? <ContextMenuItem label={messageMenu.message.featured ? '取消精华' : '设为精华'} icon="sparkles" disabled={!canFeatureMessage(messageMenu.message) || featureMutation.isPending} onClick={() => toggleSelectedMessageFeature(messageMenu.message)} /> : null}
