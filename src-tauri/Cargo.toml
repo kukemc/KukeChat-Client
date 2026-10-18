@@ -1,6 +1,6 @@
 [package]
 name = "kukechat"
-version = "2.0.7"
+version = "2.0.8"
 description = "KukeChat Windows desktop client"
 authors = ["KukeChat"]
 edition = "2021"
