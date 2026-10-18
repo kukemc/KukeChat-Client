@@ -976,6 +976,20 @@ button.kjr-tr:hover + .kjr-tr {
   white-space: pre-wrap;
 }
 
+/* 被举报人在上下文里说的其他话：淡一点的强调色边线、发言人名字着色、正文加粗，一眼能看出他前后都说了什么 */
+.kjr-msg.is-reported {
+  border-color: color-mix(in srgb, var(--kc-accent) 38%, transparent);
+  background: color-mix(in srgb, var(--kc-accent) 3%, transparent);
+}
+
+.kjr-msg.is-reported .kjr-msg-who span {
+  color: var(--kc-accent);
+}
+
+.kjr-msg.is-reported .kjr-msg-body p {
+  font-weight: 600;
+}
+
 /* 被举报的那一条：强调色的边线和淡底，上面压一个小标记 */
 .kjr-msg.is-target {
   margin: 4px 0;

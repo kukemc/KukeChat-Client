@@ -131,6 +131,9 @@ function VoiceEvidence({ url }: { url: string }): JSX.Element {
   );
 }
 
+// 后端给被举报人的固定代称。被举报人在上下文里说的每一句都标出来（淡边线 + 加粗），被举报的那一条再额外强调
+const REPORTED_SPEAKER = '被举报人';
+
 function messageImages(message: JuryCaseMessage): string[] {
   return [...(message.type === 'image' && message.content ? [message.content] : []), ...(message.images ?? [])];
 }
@@ -139,7 +142,7 @@ function MessageRow({ message, onOpen }: { message: JuryCaseMessage; onOpen: (im
   const images = messageImages(message);
   const empty = !message.content?.trim() && images.length === 0;
   return (
-    <li className={cx('kjr-msg', message.is_target && 'is-target', empty && 'is-recalled')}>
+    <li className={cx('kjr-msg', message.is_target && 'is-target', message.speaker === REPORTED_SPEAKER && 'is-reported', empty && 'is-recalled')}>
       <div className="kjr-msg-who">
         <span>{message.speaker}</span>
         <time>{formatClockTime(message.created_at)}</time>
