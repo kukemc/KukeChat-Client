@@ -747,7 +747,8 @@ export interface HomeData {
 }
 
 export interface AccountSuspension {
-  code: 'account_suspended';
+  /** account_suspended：账号被封；device_banned：这台设备被限制（换号也登不上），期限读 banned_until（服务端的 expires_at） */
+  code: 'account_suspended' | 'device_banned';
   reason?: string | null;
   banned_until?: string | null;
   permanent: boolean;

@@ -11,19 +11,24 @@ export function AccountSuspensionModal({ notice, onClose }: { notice: AccountSus
   if (showPenalties && notice.appeal_token) {
     return <PenaltyCenterModal token={notice.appeal_token} onClose={() => setShowPenalties(false)} />;
   }
+  // 设备封禁（换账号也登不上）和账号封禁共用这一层，只换措辞
+  const isDevice = notice.code === 'device_banned';
+  const copy = isDevice
+    ? { title: '此设备已被限制使用', text: '这台设备暂时无法登录或继续使用 KukeChat，换账号登录也一样。', reasonLabel: '限制原因', periodLabel: '限制期限', permanent: '永久限制' }
+    : { title: '账号已被封禁', text: '当前账号暂时无法登录或继续使用 KukeChat。', reasonLabel: '封禁原因', periodLabel: '封禁期限', permanent: '永久封禁' };
   const reason = notice.reason?.trim() || '管理员未提供具体原因';
-  const period = notice.permanent || !notice.banned_until ? '永久封禁' : `至 ${formatChinaDateTime(notice.banned_until)}（中国时间）`;
+  const period = notice.permanent || !notice.banned_until ? copy.permanent : `至 ${formatChinaDateTime(notice.banned_until)}（中国时间）`;
   if (!isMobile) {
     return (
       <div className="kau-overlay kau-overlay--top">
         <section role="alertdialog" aria-modal="true" aria-labelledby="account-suspension-title" className="kau-dialog kau-suspension kui-scroll">
           <span className="kau-suspension-mark"><Icon name="shield" className="h-6 w-6" /></span>
-          <h2 id="account-suspension-title">账号已被封禁</h2>
-          <p className="kau-dialog-text">当前账号暂时无法登录或继续使用 KukeChat。</p>
+          <h2 id="account-suspension-title">{copy.title}</h2>
+          <p className="kau-dialog-text">{copy.text}</p>
           <dl>
-            <dt>封禁原因</dt>
+            <dt>{copy.reasonLabel}</dt>
             <dd>{reason}</dd>
-            <dt>封禁期限</dt>
+            <dt>{copy.periodLabel}</dt>
             <dd>{period}</dd>
           </dl>
           {notice.appeal_token ? <button type="button" className="kau-btn kau-btn--outline kau-btn--block" onClick={() => setShowPenalties(true)}>查看处罚并申诉</button> : null}
@@ -39,17 +44,17 @@ export function AccountSuspensionModal({ notice, onClose }: { notice: AccountSus
           <div className="grid h-12 w-12 place-items-center rounded-[18px] bg-red-50 text-red-500">
             <Icon name="shield" className="h-6 w-6" />
           </div>
-          <h2 id="account-suspension-title" className="mt-5 text-[24px] font-black tracking-[-0.03em] text-slate-950">账号已被封禁</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">当前账号暂时无法登录或继续使用 KukeChat。</p>
+          <h2 id="account-suspension-title" className="mt-5 text-[24px] font-black tracking-[-0.03em] text-slate-950">{copy.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">{copy.text}</p>
 
           <div className="mt-5 grid gap-3 rounded-[20px] bg-slate-50 p-4">
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">封禁原因</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{copy.reasonLabel}</span>
               <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-800">{reason}</p>
             </div>
             <div className="h-px bg-slate-200/80" />
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">封禁期限</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{copy.periodLabel}</span>
               <p className="mt-1 text-sm font-black text-slate-900">{period}</p>
             </div>
           </div>

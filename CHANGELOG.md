@@ -1,5 +1,21 @@
 # KukeChat 更新日志
 
+## 未发布 - 设备标识上报 / 设备封禁提示
+
+对应后端的防小号设备信号（设备令牌、机器码、浏览器指纹），旧后端不认这些头时无影响。
+
+### 新功能
+
+- 设备被限制时有明确提示：登录、注册或使用中收到 `device_banned`，弹出「此设备已被限制使用」（原因、期限 / 永久），和账号封禁共用同一个提示层；`too_many_accounts_on_device`、`device_required`、`registration_ip_throttled` 在登录 / 注册表单里直接显示服务端给的说明。
+
+### 开发者说明
+
+- 新增 `api/device.ts`：每个 `/api/v1` 请求（`apiRequest`、`apiRequestWithHeaders`、`uploadFile`、`uploadFormWithProgress`、`apiDownloadBlob`）都带 `X-Kuke-Platform`（desktop / web）、`X-Kuke-Fp`（轻量浏览器指纹的 SHA-256，不含 userAgent），有令牌时带 `X-Kuke-Device`，桌面端再带 `X-Kuke-Machine`。bot-api 的请求不带。
+- 设备令牌：响应头 `X-Kuke-Device-Issue` 出现就存下并改用它；启动时没有令牌会调一次 `GET /auth/device`，登录 / 注册 / IP 登录 / 会话登录前最多等 3 秒，保证第一次注册就带着令牌。
+- 存储副本：桌面端是应用数据目录的 `device.json`（Rust 写）+ localStorage；网页是 localStorage + IndexedDB（`kukechat-device`）+ cookie `kuke_device`（约 400 天）。启动时从还在的那份恢复，缺的补写。
+- 桌面端新增 Tauri 命令 `device_token_get` / `device_token_set` / `machine_id`（`src-tauri/src/device.rs`）。机器码在 Rust 里读（Windows 注册表 MachineGuid、macOS IOPlatformUUID、Linux /etc/machine-id）并直接算成 `sha256("KukeChat-machine-v1|" + id)`，原始 ID 不进 JS；新增依赖 `serde_json`（原本已是 Tauri 的间接依赖）。
+- `AccountSuspension.code` 新增 `'device_banned'`，`accountSuspensionFromError` 会把设备封禁的 `expires_at` 读成 `banned_until`。
+
 ## 未发布 - 好友申请「忽略」/ 通知只提醒一次
 
 对应契约：KukeChat-Server/docs/chat-features.md 第 10 节。
