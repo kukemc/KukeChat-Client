@@ -15,6 +15,7 @@ import { noteGiftArrival } from '@/components/gifts/ui';
 import { handleRedPacketEvent, noteRedPacketMessage, refreshRedPacketsAfterReconnect } from '@/components/redpacket/data';
 import { handleShopEvent } from '@/components/shop/data';
 import { groupPlusKeys, handleGroupPlusEvent, refreshGroupPlusAfterReconnect } from '@/components/groupPlus/data';
+import { handleGroupAnnouncementEvent } from '@/components/groupAnnouncement/data';
 import { useModerationStore } from '@/store/moderationStore';
 import { messageMentionKind } from '@/utils/mentions';
 import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead, UnifiedNotificationList } from '@/types/api';
@@ -589,6 +590,11 @@ export function useRealtime(enabled: boolean): void {
         // 购买人的余额变动走上面的 shop.balance.changed（reason 为 group_plus）
         if (event.rawType === 'group.plus.updated' || event.rawType === 'group.todo.updated' || event.rawType === 'group.file.updated' || event.rawType === 'group.file.folders.changed') {
           handleGroupPlusEvent(queryClient, event.rawType, event.data);
+        }
+        // 群公告 v2（KukeChat-Server/docs/group-announcements.md 第 6 节）：详情、聊天卡片的删除态、进群弹窗、确认人数。
+        // 缓存怎么跟上写在 components/groupAnnouncement/data.ts（列表的整表失效在上面）
+        if (event.rawType.startsWith('group.announcement.')) {
+          handleGroupAnnouncementEvent(queryClient, event.rawType, event.data);
         }
         // 账号等级（docs/account-level.md 第 4 节）：我升级了。缓存怎么跟上写在 components/level/data.ts
         if (event.rawType === 'account.level.up') {

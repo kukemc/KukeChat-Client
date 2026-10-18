@@ -10,6 +10,7 @@ import { giftOf, giftThingLabel } from '@/utils/gift';
 import { pokeInfoOf } from '@/utils/poke';
 import { redPacketOf } from '@/utils/redPacket';
 import { PokeNotice } from '../desktop/poke/PokeNotice';
+import { AnnouncementCard, announcementCardOf } from '@/components/groupAnnouncement/AnnouncementCard';
 import { pollOf } from '../desktop/polls/pollCache';
 import { renderBotElementContent, renderSafeBotMarkdown } from './botMarkdown';
 import {
@@ -150,6 +151,10 @@ export function MessageView({ message, depth = 0, variant = 'full', conversation
 
   if (message.recalled_at) {
     return <div className={root}><span className="kmv-notice">消息已撤回</span></div>;
+  }
+  const announcementCard = announcementCardOf(message);
+  if (announcementCard) {
+    return <div className={root}><AnnouncementCard message={message} card={announcementCard} readonly /></div>;
   }
   if (message.type === 'system') {
     const poke = pokeInfoOf(message);

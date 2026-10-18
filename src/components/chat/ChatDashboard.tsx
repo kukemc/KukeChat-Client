@@ -23,6 +23,7 @@ import { NavRail } from '@/components/shell/NavRail';
 import { MessagePanel } from './MessagePanel';
 import { DesktopChatPanel } from './desktop/DesktopChatPanel';
 import { GroupPlusHosts } from '@/components/groupPlus/GroupPlusHosts';
+import { GroupAnnouncementHost } from '@/components/groupAnnouncement/GroupAnnouncementHost';
 import { FavoritesPanel } from './message/FavoritesPanel';
 import { ForwardBundleDetailModal } from './message/ForwardBundleDetailModal';
 import { ContactsPanel } from '@/components/contacts/ContactsPanel';
@@ -1645,6 +1646,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       <ShopGrantToasts />
       <GiftSendHost />
       <GroupPlusHosts />
+      <GroupAnnouncementHost />
       <GiftEffectsHost />
       <BirthdayCelebration user={currentUser} />
       <LevelUpToasts />

@@ -51,6 +51,7 @@ import type { BotInteraction } from '../message/types';
 import { PollCard } from './polls/PollCard';
 import { pollOf } from './polls/pollCache';
 import { PokeNotice } from './poke/PokeNotice';
+import { AnnouncementCard, announcementCardOf } from '@/components/groupAnnouncement/AnnouncementCard';
 import { cx, useChatRow, type ChatRowActions, type ChatRowContextValue } from './runtime';
 import { PendingImageSpinner, PendingSideStatus } from './PendingMessage';
 import { isLocalMessage, localPreviewFor } from '../message/pendingSend';
@@ -388,6 +389,19 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
     const createdAt = parseApiDate(message.created_at);
     return Boolean(createdAt && Math.abs(Date.now() - createdAt.getTime()) < 4000);
   });
+
+  // 群公告卡片（docs/group-announcements.md 第 5 节）：系统消息，但画成卡片
+  const announcementCard = message.recalled_at ? null : announcementCardOf(message);
+  if (announcementCard) {
+    return (
+      <div className="kcd-item">
+        <Dividers message={message} showTime={showTime} unreadBefore={unreadBefore} />
+        <div data-message-id={message.id} className={cx('kga-card-row', highlighted && 'is-highlighted')} onContextMenu={(event) => actions.openMessageMenu(event, message)}>
+          <AnnouncementCard message={message} card={announcementCard} />
+        </div>
+      </div>
+    );
+  }
 
   if (message.type === 'system' || message.recalled_at) {
     // 戳一戳用结构化字段自己拼；字段不全的旧消息退回显示服务端拼好的 content

@@ -921,17 +921,6 @@ export interface GroupLeaderboard {
   my_rank?: GroupLeaderboardItem | null;
 }
 
-export interface GroupAnnouncement {
-  id: number;
-  conversation_id: number;
-  author_id: number | null;
-  author?: User | null;
-  content: string;
-  pinned: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type TaskScope = 'assigned' | 'watching' | 'created' | 'all';
@@ -1345,16 +1334,6 @@ export interface CreateGroupPayload {
 export interface CreateDirectPayload {
   user_id: number;
   temporary?: boolean;
-}
-
-export interface CreateGroupAnnouncementPayload {
-  content: string;
-  pinned?: boolean;
-}
-
-export interface UpdateGroupAnnouncementPayload {
-  content: string;
-  pinned?: boolean;
 }
 
 export interface UpdateConversationProfilePayload {

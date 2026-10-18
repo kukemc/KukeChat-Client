@@ -41,6 +41,7 @@ import { hasPendingOutgoingFriendRequest, isFriendUserId } from '@/utils/friends
 import { parseApiDate } from '@/utils/dateTime';
 import { ChatInfoDrawer } from './ChatInfoDrawer';
 import { AnnouncementModal } from './AnnouncementModal';
+import { AnnouncementCard, announcementCardOf } from '@/components/groupAnnouncement/AnnouncementCard';
 import { ReportModal } from './ReportModal';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
 import { isNativeMobileApp } from '@/utils/appMode';
@@ -3247,6 +3248,18 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                   +1
                 </button>
               ) : null;
+              // 群公告卡片（docs/group-announcements.md 第 5 节）：系统消息，但画成卡片；不挂消息菜单（系统消息不能转发、多选）
+              const announcementCard = recalled ? null : announcementCardOf(message);
+              if (announcementCard) {
+                return (
+                  <div key={message.id} data-virtual-message-id={message.id} ref={virtualMessages.measureRow} className="absolute left-0 right-0" style={{ top: virtualMessages.offsets[index] }}>
+                    {showTimeDivider ? <MessageTimeDivider value={message.created_at} /> : null}
+                    <div data-message-id={message.id} className="kc-message-enter kga-card-row">
+                      <AnnouncementCard message={message} card={announcementCard} />
+                    </div>
+                  </div>
+                );
+              }
               if (message.type === 'system') {
                 return (
                   <div key={message.id} data-virtual-message-id={message.id} ref={virtualMessages.measureRow} className="absolute left-0 right-0" style={{ top: virtualMessages.offsets[index] }}>

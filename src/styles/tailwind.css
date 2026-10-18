@@ -41,6 +41,7 @@
 @import './chat-search.css';
 @import './app-update.css';
 @import './link-preview.css';
+@import './group-announcements.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
