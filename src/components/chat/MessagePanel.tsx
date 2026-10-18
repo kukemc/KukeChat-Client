@@ -14,6 +14,7 @@ import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon } from '@/components/ui/Icon';
 import { ContextMenuItem, ContextMenuSurface } from '@/components/ui/ContextMenu';
 import { UserCard } from '@/components/ui/UserCard';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import { toast } from '@/components/ui/toast';
 import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { MobileUserProfilePage, type ProfileAction } from '@/components/ui/MobileUserProfilePage';
@@ -2148,6 +2149,13 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   function openUserCardAtElement(element: HTMLElement, user?: User | null, label?: string, member?: ConversationMember | null): void {
     setMessageMenu(null);
     setMemberMenu(null);
+    // 机器人不进用户资料，直接打开机器人详情（消息头像 / 名字、成员列表都走这里）
+    const botUserId = (user ?? member?.user)?.is_bot ? user?.id ?? member?.user_id ?? member?.user?.id : null;
+    if (botUserId && botUserId !== currentUser.id) {
+      setUserCard(null);
+      openBotForUser(botUserId);
+      return;
+    }
     const resolvedMember = member ?? (isGroup ? memberFromUser(user) : null);
     if (isMobile) {
       setUserCard(null);
@@ -3317,7 +3325,9 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                   <div className={`min-w-0 ${isMobile ? 'kc-mobile-message-stack' : 'max-w-[75%]'} ${mine ? 'items-end' : 'items-start'} flex flex-col gap-0.5`} style={isMobile ? { flex: '0 1 auto', width: 'auto', maxWidth: isNativeApp ? '72vw' : '78%' } : undefined}>
                     <div className={`kc-mobile-message-meta flex flex-nowrap items-center gap-1 px-1 text-[11px] [color:var(--kc-muted)] ${mine ? 'justify-end' : 'justify-start'}`}>
                       <span className={`kc-mobile-message-identity inline-flex min-w-0 max-w-full items-center gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
-                        <span className="kc-mobile-message-name min-w-0 truncate">{messageSenderLabel(message)}</span>
+                        {message.sender?.is_bot && !mine ? (
+                          <button type="button" onClick={(event) => { event.stopPropagation(); openBotForUser(message.sender?.id); }} onDoubleClick={(event) => event.stopPropagation()} className="kc-mobile-message-name min-w-0 truncate text-left">{messageSenderLabel(message)}</button>
+                        ) : <span className="kc-mobile-message-name min-w-0 truncate">{messageSenderLabel(message)}</span>}
                         {message.sender?.is_bot ? (
                           <span className="kc-mobile-message-title inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-semibold leading-none [background:#dbeafe] [color:#2563eb]"><Icon name="bot" className="h-3 w-3" />机器人</span>
                         ) : isGroup && senderTitleBadge ? (

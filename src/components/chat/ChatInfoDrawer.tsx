@@ -18,6 +18,7 @@ import { PlusCornerBadge, PlusTierTag } from '@/components/groupPlus/PlusBadge';
 import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon } from '@/components/ui/Icon';
 import { UserCard } from '@/components/ui/UserCard';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import { MobileUserProfilePage, type ProfileAction } from '@/components/ui/MobileUserProfilePage';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
 import { registerNativeBackHandler } from '@/native/back';
@@ -851,6 +852,13 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
   function openUserCard(event: React.MouseEvent<HTMLElement>, user?: User | null, label?: string, member?: ConversationMember | null): void {
     setMemberMenu(null);
     setMobileProfileMenuOpen(false);
+    // 成员里的机器人直接打开机器人详情，不进用户资料
+    const botUserId = (user ?? member?.user)?.is_bot ? user?.id ?? member?.user_id ?? member?.user?.id : null;
+    if (botUserId && botUserId !== currentUser.id) {
+      setUserCard(null);
+      openBotForUser(botUserId);
+      return;
+    }
     if (isMobile) {
       setUserCard(null);
       runNativeRouteTransition('forward', () => setMobileUserProfile({ user, label, fallbackUserId: user?.id ?? member?.user_id ?? member?.user?.id, member: member ?? null }), true);

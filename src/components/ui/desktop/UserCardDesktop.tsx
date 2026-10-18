@@ -8,6 +8,7 @@ import { SendGiftButton } from '@/components/gifts/GiftEntry';
 import { JuryBadge } from '@/components/jury/growth/JuryBadge';
 import { UserLevelCard } from '@/components/level/UserLevelCard';
 import { ProfileLikeButton } from '@/components/likes/ProfileLikeButton';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import { useKukeStore } from '@/store/kukeStore';
 import { resolveThumbnailUrl } from '@/utils/assetUrl';
 import { openExternalUrl } from '@/utils/openExternalUrl';
@@ -127,6 +128,15 @@ export function UserCardDesktop({ user, anchor, label, action, onClose }: UserCa
             {/* 从资料卡送礼物不落聊天消息。礼物功能关着、是自己时不出现 */}
             <SendGiftButton user={user} className="kui-btn" onOpen={onClose}>{isBirthdayToday(user) ? '送生日礼物' : '送礼物'}</SendGiftButton>
             {showAction && action ? <button type="button" className={cx('kui-btn', action.tone !== 'muted' && 'kui-btn--primary')} disabled={action.disabled || !action.onClick} onClick={() => action.onClick?.(user)}>{action.label}</button> : null}
+          </footer>
+        ) : null}
+        {/* 机器人：打开它的机器人详情（介绍、指令、评价、加到群） */}
+        {user && isBot ? (
+          <footer className="kmd-card-actions">
+            <button type="button" className="kui-btn kui-btn--primary" onClick={() => {
+              openBotForUser(user.id);
+              onClose();
+            }}>查看机器人</button>
           </footer>
         ) : null}
       </section>

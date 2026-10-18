@@ -662,6 +662,21 @@
   white-space: nowrap;
 }
 
+/* 机器人的名字可以点（打开机器人详情），外观和普通昵称一样，悬停时加下划线 */
+.kcd-meta-name--link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.kcd-meta-name--link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .kcd-meta-time {
   flex: none;
   color: var(--kc-subtle);

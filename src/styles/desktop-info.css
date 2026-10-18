@@ -169,6 +169,26 @@
   white-space: nowrap;
 }
 
+/* 群机器人一行里，头像 + 名字这块点了打开机器人详情 */
+.kci-bot-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kci-bot-open:hover {
+  opacity: 0.78;
+}
+
 .kci-hint {
   padding: 8px 0 12px;
   color: var(--kc-muted);

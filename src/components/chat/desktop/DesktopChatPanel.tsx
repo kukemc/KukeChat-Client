@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getOutgoingFriendRequests } from '@/api/friends';
 import { triggerMessageInteraction } from '@/api/messages';
 import { useKukeStore } from '@/store/kukeStore';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import type { Conversation, ConversationMember, Friendship, MemberRole, Message, User } from '@/types/api';
 import { getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
@@ -248,6 +249,12 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
 
   function openUserCardAt(element: HTMLElement, user: User | null | undefined, label: string): void {
     closeFloating();
+    // 机器人不弹用户资料卡，直接打开机器人详情（消息头像 / @ 提及 / 成员列表都走这里）
+    if (user?.is_bot && user.id !== currentUser.id) {
+      setUserCard(null);
+      openBotForUser(user.id);
+      return;
+    }
     setUserCard({ user, label, anchor: elementAnchorInContainer(element, overlayRootRef.current) });
   }
 

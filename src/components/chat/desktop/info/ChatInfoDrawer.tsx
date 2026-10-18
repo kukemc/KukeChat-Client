@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/Icon';
 import { GroupPlusInfoBlock } from '@/components/groupPlus/upgrade/PlusInfoBlock';
 import { toast } from '@/components/ui/toast';
 import { UserCard } from '@/components/ui/UserCard';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import type { Conversation, ConversationMember, Friendship, MemberRole, User } from '@/types/api';
 import { AnnouncementModal } from '../../AnnouncementModal';
 import { memberRoleRank } from '../../info/shared';
@@ -167,6 +168,12 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = E
     showMembers: () => setView('members'),
     openUser: (element, user, label) => {
       setMemberMenu(null);
+      // 成员里的机器人直接打开机器人详情，不弹用户资料卡
+      if (user?.is_bot && user.id !== currentUser.id) {
+        setUserCard(null);
+        openBotForUser(user.id);
+        return;
+      }
       setUserCard({ user, label, anchor: elementAnchorInContainer(element, rootRef.current) });
     },
     openMemberMenu: (event, member) => {

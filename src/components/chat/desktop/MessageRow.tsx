@@ -1,6 +1,7 @@
 import { memo, useState } from 'react';
 import { prewarmReactionPicker } from './reactions/ReactionPickerPanel';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import { useQuery } from '@tanstack/react-query';
 import { getConversations } from '@/api/conversations';
 import type { Conversation, ConversationMember, GroupShareCardMetadata, LevelTitleTier, Message, MessageQuoteMetadata } from '@/types/api';
@@ -329,7 +330,21 @@ function SenderMeta({ message, context, mine }: { message: Message; context: Cha
       {isBot ? <span className="kcd-tag kcd-tag--admin"><Icon name="bot" className="h-3 w-3" />机器人</span> : null}
       {/* 公开身份的在任风纪委员（本人选择展示时用户对象上才有 jury_badge） */}
       {isBot ? null : <JuryBadge tier={sender?.jury_badge} />}
-      <span className="kcd-meta-name">{messageSenderLabel(message)}</span>
+      {/* 机器人的名字点了打开机器人详情（头像同样，见 DesktopChatPanel 的 avatarTap） */}
+      {isBot && sender?.id ? (
+        <button
+          type="button"
+          className="kcd-meta-name kcd-meta-name--link"
+          title="查看机器人"
+          onClick={(event) => {
+            event.stopPropagation();
+            openBotForUser(sender.id);
+          }}
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          {messageSenderLabel(message)}
+        </button>
+      ) : <span className="kcd-meta-name">{messageSenderLabel(message)}</span>}
       {/* 发言人是我的好友、我们之间解锁过好友徽章：名字后面挂我选的那一枚（不是好友什么都不画） */}
       {isBot || mine ? null : <FriendBadgeMark userId={sender?.id} size={14} openable />}
       <time className="kcd-meta-time" title={formatMessageDateTime(message.created_at)}>{formatClockTime(message.created_at)}</time>

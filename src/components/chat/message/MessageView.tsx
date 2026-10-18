@@ -41,6 +41,8 @@ export interface MessageViewProps {
   onOpenImages?: (images: string[], index: number) => void;
   /** 点合并转发卡片：进入该条转发自己的详情 */
   onOpenBundle?: (message: Message) => void;
+  /** 点机器人名片：打开机器人详情。不给就只展示、不能点（调用方负责先关掉自己所在的弹窗 / 页面） */
+  onOpenBot?: (botId: number) => void;
   /** 嵌套合并转发最多在原地展开几层，超过的只给卡片 + 「查看完整聊天记录」 */
   maxDepth?: number;
 }
@@ -106,7 +108,7 @@ function GiftSummary({ message }: { message: Message }): JSX.Element {
  * 深度没到上限且在详情里（full）时可以原地展开子消息；到了上限只给「查看完整聊天记录」，点它进入这一条自己的详情，
  * 详情里再遇到嵌套还是同样处理，所以能一层层进去、一层层退回，渲染深度始终有界。
  */
-function NestedBundle({ message, depth, maxDepth, variant, conversationId, onOpenImages, onOpenBundle }: Required<Pick<MessageViewProps, 'depth' | 'maxDepth' | 'variant'>> & Pick<MessageViewProps, 'message' | 'conversationId' | 'onOpenImages' | 'onOpenBundle'> & { message: Message }): JSX.Element {
+function NestedBundle({ message, depth, maxDepth, variant, conversationId, onOpenImages, onOpenBundle, onOpenBot }: Required<Pick<MessageViewProps, 'depth' | 'maxDepth' | 'variant'>> & Pick<MessageViewProps, 'message' | 'conversationId' | 'onOpenImages' | 'onOpenBundle' | 'onOpenBot'> & { message: Message }): JSX.Element {
   const bundle = parseForwardBundle(message);
   const [expanded, setExpanded] = useState(false);
   const canExpand = variant === 'full' && depth < maxDepth && bundle.snapshots.length > 0;
@@ -131,7 +133,7 @@ function NestedBundle({ message, depth, maxDepth, variant, conversationId, onOpe
           {bundle.snapshots.map((snapshot, index) => (
             <div key={`${snapshot.id ?? index}-${snapshot.senderName}`} className="kmv-bundle-child">
               <span className="kmv-bundle-sender">{snapshot.senderName}</span>
-              <MessageView message={snapshotToMessage(snapshot, conversationId ?? message.conversation_id, index)} depth={depth + 1} variant="full" conversationId={conversationId} onOpenImages={onOpenImages} onOpenBundle={onOpenBundle} maxDepth={maxDepth} />
+              <MessageView message={snapshotToMessage(snapshot, conversationId ?? message.conversation_id, index)} depth={depth + 1} variant="full" conversationId={conversationId} onOpenImages={onOpenImages} onOpenBundle={onOpenBundle} onOpenBot={onOpenBot} maxDepth={maxDepth} />
             </div>
           ))}
         </div>
@@ -144,7 +146,7 @@ function NestedBundle({ message, depth, maxDepth, variant, conversationId, onOpe
   );
 }
 
-export function MessageView({ message, depth = 0, variant = 'full', conversationId, onOpenImages, onOpenBundle, maxDepth = DEFAULT_MAX_BUNDLE_DEPTH }: MessageViewProps): JSX.Element {
+export function MessageView({ message, depth = 0, variant = 'full', conversationId, onOpenImages, onOpenBundle, onOpenBot, maxDepth = DEFAULT_MAX_BUNDLE_DEPTH }: MessageViewProps): JSX.Element {
   const compact = variant === 'compact';
   const cid = conversationId ?? message.conversation_id;
   const root = `kmv${compact ? ' kmv--compact' : ''}`;
@@ -195,7 +197,7 @@ export function MessageView({ message, depth = 0, variant = 'full', conversation
   } else if (message.type === 'gift') {
     body = <GiftSummary message={message} />;
   } else if (message.type === 'forward_bundle') {
-    body = <NestedBundle message={message} depth={depth} maxDepth={maxDepth} variant={variant} conversationId={cid} onOpenImages={onOpenImages} onOpenBundle={onOpenBundle} />;
+    body = <NestedBundle message={message} depth={depth} maxDepth={maxDepth} variant={variant} conversationId={cid} onOpenImages={onOpenImages} onOpenBundle={onOpenBundle} onOpenBot={onOpenBot} />;
   } else if (fileMeta) {
     body = <GroupFileCard meta={fileMeta} conversationId={cid} compact={compact} />;
   } else if (groupCard) {
@@ -203,7 +205,11 @@ export function MessageView({ message, depth = 0, variant = 'full', conversation
   } else if (postCard) {
     body = <PostShareCardPreview card={postCard} />;
   } else if (botCard) {
-    body = <BotShareCardPreview card={botCard} />;
+    body = onOpenBot ? (
+      <button type="button" title="查看机器人" onClick={(event) => { event.stopPropagation(); onOpenBot(botCard.bot_id); }} className="block max-w-full cursor-pointer rounded-[22px] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200">
+        <BotShareCardPreview card={botCard} />
+      </button>
+    ) : <BotShareCardPreview card={botCard} />;
   } else if (userCard) {
     body = <UserShareCardPreview card={userCard} />;
   } else if (teamupCard) {
