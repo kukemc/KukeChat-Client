@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ContextMenuItem, ContextMenuSurface, MenuLayer } from '@/components/ui/ContextMenu';
 import type { Message } from '@/types/api';
 import { clampOverlayPosition } from '../message/chatDom';
+import { useGroupFileUploads } from '@/components/groupPlus/uploads';
+import { chatUploadTaskIdOf } from '../message/chatUploads';
 import { discardPending, pendingNonceOf, retrySend, usePendingEntry, type PendingEntry } from '../message/pendingSend';
 
 /** 文字消息发送超过这么久还没确认，才在气泡旁边出转圈（大多数时候一闪就过，不必打扰） */
@@ -79,8 +81,46 @@ export interface PendingMenuState {
   top: number;
 }
 
-/** 本地消息的右键菜单：只有「重发」和「删除」。 */
+/** 本地消息的右键菜单：只有「重发」和「删除」。正在上传的文件换成「取消上传」/「重试」「删除」。 */
 export function PendingMessageMenu({ menu, overlayRoot, onClose }: { menu: PendingMenuState; overlayRoot: HTMLElement | null; onClose: () => void }): JSX.Element {
+  const uploadTaskId = chatUploadTaskIdOf(menu.message);
+  return uploadTaskId !== null
+    ? <UploadMenu taskId={uploadTaskId} menu={menu} overlayRoot={overlayRoot} onClose={onClose} />
+    : <SendMenu menu={menu} overlayRoot={overlayRoot} onClose={onClose} />;
+}
+
+function UploadMenu({ taskId, menu, overlayRoot, onClose }: { taskId: number; menu: PendingMenuState; overlayRoot: HTMLElement | null; onClose: () => void }): JSX.Element {
+  const queryClient = useQueryClient();
+  const status = useGroupFileUploads((state) => state.tasks.find((item) => item.id === taskId)?.status ?? null);
+  const { cancel, dismiss, retry } = useGroupFileUploads.getState();
+  const position = clampOverlayPosition(menu, 160, 96, overlayRoot);
+  return (
+    <MenuLayer onClose={onClose}>
+      <ContextMenuSurface onMouseDown={(event) => event.stopPropagation()} style={position} className="absolute w-[160px]">
+        {status === 'failed' ? (
+          <>
+            <ContextMenuItem label="重试" icon="refresh" onClick={() => {
+              retry(queryClient, taskId);
+              onClose();
+            }} />
+            <ContextMenuItem label="删除" icon="trash" danger onClick={() => {
+              dismiss(taskId);
+              onClose();
+            }} />
+          </>
+        ) : (
+          <ContextMenuItem label="取消上传" icon="close" danger disabled={status !== 'uploading'} onClick={() => {
+            cancel(taskId);
+            dismiss(taskId);
+            onClose();
+          }} />
+        )}
+      </ContextMenuSurface>
+    </MenuLayer>
+  );
+}
+
+function SendMenu({ menu, overlayRoot, onClose }: { menu: PendingMenuState; overlayRoot: HTMLElement | null; onClose: () => void }): JSX.Element {
   const queryClient = useQueryClient();
   const entry = usePendingEntry(menu.message);
   const nonce = pendingNonceOf(menu.message);

@@ -48,6 +48,8 @@ import { useChatMutations } from './useChatMutations';
 import { PendingMessageMenu, type PendingMenuState } from './PendingMessage';
 import { enqueueSend, isLocalMessage } from '../message/pendingSend';
 import { isSelectableMessage, paintRange, toastSelectionLimit } from './selection';
+import { typingIndicatorMode } from '../info/typingIndicator';
+import { useChatFileSender } from '@/components/groupPlus/files/FileComposerButton';
 
 export interface DesktopChatPanelProps {
   conversations: Conversation[];
@@ -133,6 +135,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   const [pendingFriendIds, setPendingFriendIds] = useState<ReadonlySet<number>>(() => new Set());
   const [sidebarOpen, setSidebarOpen] = useState(() => readPreference(SIDEBAR_PREFERENCE_KEY) !== 'closed');
   const [dropActive, setDropActive] = useState(false);
+  // 群文件开着时拖进来的非图片文件直接发出去（Composer.stageFiles 里分），提示跟着说清楚
+  const canDropFiles = useChatFileSender(conversationId, isGroup) !== null;
   const dragDepthRef = useRef(0);
   const avatarTapRef = useRef<{ userId: number; at: number; timer: number | null } | null>(null);
   const selectMode = selectedIds !== null;
@@ -645,6 +649,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
             isTaskAssistantChat={isTaskAssistantChat}
             canSendRedPacket={!isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot)}
             directUser={isGroup ? null : directUser}
+            reportsTyping={!isGroup || typingIndicatorMode(conversation) !== 'off'}
             onSend={handleSend}
             onOwnMessageSent={handleOwnMessageSent}
             onMembersNeeded={handleMembersNeeded}
@@ -655,7 +660,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
           />
         </div>
 
-        {dropActive ? <div className="kcd-drop-overlay"><div><Icon name="image" className="h-7 w-7" /><span>松开即可添加图片</span></div></div> : null}
+        {dropActive ? <div className="kcd-drop-overlay"><div><Icon name="image" className="h-7 w-7" /><span>{canDropFiles ? '松开即可添加图片、发送文件' : '松开即可添加图片'}</span></div></div> : null}
       </div>
 
       {sidebarOpen ? (

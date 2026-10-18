@@ -1266,6 +1266,10 @@
 .kcd-composer {
   position: relative;
   display: flex;
+  /* 高度：拖出来的高度（--kcd-composer-h，Composer 给）是下限；引用条、待发图片、多行文字放不下时往上长，
+     长到上限后编辑区自己滚动。上限至少是设定的高度，不会比用户拖出来的还矮 */
+  min-height: var(--kcd-composer-h, 168px);
+  max-height: max(var(--kcd-composer-h, 168px), min(440px, 55vh));
   flex-direction: column;
   border-radius: var(--kui-r-lg);
   background: var(--kc-composer-surface);
@@ -1403,11 +1407,19 @@
 }
 
 .kcd-composer-body {
+  display: flex;
   min-height: 0;
   flex: 1 1 auto;
+  flex-direction: column;
   overflow-y: auto;
   padding: 6px 16px 4px;
   cursor: text;
+  scroll-padding-block: 6px;
+}
+
+/* 引用条、待发图片、语音预览都按自己的高度排，不跟编辑器抢；剩下的高度都给编辑器 */
+.kcd-composer-body > :not(.kcd-editor-wrap) {
+  flex: none;
 }
 
 .kcd-composer-quote {
@@ -1546,6 +1558,10 @@
 
 .kcd-editor-wrap {
   position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 0 auto;
+  flex-direction: column;
 }
 
 .kcd-editor-placeholder {
@@ -1560,6 +1576,7 @@
 
 .kcd-editor {
   min-height: 44px;
+  flex: 1 0 auto;
   outline: none;
   color: var(--kc-text);
   line-height: 1.6;

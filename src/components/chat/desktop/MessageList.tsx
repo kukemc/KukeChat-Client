@@ -11,6 +11,7 @@ import { MESSAGE_PAGE_SIZE } from '../message/constants';
 import { repeatableContentOf, senderOf, shouldShowTimeDivider } from '../message/messageMeta';
 import type { MessagesInfiniteData } from '../message/types';
 import { messageRowKey, usePendingEntries } from '../message/pendingSend';
+import { useChatUploadMessages } from '../message/chatUploads';
 import { MessageRow } from './MessageRow';
 import { cx } from './runtime';
 import { TypingIndicator } from './typing/TypingIndicator';
@@ -183,13 +184,20 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   const loadingNewerRef = useRef(false);
   // 乐观发送的本地消息（还没确认、或者确认了但真消息还没进缓存的）接在最新一条后面；看历史片段时不接
   const pendingEntries = usePendingEntries(conversationId);
+  const loadedIds = useMemo(() => new Set(loadedMessages.map((message) => message.id)), [loadedMessages]);
+  // 聊天里发的文件：上传期间的卡片也是本地消息，接在同一个位置
+  const uploadMessages = useChatUploadMessages(conversationId, loadedIds);
   const messages = useMemo(() => {
     if (contextEdgeId === null) {
-      if (pendingEntries.length === 0) {
+      if (pendingEntries.length === 0 && uploadMessages.length === 0) {
         return loadedMessages;
       }
-      const loadedIds = new Set(loadedMessages.map((message) => message.id));
       const pending = pendingEntries.filter((entry) => entry.serverId === null || !loadedIds.has(entry.serverId)).map((entry) => entry.message);
+      if (uploadMessages.length > 0) {
+        pending.push(...uploadMessages);
+        // 两种本地消息按点发送的先后排（ISO 时间串直接比）
+        pending.sort((left, right) => (left.created_at ?? '').localeCompare(right.created_at ?? ''));
+      }
       return pending.length > 0 ? [...loadedMessages, ...pending] : loadedMessages;
     }
     // 边界消息还没进缓存（状态先于数据提交的那一帧）就先不过滤，免得列表闪空
@@ -197,7 +205,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
       return loadedMessages;
     }
     return loadedMessages.filter((message) => message.id <= contextEdgeId);
-  }, [contextEdgeId, loadedMessages, pendingEntries]);
+  }, [contextEdgeId, loadedIds, loadedMessages, pendingEntries, uploadMessages]);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const contextModeRef = useRef(false);
@@ -441,6 +449,10 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
       }
     });
     observer.observe(content);
+    // 列表本身变矮（输入框随内容长高）时也一样：贴底的话最后一条不能被输入框盖住
+    if (scrollerRef.current) {
+      observer.observe(scrollerRef.current);
+    }
     return () => observer.disconnect();
   }, [centerOn, pinToBottom]);
 

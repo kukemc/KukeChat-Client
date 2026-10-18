@@ -13,6 +13,7 @@ import { TaskEventCard } from '@/components/tasks/TaskEventCard';
 import { GiftCard } from '@/components/gifts/GiftCard';
 import { RedPacketCard } from '@/components/redpacket/RedPacketCard';
 import { GroupFileCard } from '@/components/groupPlus/files/GroupFileCard';
+import { UploadingFileCard } from '@/components/groupPlus/files/UploadingFileCard';
 import { groupFileMetaOf } from '@/api/groupPlus';
 import { bubbleSkinClass, type BubbleSkin } from '@/components/shop/skin/bubbleSkin';
 import { SkinDecor, messageSkin, useSkinSettings } from '@/components/shop/skin/SkinDecor';
@@ -56,6 +57,7 @@ import { AnnouncementCard, announcementCardOf } from '@/components/groupAnnounce
 import { cx, useChatRow, type ChatRowActions, type ChatRowContextValue } from './runtime';
 import { PendingImageSpinner, PendingSideStatus } from './PendingMessage';
 import { isLocalMessage, localPreviewFor } from '../message/pendingSend';
+import { chatUploadTaskIdOf } from '../message/chatUploads';
 import { isSelectableMessage } from './selection';
 
 export interface MessageRowProps {
@@ -206,6 +208,12 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
   const gift = giftOf(message);
   if (gift) {
     return { bare: true, node: <GiftCard message={message} meta={gift} mine={mine} /> };
+  }
+
+  // 聊天里正在上传的文件（本地消息）：带进度和取消的卡片，传完原地换成下面的文件卡片
+  const uploadTaskId = chatUploadTaskIdOf(message);
+  if (uploadTaskId !== null) {
+    return { bare: true, node: <UploadingFileCard taskId={uploadTaskId} /> };
   }
 
   // 群文件消息：type 仍是 text（旧客户端只看到「[文件] 名」），新客户端按 metadata.file 画卡片

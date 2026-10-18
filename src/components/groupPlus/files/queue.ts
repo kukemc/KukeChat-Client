@@ -9,7 +9,7 @@ import { fileRules, planUpload } from './fileUtils';
  * 逐个按 planUpload 判断放进群空间、存成临时文件，还是超过上限不能传；返回一句要告诉用户的话（没有就是 null）。
  * 同一批里已经排进去、还没传完的文件也占空间，免得每个都单独通过、合起来超额。
  */
-export function queueGroupUploads(queryClient: QueryClient, conversationId: number, quota: GroupFileQuota, list: File[], options: { permanent?: boolean; folderId?: number | null } = {}): string | null {
+export function queueGroupUploads(queryClient: QueryClient, conversationId: number, quota: GroupFileQuota, list: File[], options: { permanent?: boolean; folderId?: number | null; inChat?: boolean } = {}): string | null {
   if (quota.state !== 'active') {
     return quota.state === 'grace' ? '宽限期内只能查看、下载和删除，不能上传。' : '这个群还没有解锁群文件。';
   }
@@ -35,7 +35,7 @@ export function queueGroupUploads(queryClient: QueryClient, conversationId: numb
     } else {
       temps += 1;
     }
-    start(queryClient, conversationId, file, { permanent: plan.kind === 'space' && options.permanent === true, temporary: plan.kind === 'temp', direct: quota.direct === true, folderId: options.folderId ?? null });
+    start(queryClient, conversationId, file, { permanent: plan.kind === 'space' && options.permanent === true, temporary: plan.kind === 'temp', direct: quota.direct === true, folderId: options.folderId ?? null, inChat: options.inChat === true });
   }
   if (temps > 0 && rules.hasSpace && notice === null) {
     // 临时文件不进文件夹（5.5）：服务端会放到根目录
