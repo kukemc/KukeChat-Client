@@ -9,7 +9,7 @@ import { createGroupInvite } from '@/api/invites';
 import { sendMessage, shareUserToConversation } from '@/api/messages';
 import { createReport } from '@/api/reports';
 import { useKukeStore } from '@/store/kukeStore';
-import type { Conversation, ConversationMember, Friendship, GroupJoinRequest, GroupLeaderboardPeriod, GroupLeaderboardType, JoinMode, MemberRole, Message, MessageMetadata, UpdateConversationProfilePayload, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload, User } from '@/types/api';
+import type { Conversation, ConversationMember, Friendship, GroupJoinRequest, GroupLeaderboardPeriod, GroupLeaderboardType, JoinMode, MemberRole, Message, MessageMetadata, TypingIndicatorMode, UpdateConversationProfilePayload, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload, User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { groupPlusErrorCode } from '@/components/groupPlus/data';
 import { useGroupPlusUi } from '@/components/groupPlus/ui';
@@ -27,6 +27,7 @@ import { runNativeRouteTransition } from '@/native/transition';
 import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
 import { hasPendingOutgoingFriendRequest, isFriendUserId } from '@/utils/friendship';
 import { AnnouncementModal } from './AnnouncementModal';
+import { typingIndicatorMode } from './info/typingIndicator';
 import { conversationPlainTitle as conversationDisplayTitle, copyText, groupCategoryOptions, joinModeOptions, leaderboardPeriodOptions, leaderboardTypeOptions, memberMuted, memberRoleRank, normalizeCreationOid, roleLabel, slowModeOptions, userShareMetadata, type SelectOption } from './info/shared';
 
 interface ChatInfoDrawerProps {
@@ -154,6 +155,13 @@ function DrawerRow({ label, value, icon, danger, disabled = false, onClick }: { 
   );
 }
 
+/** 移动端的下拉放不下说明文字，人数分界直接写进选项里。 */
+const mobileTypingIndicatorOptions: Array<SelectOption<TypingIndicatorMode>> = [
+  { value: 'auto', label: '自动（200 人以下）' },
+  { value: 'on', label: '开启' },
+  { value: 'off', label: '关闭' }
+];
+
 function DrawerSelectRow<T extends string>({ label, value, options, icon, disabled = false, onChange }: { label: string; value: T; options: Array<SelectOption<T>>; icon?: React.ReactNode; disabled?: boolean; onChange: (value: T) => void }): JSX.Element {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -238,6 +246,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
   const [profileCategory, setProfileCategory] = useState('');
   const [allMuted, setAllMuted] = useState(false);
   const [messageRateLimitPerMinute, setMessageRateLimitPerMinute] = useState(0);
+  const [typingIndicator, setTypingIndicator] = useState<TypingIndicatorMode>('auto');
   const [joinMode, setJoinMode] = useState<JoinMode>('approval');
   const [autoApprove, setAutoApprove] = useState(false);
   const [joinQuestion, setJoinQuestion] = useState('');
@@ -386,6 +395,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     setProfileCategory(conversation.category ?? '');
     setAllMuted(Boolean(conversation.all_muted));
     setMessageRateLimitPerMinute(conversation.message_rate_limit_per_minute ?? 0);
+    setTypingIndicator(typingIndicatorMode(conversation));
     setJoinMode(conversation.join_mode ?? 'approval');
     setAutoApprove(Boolean(conversation.auto_approve));
     setJoinQuestion(conversation.join_question ?? '');
@@ -399,6 +409,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     conversation.category,
     conversation.all_muted,
     conversation.message_rate_limit_per_minute,
+    conversation.typing_indicator,
     conversation.join_mode,
     conversation.auto_approve,
     conversation.join_question,
@@ -1141,6 +1152,11 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     updateGroupSetting({ message_rate_limit_per_minute: nextSlowMode });
   }
 
+  function updateTypingIndicatorValue(value: TypingIndicatorMode): void {
+    setTypingIndicator(value);
+    updateGroupSetting({ typing_indicator: value });
+  }
+
   function updateJoinModeValue(value: JoinMode): void {
     setJoinMode(value);
     const question = joinQuestion.trim();
@@ -1585,6 +1601,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
             <DrawerCard allowOverflow>
               <ToggleRow label="全员禁言" checked={allMuted} disabled={groupSettingsMutation.isPending} onChange={updateAllMutedValue} />
               <DrawerSelectRow label="发言限频" value={String(messageRateLimitPerMinute)} options={slowModeOptions} disabled={groupSettingsMutation.isPending} icon={<Icon name="clock" className="h-4 w-4" />} onChange={updateSlowModeValue} />
+              <DrawerSelectRow label="显示正在输入" value={typingIndicator} options={mobileTypingIndicatorOptions} disabled={groupSettingsMutation.isPending} icon={<Icon name="message" className="h-4 w-4" />} onChange={updateTypingIndicatorValue} />
             </DrawerCard>
 
             <p className="mb-2 mt-5 px-1 text-xs font-semibold [color:var(--kc-muted)]">开放设置</p>
@@ -2130,6 +2147,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
                 <DrawerCard allowOverflow>
                   <ToggleRow label="全员禁言" checked={allMuted} disabled={groupSettingsMutation.isPending} onChange={updateAllMutedValue} />
                   <DrawerSelectRow label="发言限频" value={String(messageRateLimitPerMinute)} options={slowModeOptions} disabled={groupSettingsMutation.isPending} icon={<Icon name="clock" className="h-4 w-4" />} onChange={updateSlowModeValue} />
+                  <DrawerSelectRow label="显示正在输入" value={typingIndicator} options={mobileTypingIndicatorOptions} disabled={groupSettingsMutation.isPending} icon={<Icon name="message" className="h-4 w-4" />} onChange={updateTypingIndicatorValue} />
                   <DrawerSelectRow label="加群方式" value={joinMode} options={joinModeOptions} disabled={groupSettingsMutation.isPending} icon={<Icon name="users" className="h-4 w-4" />} onChange={updateJoinModeValue} />
                   <ToggleRow label="开启任务功能" checked={tasksEnabled} disabled={groupSettingsMutation.isPending} onChange={updateTasksEnabledValue} />
                   {tasksEnabled ? (

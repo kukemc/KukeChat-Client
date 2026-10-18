@@ -1124,6 +1124,8 @@ export interface Conversation {
   level_titles_enabled?: boolean;
   /** 生效的等级头衔分档，按 min_level 升序；群没自定义时是服务端的默认分档 */
   level_titles?: LevelTitleTier[];
+  /** 群里显不显示「正在输入」：auto 只在 200 人以下的群显示；on 大群也显示；off 不显示。由群主/管理员设置，服务端据此决定推不推；旧后端没有这个字段，按 auto */
+  typing_indicator?: TypingIndicatorMode;
   joined?: boolean;
   /** 群升级的有效档位（记录的档位已过期就是 free）。私聊恒为 free；旧后端没有这个字段，按 free */
   plus_tier?: import('./groupPlus').GroupPlusTier;
@@ -1359,7 +1361,11 @@ export interface UpdateGroupSettingsPayload {
   level_titles?: LevelTitleTier[];
   /** 群文件默认保留时长（小时），只能是 24 / 168 / 720，只影响之后上传的文件 */
   file_default_ttl_hours?: number;
+  typing_indicator?: TypingIndicatorMode;
 }
+
+/** 群的「正在输入」提示：auto 按人数（200 人以下显示），on 总是显示，off 不显示。 */
+export type TypingIndicatorMode = 'auto' | 'on' | 'off';
 
 export interface UpdateMyConversationSettingsPayload {
   nickname?: string;
