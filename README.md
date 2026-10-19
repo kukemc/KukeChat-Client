@@ -6,253 +6,180 @@
 
 **长在创作社区里的聊天客户端**
 
-一套 React + TypeScript 代码，同时构建为 Scratch / CCW 社区扩展、Windows 桌面端和 Android 移动端。
+一套 React + TypeScript 代码，构建出 Scratch / CCW 社区扩展、Windows 桌面端和移动端 Web。
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![CI](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml/badge.svg)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
-[![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6.svg)](https://www.typescriptlang.org)
-[![Tauri](https://img.shields.io/badge/Tauri-2-ffc131.svg)](https://tauri.app)
-[![Capacitor](https://img.shields.io/badge/Capacitor-6-119eff.svg)](https://capacitorjs.com)
+[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)](LICENSE)
+[![React](https://img.shields.io/badge/React-18.3-111111?style=flat-square&logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-111111?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tauri](https://img.shields.io/badge/Tauri-2-111111?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
+[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
 
 **简体中文** · [English](README.en.md)
+
+[关于](#关于) · [形态](#形态) · [功能](#功能) · [快速开始](#快速开始) · [配置](#配置) · [构建](#构建) · [相关仓库](#相关仓库)
 
 </div>
 
 ---
 
-## 关于这个项目
+## 关于
 
-图形化编程社区里，创作者其实一直是**离散**的。
+图形化编程社区里，创作者一直是离散的。
 
-作品评论区是异步的，几小时才有一条回复；社区私信像邮箱，不像对话。想找人一起做个项目、想问一句"这个积木为什么不动"、想在深夜给刚发布作品的朋友说一声"做得真好" —— 这些事在 Scratch / CCW 社区里都很难即时发生。于是大家跑去别的聊天软件建群，把创作留在社区，把交流搬去别处，社区本身反而成了一个只能看不能说的地方。
+作品评论区是异步的，几小时才有一条回复；社区私信更像邮箱，而不是对话。想找人一起做项目、想问一句「这个积木为什么不动」、想在深夜给刚发布作品的朋友说声「做得真好」—— 这些事在 Scratch / CCW 社区里都很难即时发生。于是大家去别的聊天软件建群，创作留在社区，交流搬去别处。
 
 KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。**
 
 ### 三个坚持
 
-**一、聊天要长在创作页面上，而不是另开一个窗口。**
+**聊天长在创作页面上。** 第一形态是社区扩展：加载后用 Shadow DOM 在当前页面挂载一个可拖拽、可缩放、可最小化的浮动窗口。你在编辑器里拼积木，聊天就浮在旁边，不用离开作品。Shadow DOM 让它和宿主页面的样式互不干扰。
 
-KukeChat 的第一形态是一个社区扩展。加载后它用 Shadow DOM 在当前网页上挂载一个可拖拽、可缩放、可最小化的浮动窗口 —— 你在编辑器里写着积木，聊天就浮在旁边，不用切标签页，不用离开作品。Shadow DOM 保证它不会污染宿主页面的样式，宿主页面也污染不了它。
+**在哪创作，就在哪聊。** 社区里用扩展，电脑上用桌面端，手机上用 App。它们共用一套业务逻辑、状态管理和接口层，只按平台换外壳，改一个功能，各端一起更新。
 
-**二、在哪创作，就在哪聊。**
-
-同一份代码构建出三种形态：社区里用扩展，电脑上用桌面客户端，手机上用 App。不是三个各自为战的项目，而是一套业务逻辑、一套状态管理、一套接口层，按目标平台换外壳。改一个功能，三端一起更新。
-
-**三、聊天本身应该是可编程的。**
-
-这是给 Scratcher 的聊天软件，所以它必须能被 Scratch 的方式驱动。扩展提供了三十多个积木：判断登录状态、监听新消息、推荐加群、推荐加好友，以及一整套机器人积木 —— 连接实时消息、收发消息、发图片语音表情、加表情回应、撤回消息、更新消息里的按钮。你可以用积木搭一个群管理机器人，也可以用任何语言调 [Bot API](docs/bot-api.md)。**用户能用自己会的方式扩展它**，这件事本身就是社区精神。
+**聊天本身可编程。** 这是给 Scratcher 的聊天软件，所以它能用 Scratch 的方式驱动。扩展提供 40 多个积木，从监听新消息到完整的机器人与群管能力；不想用积木，也可以用任何语言调 [Bot API](docs/bot-api.md)。用户能用自己会的方式扩展它，这本身就是社区精神。
 
 ### 为什么开源
 
-一个服务于社区的东西，不应该只有一个人能看见它怎么运转。
+服务于社区的东西，不应该只有一个人能看见它怎么运转。你可以审计客户端把什么数据发去了哪里，可以自己部署一整套服务自己的社区，也可以 fork 出完全不同的样子。
 
-开源意味着：你可以审计客户端到底把什么数据发去了哪里；你可以自己部署一整套，服务自己的社区；你可以 fork 出一个完全不同的样子。客户端代码里**不包含任何硬编码的服务器地址** —— 后端地址必须由你自己在构建时注入，这是刻意的设计，不是疏忽。
+客户端代码里**没有任何硬编码的服务器地址**，后端地址必须在构建时由你注入 —— 这是刻意的设计。
 
-采用 [MIT 协议](LICENSE)，你几乎可以做任何事，包括商用。
+> [!NOTE]
+> 本仓库只包含客户端。配套服务端见 [KukeChat-Server](https://github.com/kukemc/KukeChat-Server)；也可以自行实现提供相同 REST + WebSocket 接口的后端，约定见 [`docs/bot-api.md`](docs/bot-api.md) 与 `src/api/`、`src/types/`。
 
-> **注意：这个仓库只包含客户端**，且不内置任何服务器地址。配套的服务端已开源：**[KukeChat-Server](https://github.com/kukemc/KukeChat-Server)**（FastAPI + WebSocket，可用 Docker 一键部署）。
-> 你也可以自行实现一个提供相同 REST + WebSocket 接口的后端，接口约定见 [`docs/bot-api.md`](docs/bot-api.md) 与 `src/api/`、`src/types/`。
+## 形态
 
----
+| 形态 | 运行环境 | 实现 | 产物 | 状态 |
+| --- | --- | --- | --- | --- |
+| 社区扩展 | CCW / Gandi IDE 网页 | Vite library 模式 + Shadow DOM | `dist/KukeChat.js` | 正式 |
+| Windows 桌面端 | Windows | Tauri 2（Rust + WebView2） | `.msi` / `-setup.exe` | 正式 |
+| 移动端 Web（H5） | 手机浏览器 | 移动端布局的独立网页 | `dist-mobile/` | 可自行部署 |
+| Android | Android | Kotlin + Jetpack Compose 原生应用 | 见 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 正式，另一个仓库 |
+| macOS | macOS | Tauri 2 | `mac-beta` 分支 | 测试中 |
+| Linux | Linux 桌面 | 社区维护 | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | 非官方 |
 
-## 三种形态
+官方安装包（Windows、Android）在 [KukeChat 下载页](https://chat-api.kuke.ink/download)。
 
-| 形态 | 运行环境 | 技术 | 产物 |
-| --- | --- | --- | --- |
-| **社区扩展** | CCW / Gandi IDE 网页 | Vite library 模式 + Shadow DOM | `dist/KukeChat.js` |
-| **桌面端** | Windows | Tauri 2（Rust + WebView2） | `.msi` / `.exe` |
-| **移动端** | Android 5.1+ | Capacitor 6 | `.apk` |
+桌面端带系统托盘、新消息托盘闪烁、开机自启、单实例和内置更新器。
 
-桌面端带系统托盘、消息闪烁提醒、开机自启和内置更新器；移动端带本地通知、后台实时连接、返回键处理和 APK 自更新。
+本仓库的 `android/` 是早期的 Capacitor 外壳（停在 1.3.1，不再随版本更新），正式的 Android 应用已迁到 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android)。
 
 ## 功能
 
-<table>
-<tr><td width="33%" valign="top">
-
-**消息**
-- 私聊 / 群聊 / 临时会话
-- 文本、图片、多图、语音、表情包
-- 引用、@提及、表情回应
-- 撤回、转发、收藏、精选
-- 消息内按钮组件（机器人可动态更新）
-- 内置图片查看器（缩放 / 拖拽 / 多图切换）
-- 会话内消息搜索与上下文定位
-
-</td><td width="33%" valign="top">
-
-**社交**
-- 好友搜索、申请、备注
-- 群聊创建、群资料、群公告
-- 群权限：群主 / 管理员 / 成员
-- 全员禁言、慢速模式、加群审批
-- 群成员头衔、等级、签到
-- 动态（Posts）：发布、评论、点赞
-- 组队中心：名片、技能标签、作品展示
-
-</td><td width="33%" valign="top">
-
-**扩展能力**
-- 30+ Scratch 积木
-- 机器人：Key 鉴权 + WebSocket 事件
-- 任务系统：看板、分组、事件卡片
-- CCW 账号绑定与作品卡片解析
-- 全局搜索、邀请、举报
-- 公告、通知、在线状态
-- 移动端功能入口自定义排序
-
-</td></tr>
-</table>
+| 分类 | 内容 |
+| --- | --- |
+| 消息 | 私聊、群聊、临时会话；文本、图片、多图、语音、表情包（含动图）、文件；引用、@ 提及、表情回应、撤回；Markdown 与消息内按钮（机器人可动态更新） |
+| 语音 | 语音消息，点一下即可转成文字 |
+| 整理与转发 | 收藏、群精华、合并转发，三者都能完整展示所有消息类型，合并转发可嵌套查看 |
+| 查找 | QQ 式聊天记录搜索（分类、日期、发送人筛选，点击定位）、全局搜索、「有人 @ 我」跳转提示 |
+| 互动 | 红包（含按住说出口令才能领的语音红包）、礼物与礼物墙、投票、群待办 |
+| 群聊 | 群主 / 管理员 / 成员三级权限、全员禁言、慢速模式、入群审批、群公告、群表情、成员头衔与等级、签到 |
+| 群升级 | Pro / Pro+ / MAX 档位、群文件（配额、限时或永久保留、上传进度、取消与重试） |
+| 社交 | 好友申请与备注、动态（发布、评论、点赞）、组队中心、任务看板、亲密度、好友火花、生日、资料点赞、等级 |
+| 个性化 | 主题与壁纸、商店里的头像框和聊天气泡 |
+| 社区与安全 | CCW 账号绑定与作品卡片、举报、风纪委员（考试、合议、判例） |
+| 客户端 | 桌面通知与托盘提醒；自动更新，后端发版后实时推送，各端错峰检查 |
 
 ### Scratch 积木
 
-窗口控制、登录状态、未读数、新消息事件、推荐加群 / 加好友，以及完整的机器人积木组：
+扩展提供 40 多个积木，分为四组：
 
-```
+| 分组 | 能做什么 |
+| --- | --- |
+| 基础 | 窗口控制、登录状态、未读数、新消息事件、推荐加群 / 加好友 |
+| 机器人 | 设置 Key 并连接实时消息；收到消息 / 被 @ 时触发；发送文字、图片、表情、语音、私信；表情回应、撤回、更新消息按钮 |
+| 群管 | 查询成员信息、禁言 / 解除禁言、移出群聊、审批入群申请（机器人需被设为管理员，权限规则与人类管理员一致） |
+| 游戏模式 | 把群聊接进作品舞台，请求玩家授权后以玩家身份发言，可自定义聊天框外观与位置 |
+
+```text
 设置机器人 Key [KEY]  →  连接机器人实时消息
-当机器人收到消息 会话=[] 消息=[] 发送者=[] 类型=[] 内容=[]
-当机器人被@ 会话=[] 消息=[] 发送者=[] 类型=[] 内容=[]
+当机器人被@ 会话=[] 消息=[] 发送者ID=[] 发送者=[] 类型=[] 内容=[]
 机器人向会话 [GROUP_ID] 发送消息 [MESSAGE]
-机器人向群 [GROUP_ID] 发送 [图片/表情] URL [URL]
-机器人给群 [] 消息 [] 添加/取消表情 [EMOJI]
-机器人更新会话 [] 消息 [] 按钮 [] 文案 [] 样式 [] 禁用 [] 范围 []
-```
-
-群主把机器人设成管理员后，还能用群管积木 —— 权限规则和人类管理员完全一致：
-
-```
-群 [GROUP_ID] 成员 [USER_ID] 的 [等级/角色/是否管理员/是否被禁言/…]
-禁言群 [GROUP_ID] 成员 [USER_ID] [MINUTES] 分钟   （0 = 不设期限）
-解除群 [GROUP_ID] 成员 [USER_ID] 的禁言
-把群 [GROUP_ID] 成员 [USER_ID] 移出群聊
-群 [GROUP_ID] 待处理入群申请JSON
-[同意/拒绝] 入群申请 [REQUEST_ID] 备注 [NOTE]
-```
-
-游戏模式：把群聊接进作品舞台，玩家在游戏里就能聊天。
-
-```
 接入游戏聊天 群号 [GROUP_ID]
-[显示/隐藏/聚焦输入框/折叠/展开] 舞台聊天框
-请求玩家授权 KukeChat 账号  →  以玩家身份发送消息 [MESSAGE]
-设置聊天框 [预设外观/位置/宽高/主题色/圆角/模糊/自定义CSS] 为 [VALUE]
-当游戏模式收到消息 发送者=[] 发送者ID=[] 内容=[] 是否自己=[]
 ```
-
-不想用积木？直接调 REST + WebSocket，见 [Bot API 文档](docs/bot-api.md)。
 
 ## 技术栈
 
-**核心**
-
-| | |
+| 层 | 选型 |
 | --- | --- |
 | UI | React 18 + TypeScript 5.6（严格模式） |
-| 构建 | Vite 5（三份配置对应三个目标） |
-| 样式 | Tailwind CSS 3.4 + CSS 变量主题系统 |
-| 状态 | Zustand 5（含持久化与平台差异化策略） |
-| 数据 | TanStack Query 5（含无限滚动与乐观更新） |
+| 构建 | Vite 5，三份配置对应三个目标 |
+| 样式 | Tailwind CSS 3.4 + CSS 变量主题 |
+| 状态 | Zustand 5 |
+| 数据 | TanStack Query 5（无限滚动、乐观更新） |
+| 实时 | 原生 WebSocket，断线重连与状态同步 |
+| 桌面端 | Tauri 2 + Rust：托盘、单实例、通知、开机自启、更新器 |
 | 图标 | lucide-react |
 
-**平台层**
-
-| | |
-| --- | --- |
-| 社区扩展 | Shadow DOM 挂载，IIFE 单文件产物，运行时注入 `window.tempExt` |
-| 桌面端 | Tauri 2 + Rust：托盘、单实例、通知、开机自启、更新器 |
-| 移动端 | Capacitor 6 + 自研 Android 插件（系统栏控制、APK 下载安装） |
-| 实时 | 原生 WebSocket，40+ 事件类型，断线重连与状态同步 |
-
-**工程**
-
-- 全量 TypeScript 严格模式，`npm run typecheck` 覆盖应用代码与构建脚本
-- 部署配置集中在 `src/config/`，构建期强制校验，缺失即失败
-- GitHub Actions 每次 PR 跑类型检查 + 三端构建
-- XSS 加固的 Markdown 渲染器：不使用 `dangerouslySetInnerHTML`，所有节点由解析后的 token 构造，URL 走 http(s) 白名单
+Markdown 渲染器不使用 `dangerouslySetInnerHTML`，所有节点都由解析后的 token 构造，链接只放行 http(s)。
 
 ## 架构
 
-```
-                    ┌─────────────────────────────┐
-                    │   src/components  业务 UI    │
-                    │   src/store       全局状态    │
-                    │   src/api         接口层     │
-                    │   src/realtime    实时事件    │
-                    └──────────────┬──────────────┘
-                                   │  共享
-              ┌────────────────────┼────────────────────┐
-              │                    │                    │
-      ┌───────▼───────┐   ┌────────▼────────┐   ┌───────▼───────┐
-      │ extension/    │   │ desktop-app.tsx │   │ mobile-app.tsx│
-      │ Shadow DOM    │   │ Tauri 窗口       │   │ Capacitor     │
-      │ + 积木定义     │   │ + 托盘/更新器     │   │ + 通知/后台    │
-      └───────────────┘   └─────────────────┘   └───────────────┘
-       vite.config.ts    vite.desktop.config   vite.mobile.config
-```
+业务 UI（`src/components`）、全局状态（`src/store`）、接口层（`src/api`）和实时事件（`src/realtime`）各端共享，每个目标只有自己的入口和外壳：
 
-平台差异被收敛在 `src/native/`（原生能力封装）和 `src/utils/appMode.ts`（运行环境判断）里，业务组件基本不需要关心自己跑在哪个壳里。布局模式（桌面 / 移动）由 `src/store/kukeStore.ts` 统一判定，允许用户手动覆盖。
+| 目标 | 入口 | Vite 配置 | 产物 |
+| --- | --- | --- | --- |
+| 社区扩展 | `src/extension/index.ts` | `vite.config.ts` | `dist/KukeChat.js`（IIFE 单文件） |
+| 桌面端 | `src/desktop-app.tsx` | `vite.desktop.config.ts` | `dist-desktop/`，由 Tauri 打包 |
+| 移动端 Web | `src/mobile-app.tsx` | `vite.mobile.config.ts` | `dist-mobile/` |
 
----
+平台差异收敛在 `src/native/`（原生能力封装）和 `src/utils/appMode.ts`（运行环境判断），业务组件不关心自己跑在哪个壳里。三份配置共用 `vite.env.ts` 校验环境变量。
 
 ## 快速开始
 
-### 环境要求
-
-- Node.js 18+ 与 npm
-- 桌面端还需要：Rust 稳定版工具链 + [Tauri 2 系统依赖](https://tauri.app/start/prerequisites/)
-- Android 还需要：JDK 17 + Android SDK（Windows 下 `scripts/build-android.ps1` 会自动下载命令行工具）
-
-### 安装与配置
+需要 Node.js 18+（CI 使用 20）。桌面端另需 Rust 稳定版与 [Tauri 2 系统依赖](https://tauri.app/start/prerequisites/)。
 
 ```bash
 git clone https://github.com/kukemc/KukeChat-Client.git
 cd KukeChat-Client
 npm install
-cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
+cp .env.example .env          # PowerShell：Copy-Item .env.example .env
 ```
 
-编辑 `.env`，至少填好这两项：
+在 `.env` 里填好后端地址：
 
 ```env
 VITE_API_BASE_URL=https://chat.example.com
 VITE_WS_URL=wss://chat.example.com/ws
 ```
 
-**没填就构建不了。** `vite.env.ts` 会在三份构建配置里做校验，缺必填项直接失败并给出提示，不会产出一个连不上后端的包。
-
-### 本地预览
+启动本地预览：
 
 ```bash
 npm run dev
 ```
 
-预览页会用 Shadow DOM 在一个普通网页里挂载聊天窗口，行为和在 CCW 里点积木完全一致。开发模式下请求会走 Vite 代理到本地后端（`http://127.0.0.1:8000`）。
+预览页（`:5173`）会在普通网页里挂载聊天窗口，行为和在 CCW 里加载扩展一致。开发时 `/api`、`/uploads`、`/ws` 默认代理到本机后端 `http://127.0.0.1:8000`；设 `KUKE_DEV_REMOTE=1` 则改为代理到 `.env` 里配置的后端。
+
+> [!IMPORTANT]
+> 必填项缺失时 `dev` 和各个 `build` 都会直接失败并给出提示，不会产出一个连不上后端的包。
 
 ## 配置
 
-所有部署相关配置集中在 [`src/config/`](src/config/)，由 Vite 在构建期从 `.env` 注入：
+所有部署配置都在构建期从 `.env` 注入，模板见 [`.env.example`](.env.example)。
 
 | 变量 | 必填 | 说明 |
 | --- | :---: | --- |
-| `VITE_API_BASE_URL` | ✅ | 后端 HTTP API 根地址，不带 `/api/v1` |
-| `VITE_WS_URL` | ✅ | 实时消息 WebSocket 地址 |
+| `VITE_API_BASE_URL` | 是 | 后端 HTTP API 根地址，不带 `/api/v1` 和结尾斜杠 |
+| `VITE_WS_URL` | 是 | 实时消息 WebSocket 地址 |
 | `VITE_SECURE_LOGIN_ORIGIN` | | 安全登录弹窗 `postMessage` 的可信来源，默认取 API 的 origin |
-| `VITE_MOBILE_UPDATE_URL` | | Android 更新元数据地址，默认 `<API>/desktop-update.json` |
+| `VITE_DESKTOP_UPDATE_URL` | | 桌面端备用更新元数据地址，默认 `<API>/desktop-update.json` |
+| `VITE_MOBILE_UPDATE_URL` | | 移动端备用更新元数据地址，默认 `<API>/desktop-update.json` |
 | `VITE_EXTENSION_ASSET_URL` | | 已发布的扩展文件地址，用于机器人接入说明，留空则隐藏 |
-| `VITE_BOT_API_DOCS_URL` | | 机器人 API 文档地址，用于积木面板文档入口，留空则隐藏 |
+| `VITE_BOT_API_DOCS_URL` | | 机器人 API 文档地址，用于积木面板的文档入口，留空则隐藏 |
+| `KUKECHAT_UPDATE_METADATA_URL` | | 覆盖桌面端更新元数据地址（Rust 侧读取，运行期优先于编译期），便于本地测试 |
 
-桌面端的自动更新默认读取 `<VITE_API_BASE_URL>/desktop-update.json`（后台「下载配置」里的 PC 版本号和安装包地址），可用 `VITE_DESKTOP_UPDATE_URL` 改成别的地址。环境变量 `KUKECHAT_UPDATE_METADATA_URL`（编译期或运行期）仍可覆盖它，方便本地测试。
+客户端检查更新时先问后端的 `/api/v1/releases/latest`，拿到更新日志、强制更新标记和 sha256；接口不可用时才退回上面的元数据地址。
 
-三个配置文件分工明确：
+配置代码集中在 `src/config/`：
 
 | 文件 | 职责 |
 | --- | --- |
-| `src/config/env.ts` | 部署相关，全部来自环境变量，无任何默认值 |
-| `src/config/ccw.ts` | CCW 社区平台的公开域名与链接拼装 |
-| `src/config/branding.ts` | 应用名、扩展 ID、署名与赞助入口 |
+| `env.ts` | 部署相关配置，全部来自环境变量，没有默认的服务器地址 |
+| `ccw.ts` | CCW 社区平台的公开域名与链接拼装 |
+| `branding.ts` | 应用名、扩展 ID、署名与赞助入口 |
 
-想 fork 出自己的版本？改 `branding.ts` 一个文件就能完成整体换名换署名（MIT 要求保留 `LICENSE` 中的原始版权声明）。
+想 fork 出自己的版本，改 `branding.ts` 即可整体换名（MIT 要求保留 `LICENSE` 里的原始版权声明）。
 
 ## 构建
 
@@ -262,130 +189,93 @@ npm run dev
 npm run build
 ```
 
-产物为 `dist/KukeChat.js`，在 CCW / Gandi 的扩展加载器里加载即可，它会设置 `window.tempExt`。
-
-> 社区侧有扩展缓存，更新后建议先卸载旧扩展再重新加载。
+产物是 `dist/KukeChat.js`，在 CCW / Gandi 的扩展加载器里加载即可。社区侧会缓存扩展，更新后先卸载旧扩展再重新加载。
 
 ### Windows 桌面端
 
 ```bash
-npm run tauri:dev      # 开发调试
-npm run tauri:build    # 打包安装程序
+npm run tauri:dev      # 调试
+npm run tauri:build    # 打包 .msi 与 -setup.exe
 ```
 
-桌面端版本号以 `package.json` 的 `version` 为准，`npm run sync:desktop-version` 会同步写入 `src-tauri/tauri.conf.json`、`Cargo.toml` 和 `Cargo.lock`，`tauri:dev` / `tauri:build` 已自动执行。
+版本号以 `package.json` 的 `version` 为准。`tauri:dev` / `tauri:build` 会先执行 `sync:desktop-version`，把它同步到 `src-tauri/tauri.conf.json`、`Cargo.toml` 和 `Cargo.lock`。
 
-### Android
+### 移动端 Web
 
 ```bash
-npm run android:sync   # 构建移动端 web 产物并同步到 android/
-npm run android:apk    # Windows：一条龙打包 APK
+npm run build:mobile-web
 ```
 
-发布签名 APK 需要在 `android/` 下自建 `keystore.properties`（已被 `.gitignore` 排除）：
+产物在 `dist-mobile/`，作为静态网站部署即可。
 
-```properties
-storeFile=your-release.keystore
-storePassword=...
-keyAlias=...
-keyPassword=...
-```
+### 持续集成与发布
 
-缺少该文件时只会产出 unsigned APK，打包脚本会直接报错提醒。
+| 工作流 | 触发 | 做什么 |
+| --- | --- | --- |
+| [`ci.yml`](.github/workflows/ci.yml) | 推送到 `main`、Pull Request | 类型检查，并构建扩展、桌面端 web、移动端 web 三份产物 |
+| [`release.yml`](.github/workflows/release.yml) | 推送 `v*` 标签 | 并行构建各端产物，汇总成草稿 Release，人工确认后发布 |
 
-> **发版注意**：移动端版本号有两处必须同步 —— `src/native/appUpdate.ts` 的 `MOBILE_APP_VERSION` 和 `android/app/build.gradle` 的 `versionName` / `versionCode`。前者是客户端自更新的比较基准。
+发布构建的后端地址取自仓库变量（Settings → Secrets and variables → Actions → Variables），变量名与上面的配置表一致，fork 后填你自己的即可。`release.yml` 里仍保留旧 Capacitor 外壳的 APK 任务，它需要 `ANDROID_KEYSTORE_*` 一组签名 secret。
 
 ## 项目结构
 
 ```text
 src/
-  api/          REST 接口封装（按业务域拆分）
-  app/          应用外壳、窗口管理、路由式面板切换
-  components/   业务 UI，按功能域分目录
-  config/       部署配置、CCW 平台常量、品牌信息
-  extension/    社区扩展入口、积木定义、桥接与自更新
-  mobile/       移动端功能开关与排序
-  native/       Capacitor / Tauri 原生能力封装
-  realtime/     WebSocket 客户端与事件分发
-  store/        Zustand 全局状态
-  styles/       Tailwind 与 Shadow DOM 样式注入
-  types/        接口与实时事件类型
-  utils/        通用工具
-android/        Capacitor Android 工程（含自研原生插件）
-src-tauri/      Tauri 桌面端工程（Rust）
-docs/           机器人 API 文档
-scripts/        版本同步与 Android 打包脚本
+  api/            REST 接口封装，按业务域拆分
+  app/            应用外壳、窗口管理、面板切换
+  components/     业务 UI，按功能域分目录
+  config/         部署配置、CCW 常量、品牌信息
+  extension/      扩展入口、积木定义、游戏模式、自更新
+  native/         Tauri / 移动端原生能力封装
+  realtime/       WebSocket 客户端与事件分发
+  store/          Zustand 全局状态
+  styles/         Tailwind 与 Shadow DOM 样式注入
+  theme/          主题与壁纸
+  types/          接口与实时事件类型
+  utils/          通用工具
+src-tauri/        Tauri 桌面端（Rust）
+android/          早期 Capacitor 外壳（已停止更新）
+dev/              组件预览页与假接口
+docs/             Bot API、CCW 运行时 API、各版本更新日志
+scripts/          版本同步、打包与测试脚本
 ```
 
 ## 常用命令
 
 | 命令 | 说明 |
 | --- | --- |
-| `npm run dev` | 扩展本地预览 |
+| `npm run dev` | 扩展本地预览（`:5173`） |
+| `npm run dev:desktop` | 桌面端 web 开发服务器（`:1420`） |
 | `npm run typecheck` | 应用与构建脚本的类型检查 |
-| `npm run build` | 构建社区扩展 |
+| `npm run build` | 类型检查后构建社区扩展 |
 | `npm run build:desktop-web` | 构建桌面端 web 产物 |
 | `npm run build:mobile-web` | 构建移动端 web 产物 |
-| `npm run tauri:dev` / `tauri:build` | 桌面端开发 / 打包 |
-| `npm run android:sync` / `android:apk` | 移动端同步 / 打包 |
+| `npm run preview` | 预览构建结果 |
+| `npm run tauri:dev` | 桌面端调试 |
+| `npm run tauri:build` | 桌面端打包 |
+| `npm run sync:desktop-version` | 把 `package.json` 版本号同步进 Tauri 配置 |
+| `npm run android:sync` / `android:apk` | 旧 Capacitor 外壳的同步与打包 |
 
-## 发布
+## 相关仓库
 
-推一个 `v*` 标签即可触发 [`release.yml`](.github/workflows/release.yml)：三端并行构建，
-产物汇总成一个**草稿** Release，确认无误后在网页上点 Publish 发布。
-
-```bash
-npm version 1.2.2 --no-git-tag-version   # 按需先改版本号
-git commit -am "chore: 发布 1.2.2" && git push
-git tag v1.2.2 && git push origin v1.2.2
-```
-
-产出：社区扩展 `KukeChat-<版本>.js`、Windows `.msi` 与 `-setup.exe`、Android `KukeChat-<版本>.apk`。
-
-### 构建配置
-
-发布产物连接的后端地址来自**仓库变量**（Settings → Secrets and variables → Actions → Variables），
-不写在源码里，这样 fork 的人可以指向自己的服务：
-
-| 变量 | 必填 | 用途 |
-| --- | :---: | --- |
-| `VITE_API_BASE_URL` | ✅ | 后端 API 根地址 |
-| `VITE_WS_URL` | ✅ | 实时消息 WebSocket |
-| `VITE_MOBILE_UPDATE_URL` | | 安卓自更新元数据 |
-| `VITE_EXTENSION_ASSET_URL` | | 已发布的扩展文件地址 |
-| `VITE_BOT_API_DOCS_URL` | | 机器人 API 文档地址 |
-| `KUKECHAT_UPDATE_METADATA_URL` | | 桌面端「检查更新」地址（Rust 编译期读取） |
-
-缺少必填项时工作流会在第一步就失败并说明原因。
-
-### Android 签名
-
-APK 必须用**固定的**密钥签名。换一个密钥签出来的包，Android 会拒绝覆盖安装到已有版本上，
-客户端内的自动更新也会随之失效 —— 所以请始终使用同一个 keystore。
-
-把你的 keystore 配成仓库 Secret：
-
-```bash
-# 把 keystore 转成 base64（Windows PowerShell）
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore")) | Set-Clipboard
-
-gh secret set ANDROID_KEYSTORE_BASE64     # 粘贴上一步的 base64
-gh secret set ANDROID_KEYSTORE_PASSWORD
-gh secret set ANDROID_KEY_ALIAS
-gh secret set ANDROID_KEY_PASSWORD
-```
-
-工作流会在构建时用这些值临时生成 `android/keystore.properties`，构建结束后立即删除密钥材料，
-并校验产物确实已签名（若得到 `app-release-unsigned.apk` 会直接失败，而不是发出一个装不上的包）。
+| 仓库 | 说明 |
+| --- | --- |
+| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | 本仓库：社区扩展、Windows 桌面端、移动端 Web |
+| [KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | 后端：REST API、WebSocket 与数据模型 |
+| [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 原生 Android 应用，Kotlin + Jetpack Compose |
 
 ## 贡献
 
-欢迎 Issue 和 Pull Request。提交前请确保 `npm run typecheck` 和 `npm run build` 都通过，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎 Issue 和 Pull Request。提交前请确保 `npm run typecheck` 和 `npm run build` 通过，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-有一条硬性约定：**不要在业务代码里写死任何服务器域名**，新增的部署相关地址一律走 `src/config/env.ts` + `.env.example`。
+一条硬性约定：不要在业务代码里写死任何服务器域名，新增的部署地址一律走 `src/config/env.ts` 和 `.env.example`。
 
 ## License
 
-[MIT](LICENSE) © kukemc
+以 [MIT](LICENSE) 协议开源。
 
-如果这个项目对你有帮助，欢迎点一个 Star。
+---
+
+<div align="center">
+<sub>MIT © 2026 kukemc</sub>
+</div>
