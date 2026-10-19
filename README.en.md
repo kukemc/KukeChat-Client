@@ -6,7 +6,7 @@
 
 **A chat client that lives inside the creator community**
 
-One React + TypeScript codebase that builds a Scratch / CCW community extension, a Windows desktop app and a mobile web app.
+One React + TypeScript codebase that builds a Scratch / CCW community extension and a Windows desktop app.
 
 [![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3-111111?style=flat-square&logo=react&logoColor=white)](https://react.dev)
@@ -53,7 +53,6 @@ The client contains **no hard-coded server addresses**. You inject the backend a
 | --- | --- | --- | --- | --- |
 | Community extension | CCW / Gandi IDE in the browser | Vite library mode + Shadow DOM | `dist/KukeChat.js` | Stable |
 | Windows desktop | Windows | Tauri 2 (Rust + WebView2) | `.msi` / `-setup.exe` | Stable |
-| Mobile web (H5) | Mobile browsers | Standalone page with the mobile layout | `dist-mobile/` | Self-hosted |
 | Android | Android | Native app, Kotlin + Jetpack Compose | See [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Stable, separate repo |
 | macOS | macOS | Tauri 2 | `mac-beta` branch | Beta |
 | Linux | Linux desktop | Community-maintained | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | Unofficial |
@@ -62,7 +61,7 @@ Official installers (Windows, Android) are on the [KukeChat download page](https
 
 The desktop app comes with a system tray, tray flashing on new messages, launch at startup, single-instance mode and a built-in updater.
 
-The `android/` directory in this repo is the early Capacitor shell (frozen at 1.3.1 and no longer updated). The official Android app now lives in [KukeChat-Android](https://github.com/kukemc/KukeChat-Android).
+This repo builds two targets: the community extension and the Windows desktop app (the macOS beta lives on the `mac-beta` branch). The Android app is a separate native project; see [KukeChat-Android](https://github.com/kukemc/KukeChat-Android).
 
 ## Features
 
@@ -121,9 +120,8 @@ Business UI (`src/components`), global state (`src/store`), the API layer (`src/
 | --- | --- | --- | --- |
 | Community extension | `src/extension/index.ts` | `vite.config.ts` | `dist/KukeChat.js` (single IIFE file) |
 | Desktop | `src/desktop-app.tsx` | `vite.desktop.config.ts` | `dist-desktop/`, packaged by Tauri |
-| Mobile web | `src/mobile-app.tsx` | `vite.mobile.config.ts` | `dist-mobile/` |
 
-Platform differences are confined to `src/native/` (native capability wrappers) and `src/utils/appMode.ts` (runtime detection), so business components don't care which shell they run in. All three configs share `vite.env.ts` for environment validation.
+Platform differences are confined to `src/native/` (native capability wrappers) and `src/utils/appMode.ts` (runtime detection), so business components don't care which shell they run in. Both configs share `vite.env.ts` for environment validation.
 
 ## Quick start
 
@@ -164,7 +162,6 @@ All deployment settings are injected from `.env` at build time; see [`.env.examp
 | `VITE_WS_URL` | Yes | Real-time WebSocket URL |
 | `VITE_SECURE_LOGIN_ORIGIN` | | Trusted origin for the secure-login popup's `postMessage`; defaults to the API origin |
 | `VITE_DESKTOP_UPDATE_URL` | | Fallback desktop update metadata URL; defaults to `<API>/desktop-update.json` |
-| `VITE_MOBILE_UPDATE_URL` | | Fallback mobile update metadata URL; defaults to `<API>/desktop-update.json` |
 | `VITE_EXTENSION_ASSET_URL` | | URL of the published extension file, shown in the bot setup guide; hidden if empty |
 | `VITE_BOT_API_DOCS_URL` | | Bot API docs URL for the block palette's docs link; hidden if empty |
 | `KUKECHAT_UPDATE_METADATA_URL` | | Overrides the desktop update metadata URL (read by Rust; runtime takes precedence over compile time), handy for local testing |
@@ -200,22 +197,14 @@ npm run tauri:build    # build the .msi and -setup.exe installers
 
 The version comes from `version` in `package.json`. `tauri:dev` / `tauri:build` run `sync:desktop-version` first, which copies it into `src-tauri/tauri.conf.json`, `Cargo.toml` and `Cargo.lock`.
 
-### Mobile web
-
-```bash
-npm run build:mobile-web
-```
-
-The output is in `dist-mobile/`; deploy it as a static site.
-
 ### CI and releases
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| [`ci.yml`](.github/workflows/ci.yml) | Push to `main`, pull requests | Type-checks and builds the extension, desktop web and mobile web bundles |
+| [`ci.yml`](.github/workflows/ci.yml) | Push to `main`, pull requests | Type-checks and builds the extension and desktop web bundles |
 | [`release.yml`](.github/workflows/release.yml) | Push a `v*` tag | Builds every target in parallel and collects them into a draft release to publish after review |
 
-Release builds read backend addresses from repository variables (Settings → Secrets and variables → Actions → Variables), using the same names as the configuration table above; set your own after forking. `release.yml` still includes the APK job for the legacy Capacitor shell, which needs the `ANDROID_KEYSTORE_*` set of signing secrets.
+Release builds read backend addresses from repository variables (Settings → Secrets and variables → Actions → Variables), using the same names as the configuration table above; set your own after forking.
 
 ## Project structure
 
@@ -226,7 +215,7 @@ src/
   components/     Business UI, grouped by feature
   config/         Deployment config, CCW constants, branding
   extension/      Extension entry, block definitions, game mode, self-update
-  native/         Tauri / mobile native capability wrappers
+  native/         Tauri native wrappers, back handling and page transitions
   realtime/       WebSocket client and event dispatch
   store/          Zustand global state
   styles/         Tailwind and Shadow DOM style injection
@@ -234,7 +223,6 @@ src/
   types/          API and real-time event types
   utils/          Shared utilities
 src-tauri/        Tauri desktop app (Rust)
-android/          Early Capacitor shell (no longer updated)
 dev/              Component preview pages and mock APIs
 docs/             Bot API, CCW runtime API, per-version release notes
 scripts/          Version sync, packaging and test scripts
@@ -249,18 +237,16 @@ scripts/          Version sync, packaging and test scripts
 | `npm run typecheck` | Type-check the app and build scripts |
 | `npm run build` | Type-check, then build the community extension |
 | `npm run build:desktop-web` | Build the desktop web bundle |
-| `npm run build:mobile-web` | Build the mobile web bundle |
 | `npm run preview` | Preview the build output |
 | `npm run tauri:dev` | Debug the desktop app |
 | `npm run tauri:build` | Package the desktop app |
 | `npm run sync:desktop-version` | Sync the `package.json` version into the Tauri config |
-| `npm run android:sync` / `android:apk` | Sync and package the legacy Capacitor shell |
 
 ## Related repositories
 
 | Repository | Description |
 | --- | --- |
-| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | This repo: community extension, Windows desktop, mobile web |
+| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | This repo: community extension, Windows desktop |
 | [KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | Backend: REST API, WebSocket and data models |
 | [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Native Android app, Kotlin + Jetpack Compose |
 

@@ -2,7 +2,6 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { useRef } from 'react';
 import { useKukeStore } from '@/store/kukeStore';
 import { Icon } from '@/components/ui/Icon';
-import { isNativeMobileApp } from '@/utils/appMode';
 
 interface MobileStatusBarProps {
   rightAction?: ReactNode;
@@ -29,10 +28,6 @@ function clampMobileWindow(left: number, top: number, width: number, height: num
 export function MobileStatusBar({ rightAction, title = 'KukeChat' }: MobileStatusBarProps): JSX.Element {
   const dragState = useRef<MobileDragState | null>(null);
   const setWindowPosition = useKukeStore((state) => state.setWindowPosition);
-
-  if (isNativeMobileApp()) {
-    return <div className="kc-native-safe-top" aria-hidden="true" />;
-  }
 
   function startDrag(event: ReactPointerEvent<HTMLDivElement>): void {
     const target = event.target;
@@ -96,10 +91,6 @@ export function MobileStatusBar({ rightAction, title = 'KukeChat' }: MobileStatu
 
 export function MobilePcModeButton(): JSX.Element {
   const toggleLayoutMode = useKukeStore((state) => state.toggleLayoutMode);
-
-  if (isNativeMobileApp()) {
-    return <></>;
-  }
 
   return (
     <button type="button" data-mobile-chrome-action onClick={toggleLayoutMode} className="kc-mobile-pc-button" aria-label="切换为电脑模式" title="电脑模式">

@@ -7,7 +7,6 @@ export interface ConversationDashboardProjection {
   byId: Map<number, Conversation>;
   unread: number;
   unreadById: Map<number, number>;
-  changedIds: number[];
 }
 
 export function projectDashboardConversations(conversations: Conversation[], previous?: ConversationDashboardProjection): ConversationDashboardProjection {
@@ -19,13 +18,11 @@ export function projectDashboardConversations(conversations: Conversation[], pre
   let unreadById = previous?.unreadById ?? new Map<number, number>();
   let unread = previous?.unread ?? 0;
   let idsChanged = !previous;
-  const changedIds: number[] = [];
   for (let index = 0; index < conversations.length; index += 1) {
     const conversation = conversations[index];
     const old = previous?.byId.get(conversation.id);
     if (!sameSize || previous.ids[index] !== conversation.id) idsChanged = true;
     if (old === conversation) continue;
-    changedIds.push(conversation.id);
     byId.set(conversation.id, conversation);
     const contribution = conversation.my_do_not_disturb || conversation.my_message_setting === 'silent' || conversation.my_message_setting === 'ignore'
       ? 0 : Math.max(0, conversation.unread_count ?? 0);
@@ -45,7 +42,7 @@ export function projectDashboardConversations(conversations: Conversation[], pre
       }
     }
   }
-  return { ids, byId, unread, unreadById, changedIds };
+  return { ids, byId, unread, unreadById };
 }
 
 /** Activity sorting does not alter membership, while a same-size replacement does. */
@@ -58,26 +55,6 @@ export function sameConversationMembership(previous: readonly number[], next: re
   const known = new Set(previous);
   return known.size === next.length && next.every((id) => known.has(id));
 }
-
-export type NativeConversationChange = 'none' | 'metadata' | 'urgent';
-
-/** Only fields actually sent by native/backgroundRealtime.ts matter to background notifications. */
-export function nativeConversationChange(previous: Map<number, Conversation> | null, next: Map<number, Conversation>, changedIds?: readonly number[]): NativeConversationChange {
-  if (!previous || previous.size !== next.size) return 'urgent';
-  let metadataChanged = false;
-  for (const id of changedIds ?? next.keys()) {
-    const current = next.get(id);
-    const old = previous.get(id);
-    if (!old || !current || old.type !== current.type || (old.my_message_setting ?? 'notify') !== (current.my_message_setting ?? 'notify') || Boolean(old.my_do_not_disturb) !== Boolean(current.my_do_not_disturb)) {
-      return 'urgent';
-    }
-    if (old.title !== current.title || old.display_title !== current.display_title || old.avatar_url !== current.avatar_url) {
-      metadataChanged = true;
-    }
-  }
-  return metadataChanged ? 'metadata' : 'none';
-}
-
 
 export function isConversationPinnedForMe(conversation: Conversation): boolean {
   return Boolean(conversation.my_pinned);

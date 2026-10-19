@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: 类型检查与三端构建
+    name: 类型检查与两端构建
     runs-on: ubuntu-latest
 
     env:
@@ -33,6 +33,3 @@ jobs:
 
       - name: 构建桌面端 web 产物
         run: npx vite build --config vite.desktop.config.ts
-
-      - name: 构建移动端 web 产物
-        run: npx vite build --config vite.mobile.config.ts

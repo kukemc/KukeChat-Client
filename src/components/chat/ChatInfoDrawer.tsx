@@ -22,7 +22,6 @@ import { openBotForUser } from '@/components/bots/openBotForUser';
 import { MobileUserProfilePage, type ProfileAction } from '@/components/ui/MobileUserProfilePage';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
 import { registerNativeBackHandler } from '@/native/back';
-import { updateNativeBackgroundRealtimeConversations } from '@/native/backgroundRealtime';
 import { runNativeRouteTransition } from '@/native/transition';
 import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
 import { hasPendingOutgoingFriendRequest, isFriendUserId } from '@/utils/friendship';
@@ -614,10 +613,6 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
         my_do_not_disturb: member.do_not_disturb,
         my_message_setting: member.message_setting
       } : item)) ?? current);
-      const conversations = queryClient.getQueryData<Conversation[]>(['conversations']);
-      if (conversations) {
-        void updateNativeBackgroundRealtimeConversations(conversations);
-      }
       invalidateConversationData(variables.conversationId);
     },
     onError: (_error, variables) => {

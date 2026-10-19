@@ -74,9 +74,8 @@ export function isExpiredAt(expiresAt: string | null | undefined, now: number = 
 }
 
 /**
- * 把取回的内容交给浏览器保存。当前依赖里没有文件系统插件（Capacitor 的 Filesystem / Share），
- * 所以三端统一走 a[download]：桌面（WebView2）和扩展会弹保存；Android WebView 是否落到「下载」目录取决于系统，
- * 需要在真机上确认，不行再补原生插件。objectURL 延后释放，免得保存还没开始就被回收。
+ * 把取回的内容交给浏览器保存：统一走 a[download]，桌面（WebView2）和扩展都会弹保存。
+ * objectURL 延后释放，免得保存还没开始就被回收。
  */
 export function saveBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);

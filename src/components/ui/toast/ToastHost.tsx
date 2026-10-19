@@ -56,9 +56,9 @@ function useLastChildContainer(root: Element | null): HTMLElement | null {
 }
 
 /**
- * 全站唯一的提示渲染处，挂在 ChatShell 上（扩展、桌面、手机三种形态都经过它）。
+ * 全站唯一的提示渲染处，挂在 ChatShell 上（扩展、桌面两种形态和扩展的手机布局都经过它）。
  * 自己在原地放一个不可见的标记，从它往上找到当前布局的根（扩展的 kc-window-frame、桌面的 kc-desktop-app、
- * 手机的 kc-native-app），把提示层挂到那个根的末尾：
+ * 手机布局的 kc-native-app），把提示层挂到那个根的末尾：
  *   · 扩展形态下落在 Shadow DOM 的窗口根里，不受宿主页面样式影响、不会被裁掉；
  *   · z-index 顶格并且始终是根的最后一个子节点，全屏动效（礼物 tier 3、庆生）和对话框开着时也看得见；
  *   · 主题变量从带 data-layout / data-theme 的根上继承，深浅色和自定义主题都跟着走。

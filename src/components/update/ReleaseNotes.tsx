@@ -15,7 +15,7 @@ import { formatReleaseDate } from './updateFormat';
 const PLATFORM_LABEL: Record<ReleasePlatform, string> = { windows: 'Windows', android: 'Android', macos: 'macOS', linux: 'Linux' };
 const PAGE = 20;
 
-/** 浮层挂载点：安卓原生壳挂到带 data-theme / data-layout 的 .kc-native-app 里，其它情况同桌面弹窗 */
+/** 浮层挂载点：页面里有带 data-theme / data-layout 的 .kc-native-app（手机布局的全屏页）就挂进去，其它情况同桌面弹窗 */
 export function updatePortalRoot(): Element {
   return document.querySelector('.kc-native-app') ?? getDesktopPortalRoot();
 }

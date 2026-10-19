@@ -1,6 +1,6 @@
 # KukeChat Client
 
-Scratch/CCW 社区扩展 + Windows 桌面端（Tauri）+ Android（Capacitor），一套 React + TypeScript 代码三端复用。
+Scratch/CCW 社区扩展 + Windows 桌面端（Tauri），一套 React + TypeScript 代码两端复用。macOS 测试版在 `mac-beta` 分支；Android 是独立的原生应用（KukeChat-Android 仓库），不在这里。
 
 ## 这个仓库的定位
 
@@ -10,7 +10,7 @@ Scratch/CCW 社区扩展 + Windows 桌面端（Tauri）+ Android（Capacitor）�
 
 | 仓库 | 位置 | 说明 |
 | --- | --- | --- |
-| KukeChat-Client | 本仓库（公开） | 客户端三端 |
+| KukeChat-Client | 本仓库（公开） | 社区扩展 + 桌面端 |
 | KukeChat-Server | `../KukeChat-Server`（公开） | 后端 API |
 | KukeChat | `../KukeChat`（私有） | 后台管理端、部署与运维 |
 
@@ -23,11 +23,8 @@ npm run dev              # 扩展本地预览（:5173，代理到本地后端 :8
 npm run typecheck        # 应用 + 构建脚本类型检查
 npm run build            # 扩展 → dist/KukeChat.js
 npm run build:desktop-web
-npm run build:mobile-web
 npm run tauri:dev        # 桌面端调试
 npm run tauri:build      # 桌面端打包
-npm run android:sync     # 构建移动端 web 并同步到 android/
-npm run android:apk      # Windows 一条龙打 APK
 ```
 
 提交前 `npm run typecheck` 和 `npm run build` 必须通过。
@@ -46,7 +43,7 @@ npm run android:apk      # Windows 一条龙打 APK
 
 新增地址类配置时：加到 `env.ts` → 加到 `.env.example` → 加到 `src/vite-env.d.ts` 的 `ImportMetaEnv`。
 
-`vite.env.ts` 会在三份构建配置里校验必填项，缺失直接构建失败 —— 这是刻意的，不要为了方便加回退默认值。
+`vite.env.ts` 会在两份构建配置里校验必填项，缺失直接构建失败 —— 这是刻意的，不要为了方便加回退默认值。
 
 **2. 绝不把 `runtime.ccwAPI` 的返回值当作身份或权限依据。**
 
@@ -73,17 +70,18 @@ src/
   components/   业务 UI，按功能域分目录
   config/       部署配置 / CCW 常量 / 品牌信息
   extension/    扩展入口、积木定义、桥接、自更新
-  mobile/       移动端功能开关与排序
-  native/       Capacitor / Tauri 原生能力封装
+  mobile/       手机布局的功能开关与排序
+  native/       Tauri 原生能力封装、返回键注册表、页面过渡
   realtime/     WebSocket 客户端与事件分发
   store/        Zustand 全局状态
   types/        接口与实时事件类型
   utils/        通用工具
-android/        Capacitor Android 工程（含自研原生插件）
 src-tauri/      Tauri 桌面端（Rust）
 ```
 
-三份 Vite 配置对应三个目标：`vite.config.ts`（扩展）、`vite.desktop.config.ts`、`vite.mobile.config.ts`，共用 `vite.env.ts` 做校验。
+两份 Vite 配置对应两个目标：`vite.config.ts`（扩展）、`vite.desktop.config.ts`（桌面端），共用 `vite.env.ts` 做校验。
+
+扩展在手机上打开或切到手机布局时（`layoutMode === 'mobile'`）会渲染 `Mobile*` 组件、`src/components/mobile/` 和 `src/mobile/`，这些不是死代码。
 
 平台差异收敛在 `src/native/` 和 `src/utils/appMode.ts`，业务组件不应关心自己跑在哪个壳里。
 
@@ -96,11 +94,6 @@ src-tauri/      Tauri 桌面端（Rust）
 - Markdown 渲染器禁止 `dangerouslySetInnerHTML`，所有节点由解析后的 token 构造，URL 走 http(s) 白名单
 
 ## 容易踩的坑
-
-**移动端版本号有两处**，发版时必须同步：
-
-- `src/native/appUpdate.ts` 的 `MOBILE_APP_VERSION` —— 客户端自更新的比较基准
-- `android/app/build.gradle` 的 `versionName` / `versionCode`
 
 **桌面端版本号**以 `package.json` 的 `version` 为准，`npm run sync:desktop-version` 会同步进 `tauri.conf.json` / `Cargo.toml` / `Cargo.lock`，`tauri:dev` 和 `tauri:build` 已自动执行。
 
@@ -119,13 +112,11 @@ src-tauri/      Tauri 桌面端（Rust）
 
 聊天框的宽高与字号都是**舞台逻辑单位**（默认 480×360），不是屏幕像素。
 
-**Android 签名密钥必须固定**。换密钥签出来的 APK 无法覆盖安装到已有版本，客户端自动更新会一起失效。
-
 ## 发布
 
-推 `v*` 标签触发 `.github/workflows/release.yml`：三端并行构建 → 汇总成草稿 Release → 人工确认后发布。
+推 `v*` 标签触发 `.github/workflows/release.yml`：扩展和 Windows 桌面端并行构建 → 汇总成草稿 Release → 人工确认后发布。
 
-生产地址来自**仓库变量**（Settings → Secrets and variables → Actions → Variables），不写在源码里。Android 签名走 secrets，见 README「发布」一节。
+生产地址来自**仓库变量**（Settings → Secrets and variables → Actions → Variables），不写在源码里。
 
 ## 更新日志
 

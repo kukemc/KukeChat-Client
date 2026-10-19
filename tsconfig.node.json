@@ -7,5 +7,5 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["vite.env.ts", "vite.config.ts", "vite.mobile.config.ts", "vite.desktop.config.ts", "tailwind.config.ts", "capacitor.config.ts"]
+  "include": ["vite.env.ts", "vite.config.ts", "vite.desktop.config.ts", "tailwind.config.ts"]
 }

@@ -9,8 +9,6 @@ interface ImportMetaEnv {
   readonly VITE_SECURE_LOGIN_ORIGIN?: string;
   /** 可选：桌面端更新元数据地址，默认 `<API>/desktop-update.json`。 */
   readonly VITE_DESKTOP_UPDATE_URL?: string;
-  /** 可选：安卓客户端更新元数据地址，默认 `<API>/desktop-update.json`。 */
-  readonly VITE_MOBILE_UPDATE_URL?: string;
   /** 可选：已发布的扩展文件地址，用于机器人接入说明。 */
   readonly VITE_EXTENSION_ASSET_URL?: string;
   /** 可选：机器人 API 文档地址，用于积木面板的文档入口。 */
@@ -24,7 +22,7 @@ interface KukeChatPreviewConfig {
 
 interface Window {
   __KukeChatPreviewConfig?: KukeChatPreviewConfig;
-  __KukeChatAppMode?: 'native-mobile' | 'tauri-desktop';
+  __KukeChatAppMode?: 'tauri-desktop';
 }
 
 declare module '*.css?inline' {

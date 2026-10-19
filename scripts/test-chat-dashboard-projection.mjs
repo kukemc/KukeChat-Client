@@ -6,7 +6,7 @@ import ts from 'typescript';
 // Exercise the production TS helper itself, not a copied implementation.
 const source = readFileSync(new URL('../src/utils/conversations.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { projectDashboardConversations, sameConversationMembership, nativeConversationChange } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
+const { projectDashboardConversations, sameConversationMembership } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
 
 const initial = [
   { id: 1, type: 'group', title: 'Group', unread_count: 8 },
@@ -21,12 +21,9 @@ assert.equal(original.unread - original.unreadById.get(1), 0, 'visible group unr
 assert.equal(original.byId.get(2), initial[1]);
 assert.equal(sameConversationMembership(original.ids, [4, 3, 2, 1]), true, 'reorder should not refetch bookmarks or rewrite IDs');
 assert.equal(sameConversationMembership(original.ids, [1, 2, 3, 5]), false, 'same-size membership replacement must be noticed');
-assert.equal(nativeConversationChange(original.byId, projectDashboardConversations([...initial].reverse()).byId), 'none');
 const messagePatch = initial.map((item) => item.id === 1 ? { ...item, last_message: { id: 123 }, unread_count: 9 } : item);
 const patched = projectDashboardConversations(messagePatch);
 assert.equal(patched.unread, 9);
-assert.equal(nativeConversationChange(original.byId, patched.byId), 'none', 'message and unread patches must not call native bridge');
-const nativeSnapshot = new Map(original.byId);
 const incremental = projectDashboardConversations(messagePatch, original);
 assert.equal(incremental.unread, 9);
 assert.equal(incremental.byId.get(2), original.byId.get(2));
@@ -35,14 +32,8 @@ const replaced = projectDashboardConversations([initial[0], initial[1], initial[
 assert.equal(replaced.unread, 10);
 assert.equal(replaced.byId.has(4), false);
 assert.equal(replaced.byId.has(5), true);
-assert.equal(nativeConversationChange(nativeSnapshot, replaced.byId), 'urgent');
-const renamed = initial.map((item) => item.id === 1 ? { ...item, title: 'Renamed' } : item);
-assert.equal(nativeConversationChange(nativeSnapshot, projectDashboardConversations(renamed).byId), 'metadata');
 const muted = initial.map((item) => item.id === 1 ? { ...item, my_message_setting: 'ignore' } : item);
 assert.equal(projectDashboardConversations(muted).unread, 0);
-assert.equal(nativeConversationChange(nativeSnapshot, projectDashboardConversations(muted).byId), 'urgent', 'notification settings must be immediate');
-assert.equal(nativeConversationChange(nativeSnapshot, projectDashboardConversations([...initial, { id: 5, type: 'group' }]).byId), 'urgent');
-assert.equal(nativeConversationChange(nativeSnapshot, projectDashboardConversations([initial[0], initial[1], initial[2], { id: 5, type: 'group' }]).byId), 'urgent');
 
 // Message-heavy workload: immutable array patches for 1,000 conversations and 1,000 events.
 const base = Array.from({ length: 1000 }, (_, index) => ({ id: index + 1, type: 'group', title: `group-${index}`, unread_count: 0 }));
@@ -55,35 +46,28 @@ const updates = Array.from({ length: 1000 }, (_, index) => {
 });
 function measure(fn) {
   const start = performance.now();
-  const count = fn();
-  return { ms: Math.round((performance.now() - start) * 10) / 10, count };
+  fn();
+  return Math.round((performance.now() - start) * 10) / 10;
 }
 const old = measure(() => {
-  let bridgeCalls = 0;
   for (const list of updates) {
     list.map((item) => item.id).join(',');
     list.reduce((sum, item) => sum + item.unread_count, 0);
     list.map((item) => item.id);
-    list.map((item) => ({ id: item.id, type: item.type, title: item.title }));
-    bridgeCalls++;
   }
-  return bridgeCalls;
 });
+let membershipChanges = 0;
 const improved = measure(() => {
-  let bridgeCalls = 0;
   let previous = null;
-  let nativeSnapshot = null;
   let ids = [];
   for (const list of updates) {
     const view = projectDashboardConversations(list, previous ?? undefined);
-    if (!sameConversationMembership(ids, view.ids)) ids = view.ids;
-    if (nativeConversationChange(nativeSnapshot, view.byId, view.changedIds) !== 'none') {
-      bridgeCalls++;
-      nativeSnapshot = new Map(view.byId);
+    if (!sameConversationMembership(ids, view.ids)) {
+      ids = view.ids;
+      membershipChanges++;
     }
     previous = view;
   }
-  return bridgeCalls;
 });
-assert.equal(improved.count, 1);
-console.log(`ChatDashboard projection regression OK; 1000 conversations × 1000 message patches: old ${old.ms} ms / ${old.count} native calls; new ${improved.ms} ms / ${improved.count} native call. (CPU microbenchmark; native roundtrips excluded)`);
+assert.equal(membershipChanges, 1);
+console.log(`ChatDashboard projection regression OK; 1000 conversations × 1000 message patches: old ${old} ms; new ${improved} ms. (CPU microbenchmark)`);

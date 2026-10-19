@@ -47,10 +47,8 @@ import { AnnouncementModal } from './AnnouncementModal';
 import { AnnouncementCard, announcementCardOf } from '@/components/groupAnnouncement/AnnouncementCard';
 import { ReportModal } from './ReportModal';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
-import { isNativeMobileApp } from '@/utils/appMode';
 import { subscribePoke } from '@/realtime/poke';
 import { registerNativeBackHandler } from '@/native/back';
-import { runNativeRouteTransition } from '@/native/transition';
 import { useVirtualMessageRows } from './useVirtualMessageRows';
 import { setInstantMessageScrollTop } from './instantMessageScroll';
 import type { MessagePanelProps, MessageMenuState, MemberMenuState, MemberMuteStatus, BotInteraction, CardState, UserProfilePageState, ForwardTargetState, ReportTargetState, ReactionPickerState, MentionPickerState, StagedImage, StagedVoice, EmojiPickerTab, SendMessageVariables, MessagesInfiniteData, ConversationMembersPageData, MuteMenuOption, CustomMuteState } from './message/types';
@@ -73,7 +71,6 @@ import { ForwardTargetModal } from './message/ForwardTargetModal';
 import { FeaturedMessagesModal } from './message/FeaturedMessagesModal';
 
 export function MessagePanel({ conversations, currentUser, currentRole = 'member', members = [], friends = [], membersLoading = false, membersHasMore = false, membersLoadingMore = false, isMobile = false, mobileBackUnreadCount = 0, onMembersNeeded, onLoadMoreMembers, onMemberSearchChange, onOpenPost, onBack }: MessagePanelProps): JSX.Element {
-  const isNativeApp = isNativeMobileApp();
   const skinSettings = useSkinSettings();
   const [draft, setDraft] = useState('');
   const [stagedImages, setStagedImages] = useState<StagedImage[]>([]);
@@ -204,11 +201,11 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
 
   function openInfoDrawer(): void {
     onMembersNeeded?.();
-    runNativeRouteTransition('forward', () => setShowInfoDrawer(true), isMobile && isNativeApp);
+    setShowInfoDrawer(true);
   }
 
   function closeInfoDrawer(): void {
-    runNativeRouteTransition('back', () => setShowInfoDrawer(false), isMobile && isNativeApp);
+    setShowInfoDrawer(false);
   }
 
   useEffect(() => {
@@ -344,54 +341,6 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
       return true;
     }, 200);
   }, [imageViewer, isMobile]);
-
-  useEffect(() => {
-    if (!isMobile || !isNativeApp) {
-      return;
-    }
-    const root = document.getElementById('kukechat-root');
-    if (!root) {
-      return;
-    }
-    let frame = 0;
-    let followUntil = 0;
-    const keepBottomVisible = (duration = 360): void => {
-      if (!stickToBottomRef.current) {
-        return;
-      }
-      followUntil = Math.max(followUntil, performance.now() + duration);
-      if (frame) {
-        return;
-      }
-      const followKeyboardFrame = (): void => {
-        scrollMessagesToBottom(scrollRef.current);
-        if (performance.now() < followUntil && stickToBottomRef.current) {
-          frame = requestAnimationFrame(followKeyboardFrame);
-          return;
-        }
-        frame = 0;
-      };
-      frame = requestAnimationFrame(followKeyboardFrame);
-    };
-    const observer = new MutationObserver((records) => {
-      if (records.some((record) => record.attributeName === 'data-keyboard' || record.attributeName === 'style')) {
-        keepBottomVisible(root.dataset.keyboard === 'hiding' ? 180 : 380);
-      }
-    });
-    const handleViewportResize = (): void => keepBottomVisible();
-    observer.observe(root, { attributes: true, attributeFilter: ['data-keyboard', 'style'] });
-    window.visualViewport?.addEventListener('resize', handleViewportResize);
-    window.addEventListener('resize', handleViewportResize);
-    keepBottomVisible();
-    return () => {
-      observer.disconnect();
-      window.visualViewport?.removeEventListener('resize', handleViewportResize);
-      window.removeEventListener('resize', handleViewportResize);
-      if (frame) {
-        cancelAnimationFrame(frame);
-      }
-    };
-  }, [isMobile, isNativeApp]);
 
   const invalidateConversationMembers = (conversationId = activeConversationId): void => {
     if (conversationId) {
@@ -1068,42 +1017,6 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     element.style.scrollBehavior = previousBehavior;
     preserveScrollSnapshotRef.current = null;
   }, [activeConversationId, messagePages, messageIndexById, virtualMessages.offsets]);
-
-  useEffect(() => {
-    if (!isMobile || !isNativeApp || import.meta.env.PROD) {
-      return;
-    }
-
-    const element = scrollRef.current;
-    if (!element) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      if (element.scrollWidth <= element.clientWidth + 1) {
-        return;
-      }
-
-      const candidates = Array.from(element.querySelectorAll<HTMLElement>('*'))
-        .map((node) => ({
-          className: typeof node.className === 'string' ? node.className : String(node.className),
-          messageId: node.closest<HTMLElement>('[data-message-id]')?.dataset.messageId,
-          scrollWidth: node.scrollWidth,
-          clientWidth: node.clientWidth,
-          rectWidth: Math.round(node.getBoundingClientRect().width),
-          text: node.textContent?.trim().slice(0, 80)
-        }))
-        .sort((left, right) => Math.max(right.scrollWidth, right.rectWidth) - Math.max(left.scrollWidth, left.rectWidth))
-        .slice(0, 8);
-
-      console.warn('[KukeChat] native chat horizontal overflow', {
-        conversationId: activeConversationId,
-        clientWidth: element.clientWidth,
-        scrollWidth: element.scrollWidth,
-        candidates
-      });
-    });
-  }, [activeConversationId, isMobile, isNativeApp, messagePages]);
 
   useEffect(() => {
     setMessageMenu(null);
@@ -3149,8 +3062,8 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
           }}
         />
       ) : null}
-        <div className={`relative grid min-h-0 overflow-hidden ${isMobile ? isNativeApp ? 'kc-qq-chat-page kc-native-chat-page grid-rows-[auto_minmax(0,1fr)_auto]' : 'kc-qq-chat-page grid-rows-[30px_56px_minmax(0,1fr)_auto]' : 'grid-rows-[52px_minmax(0,1fr)_auto]'}`}>
-        {isMobile && !isNativeApp ? <MobileStatusBar /> : null}
+        <div className={`relative grid min-h-0 overflow-hidden ${isMobile ? 'kc-qq-chat-page grid-rows-[30px_56px_minmax(0,1fr)_auto]' : 'grid-rows-[52px_minmax(0,1fr)_auto]'}`}>
+        {isMobile ? <MobileStatusBar /> : null}
         <div className={`border-b [background:var(--kc-chat)] [border-color:var(--kc-border)] ${isMobile ? 'kc-qq-chat-header flex min-w-0 items-center justify-between gap-2 overflow-hidden border-b-0 px-2' : 'flex items-center justify-between px-5'}`}>
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden" style={isMobile ? { maxWidth: `calc(100vw - ${mobileHeaderActionsWidth} - 64px)` } : undefined}>
             {isMobile ? (
@@ -3326,7 +3239,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                     </button>
                   ) : null}
                   {mine ? plusOneButton : null}
-                  <div className={`min-w-0 ${isMobile ? 'kc-mobile-message-stack' : 'max-w-[75%]'} ${mine ? 'items-end' : 'items-start'} flex flex-col gap-0.5`} style={isMobile ? { flex: '0 1 auto', width: 'auto', maxWidth: isNativeApp ? '72vw' : '78%' } : undefined}>
+                  <div className={`min-w-0 ${isMobile ? 'kc-mobile-message-stack' : 'max-w-[75%]'} ${mine ? 'items-end' : 'items-start'} flex flex-col gap-0.5`} style={isMobile ? { flex: '0 1 auto', width: 'auto', maxWidth: '78%' } : undefined}>
                     <div className={`kc-mobile-message-meta flex flex-nowrap items-center gap-1 px-1 text-[11px] [color:var(--kc-muted)] ${mine ? 'justify-end' : 'justify-start'}`}>
                       <span className={`kc-mobile-message-identity inline-flex min-w-0 max-w-full items-center gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
                         {message.sender?.is_bot && !mine ? (
@@ -3476,7 +3389,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
           ) : null}
         </div>
 
-        <form onSubmit={submit} onPaste={handlePaste} className={`relative border-t [background:var(--kc-chat)] [border-color:var(--kc-border)] ${isMobile ? `kc-mobile-composer border-t-0 ${isNativeApp ? 'kc-native-composer' : ''}` : 'kc-pc-composer px-5 py-3'}`}>
+        <form onSubmit={submit} onPaste={handlePaste} className={`relative border-t [background:var(--kc-chat)] [border-color:var(--kc-border)] ${isMobile ? 'kc-mobile-composer border-t-0' : 'kc-pc-composer px-5 py-3'}`}>
           {multiSelectMode ? (
             <div className={`absolute left-5 right-5 flex items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 shadow-float [background:var(--kc-panel)] [border-color:var(--kc-border)] ${isMobile ? '-top-16 z-30' : '-top-14'}`}>
               <span className="text-sm font-semibold">已选择 {selectedMessages.length} 条消息</span>

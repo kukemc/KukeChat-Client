@@ -33,8 +33,6 @@ import { useLevelAvailable } from '@/components/level/data';
 import { UserLevelIcons } from '@/components/level/LevelIcons';
 import { useHiddenMobileFeatures, useShopAvailable } from '@/components/shop/data';
 import { useShopPrefs } from '@/store/shopPrefs';
-import { MOBILE_APP_VERSION, isMobileUpdateSupported } from '@/native/appUpdate';
-import { requestMobileUpdateCheck } from '@/components/settings/MobileUpdateModal';
 import { ReleaseNotesDialog } from '@/components/update/ReleaseNotes';
 import { MobileSoundSettings } from '@/components/settings/MobileSoundSettings';
 import packageJson from '../../../package.json';
@@ -1191,18 +1189,10 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
                   <p className="mt-3 text-[14px] leading-7 text-[#526070]">{APP_NAME} 想为 Scratcher 提供一个可以实时沟通、交流想法、分享日常、认识同好的地方。</p>
                 </section>
                 <section className="kc-qq-card overflow-hidden p-0">
-                  {isMobileUpdateSupported() ? (
-                    <button type="button" onClick={() => requestMobileUpdateCheck()} className="kc-qq-settings-row w-full text-left">
-                      <span className="kc-qq-settings-icon"><Icon name="sparkles" className="h-5 w-5" /></span>
-                      <span className="min-w-0 flex-1"><span className="block text-[16px] font-semibold text-[#111827]">检查更新</span><span className="mt-0.5 block text-[12px] text-[#9aa3af]">当前版本 v{MOBILE_APP_VERSION}</span></span>
-                      <Icon name="chevron" className="h-4 w-4 text-[#c3c8d1]" />
-                    </button>
-                  ) : (
-                    <div className="kc-qq-settings-row">
-                      <span className="kc-qq-settings-icon"><Icon name="sparkles" className="h-5 w-5" /></span>
-                      <span className="min-w-0 flex-1"><span className="block text-[16px] font-semibold text-[#111827]">版本号</span><span className="mt-0.5 block text-[12px] text-[#9aa3af]">v{APP_VERSION}</span></span>
-                    </div>
-                  )}
+                  <div className="kc-qq-settings-row">
+                    <span className="kc-qq-settings-icon"><Icon name="sparkles" className="h-5 w-5" /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-[16px] font-semibold text-[#111827]">版本号</span><span className="mt-0.5 block text-[12px] text-[#9aa3af]">v{APP_VERSION}</span></span>
+                  </div>
                   <button type="button" onClick={() => setReleaseNotesOpen(true)} className="kc-qq-settings-row w-full text-left">
                     <span className="kc-qq-settings-icon"><Icon name="fileText" className="h-5 w-5" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-[16px] font-semibold text-[#111827]">更新日志</span><span className="mt-0.5 block text-[12px] text-[#9aa3af]">每个版本更新了什么</span></span>
@@ -1211,8 +1201,7 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
                   <ReleaseNotesDialog
                     open={releaseNotesOpen}
                     onClose={() => setReleaseNotesOpen(false)}
-                    platforms={isMobileUpdateSupported() ? ['android'] : ['windows', 'android']}
-                    currentVersion={isMobileUpdateSupported() ? MOBILE_APP_VERSION : null}
+                    platforms={['windows', 'android']}
                   />
                   {APP_DEVELOPERS.map((developer) => (
                     <a key={developer.profileUrl} href={developer.profileUrl} target="_blank" rel="noreferrer" className="kc-qq-settings-row">

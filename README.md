@@ -6,7 +6,7 @@
 
 **长在创作社区里的聊天客户端**
 
-一套 React + TypeScript 代码，构建出 Scratch / CCW 社区扩展、Windows 桌面端和移动端 Web。
+一套 React + TypeScript 代码，构建出 Scratch / CCW 社区扩展和 Windows 桌面端。
 
 [![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3-111111?style=flat-square&logo=react&logoColor=white)](https://react.dev)
@@ -53,7 +53,6 @@ KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。
 | --- | --- | --- | --- | --- |
 | 社区扩展 | CCW / Gandi IDE 网页 | Vite library 模式 + Shadow DOM | `dist/KukeChat.js` | 正式 |
 | Windows 桌面端 | Windows | Tauri 2（Rust + WebView2） | `.msi` / `-setup.exe` | 正式 |
-| 移动端 Web（H5） | 手机浏览器 | 移动端布局的独立网页 | `dist-mobile/` | 可自行部署 |
 | Android | Android | Kotlin + Jetpack Compose 原生应用 | 见 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 正式，另一个仓库 |
 | macOS | macOS | Tauri 2 | `mac-beta` 分支 | 测试中 |
 | Linux | Linux 桌面 | 社区维护 | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | 非官方 |
@@ -62,7 +61,7 @@ KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。
 
 桌面端带系统托盘、新消息托盘闪烁、开机自启、单实例和内置更新器。
 
-本仓库的 `android/` 是早期的 Capacitor 外壳（停在 1.3.1，不再随版本更新），正式的 Android 应用已迁到 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android)。
+本仓库构建两个目标：社区扩展和 Windows 桌面端（macOS 测试版在 `mac-beta` 分支）。Android 应用是独立的原生项目，见 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android)。
 
 ## 功能
 
@@ -103,7 +102,7 @@ KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。
 | 层 | 选型 |
 | --- | --- |
 | UI | React 18 + TypeScript 5.6（严格模式） |
-| 构建 | Vite 5，三份配置对应三个目标 |
+| 构建 | Vite 5，两份配置对应两个目标 |
 | 样式 | Tailwind CSS 3.4 + CSS 变量主题 |
 | 状态 | Zustand 5 |
 | 数据 | TanStack Query 5（无限滚动、乐观更新） |
@@ -121,9 +120,8 @@ Markdown 渲染器不使用 `dangerouslySetInnerHTML`，所有节点都由解析
 | --- | --- | --- | --- |
 | 社区扩展 | `src/extension/index.ts` | `vite.config.ts` | `dist/KukeChat.js`（IIFE 单文件） |
 | 桌面端 | `src/desktop-app.tsx` | `vite.desktop.config.ts` | `dist-desktop/`，由 Tauri 打包 |
-| 移动端 Web | `src/mobile-app.tsx` | `vite.mobile.config.ts` | `dist-mobile/` |
 
-平台差异收敛在 `src/native/`（原生能力封装）和 `src/utils/appMode.ts`（运行环境判断），业务组件不关心自己跑在哪个壳里。三份配置共用 `vite.env.ts` 校验环境变量。
+平台差异收敛在 `src/native/`（原生能力封装）和 `src/utils/appMode.ts`（运行环境判断），业务组件不关心自己跑在哪个壳里。两份配置共用 `vite.env.ts` 校验环境变量。
 
 ## 快速开始
 
@@ -164,7 +162,6 @@ npm run dev
 | `VITE_WS_URL` | 是 | 实时消息 WebSocket 地址 |
 | `VITE_SECURE_LOGIN_ORIGIN` | | 安全登录弹窗 `postMessage` 的可信来源，默认取 API 的 origin |
 | `VITE_DESKTOP_UPDATE_URL` | | 桌面端备用更新元数据地址，默认 `<API>/desktop-update.json` |
-| `VITE_MOBILE_UPDATE_URL` | | 移动端备用更新元数据地址，默认 `<API>/desktop-update.json` |
 | `VITE_EXTENSION_ASSET_URL` | | 已发布的扩展文件地址，用于机器人接入说明，留空则隐藏 |
 | `VITE_BOT_API_DOCS_URL` | | 机器人 API 文档地址，用于积木面板的文档入口，留空则隐藏 |
 | `KUKECHAT_UPDATE_METADATA_URL` | | 覆盖桌面端更新元数据地址（Rust 侧读取，运行期优先于编译期），便于本地测试 |
@@ -200,22 +197,14 @@ npm run tauri:build    # 打包 .msi 与 -setup.exe
 
 版本号以 `package.json` 的 `version` 为准。`tauri:dev` / `tauri:build` 会先执行 `sync:desktop-version`，把它同步到 `src-tauri/tauri.conf.json`、`Cargo.toml` 和 `Cargo.lock`。
 
-### 移动端 Web
-
-```bash
-npm run build:mobile-web
-```
-
-产物在 `dist-mobile/`，作为静态网站部署即可。
-
 ### 持续集成与发布
 
 | 工作流 | 触发 | 做什么 |
 | --- | --- | --- |
-| [`ci.yml`](.github/workflows/ci.yml) | 推送到 `main`、Pull Request | 类型检查，并构建扩展、桌面端 web、移动端 web 三份产物 |
+| [`ci.yml`](.github/workflows/ci.yml) | 推送到 `main`、Pull Request | 类型检查，并构建扩展、桌面端 web 两份产物 |
 | [`release.yml`](.github/workflows/release.yml) | 推送 `v*` 标签 | 并行构建各端产物，汇总成草稿 Release，人工确认后发布 |
 
-发布构建的后端地址取自仓库变量（Settings → Secrets and variables → Actions → Variables），变量名与上面的配置表一致，fork 后填你自己的即可。`release.yml` 里仍保留旧 Capacitor 外壳的 APK 任务，它需要 `ANDROID_KEYSTORE_*` 一组签名 secret。
+发布构建的后端地址取自仓库变量（Settings → Secrets and variables → Actions → Variables），变量名与上面的配置表一致，fork 后填你自己的即可。
 
 ## 项目结构
 
@@ -226,7 +215,7 @@ src/
   components/     业务 UI，按功能域分目录
   config/         部署配置、CCW 常量、品牌信息
   extension/      扩展入口、积木定义、游戏模式、自更新
-  native/         Tauri / 移动端原生能力封装
+  native/         Tauri 原生能力封装、返回键与页面过渡
   realtime/       WebSocket 客户端与事件分发
   store/          Zustand 全局状态
   styles/         Tailwind 与 Shadow DOM 样式注入
@@ -234,7 +223,6 @@ src/
   types/          接口与实时事件类型
   utils/          通用工具
 src-tauri/        Tauri 桌面端（Rust）
-android/          早期 Capacitor 外壳（已停止更新）
 dev/              组件预览页与假接口
 docs/             Bot API、CCW 运行时 API、各版本更新日志
 scripts/          版本同步、打包与测试脚本
@@ -249,18 +237,16 @@ scripts/          版本同步、打包与测试脚本
 | `npm run typecheck` | 应用与构建脚本的类型检查 |
 | `npm run build` | 类型检查后构建社区扩展 |
 | `npm run build:desktop-web` | 构建桌面端 web 产物 |
-| `npm run build:mobile-web` | 构建移动端 web 产物 |
 | `npm run preview` | 预览构建结果 |
 | `npm run tauri:dev` | 桌面端调试 |
 | `npm run tauri:build` | 桌面端打包 |
 | `npm run sync:desktop-version` | 把 `package.json` 版本号同步进 Tauri 配置 |
-| `npm run android:sync` / `android:apk` | 旧 Capacitor 外壳的同步与打包 |
 
 ## 相关仓库
 
 | 仓库 | 说明 |
 | --- | --- |
-| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | 本仓库：社区扩展、Windows 桌面端、移动端 Web |
+| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | 本仓库：社区扩展、Windows 桌面端 |
 | [KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | 后端：REST API、WebSocket 与数据模型 |
 | [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 原生 Android 应用，Kotlin + Jetpack Compose |
 

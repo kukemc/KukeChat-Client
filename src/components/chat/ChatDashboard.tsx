@@ -66,12 +66,9 @@ import { GlobalSearchModal } from '@/components/search/GlobalSearchModal';
 import { MobilePostDetailPage } from '@/components/posts/MobilePostDetailPage';
 import { MobileUserProfilePage } from '@/components/ui/MobileUserProfilePage';
 import { registerNativeBackHandler } from '@/native/back';
-import { addNativeOpenConversationListener } from '@/native/notifications';
 import { clearNativeSession } from '@/native/session';
-import { stopNativeBackgroundRealtime, updateNativeBackgroundRealtimeConversations } from '@/native/backgroundRealtime';
-import { runNativeRouteTransition, type NativeRouteDirection } from '@/native/transition';
-import { isNativeMobileApp } from '@/utils/appMode';
-import { nativeConversationChange, projectDashboardConversations, sameConversationMembership } from '@/utils/conversations';
+import { runNativeRouteTransition } from '@/native/transition';
+import { projectDashboardConversations, sameConversationMembership } from '@/utils/conversations';
 import { userPresenceLabel } from '@/utils/presence';
 
 type MobileSharedSecondaryPage = { type: 'post'; postId: number } | { type: 'user'; user: User | null | undefined; fallbackId: number } | { type: 'onlineUsers'; users: User[]; onlineCount: number } | { type: 'bots' } | { type: 'home' } | { type: 'bot'; botId: number } | { type: 'botEditor'; mode: 'create' | 'edit'; bot?: Bot } | { type: 'conversation'; conversationId: number } | { type: 'announcement' } | { type: 'teamup' } | { type: 'tasks' } | { type: 'favorites' } | { type: 'shop' } | { type: 'level'; tab: LevelTab } | { type: 'ranking'; board: RankingBoard };
@@ -200,8 +197,8 @@ function MobileNavBackdropSnapshot({ snapshotKey }: { snapshotKey: string }): JS
   useEffect(() => {
     const host = hostRef.current;
     const shell = host?.closest('.kc-mobile-shell') as HTMLElement | null;
-    const viewport = shell?.querySelector('.kc-native-route-viewport, .kc-ios-route-viewport') as HTMLElement | null;
-    const source = (viewport?.querySelector('.kc-native-route-page, .kc-ios-route-page') ?? viewport) as HTMLElement | null;
+    const viewport = shell?.querySelector('.kc-ios-route-viewport') as HTMLElement | null;
+    const source = (viewport?.querySelector('.kc-ios-route-page') ?? viewport) as HTMLElement | null;
     if (!host || !source || source.contains(host)) {
       return undefined;
     }
@@ -270,7 +267,6 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const [mobilePage, setMobilePage] = useState<'list' | 'chat'>('list');
   const [contactsMobileDetailActive, setContactsMobileDetailActive] = useState(false);
   const [mobileTransitionClass, setMobileTransitionClass] = useState('kc-ios-slide-from-right');
-  const [useNativeCssTransition, setUseNativeCssTransition] = useState(false);
   const [mobileSettingsDragProgress, setMobileSettingsDragProgress] = useState(0);
   const [settingsRailDragging, setSettingsRailDragging] = useState(false);
   const [settingsRailAnimating, setSettingsRailAnimating] = useState(false);
@@ -413,49 +409,6 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     setSearchableConversationIds(conversationProjection.ids);
   }, [membershipVersion, setSearchableConversationIds]);
 
-  const nativeSnapshotRef = useRef<Map<number, Conversation> | null>(null);
-  const nativePendingRef = useRef<{ projection: Map<number, Conversation>; conversations: Conversation[] } | null>(null);
-  const nativeMetadataTimerRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!conversationsQuery.data) return;
-    nativePendingRef.current = { projection: conversationProjection.byId, conversations };
-    // A pending metadata update means the last bridge snapshot may be older than
-    // the immediately preceding list; compare all fields before cancelling it.
-    const change = nativeConversationChange(nativeSnapshotRef.current, conversationProjection.byId,
-      nativeMetadataTimerRef.current === null ? conversationProjection.changedIds : undefined);
-    if (change === 'none') {
-      if (nativeMetadataTimerRef.current !== null) {
-        window.clearTimeout(nativeMetadataTimerRef.current);
-        nativeMetadataTimerRef.current = null;
-      }
-      return;
-    }
-    if (change === 'urgent') {
-      if (nativeMetadataTimerRef.current !== null) {
-        window.clearTimeout(nativeMetadataTimerRef.current);
-        nativeMetadataTimerRef.current = null;
-      }
-      nativeSnapshotRef.current = new Map(conversationProjection.byId);
-      void updateNativeBackgroundRealtimeConversations(conversations);
-      return;
-    }
-    // Titles/avatars can be coalesced; membership and notification settings never wait.
-    if (nativeMetadataTimerRef.current === null) {
-      nativeMetadataTimerRef.current = window.setTimeout(() => {
-        nativeMetadataTimerRef.current = null;
-        // Read the latest committed list, rather than an obsolete render captured at scheduling time.
-        const latest = nativePendingRef.current;
-        if (latest) {
-          nativeSnapshotRef.current = new Map(latest.projection);
-          void updateNativeBackgroundRealtimeConversations(latest.conversations);
-        }
-      }, 180);
-    }
-  }, [conversationProjection, conversations, conversationsQuery.data]);
-  useEffect(() => () => {
-    if (nativeMetadataTimerRef.current !== null) window.clearTimeout(nativeMetadataTimerRef.current);
-  }, []);
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('invite')?.trim();
@@ -545,9 +498,8 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   useLevelRules();
   const hiddenMobileFeatures = useHiddenMobileFeatures();
   const isMobile = layoutMode === 'mobile';
-  const isNativeApp = isNativeMobileApp();
   const mobileRouteKey = workspaceView === 'chat' ? `chat:${mobilePage}` : workspaceView;
-  const mobileRoutePageClass = isNativeApp ? `kc-native-route-page ${useNativeCssTransition ? mobileTransitionClass : ''}` : `kc-ios-route-page ${mobileTransitionClass}`;
+  const mobileRoutePageClass = `kc-ios-route-page ${mobileTransitionClass}`;
   const mobileSharedSecondaryActive = mobileSharedSecondaryStack.length > 0;
   const mobileSecondaryPageActive = mobileSharedSecondaryActive || (contactsMobileDetailActive && (workspaceView === 'contacts' || workspaceView === 'posts' || workspaceView === 'space' || workspaceView === 'settings'));
   const mobilePrimaryRouteTransitionStyle = isMobile && (mobileSecondaryPageActive || mobileSharedClosingKey) ? { viewTransitionName: 'none' } : undefined;
@@ -622,16 +574,6 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     setContactsMobileDetailActive(active);
   }
 
-  function useCssRouteTransition(nextRoute: string): boolean {
-    return isNativeApp && isMobile && routeShowsMobileBottomNav(nextRoute) && nextRoute !== 'settings' && mobileRouteKey !== 'settings';
-  }
-
-  function getMobileRouteDirection(nextRoute: string): NativeRouteDirection {
-    const currentOrder = mobileRouteOrder[mobileRouteKey] ?? 0;
-    const nextOrder = mobileRouteOrder[nextRoute] ?? currentOrder;
-    return nextOrder < currentOrder ? 'back' : 'forward';
-  }
-
   function applyMobileRoute(route: string): void {
     if (route === 'chat:chat') {
       setWorkspaceView('chat');
@@ -647,27 +589,23 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     setMobilePage('list');
   }
 
-  function navigateMobileRoute(nextRoute: string, direction?: NativeRouteDirection): void {
+  function navigateMobileRoute(nextRoute: string): void {
     if (nextRoute === mobileRouteKey) {
       return;
     }
 
     mobileRouteHistoryRef.current.push(mobileRouteKey);
-    const useCssTransition = useCssRouteTransition(nextRoute);
-    setUseNativeCssTransition(useCssTransition);
     setMobileRouteTransition(nextRoute);
-    runNativeRouteTransition(direction ?? getMobileRouteDirection(nextRoute), () => applyMobileRoute(nextRoute), isNativeApp && isMobile && !useCssTransition && nextRoute !== 'settings' && mobileRouteKey !== 'settings');
+    applyMobileRoute(nextRoute);
   }
 
-  function replaceMobileRoute(nextRoute: string, direction?: NativeRouteDirection): void {
+  function replaceMobileRoute(nextRoute: string): void {
     if (nextRoute === mobileRouteKey) {
       return;
     }
 
-    const useCssTransition = useCssRouteTransition(nextRoute);
-    setUseNativeCssTransition(useCssTransition);
     setMobileRouteTransition(nextRoute);
-    runNativeRouteTransition(direction ?? getMobileRouteDirection(nextRoute), () => applyMobileRoute(nextRoute), isNativeApp && isMobile && !useCssTransition && nextRoute !== 'settings' && mobileRouteKey !== 'settings');
+    applyMobileRoute(nextRoute);
   }
 
   function goBackMobileRoute(): boolean {
@@ -679,10 +617,8 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       return false;
     }
 
-    const useCssTransition = useCssRouteTransition(previousRoute);
-    setUseNativeCssTransition(useCssTransition);
     setMobileRouteTransition(previousRoute);
-    runNativeRouteTransition(getMobileRouteDirection(previousRoute), () => applyMobileRoute(previousRoute), isNativeApp && isMobile && !useCssTransition && previousRoute !== 'settings' && mobileRouteKey !== 'settings');
+    applyMobileRoute(previousRoute);
     return true;
   }
 
@@ -868,22 +804,11 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       }
       return goBackMobileRoute();
     }, 10);
-  }, [isMobile, isNativeApp, mobileRouteKey, mobileSharedSecondaryStack.length, setWorkspaceView]);
-
-  useEffect(() => {
-    if (!isNativeApp || !isMobile) {
-      return undefined;
-    }
-    return addNativeOpenConversationListener((conversationId) => {
-      mobileRouteHistoryRef.current = [];
-      openConversationFromMobileSurface(conversationId);
-    });
-  }, [activeConversationId, conversations, isMobile, isNativeApp, mobileRouteKey]);
+  }, [isMobile, mobileRouteKey, mobileSharedSecondaryStack.length, setWorkspaceView]);
 
   function handleLogout(): void {
     setRememberIpLogin(false);
     void clearNativeSession();
-    void stopNativeBackgroundRealtime(true);
     void logoutCookieSession().catch(() => undefined);
     logout();
   }
@@ -989,7 +914,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   }
 
   function commitMobileSettingsRoute(): void {
-    navigateMobileRoute('settings', 'back');
+    navigateMobileRoute('settings');
   }
 
   function setSettingsRailProgress(value: number): void {
@@ -1060,7 +985,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
     clearSettingsRailRouteAnimation();
     setSettingsRailProgress(0);
     if (!goBackMobileRoute()) {
-      replaceMobileRoute('chat:list', 'forward');
+      replaceMobileRoute('chat:list');
     }
   }
 
@@ -1156,7 +1081,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       return;
     }
     if (targetProgress === 0 && mobileRouteKey === 'settings') {
-      animateSettingsRailProgress(0, SETTINGS_RAIL_GESTURE_SETTLE_MS, () => replaceMobileRoute('chat:list', 'forward'));
+      animateSettingsRailProgress(0, SETTINGS_RAIL_GESTURE_SETTLE_MS, () => replaceMobileRoute('chat:list'));
       return;
     }
     animateSettingsRailProgress(targetProgress, SETTINGS_RAIL_GESTURE_SETTLE_MS);
@@ -1209,7 +1134,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
         return;
       }
       if (targetProgress === 0 && mobileRouteKey === 'settings') {
-        animateSettingsRailProgress(0, SETTINGS_RAIL_GESTURE_SETTLE_MS, () => replaceMobileRoute('chat:list', 'forward'));
+        animateSettingsRailProgress(0, SETTINGS_RAIL_GESTURE_SETTLE_MS, () => replaceMobileRoute('chat:list'));
         return;
       }
       animateSettingsRailProgress(targetProgress, SETTINGS_RAIL_GESTURE_SETTLE_MS);
@@ -1357,7 +1282,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   function backToMobileList(): void {
     mobileRouteHistoryRef.current = mobileRouteHistoryRef.current.filter((route) => route !== 'chat:chat');
     if (!goBackMobileRoute()) {
-      replaceMobileRoute('chat:list', 'back');
+      replaceMobileRoute('chat:list');
     }
   }
 
@@ -1367,16 +1292,13 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       return;
     }
     const nextRoute = item.view === 'chat' ? 'chat:list' : item.view;
-    const direction = getMobileRouteDirection(nextRoute);
     if (nextRoute === mobileRouteKey) {
       return;
     }
 
     mobileRouteHistoryRef.current = [];
-    const useCssTransition = useCssRouteTransition(nextRoute);
-    setUseNativeCssTransition(useCssTransition);
     setMobileRouteTransition(nextRoute);
-    runNativeRouteTransition(direction === 'back' ? 'tab-back' : 'tab-forward', () => applyMobileRoute(nextRoute), isNativeApp && isMobile && !useCssTransition);
+    applyMobileRoute(nextRoute);
   }
 
   function finishMobileTabGesture(commit: boolean): void {
@@ -1516,9 +1438,9 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
 
       {showConversationList && !isMobile ? <ConversationPane conversations={conversations} isLoading={conversationsQuery.isLoading} currentUser={currentUser} onCreateGroup={openCreateGroup} onOpenGlobalSearch={openGlobalSearch} /> : null}
 
-      <main className={`grid min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden [background:var(--kc-chat)] ${isNativeApp ? 'kc-native-main' : ''}`}>
+      <main className={`grid min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden [background:var(--kc-chat)]`}>
         <div
-          className={isMobile ? `${isNativeApp ? 'kc-native-route-viewport' : 'kc-ios-route-viewport'} kc-mobile-tab-swipe-viewport ${mobileTabDragOffset ? 'kc-mobile-tab-swipe-active' : ''}` : 'min-h-0 overflow-hidden'}
+          className={isMobile ? `kc-ios-route-viewport kc-mobile-tab-swipe-viewport ${mobileTabDragOffset ? 'kc-mobile-tab-swipe-active' : ''}` : 'min-h-0 overflow-hidden'}
           style={{ '--kc-mobile-tab-drag-offset': `${mobileTabDragOffset}px`, ...mobilePrimaryRouteTransitionStyle } as CSSProperties}
           onPointerDown={isSettingsRailRoute ? handleSettingsRailPointerDown : handleMobileTabPointerDown}
           onPointerMove={isSettingsRailRoute ? handleSettingsRailPointerMove : handleMobileTabPointerMove}
@@ -1550,7 +1472,7 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
             {!isSettingsRailRoute && workspaceView === 'favorites' ? <FavoritesPanel conversations={conversations} currentUser={currentUser} items={bookmarksQuery.data ?? []} isLoading={bookmarksQuery.isLoading} error={bookmarksQuery.error} isMobile={isMobile} onOpenForwardBundle={(message) => setForwardDetailMessage(message)} /> : null}
             {!isSettingsRailRoute && workspaceView === 'teamup' ? <TeamupCenterPanel currentUser={currentUser} friends={friends} isMobile={isMobile} /> : null}
             {!isSettingsRailRoute && workspaceView === 'tasks' ? <TaskCenterPanel currentUser={currentUser} isMobile={isMobile} /> : null}
-            {!isSettingsRailRoute && workspaceView === 'bots' ? <BotCenterPanel conversations={conversations} isMobile={isMobile} onMobileBack={isMobile ? () => replaceMobileRoute('space', 'back') : undefined} onOpenMobileConversation={isMobile ? openSharedConversation : openConversationFromMobileSurface} onOpenBotDetail={isMobile ? openSharedBotDetail : undefined} onOpenMobileBotEditor={isMobile ? openSharedBotEditor : undefined} onOpenUserProfile={isMobile ? openSharedUserProfile : undefined} /> : null}
+            {!isSettingsRailRoute && workspaceView === 'bots' ? <BotCenterPanel conversations={conversations} isMobile={isMobile} onMobileBack={isMobile ? () => replaceMobileRoute('space') : undefined} onOpenMobileConversation={isMobile ? openSharedConversation : openConversationFromMobileSurface} onOpenBotDetail={isMobile ? openSharedBotDetail : undefined} onOpenMobileBotEditor={isMobile ? openSharedBotEditor : undefined} onOpenUserProfile={isMobile ? openSharedUserProfile : undefined} /> : null}
             {workspaceView === 'jury' && !isMobile ? <JuryPage /> : null}
             {workspaceView === 'shop' && !isMobile ? <ShopPage /> : null}
             {workspaceView === 'level' && !isMobile ? <LevelPage /> : null}
