@@ -4,6 +4,7 @@ import { resolveMessageImagePreviewUrl } from '@/components/chat/message/message
 import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
 import { effectiveTier, formatFileSize } from '@/components/groupPlus/tier';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
 import { Icon } from '@/components/ui/Icon';
 import { useKukeStore } from '@/store/kukeStore';
 import type { ChatSearchCategory, ChatSearchConversation, ChatSearchHit } from '@/types/groupPlus';
@@ -36,6 +37,9 @@ function Highlighted({ text, ranges }: { text: string; ranges: ReadonlyArray<rea
 
 function ConversationAvatar({ conversation }: { conversation: ChatSearchConversation }): JSX.Element {
   const title = chatSearchTitle(conversation);
+  if (conversation.type === 'self') {
+    return <DeviceAvatar kind="phone" size="message" />;
+  }
   if (conversation.type === 'group') {
     return <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} size="message" plusTier={effectiveTier(conversation.plus_tier, conversation.plus_expires_at)} />;
   }

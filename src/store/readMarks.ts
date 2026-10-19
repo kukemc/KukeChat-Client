@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { markConversationRead } from '@/api/messages';
 import type { Conversation } from '@/types/api';
+import { isKnownSelfConversationId, markSelfSeen } from './selfChatStore';
 
 /**
  * 已读状态「客户端优先」。
@@ -42,6 +43,11 @@ export function markConversationReadLocally(queryClient: QueryClient, conversati
     queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current?.map((conversation) => (
       conversation.id === conversationId ? { ...conversation, unread_count: 0, mention_pending: null } : conversation
     )));
+  }
+  // 「我的设备」的未读是本机算的（selfChatStore），服务端不按设备记已读，标不标都一样（self-chat.md 3.3）
+  if (cached?.type === 'self' || isKnownSelfConversationId(conversationId)) {
+    markSelfSeen(mark);
+    return;
   }
   // 服务端这一步失败也不回滚：下次打开会话还会再标一次，而把红点弹回来只会让人困惑
   const readId = lastMessageId ?? cached?.last_message?.id ?? null;

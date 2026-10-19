@@ -187,10 +187,9 @@
 }
 
 .kc-voice-red-packet-icon {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   flex: none;
-  color: #d5392c;
 }
 
 /* 转出来的文字：一块很淡的灰底小字，能选中复制；右边一个「收起」 */

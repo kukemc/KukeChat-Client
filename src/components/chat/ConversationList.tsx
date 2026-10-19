@@ -12,6 +12,7 @@ import { createGroupInvite } from '@/api/invites';
 import { getOnlineUsers } from '@/api/users';
 import type { Conversation, MessageSetting, User } from '@/types/api';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
 import { Icon } from '@/components/ui/Icon';
 import { ConversationPrefixes } from './ConversationPrefixes';
 import { PlusCornerBadge, PlusTierTag } from '@/components/groupPlus/PlusBadge';
@@ -56,6 +57,9 @@ const MESSAGE_SUBMENU_HEIGHT = 104;
 const LONG_PRESS_DELAY = 420;
 
 function renderConversationAvatar(conversation: Conversation, title: string, peer?: User | null): JSX.Element {
+  if (conversation.type === 'self') {
+    return <DeviceAvatar kind="phone" />;
+  }
   if (conversation.type !== 'group') {
     return <Avatar user={peer} />;
   }
@@ -69,6 +73,9 @@ function renderConversationAvatar(conversation: Conversation, title: string, pee
 }
 
 function renderMobileConversationAvatar(conversation: Conversation, title: string, peer?: User | null): JSX.Element {
+  if (conversation.type === 'self') {
+    return <DeviceAvatar kind="phone" size="mobile" shape="squircle" />;
+  }
   if (conversation.type !== 'group') {
     return <Avatar user={peer} />;
   }

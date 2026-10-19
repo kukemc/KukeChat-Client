@@ -20,6 +20,9 @@ import { RedPacketPendingHint } from '@/components/redpacket/RedPacketPendingHin
 import { markRedPacketsSeen } from '@/components/redpacket/seenPackets';
 import { isRedPacketMessage } from '@/utils/redPacket';
 import { MentionHint } from './mentions/MentionHint';
+import { useSelfTransferMessages } from '@/components/selfChat/transfers';
+import { selfChatSnapshot } from '@/store/selfChatStore';
+import { isOtherDeviceMessage, messageDeviceOrLocal } from '@/utils/selfChat';
 import { useUnreadMentions } from './mentions/useUnreadMentions';
 
 /*
@@ -105,6 +108,14 @@ function senderIdOf(message: Message): number | null {
   return message.sender_id ?? senderOf(message)?.id ?? null;
 }
 
+/**
+ * 连发合并头像用的「同一个人」。「我的设备」里发送者永远是自己，改按设备类分（self-chat.md 第 2 节）：
+ * 手机发的和电脑发的挨着也要各自显示头像。
+ */
+function groupKeyOf(message: Message, selfChat: boolean): string | number | null {
+  return selfChat ? messageDeviceOrLocal(message) : senderIdOf(message);
+}
+
 function singlePage(messages: Message[]): MessagesInfiniteData {
   return { pages: [messages], pageParams: [undefined] };
 }
@@ -167,6 +178,7 @@ class AnchorKeeper extends Component<AnchorKeeperProps, Record<string, never>, A
 
 const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(function MessageList({ conversation, currentUserId, selectMode, selectedIds, onBrush }, ref) {
   const conversationId = conversation.id;
+  const selfChat = conversation.type === 'self';
   const queryClient = useQueryClient();
   const visibleConversationId = useKukeStore((state) => state.visibleConversationId);
   const pendingJumpMessage = useKukeStore((state) => state.pendingJumpMessage);
@@ -192,7 +204,10 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   const pendingEntries = usePendingEntries(conversationId);
   const loadedIds = useMemo(() => new Set(loadedMessages.map((message) => message.id)), [loadedMessages]);
   // 聊天里发的文件：上传期间的卡片也是本地消息，接在同一个位置
-  const uploadMessages = useChatUploadMessages(conversationId, loadedIds);
+  const groupUploadMessages = useChatUploadMessages(conversationId, loadedIds);
+  // 「我的设备」里正在发的临时文件，同样接在末尾（components/selfChat/transfers.ts）
+  const selfTransferMessages = useSelfTransferMessages(conversationId, loadedIds, selfChat);
+  const uploadMessages = useMemo(() => (selfTransferMessages.length === 0 ? groupUploadMessages : [...groupUploadMessages, ...selfTransferMessages]), [groupUploadMessages, selfTransferMessages]);
   const messages = useMemo(() => {
     if (contextEdgeId === null) {
       if (pendingEntries.length === 0 && uploadMessages.length === 0) {
@@ -242,7 +257,8 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   // 有 last_read_message_id 时按它精确定位；拿不到就退回按未读数从末尾往前数。
   const unreadRef = useRef<{ count: number; lastReadId: number | null; resolved: boolean; knownId: number | null } | null>(null);
   if (unreadRef.current === null) {
-    const lastReadId = conversation.my_last_read_message_id ?? conversation.members?.find((member) => member.user_id === currentUserId)?.last_read_message_id ?? null;
+    // 「我的设备」的已读位置是本机记的（服务端按人记，对它没有意义）
+    const lastReadId = selfChat ? (selfChatSnapshot().lastSeenId || null) : conversation.my_last_read_message_id ?? conversation.members?.find((member) => member.user_id === currentUserId)?.last_read_message_id ?? null;
     unreadRef.current = { count: Math.max(0, conversation.unread_count ?? 0), lastReadId, resolved: false, knownId: null };
   }
   const unreadEntry = unreadRef.current;
@@ -295,13 +311,13 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     const showTime = shouldShowTimeDivider(message, previous);
     const unreadBefore = message.id === firstUnreadId;
     let grouped = false;
-    if (previous && !showTime && !unreadBefore && isBubbleMessage(message) && isBubbleMessage(previous) && senderIdOf(message) !== null && senderIdOf(message) === senderIdOf(previous)) {
+    if (previous && !showTime && !unreadBefore && isBubbleMessage(message) && isBubbleMessage(previous) && groupKeyOf(message, selfChat) !== null && groupKeyOf(message, selfChat) === groupKeyOf(previous, selfChat)) {
       const current = parseApiDate(message.created_at);
       const before = parseApiDate(previous.created_at);
       grouped = Boolean(current && before && current.getTime() - before.getTime() < GROUP_WINDOW_MS);
     }
     return { showTime, grouped, unreadBefore };
-  }), [firstUnreadId, messages]);
+  }), [firstUnreadId, messages, selfChat]);
 
   // 连续相同的文本才算「复读」，而且只挂在整个列表的最后一条上：
   // 复读是「跟一句当下的话」，一旦有新消息把这串顶下去就没意义了。
@@ -782,11 +798,11 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     if (previous === null || newestLoadedId === null || newestLoadedId <= previous || stickRef.current || contextModeRef.current) {
       return;
     }
-    const incoming = loadedMessages.filter((message) => message.id > previous && isBubbleMessage(message) && senderIdOf(message) !== currentUserId).length;
+    const incoming = loadedMessages.filter((message) => message.id > previous && isBubbleMessage(message) && (selfChat ? isOtherDeviceMessage(message) : senderIdOf(message) !== currentUserId)).length;
     if (incoming > 0) {
       setNewCount((count) => count + incoming);
     }
-  }, [currentUserId, loadedMessages, newestLoadedId]);
+  }, [currentUserId, loadedMessages, newestLoadedId, selfChat]);
 
   useEffect(() => {
     if (atBottom) {

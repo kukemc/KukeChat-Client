@@ -50,6 +50,8 @@ import { enqueueSend, isLocalMessage } from '../message/pendingSend';
 import { isSelectableMessage, paintRange, toastSelectionLimit } from './selection';
 import { typingIndicatorMode } from '../info/typingIndicator';
 import { useChatFileSender } from '@/components/groupPlus/files/FileComposerButton';
+import { SelfChatInfoDrawer } from '@/components/selfChat/SelfChatInfoDrawer';
+import { deviceLabel, isSelfTransferMessage, messageDeviceOrLocal } from '@/utils/selfChat';
 
 export interface DesktopChatPanelProps {
   conversations: Conversation[];
@@ -94,10 +96,12 @@ export function DesktopChatPanel(props: DesktopChatPanelProps): JSX.Element {
 function ChatSession({ conversation, conversations, currentUser, currentRole = 'member', members = EMPTY_MEMBERS, friends = EMPTY_FRIENDS, membersLoading = false, membersHasMore = false, membersLoadingMore = false, onMembersNeeded, onLoadMoreMembers, onMemberSearchChange, onOpenPost }: DesktopChatPanelProps & { conversation: Conversation }): JSX.Element {
   const conversationId = conversation.id;
   const isGroup = conversation.type === 'group';
+  // 「我的设备」（self-chat.md）：只有自己，没有成员、名片、红包、礼物、投票、精华、举报；多一个临时文件
+  const selfChat = conversation.type === 'self';
   const isAdmin = currentRole === 'owner' || currentRole === 'admin';
   const isTemporaryDirect = conversation.type === 'direct' && Boolean(conversation.is_temporary);
   const title = conversationDisplayTitle(conversation, currentUser);
-  const directUser = conversation.direct_user ?? members.find((member) => memberUserId(member) !== currentUser.id)?.user ?? null;
+  const directUser = selfChat ? null : conversation.direct_user ?? members.find((member) => memberUserId(member) !== currentUser.id)?.user ?? null;
   const canCreateTask = isGroup && Boolean(conversation.tasks_enabled) && (conversation.task_creation_permission !== 'admins' || isAdmin);
   const isTaskAssistantChat = conversation.type === 'direct' && conversation.direct_user?.username === 'task_assistant';
 
@@ -133,10 +137,12 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   const [taskComposerOpen, setTaskComposerOpen] = useState(false);
   const [subtaskParent, setSubtaskParent] = useState<{ conversationId: number; parentId: number } | null>(null);
   const [pendingFriendIds, setPendingFriendIds] = useState<ReadonlySet<number>>(() => new Set());
-  const [sidebarOpen, setSidebarOpen] = useState(() => readPreference(SIDEBAR_PREFERENCE_KEY) !== 'closed');
+  const [sidebarPreference, setSidebarOpen] = useState(() => readPreference(SIDEBAR_PREFERENCE_KEY) !== 'closed');
+  // 「我的设备」没有成员侧栏
+  const sidebarOpen = sidebarPreference && !selfChat;
   const [dropActive, setDropActive] = useState(false);
   // 群文件开着时拖进来的非图片文件直接发出去（Composer.stageFiles 里分），提示跟着说清楚
-  const canDropFiles = useChatFileSender(conversationId, isGroup) !== null;
+  const canDropFiles = useChatFileSender(conversationId, isGroup) !== null || selfChat;
   const dragDepthRef = useRef(0);
   const avatarTapRef = useRef<{ userId: number; at: number; timer: number | null } | null>(null);
   const selectMode = selectedIds !== null;
@@ -273,7 +279,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
       return;
     }
     const senderId = message.sender_id ?? message.sender?.id;
-    const senderName = messageSenderLabel(message);
+    // 「我的设备」里引用的发言人是设备（「我的手机」/「我的电脑」），两边看都一样
+    const senderName = selfChat ? deviceLabel(messageDeviceOrLocal(message)) : messageSenderLabel(message);
     composerRef.current?.insertQuote({
       message_id: message.id,
       sender_id: senderId,
@@ -371,7 +378,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
       setMessageMenu({ message, clickedImageUrl: null, ...elementAnchorInContainer(element, overlayRootRef.current, 0.5, 6) });
     },
     openMemberMenu: (event, message) => {
-      const member = memberFromMessage(message);
+      const member = selfChat ? null : memberFromMessage(message);
       if (!member) {
         return;
       }
@@ -413,7 +420,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     openUser: (element, userId, name) => openUserCardAt(element, userId === currentUser.id ? currentUser : resolveKnownUser(memberByUserId.get(userId)?.user, userId, friends), name),
     quote: quoteMessage,
     forward: (message) => {
-      if (!message.recalled_at && !isLocalMessage(message) && !isRedPacketMessage(message) && !isGiftMessage(message)) {
+      if (!message.recalled_at && !isLocalMessage(message) && !isRedPacketMessage(message) && !isGiftMessage(message) && !isSelfTransferMessage(message)) {
         setForwardIds([message.id]);
       }
     },
@@ -504,7 +511,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
   };
 
   const levelTitles = isGroup && conversation.level_titles_enabled ? conversation.level_titles ?? null : null;
-  const rowContext = useMemo<ChatRowContextValue>(() => ({ currentUser, currentRole, isGroup, memberByUserId, levelTitles, actions }), [actions, currentRole, currentUser, isGroup, levelTitles, memberByUserId]);
+  const rowContext = useMemo<ChatRowContextValue>(() => ({ currentUser, currentRole, isGroup, memberByUserId, levelTitles, selfChat, actions }), [actions, currentRole, currentUser, isGroup, levelTitles, memberByUserId, selfChat]);
 
   const handleMembersNeeded = useEvent(() => onMembersNeeded?.());
   const handleMemberSearchChange = useEvent((keyword: string) => onMemberSearchChange?.(keyword));
@@ -603,9 +610,10 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
               <button type="button" className="kcd-icon-button" title="群文件" aria-label="群文件" onClick={() => useGroupPlusUi.getState().openFiles(conversation.id)}><Icon name="folder" className="h-4 w-4" /></button>
             </div>
           ) : null}
+          {/* 「我的设备」没有成员侧栏，只留「资料」（临时文件、置顶、免打扰） */}
           <div className="kcd-header-group">
-            <button type="button" className={cx('kcd-icon-button kcd-sidebar-toggle', sidebarOpen && 'is-active')} title={sidebarOpen ? '收起侧栏' : '展开侧栏'} aria-label={sidebarOpen ? '收起侧栏' : '展开侧栏'} aria-pressed={sidebarOpen} onClick={toggleSidebar}><Icon name="users" className="h-4 w-4" /></button>
-            <button type="button" className={cx('kcd-icon-button', panel === 'info' && 'is-active')} title="聊天资料" aria-label="打开聊天资料" onClick={openInfo}><Icon name="more" className="h-4 w-4" /></button>
+            {selfChat ? null : <button type="button" className={cx('kcd-icon-button kcd-sidebar-toggle', sidebarOpen && 'is-active')} title={sidebarOpen ? '收起侧栏' : '展开侧栏'} aria-label={sidebarOpen ? '收起侧栏' : '展开侧栏'} aria-pressed={sidebarOpen} onClick={toggleSidebar}><Icon name="users" className="h-4 w-4" /></button>}
+            <button type="button" className={cx('kcd-icon-button', panel === 'info' && 'is-active')} title={selfChat ? '临时文件与设置' : '聊天资料'} aria-label="打开聊天资料" onClick={openInfo}><Icon name="more" className="h-4 w-4" /></button>
           </div>
         </ChatHeader>
 
@@ -632,6 +640,13 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
                 setSelectedIds(null);
                 toast.info('已复制');
               }}>复制</button>
+              {selfChat ? <button type="button" className="kcd-button" disabled={selection.length === 0 || mutations.deleteLocal.isPending} onClick={() => {
+                // 「删除」只是自己看不到，文件照样存到过期（self-chat.md 5.4）
+                if (!window.confirm(`删除这 ${selection.length} 条消息？只是在你的所有设备上都不再显示。`)) {
+                  return;
+                }
+                void Promise.all(selection.map((message) => mutations.deleteLocal.mutateAsync(message.id).catch(() => undefined))).then(() => setSelectedIds(null));
+              }}>删除</button> : null}
               <button type="button" className="kcd-button kcd-button--primary" disabled={selection.length === 0} onClick={() => setForwardIds(selection.map((message) => message.id))}>合并转发</button>
               <button type="button" className="kcd-button" onClick={() => setSelectedIds(null)}>取消</button>
             </div>
@@ -647,9 +662,10 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
             sending={false}
             canCreateTask={canCreateTask}
             isTaskAssistantChat={isTaskAssistantChat}
-            canSendRedPacket={!isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot)}
+            canSendRedPacket={!selfChat && !isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot)}
             directUser={isGroup ? null : directUser}
-            reportsTyping={!isGroup || typingIndicatorMode(conversation) !== 'off'}
+            selfChat={selfChat}
+            reportsTyping={!selfChat && (!isGroup || typingIndicatorMode(conversation) !== 'off')}
             onSend={handleSend}
             onOwnMessageSent={handleOwnMessageSent}
             onMembersNeeded={handleMembersNeeded}
@@ -660,7 +676,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
           />
         </div>
 
-        {dropActive ? <div className="kcd-drop-overlay"><div><Icon name="image" className="h-7 w-7" /><span>{canDropFiles ? '松开即可添加图片、发送文件' : '松开即可添加图片'}</span></div></div> : null}
+        {dropActive ? <div className="kcd-drop-overlay"><div><Icon name="image" className="h-7 w-7" /><span>{selfChat ? '松开发送到手机：图片照常发，其他文件 24 小时内有效' : canDropFiles ? '松开即可添加图片、发送文件' : '松开即可添加图片'}</span></div></div> : null}
       </div>
 
       {sidebarOpen ? (
@@ -716,10 +732,15 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
             if (isGiftMessage(message) && !window.confirm(giftRecallConfirmText())) {
               return;
             }
+            // 「我的设备」里撤回文件消息 = 删除文件（self-chat.md 5.4）
+            if (isSelfTransferMessage(message) && !window.confirm('撤回这条文件消息会立刻删除文件，另一台设备也下载不了了。确定撤回？')) {
+              return;
+            }
             mutations.recall.mutate(message.id);
           }}
           onDelete={(message) => mutations.deleteLocal.mutate(message.id)}
           onReport={reportMessage}
+          canReport={!selfChat}
         />
       ) : null}
       <MemberMenu
@@ -784,7 +805,8 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
         />
       ) : null}
       {panel === 'announcements' && isGroup ? <AnnouncementModal conversation={conversation} canPublish={isAdmin} onClose={() => setPanel(null)} /> : null}
-      {panel === 'info' ? (
+      {panel === 'info' && selfChat ? <SelfChatInfoDrawer conversation={conversation} onClose={() => setPanel(null)} /> : null}
+      {panel === 'info' && !selfChat ? (
         <ChatInfoDrawer
           conversation={conversation}
           currentUser={currentUser}

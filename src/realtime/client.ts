@@ -23,6 +23,9 @@ import type { AccountSuspension, Conversation, ConversationMember, Message, Mess
 import { requestDesktopAttention } from '@/utils/desktopAttention';
 import { applyCreatedMessageToConversations, recordReceivedMessage, shouldAlertIncomingMessage, patchConversation, patchMemberPages, patchMemberPresence, patchMembers, patchMessageInPages, patchUserPresence, upsertMessageIntoFirstPage } from './cache';
 import { settleFromRealtime } from '@/components/chat/message/pendingSend';
+import { settleSelfTransferFromRealtime } from '@/components/selfChat/transfers';
+import { bumpSelfUnread, isKnownSelfConversationId, noteSelfOwnMessage, selfChatSnapshot } from '@/store/selfChatStore';
+import { isOtherDeviceMessage, normalizeSelfConversation } from '@/utils/selfChat';
 import type { MessagesInfiniteData, ConversationMembersPageData } from './cache';
 import { canAlertConversation, isConversationBlocked, notifyConnectionReady, notifyIncomingMessage, notifyMemberJoined, notifyMemberLeft } from '@/utils/notifications';
 
@@ -61,6 +64,8 @@ function resolveWsUrl(): string {
 function buildSocketUrl(wsUrl: string, token: string): string {
   const url = new URL(wsUrl);
   url.searchParams.set('token', token);
+  // 声明认得「我的设备」会话（self-chat.md 3.2）：不带的连接收不到它的任何事件。旧后端不认这个参数，直接忽略
+  url.searchParams.set('features', 'self');
   return url.toString();
 }
 
@@ -274,6 +279,32 @@ export function useRealtime(enabled: boolean): void {
               return;
             }
             if (!currentConversation) scheduleConversationRefresh();
+            // 「我的设备」：消息都是自己发的，提醒和本地未读改看是不是另一类设备发的（self-chat.md 3.3）
+            if (currentConversation?.type === 'self' || isKnownSelfConversationId(conversationId)) {
+              const firstSelfDelivery = recordReceivedMessage(recentlyReceivedMessages, conversationId, message.id);
+              const fromOtherDevice = isOtherDeviceMessage(message);
+              const visible = currentVisibleConversationId === conversationId;
+              const shouldAlert = firstSelfDelivery && fromOtherDevice && message.id > selfChatSnapshot().lastSeenId;
+              if (shouldAlert) {
+                notifyIncomingMessage(message, currentConversation, { fromOtherDevice: true });
+                if (canAlertConversation(currentConversation)) void requestDesktopAttention();
+              }
+              if (shouldAlert && !visible) {
+                bumpSelfUnread(message.id);
+              } else if (!fromOtherDevice) {
+                noteSelfOwnMessage(message.id);
+              }
+              const unread = visible ? 0 : selfChatSnapshot().unread;
+              queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => {
+                const next = applyCreatedMessageToConversations(current, message, currentVisibleConversationId, true, null);
+                return patchConversation(next, conversationId, (conversation) => (conversation.unread_count === unread ? conversation : { ...conversation, unread_count: unread }));
+              });
+              queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', conversationId], (current) => upsertMessageIntoFirstPage(current, message));
+              settleFromRealtime(message);
+              settleSelfTransferFromRealtime(message);
+              emitRealtimeEvent(event);
+              return;
+            }
             // The messages HTTP query may finish before this WS event while the
             // conversations query still holds an old unread snapshot. Never use
             // message-page cache hits to suppress a first WS unread/notification.
@@ -402,9 +433,13 @@ export function useRealtime(enabled: boolean): void {
             const patch = event.data as Partial<Conversation>;
             const previous = queryClient.getQueryData<Conversation[]>(['conversations']);
             if (!previous?.some((conversation) => conversation.id === conversationId)) scheduleConversationRefresh();
-            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => patchConversation(current, conversationId, (conversation) => ({ ...conversation, ...patch, id: conversation.id })));
+            // 「我的设备」的名字是客户端自己起的、未读是本机算的：推送里服务端的 display_title / unread_count 不要盖上来
+            queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => patchConversation(current, conversationId, (conversation) => (conversation.type === 'self'
+              ? normalizeSelfConversation({ ...conversation, ...patch, id: conversation.id, type: 'self', unread_count: conversation.unread_count })
+              : { ...conversation, ...patch, id: conversation.id })));
           }
-          if (event.type === 'conversation.read' && conversationId !== null && pickNumber(event.data, 'user_id') === currentUser?.id) {
+          // 「我的设备」的未读按设备在本机算：另一台设备读了不代表这台看过了，不跟着清
+          if (event.type === 'conversation.read' && conversationId !== null && pickNumber(event.data, 'user_id') === currentUser?.id && !isKnownSelfConversationId(conversationId)) {
             // A delayed receipt may precede a newer WS message; do not roll unread back.
             const readId = pickNumber(event.data, 'last_read_message_id');
             const previousReadId = lastReadMessageIds.get(conversationId) ?? 0;

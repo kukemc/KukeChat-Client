@@ -10,6 +10,7 @@ import { describeClaimError, redPacketErrorCode, useClaimRedPacket, useRedPacket
 import { redPacketTargetName, useRedPacketExpired } from './RedPacketCard';
 import { RedPacketLayer } from './RedPacketLayer';
 import { useRedPacketMotion, useRedPacketUi, type RedPacketTarget } from './ui';
+import { useFitText } from './useFitText';
 import { useHoldToRecord, type HoldPhase } from './useHoldToRecord';
 
 /** 「开」至少转这么久再出结果：接口很快的时候不至于一闪而过。不播动效时不等。 */
@@ -297,23 +298,24 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
 
   const loading = !packet && !query.error;
   const voiceFace = isVoice && !ended;
+  const greeting = packet?.greeting ?? meta.greeting;
   const recordingNow = hold.phase === 'recording';
   const kindWord = isVoice ? '语音红包' : '红包';
   return (
     <RedPacketLayer label={kindWord} onClose={onClose} locked={opening || holding}>
-      <section className={cx('krp-envelope', ended && 'is-ended', opening && 'is-opening', voiceFace && 'is-voice')} data-red-packet-view="face" data-status={ended ?? 'active'}>
+      <section className={cx('krp-envelope', ended && 'is-ended', opening && 'is-opening', voiceFace && 'is-voice is-compact')} data-red-packet-view="face" data-status={ended ?? 'active'}>
         {closeButton}
-        <span className="krp-envelope-avatar"><Avatar user={sender} size="lg" /></span>
-        <p className="krp-envelope-from">{forMe ? `${senderName} 给你的专属${kindWord}` : `${senderName} 发出的${kindWord}`}</p>
-        {voiceFace ? (
-          // 语音红包：祝福语让位给口令（卡片、领取详情里都还有祝福语）
-          <div className="krp-voice-phrase" data-red-packet="voice-text">
-            <span>说出口令领取</span>
-            <b>{voiceText ? `「${voiceText}」` : packet ? '口令没有读出来' : '…'}</b>
-          </div>
-        ) : (
-          <p className="krp-envelope-greeting">{ended ? ENDED_TEXT[ended] : packet?.greeting ?? meta.greeting}</p>
-        )}
+        {/* 封口上的字只占「开」以上那一截：祝福语 / 口令太长就缩字号（22px 到 14px，最多三行），不会压到「开」底下 */}
+        <div className="krp-envelope-top">
+          <span className="krp-envelope-avatar"><Avatar user={sender} size={voiceFace ? 'md' : 'lg'} /></span>
+          <p className="krp-envelope-from">{forMe ? `${senderName} 给你的专属${kindWord}` : `${senderName} 发出的${kindWord}`}</p>
+          {voiceFace ? (
+            // 语音红包：口令是大字，祝福语退成下面一行小字。「按住说出口令领取」写在「开」下面，这里不再重复
+            <EnvelopeFit voice text={voiceText ? `「${voiceText}」` : packet ? '口令没有读出来' : '…'} sub={greeting} />
+          ) : (
+            <EnvelopeFit voice={false} text={ended ? ENDED_TEXT[ended] : greeting} />
+          )}
+        </div>
         {canOpen && isVoice ? (
           <button
             type="button"
@@ -356,6 +358,26 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
         </div>
       </section>
     </RedPacketLayer>
+  );
+}
+
+/**
+ * 红包正面封口上的那段大字：祝福语，或者语音红包的口令（下面跟一行祝福语小字）。
+ * 占满「谁发的」到「开」之间剩下的高度，放不下就从 22px 往下缩到 14px（最多三行），还放不下才截断。
+ * 单独拆成一个组件：它在 RedPacketLayer 的 portal 里挂载，挂上的那一刻 ref 就都在，useFitText 能在第一帧之前量完。
+ */
+function EnvelopeFit({ text, sub = null, voice }: { text: string; sub?: string | null; voice: boolean }): JSX.Element {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
+  useFitText({ box: boxRef, inner: innerRef, text: textRef, maxPx: 22, minPx: 14, maxLines: 3, content: `${voice ? 'voice' : 'plain'}:${text}:${sub ?? ''}` });
+  return (
+    <div className="krp-envelope-fit" ref={boxRef}>
+      <div className="krp-envelope-fit-inner" ref={innerRef}>
+        <p ref={textRef} className={cx('krp-fit', voice ? 'krp-envelope-phrase' : 'krp-envelope-greeting')} data-red-packet={voice ? 'voice-text' : undefined}>{text}</p>
+        {sub !== null ? <p className="krp-envelope-sub" title={sub}>{sub}</p> : null}
+      </div>
+    </div>
   );
 }
 

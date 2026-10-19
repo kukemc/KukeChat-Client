@@ -79,6 +79,8 @@ interface MockPacket {
   chainText: string | null;
   /** 专属红包给谁；不是专属红包是 null */
   targetId: number | null;
+  /** 语音红包的口令；不是语音红包是 null（预览页只用来看正面，领的时候不核对录音） */
+  voiceText: string | null;
 }
 
 /** 拼手气的分法（二倍均值）：每一份在 [min, 剩余平均的两倍] 里随机，保证后面的人至少还有 min。 */
@@ -169,6 +171,8 @@ function view(packet: MockPacket, viewerId = meId): Record<string, unknown> {
     created_at: packet.created_at,
     finished_at: packet.finished_at,
     chain_text: packet.chainText,
+    voice: packet.voiceText !== null,
+    voice_text: packet.voiceText,
     target_user_id: packet.targetId,
     target: packet.targetId === null ? null : userOf(packet.targetId),
     claims: open ? packet.claims.map((claim) => ({ user: userOf(claim.userId), amount: claim.amount, created_at: claim.created_at, is_luckiest: claim === luckiest })) : null
@@ -193,6 +197,10 @@ function metaOf(packet: MockPacket): RedPacketMeta {
   const meta: RedPacketMeta = { id: packet.id, kind: packet.kind, greeting: packet.greeting, count: packet.count };
   if (packet.chainText) {
     meta.chain_text = packet.chainText;
+  }
+  if (packet.voiceText) {
+    meta.voice = true;
+    meta.voice_text = packet.voiceText;
   }
   if (packet.targetId !== null) {
     meta.target_user_id = packet.targetId;
@@ -247,6 +255,8 @@ interface CreateOptions {
   chainText?: string;
   /** 专属红包给谁 */
   targetUserId?: number;
+  /** 语音红包的口令 */
+  voiceText?: string;
 }
 
 function create(options: CreateOptions): MockPacket {
@@ -271,7 +281,8 @@ function create(options: CreateOptions): MockPacket {
     finished_at: null,
     refunded: 0,
     chainText: options.chainText?.trim() || null,
-    targetId: options.targetUserId ?? null
+    targetId: options.targetUserId ?? null,
+    voiceText: options.voiceText?.trim() || null
   };
   packets.set(packet.id, packet);
   return packet;

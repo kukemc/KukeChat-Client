@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { Icon } from '@/components/ui/Icon';
 import type { ConversationMember } from '@/types/api';
 import { useMuteStatus } from '@/store/moderationStore';
 import { useRedPacketAvailable, useRedPacketEnabled } from './data';
+import { RedPacketGlyph } from './RedPacketGlyph';
 import { RedPacketRecords } from './RedPacketRecords';
 import { SendRedPacketDialog } from './SendRedPacketDialog';
 
@@ -21,8 +21,8 @@ export function RedPacketComposerButton({ conversationId, isGroup, members, vari
   return (
     <>
       {variant === 'desktop'
-        ? <button type="button" className="kcd-tool krp-tool" title="发红包" aria-label="发红包" data-action="open-red-packet-composer" disabled={muted} onClick={() => setOpen(true)}><Icon name="redPacket" className="h-[18px] w-[18px]" /></button>
-        : <button type="button" className="kc-mobile-composer-tool krp-tool disabled:cursor-not-allowed disabled:opacity-45" aria-label="发红包" data-action="open-red-packet-composer" disabled={muted} onClick={() => setOpen(true)}><Icon name="redPacket" className="h-6 w-6" /></button>}
+        ? <button type="button" className="kcd-tool krp-tool" title="发红包" aria-label="发红包" data-action="open-red-packet-composer" disabled={muted} onClick={() => setOpen(true)}><RedPacketGlyph size={20} /></button>
+        : <button type="button" className="kc-mobile-composer-tool krp-tool disabled:cursor-not-allowed disabled:opacity-45" aria-label="发红包" data-action="open-red-packet-composer" disabled={muted} onClick={() => setOpen(true)}><RedPacketGlyph size={26} /></button>}
       {open ? <SendRedPacketDialog conversationId={conversationId} isGroup={isGroup} members={members} onCreated={onCreated} onClose={() => setOpen(false)} /> : null}
     </>
   );

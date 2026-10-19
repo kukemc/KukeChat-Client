@@ -263,6 +263,10 @@ async function buildHistory(): Promise<Message[]> {
   packet({ senderId: aqua.id, conversationId: 1, kind: 'normal', amount: 10, count: 1, greeting: '上次的积木教程，谢啦', targetUserId: long.id, minutesAgo: 1 });
   chained({ senderId: candy.id, conversationId: 1, kind: 'normal', amount: 6, count: 1, greeting: '专属的接龙红包', chainText: '收到，谢谢糖糖', targetUserId: me.id, minutesAgo: 1 });
   packet({ senderId: me.id, conversationId: 1, kind: 'normal', amount: 20, count: 1, greeting: '我发给阿夸的专属红包', targetUserId: aqua.id, minutesAgo: 1 });
+  // 语音红包：短口令、写满 30 字的长口令（正面要缩字号才放得下，不能压到话筒底下）；再一个写满 30 字的祝福语
+  packet({ senderId: mint.id, conversationId: 1, kind: 'lucky', amount: 30, count: 5, greeting: '念对了就能领', voiceText: '芝麻开门', minutesAgo: 1 });
+  packet({ senderId: aqua.id, conversationId: 1, kind: 'lucky', amount: 50, count: 5, greeting: '新版本上线啦，祝福语也写得长一点看看一行截断', voiceText: '酷可聊天新版本上线了大家一起来念这句很长很长的口令吧', minutesAgo: 1 });
+  packet({ senderId: candy.id, conversationId: 1, kind: 'normal', amount: 5, count: 3, greeting: '祝福语写满三十个字看看封口上能不能放下不压到开字', minutesAgo: 1 });
   // 礼物：礼物 ×N、带留言、送头像框（限时）、送气泡（永久）、送给我的。seed 只造数据、不扣币
   const present = (options: Parameters<typeof giftState.seed>[0]): void => {
     id += 1;

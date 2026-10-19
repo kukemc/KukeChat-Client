@@ -1,4 +1,5 @@
 import type { ChatSearchConversation } from '@/types/groupPlus';
+import { SELF_CHAT_TITLE } from '@/utils/selfChat';
 
 /**
  * 聊天记录搜索用到的纯函数：会话标题、命中高亮切片、按日期分组、UTC+8 的日期字符串。
@@ -6,6 +7,9 @@ import type { ChatSearchConversation } from '@/types/groupPlus';
  */
 
 export function chatSearchTitle(conversation: ChatSearchConversation): string {
+  if (conversation.type === 'self') {
+    return SELF_CHAT_TITLE;
+  }
   if (conversation.type === 'group') {
     return conversation.display_title?.trim() || conversation.title?.trim() || `群聊 ${conversation.id}`;
   }

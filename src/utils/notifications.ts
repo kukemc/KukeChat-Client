@@ -9,6 +9,7 @@ import { messageMentionKind } from '@/utils/mentions';
 import { pokeInfoOf, pokeText } from '@/utils/poke';
 import { giftPreview } from '@/utils/gift';
 import { redPacketPreview } from '@/utils/redPacket';
+import { SELF_CHAT_TITLE } from '@/utils/selfChat';
 import startSoundUrl from '@/sounds/开始提示音.mp3';
 import leaveSoundUrl from '@/sounds/离开服务器.mp3';
 import joinSoundUrl from '@/sounds/进入服务器.mp3';
@@ -124,6 +125,9 @@ function messagePreview(message: Message): string {
 }
 
 function conversationTitle(conversation: Conversation | undefined, message: Message): string {
+  if (conversation?.type === 'self') {
+    return SELF_CHAT_TITLE;
+  }
   return conversation?.display_title || conversation?.title || message.sender_display_name || message.sender?.nickname || message.sender?.username || 'KukeChat';
 }
 
@@ -150,9 +154,13 @@ export function isConversationBlocked(conversation: Conversation | undefined): b
   return conversation?.my_message_setting === 'ignore';
 }
 
-export function notifyIncomingMessage(message: Message, conversation: Conversation | undefined): void {
+/**
+ * 来消息时的提示音和系统通知。「不是我发的才提醒」；「我的设备」会话里的消息都是自己发的，
+ * 改成看是不是另一类设备发的（调用方判断好，传 fromOtherDevice，self-chat.md 3.3）。
+ */
+export function notifyIncomingMessage(message: Message, conversation: Conversation | undefined, options: { fromOtherDevice?: boolean } = {}): void {
   const state = useKukeStore.getState();
-  if (!state.currentUser || message.sender_id === state.currentUser.id) {
+  if (!state.currentUser || (message.sender_id === state.currentUser.id && !options.fromOtherDevice)) {
     return;
   }
 
@@ -177,7 +185,8 @@ export function notifyIncomingMessage(message: Message, conversation: Conversati
   const title = conversationTitle(conversation, message);
   // 戳一戳的文案里已经有发起人，不再加「某某：」前缀
   const body = poke ? pokeText(poke, state.currentUser.id) : conversation?.type === 'group' ? `${senderName(message)}：${messagePreview(message)}` : messagePreview(message);
-  const iconUrl = resolveAssetUrl(conversation?.avatar_url || message.sender?.avatar_url) || undefined;
+  // 「我的设备」没有对方头像，别拿自己的头像当通知图标
+  const iconUrl = conversation?.type === 'self' ? undefined : resolveAssetUrl(conversation?.avatar_url || message.sender?.avatar_url) || undefined;
 
   if (isTauriDesktopApp()) {
     if (state.browserNotificationMode === 'on') {

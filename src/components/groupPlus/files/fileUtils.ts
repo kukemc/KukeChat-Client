@@ -115,7 +115,7 @@ function formatBytes(bytes: number): string {
  * 桌面端：交给原生代码直接写进系统「下载」文件夹（src-tauri/src/downloads.rs），提示里显示进度，
  * 完成后给「在文件夹中显示」。WebView2 的 a[download] 会静默落盘，用户会以为点了没反应。
  */
-async function desktopDownload(id: string, url: string, name: string): Promise<void> {
+export async function desktopDownload(id: string, url: string, name: string): Promise<void> {
   const [{ invoke }, { listen }] = await Promise.all([import('@tauri-apps/api/core'), import('@tauri-apps/api/event')]);
   const tip = toast.info(`正在下载「${name}」`, { subtitle: '准备中…', duration: 600_000, dedupe: false });
   const unlisten = await listen<{ id: string; downloaded: number; total: number | null }>('kukechat-file-download-progress', (event) => {

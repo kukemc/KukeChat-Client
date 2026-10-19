@@ -20,6 +20,7 @@ import { matchBotCommandInput } from '@/utils/botCommands';
 import { PollComposerButton } from './polls/PollComposerButton';
 import { FileComposerButton, useChatFileSender } from '@/components/groupPlus/files/FileComposerButton';
 import { GiftComposerButton } from '@/components/gifts/GiftEntry';
+import { SelfFileComposerButton, useSelfFileSender } from '@/components/selfChat/SelfFileButton';
 import { RedPacketComposerButton } from '@/components/redpacket/RedPacketEntry';
 import { cx, readNumberPreference, writePreference } from './runtime';
 import { reportTyping, resetTyping } from './typing/reportTyping';
@@ -45,6 +46,8 @@ interface ComposerProps {
   canSendRedPacket: boolean;
   /** 私聊的对方：工具栏上的「送礼物」在私聊里直接送给 Ta（群里在面板里选人）。和机器人、任务助手的会话里礼物入口跟着红包一起不出现 */
   directUser?: User | null;
+  /** 「我的设备」会话：多一个「文件」入口（任意类型的临时文件），拖进 / 粘贴进来的非图片文件也走它；没有投票（self-chat.md 第 4、5 节） */
+  selfChat?: boolean;
   /** 要不要上报「正在输入」。群主把这个群的提示关了（typing_indicator = off）就不发，省得白发；大群的「自动」由服务端判断，这里照发 */
   reportsTyping?: boolean;
   onSend: (variables: SendMessageVariables) => void;
@@ -69,10 +72,13 @@ function memberName(member: ConversationMember): string {
   return member.nickname?.trim() || getDisplayName(member.user, userId ? `用户 ${userId}` : '成员');
 }
 
-const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Composer({ conversationId, isGroup, currentRole, members, sending, canCreateTask, isTaskAssistantChat, canSendRedPacket, directUser, reportsTyping = true, onSend, onOwnMessageSent, onMembersNeeded, onCreateTask, onOpenTaskCenter, onOpenPenalties, setError }, ref) {
+const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Composer({ conversationId, isGroup, currentRole, members, sending, canCreateTask, isTaskAssistantChat, canSendRedPacket, directUser, selfChat = false, reportsTyping = true, onSend, onOwnMessageSent, onMembersNeeded, onCreateTask, onOpenTaskCenter, onOpenPenalties, setError }, ref) {
   const mute = useMuteStatus();
   // 群文件开着时，拖进来 / 粘贴进来的非图片文件直接当文件发（带进度的上传卡片）；私聊和没开群文件的群是 null
-  const sendFiles = useChatFileSender(conversationId, isGroup);
+  const groupFileSender = useChatFileSender(conversationId, isGroup);
+  // 「我的设备」：非图片文件发成临时文件
+  const selfFileSender = useSelfFileSender(conversationId, selfChat);
+  const sendFiles = selfChat ? selfFileSender : groupFileSender;
   const editorRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [text, setText] = useState('');
@@ -664,6 +670,7 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
         }}><Icon name="emoji" className="h-[18px] w-[18px]" /></button>
         <button type="button" className="kcd-tool" title="图片（也可以直接粘贴或拖进来）" aria-label="发送图片" disabled={sending} onClick={() => imageInputRef.current?.click()}><Icon name="image" className="h-[18px] w-[18px]" /></button>
         {isGroup ? <FileComposerButton conversationId={conversationId} disabled={sending || mute.muted} onQueued={onOwnMessageSent} /> : null}
+        {selfChat ? <SelfFileComposerButton conversationId={conversationId} disabled={sending || mute.muted} onQueued={onOwnMessageSent} /> : null}
         <button type="button" className={cx('kcd-tool', voice.recording && 'is-recording')} title={voice.recording ? '结束录音' : '语音消息'} aria-label={voice.recording ? '结束录音' : '录制语音'} disabled={sending || stagedImages.length > 0} onClick={() => {
           if (voice.recording) {
             voice.stop();
@@ -681,7 +688,7 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
             refreshMention();
           }
         }}><Icon name="atSign" className="h-[18px] w-[18px]" /></button> : null}
-        <PollComposerButton conversationId={conversationId} onCreated={onOwnMessageSent} />
+        {selfChat ? null : <PollComposerButton conversationId={conversationId} onCreated={onOwnMessageSent} />}
         {canSendRedPacket ? <RedPacketComposerButton conversationId={conversationId} isGroup={isGroup} members={members} variant="desktop" onCreated={onOwnMessageSent} /> : null}
         {canSendRedPacket ? <GiftComposerButton conversationId={conversationId} isGroup={isGroup} members={members} directUser={directUser} variant="desktop" onCreated={onOwnMessageSent} onMembersNeeded={onMembersNeeded} /> : null}
         {botCommands.length > 0 ? <button type="button" className={cx('kcd-tool', openBotPanel && 'is-active')} title="机器人指令" aria-label="机器人指令" aria-expanded={Boolean(openBotPanel)} onMouseDown={(event) => {
@@ -742,7 +749,7 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
         {stagedImages.length > 0 && !inlineImages ? <ImageSendDialog images={stagedImages} notice={imageNotice} onAdd={stageFiles} onRemove={removeStagedImage} onCancel={clearStagedImages} onSend={sendStagedImages} onSwitchToInline={switchToInline} /> : null}
         {stagedVoice ? <StagedVoicePreview voice={stagedVoice} onRemove={clearStagedVoice} /> : null}
         <div className="kcd-editor-wrap">
-          {!text && !quote ? <span className="kcd-editor-placeholder">{isGroup ? '发消息，@ 可以提醒群成员' : '发消息'}</span> : null}
+          {!text && !quote ? <span className="kcd-editor-placeholder">{isGroup ? '发消息，@ 可以提醒群成员' : selfChat ? '发到手机，文件可以直接拖进来' : '发消息'}</span> : null}
           <div
             ref={editorRef}
             className="kcd-editor"

@@ -41,6 +41,8 @@ export interface ChatRowContextValue {
   memberByUserId: ReadonlyMap<number, ConversationMember>;
   /** 本群的等级头衔分档；没开启时为 null */
   levelTitles: readonly LevelTitleTier[] | null;
+  /** 「我的设备」会话（self-chat.md）：左右按发消息的设备类分，左边画设备头像和「我的手机」，没有头衔、名片、戳一戳 */
+  selfChat?: boolean;
   actions: ChatRowActions;
 }
 

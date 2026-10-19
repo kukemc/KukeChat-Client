@@ -1,6 +1,7 @@
 import type { UserCosmetics } from './shop';
 
-export type ConversationType = 'direct' | 'group';
+/** self：「我的设备」，自己设备之间的私密会话（KukeChat-Server/docs/self-chat.md）。只有新客户端显式要了才会出现 */
+export type ConversationType = 'direct' | 'group' | 'self';
 export type FriendRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type GroupJoinRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type JoinMode = 'approval' | 'question' | 'invite_only' | 'open';
@@ -1385,4 +1386,58 @@ export interface CreateGroupJoinRequestPayload {
 
 export interface GroupJoinRequestDecisionPayload {
   decision_note?: string;
+}
+
+/** 「我的设备」临时文件（KukeChat-Server/docs/self-chat.md 5.2 的 SelfTransferRead） */
+export interface SelfTransfer {
+  id: number;
+  conversation_id: number;
+  name: string;
+  size: number;
+  content_type: string;
+  /** 开单的设备：desktop / web / android / ios */
+  device: string;
+  state: 'pending' | 'ready' | 'expired';
+  expired: boolean;
+  created_at: string;
+  upload_expires_at: string;
+  completed_at?: string | null;
+  expires_at?: string | null;
+  message_id?: number | null;
+  download_path: string;
+}
+
+export interface SelfTransferUpload {
+  /** true：PUT 到对象存储的预签名地址（不带鉴权头）；false：PUT 到后端的 /content（带平时的登录和证明头） */
+  direct: boolean;
+  method: 'PUT';
+  url: string;
+  headers: Record<string, string>;
+  expires_at: string;
+}
+
+export interface SelfTransferCreated {
+  transfer_id: number;
+  transfer: SelfTransfer;
+  upload: SelfTransferUpload;
+}
+
+export interface SelfTransferList {
+  items: SelfTransfer[];
+  max_file_bytes: number;
+  quota_bytes: number;
+  used_bytes: number;
+  free_bytes: number;
+  ttl_hours: number;
+  direct: boolean;
+}
+
+/** 文件消息上的 metadata.transfer（5.3）。expired 是服务端返回消息时现场算的 */
+export interface SelfTransferMeta {
+  id: number;
+  name: string;
+  size: number;
+  content_type: string;
+  expires_at: string | null;
+  expired: boolean;
 }

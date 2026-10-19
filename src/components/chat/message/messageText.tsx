@@ -1,4 +1,5 @@
 import type { Conversation, CcwCreationPreview, MessageMentionMetadata, MessageQuoteMetadata } from '@/types/api';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
 import { Avatar } from '@/components/ui/Avatar';
 import { PlusCornerBadge } from '@/components/groupPlus/PlusBadge';
 import { conversationTier } from '@/components/groupPlus/tier';
@@ -24,6 +25,9 @@ export function MessageTimeDivider({ value }: { value?: string | null }): JSX.El
 
 export function ConversationAvatar({ conversation, title, size = 'md' }: { conversation: Conversation | null | undefined; title: string; size?: 'sm' | 'md' }): JSX.Element {
   const sizeClass = size === 'sm' ? 'h-8 w-8 text-xs' : 'h-10 w-10 text-sm';
+  if (conversation?.type === 'self') {
+    return <DeviceAvatar kind="phone" size={size} />;
+  }
   if (conversation?.type === 'group') {
     const avatarUrl = resolveThumbnailUrl(conversation.avatar_url);
     if (avatarUrl) {

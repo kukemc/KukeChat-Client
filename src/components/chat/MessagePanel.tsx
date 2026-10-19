@@ -24,6 +24,12 @@ import { TaskShareCard } from '@/components/tasks/TaskShareCard';
 import { GiftCard } from '@/components/gifts/GiftCard';
 import { useGroupPlusUi } from '@/components/groupPlus/ui';
 import { GroupFileCard } from '@/components/groupPlus/files/GroupFileCard';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
+import { SelfChatInfoDrawer } from '@/components/selfChat/SelfChatInfoDrawer';
+import { SelfFileComposerButton, useSelfFileSender } from '@/components/selfChat/SelfFileButton';
+import { SelfTransferCard, SelfTransferUploadCard } from '@/components/selfChat/TransferCard';
+import { useSelfTransferTaskIds } from '@/components/selfChat/transfers';
+import { deviceLabel, isLocalDeviceMessage, isSelfTransferMessage, messageDeviceOrLocal, selfTransferOf } from '@/utils/selfChat';
 import { groupFileMetaOf } from '@/api/groupPlus';
 import { GiftComposerButton, openGiftTo, useCanGift } from '@/components/gifts/GiftEntry';
 import { GiftStage } from '@/components/gifts/GiftHosts';
@@ -174,6 +180,10 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     && Boolean(activeConversation?.tasks_enabled)
     && (activeConversation?.task_creation_permission !== 'admins' || currentRole === 'owner' || currentRole === 'admin');
   const isTaskAssistantChat = activeConversation?.type === 'direct' && activeConversation?.direct_user?.username === 'task_assistant';
+  // 「我的设备」（self-chat.md）：左右按设备类分，左边是「我的手机」；没有红包、礼物、精华、举报、成员；多一个临时文件
+  const selfChat = activeConversation?.type === 'self';
+  const selfFileSender = useSelfFileSender(activeConversationId ?? 0, selfChat && activeConversationId !== null);
+  const selfTransferTaskIds = useSelfTransferTaskIds(selfChat ? activeConversationId ?? 0 : -1);
 
   useEffect(() => {
     if (pendingTaskCreateConversationId != null && pendingTaskCreateConversationId === activeConversationId) {
@@ -1821,6 +1831,13 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   }
 
   function handlePaste(event: React.ClipboardEvent<HTMLFormElement>): void {
+    // 「我的设备」：粘贴进来的非图片文件发成临时文件
+    const otherFiles = Array.from(event.clipboardData.files).filter((file) => !file.type.startsWith('image/'));
+    if (selfFileSender && otherFiles.length > 0) {
+      event.preventDefault();
+      selfFileSender(otherFiles);
+      scrollToLatestMessage();
+    }
     const imageFiles = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith('image/'));
     if (imageFiles.length === 0) {
       const text = event.clipboardData.getData('text/plain');
@@ -1924,7 +1941,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
 
   function startMultiSelect(message?: Message): void {
     // 多选出来是要转发的，红包、礼物、群文件消息不能转发
-    if (message?.recalled_at || isRedPacketMessage(message) || isGiftMessage(message) || (message && groupFileMetaOf(message))) {
+    if (message?.recalled_at || isRedPacketMessage(message) || isGiftMessage(message) || (message && groupFileMetaOf(message)) || isSelfTransferMessage(message)) {
       return;
     }
     setMultiSelectMode(true);
@@ -1938,14 +1955,14 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   }
 
   function toggleMessageSelected(message: Message): void {
-    if (message.recalled_at || isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message)) {
+    if (message.recalled_at || isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) || isSelfTransferMessage(message)) {
       return;
     }
     setSelectedMessageIds((current) => (current.includes(message.id) ? current.filter((id) => id !== message.id) : [...current, message.id]));
   }
 
   function openForwardModal(messageIds: number[]): void {
-    const cleanMessageIds = Array.from(new Set(messageIds)).filter((messageId) => visibleMessagesByIds([messageId]).some((message) => !isRedPacketMessage(message) && !isGiftMessage(message) && !groupFileMetaOf(message)));
+    const cleanMessageIds = Array.from(new Set(messageIds)).filter((messageId) => visibleMessagesByIds([messageId]).some((message) => !isRedPacketMessage(message) && !isGiftMessage(message) && !groupFileMetaOf(message) && !isSelfTransferMessage(message)));
     if (cleanMessageIds.length === 0) {
       return;
     }
@@ -2006,7 +2023,8 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
       return;
     }
     const senderId = message.sender_id ?? message.sender?.id;
-    const senderName = messageSenderLabel(message);
+    // 「我的设备」里引用的发言人是设备（「我的手机」/「我的电脑」）
+    const senderName = selfChat ? deviceLabel(messageDeviceOrLocal(message)) : messageSenderLabel(message);
     const quoteText = truncateText(messagePreview(message), 120);
     const quoteData = {
       message_id: message.id,
@@ -2178,7 +2196,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   }
 
   function openMemberMenu(event: React.MouseEvent<HTMLElement>, member: ConversationMember | null): void {
-    if (!member) {
+    if (!member || selfChat) {
       return;
     }
     event.preventDefault();
@@ -2466,6 +2484,11 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     }
     // 撤回礼物消息只是把消息撤掉，礼物和币都不退：也先说清楚
     if (isGiftMessage(message) && !window.confirm(giftRecallConfirmText())) {
+      setMessageMenu(null);
+      return;
+    }
+    // 「我的设备」里撤回文件消息 = 删除文件（self-chat.md 5.4）
+    if (isSelfTransferMessage(message) && !window.confirm('撤回这条文件消息会立刻删除文件，另一台设备也下载不了了。确定撤回？')) {
       setMessageMenu(null);
       return;
     }
@@ -2906,6 +2929,11 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     const voiceHoldDisabled = sendMutation.isPending || stagedImages.length > 0;
     return (
       <div className="kc-mobile-composer-body">
+        {selfTransferTaskIds.length > 0 ? (
+          <div className="kself-mobile-tray" aria-label="正在发送的文件">
+            {selfTransferTaskIds.map((taskId) => <SelfTransferUploadCard key={taskId} taskId={taskId} />)}
+          </div>
+        ) : null}
         {renderComposerPreviews(true)}
         {renderComposerStatus(true)}
         <div className="kc-mobile-composer-input-row">
@@ -2964,8 +2992,9 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
           <button className="kc-mobile-composer-tool" type="button" onClick={() => { setEmojiPickerTab('emoji'); setShowEmojiPicker((value) => emojiPickerTab !== 'emoji' || !value); }} aria-label="选择表情" aria-expanded={showEmojiPicker && emojiPickerTab === 'emoji'}>
             <Icon name="emoji" className="h-6 w-6" />
           </button>
-          {!isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot) ? <RedPacketComposerButton conversationId={conversation.id} isGroup={isGroup} variant="mobile" onCreated={scrollToLatestMessage} /> : null}
-          {!isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot) ? <GiftComposerButton conversationId={conversation.id} isGroup={isGroup} members={members} directUser={isGroup ? null : directUser} variant="mobile" onCreated={scrollToLatestMessage} onMembersNeeded={onMembersNeeded} /> : null}
+          {selfChat ? <SelfFileComposerButton conversationId={conversation.id} variant="mobile" disabled={sendMutation.isPending} onQueued={scrollToLatestMessage} /> : null}
+          {!selfChat && !isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot) ? <RedPacketComposerButton conversationId={conversation.id} isGroup={isGroup} variant="mobile" onCreated={scrollToLatestMessage} /> : null}
+          {!selfChat && !isTaskAssistantChat && !(conversation.type === 'direct' && directUser?.is_bot) ? <GiftComposerButton conversationId={conversation.id} isGroup={isGroup} members={members} directUser={isGroup ? null : directUser} variant="mobile" onCreated={scrollToLatestMessage} onMembersNeeded={onMembersNeeded} /> : null}
           <button className="kc-mobile-composer-tool" type="button" onClick={showUnavailableAction} aria-label="更多功能">
             <Icon name="plus" className="h-6 w-6" />
           </button>
@@ -3078,14 +3107,14 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                   <>
                     <span className="min-w-0 flex-1 truncate">{mobileTitleParts.name}</span>
                     {mobileTitleParts.suffix ? <span className="shrink-0">{mobileTitleParts.suffix}</span> : null}
-                    {isGroup ? null : <FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" />}
-                    {isGroup ? null : <SparkMark spark={conversationSpark(conversation)} friendId={directUser?.id} size={15} openable hint className="shrink-0" />}
+                    {isGroup || selfChat ? null : <FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" />}
+                    {isGroup || selfChat ? null : <SparkMark spark={conversationSpark(conversation)} friendId={directUser?.id} size={15} openable hint className="shrink-0" />}
                   </>
                 ) : <><span className="truncate">{title}</span>{isGroup ? null : <><FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" /><SparkMark spark={conversationSpark(conversation)} friendId={directUser?.id} size={15} openable hint className="shrink-0" /></>}</>}
                 {isGroup ? <PlusTierTag tier={conversationTier(conversation)} className="shrink-0" /> : null}
                 {isTemporaryDirect ? <span className="shrink-0 text-xs font-medium [color:var(--kc-muted)]">临时会话</span> : null}
               </h3>
-              {isMobile ? <p className="mt-0.5 max-w-full truncate text-[12px] font-medium [color:var(--kc-muted)]">{isGroup ? `${memberCount}人 · 群聊` : directUser?.bio?.trim() || '在线'}</p> : null}
+              {isMobile ? <p className="mt-0.5 max-w-full truncate text-[12px] font-medium [color:var(--kc-muted)]">{isGroup ? `${memberCount}人 · 群聊` : selfChat ? '手机和电脑互传 · 文件保留 24 小时' : directUser?.bio?.trim() || '在线'}</p> : null}
             </div>
           </div>
           <div className="ml-auto flex max-w-[calc(100vw-64px)] shrink-0 items-center justify-end gap-0.5 overflow-hidden">
@@ -3119,8 +3148,10 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               const index = virtualMessages.start + windowIndex;
               const showTimeDivider = shouldShowTimeDivider(message, messages[index - 1]);
               const sender = senderOf(message);
-              const mine = (message.sender_id ?? sender?.id) === currentUser.id;
+              // 「我的设备」里的消息都是自己发的：左右改按发消息的设备类分（self-chat.md 第 2 节）
+              const mine = selfChat ? isLocalDeviceMessage(message) : (message.sender_id ?? sender?.id) === currentUser.id;
               const recalled = Boolean(message.recalled_at);
+              const transfer = selfTransferOf(message);
               const senderRoleBadge = messageRoleBadge(message, sender);
               const senderTitleBadge = messageTitleBadge(message, senderRoleBadge);
               const senderMember = memberFromMessage(message, mine ? currentUser : sender);
@@ -3217,7 +3248,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                       <input type="checkbox" checked={selected} onChange={() => toggleMessageSelected(message)} className="h-3.5 w-3.5 accent-[var(--kc-accent)]" aria-label="选择消息" />
                     </label>
                   ) : null}
-                  {!mine ? (
+                  {!mine && selfChat ? <DeviceAvatar kind={messageDeviceOrLocal(message)} size="message" /> : !mine ? (
                     <button
                       type="button"
                       title="双击戳一戳"
@@ -3242,7 +3273,9 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                   <div className={`min-w-0 ${isMobile ? 'kc-mobile-message-stack' : 'max-w-[75%]'} ${mine ? 'items-end' : 'items-start'} flex flex-col gap-0.5`} style={isMobile ? { flex: '0 1 auto', width: 'auto', maxWidth: '78%' } : undefined}>
                     <div className={`kc-mobile-message-meta flex flex-nowrap items-center gap-1 px-1 text-[11px] [color:var(--kc-muted)] ${mine ? 'justify-end' : 'justify-start'}`}>
                       <span className={`kc-mobile-message-identity inline-flex min-w-0 max-w-full items-center gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
-                        {message.sender?.is_bot && !mine ? (
+                        {selfChat ? (
+                          <span className="kc-mobile-message-name min-w-0 truncate">{mine ? messageSenderLabel(message) : deviceLabel(messageDeviceOrLocal(message))}</span>
+                        ) : message.sender?.is_bot && !mine ? (
                           <button type="button" onClick={(event) => { event.stopPropagation(); openBotForUser(message.sender?.id); }} onDoubleClick={(event) => event.stopPropagation()} className="kc-mobile-message-name min-w-0 truncate text-left">{messageSenderLabel(message)}</button>
                         ) : <span className="kc-mobile-message-name min-w-0 truncate">{messageSenderLabel(message)}</span>}
                         {message.sender?.is_bot ? (
@@ -3282,6 +3315,11 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                       <div className={`kc-mobile-message-content flex max-w-full flex-col gap-2 ${mine ? 'items-end' : 'items-start'}`}>
                         {messageQuote ? renderQuoteBlock(messageQuote, false, jumpToQuotedMessage) : null}
                         <GiftCard message={message} meta={gift} mine={mine} />
+                      </div>
+                    ) : transfer ? (
+                      <div className={`kc-mobile-message-content flex max-w-full flex-col gap-2 ${mine ? 'items-end' : 'items-start'}`}>
+                        {messageQuote ? renderQuoteBlock(messageQuote, false, jumpToQuotedMessage) : null}
+                        <SelfTransferCard meta={transfer} conversationId={message.conversation_id} nameUnits={isMobile ? 18 : undefined} />
                       </div>
                     ) : fileMeta ? (
                       <div className={`kc-mobile-message-content flex max-w-full flex-col gap-2 ${mine ? 'items-end' : 'items-start'}`}>
@@ -3534,9 +3572,10 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               ) : null}
               {messageMenu.clickedImageUrl ? <ContextMenuItem label="添加表情" icon="heart" disabled={Boolean(messageMenu.message.recalled_at) || favoriteStickerMutation.isPending} onClick={favoriteClickedImage} /> : null}
               {/* 红包、礼物不能转发，也不进多选 */}
-              {isRedPacketMessage(messageMenu.message) || isGiftMessage(messageMenu.message) || groupFileMetaOf(messageMenu.message) ? null : <ContextMenuItem label="转发" icon="send" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => openForwardModal([messageMenu.message.id])} />}
-              <ContextMenuItem label={messageMenu.message.bookmarked_by_me ? '取消收藏' : '收藏'} icon="star" disabled={Boolean(messageMenu.message.recalled_at) || bookmarkMutation.isPending} onClick={() => toggleSelectedMessageBookmark(messageMenu.message)} />
-              {isRedPacketMessage(messageMenu.message) || isGiftMessage(messageMenu.message) || groupFileMetaOf(messageMenu.message) ? null : <ContextMenuItem label="多选" icon="checkSquare" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => startMultiSelect(messageMenu.message)} />}
+              {isRedPacketMessage(messageMenu.message) || isGiftMessage(messageMenu.message) || groupFileMetaOf(messageMenu.message) || isSelfTransferMessage(messageMenu.message) ? null : <ContextMenuItem label="转发" icon="send" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => openForwardModal([messageMenu.message.id])} />}
+              {/* 「我的设备」的临时文件不能收藏、不能转发（self-chat.md 5.5） */}
+              {isSelfTransferMessage(messageMenu.message) ? null : <ContextMenuItem label={messageMenu.message.bookmarked_by_me ? '取消收藏' : '收藏'} icon="star" disabled={Boolean(messageMenu.message.recalled_at) || bookmarkMutation.isPending} onClick={() => toggleSelectedMessageBookmark(messageMenu.message)} />}
+              {isRedPacketMessage(messageMenu.message) || isGiftMessage(messageMenu.message) || groupFileMetaOf(messageMenu.message) || isSelfTransferMessage(messageMenu.message) ? null : <ContextMenuItem label="多选" icon="checkSquare" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => startMultiSelect(messageMenu.message)} />}
               {canTranscribeVoice(messageMenu.message) ? <ContextMenuItem label={voiceTranscriptOf(messageMenu.message).open ? '收起文字' : '转文字'} icon="fileText" onClick={() => {
                 toggleVoiceTranscript(messageMenu.message);
                 setMessageMenu(null);
@@ -3546,8 +3585,8 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               {isGroup && (currentRole === 'owner' || currentRole === 'admin') ? <ContextMenuItem label={messageMenu.message.featured ? '取消精华' : '设为精华'} icon="sparkles" disabled={!canFeatureMessage(messageMenu.message) || featureMutation.isPending} onClick={() => toggleSelectedMessageFeature(messageMenu.message)} /> : null}
               <ContextMenuItem label="撤回" icon="recall" disabled={!canRecall(messageMenu.message) || recallMutation.isPending} onClick={() => recallSelectedMessage(messageMenu.message)} />
               <ContextMenuItem label="删除" icon="trash" danger disabled={deleteLocalMutation.isPending} onClick={() => deleteSelectedMessageLocal(messageMenu.message)} />
-              <div className="my-1 border-t [border-color:var(--kc-border)]" />
-              <ContextMenuItem label="举报" icon="flag" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => openMessageReport(messageMenu.message)} />
+              {selfChat ? null : <div className="my-1 border-t [border-color:var(--kc-border)]" />}
+              {selfChat ? null : <ContextMenuItem label="举报" icon="flag" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => openMessageReport(messageMenu.message)} />}
             </div>
           </ContextMenuSurface>
         </div>
@@ -3700,7 +3739,8 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
       {userCard ? <UserCard user={userCard.user} label={userCard.label} anchor={userCard.anchor} containerRef={overlayRootRef} action={profileActionForUser(userCard.user)} onClose={() => setUserCard(null)} /> : null}
       {mobileUserProfile ? <MobileUserProfilePage user={mobileUserProfile.user} label={mobileUserProfile.label} fallbackUserId={mobileUserProfile.fallbackUserId} currentUserId={currentUser.id} currentUser={currentUser} action={profileActionForUser(mobileUserProfile.user)} groupContext={mobileUserProfile.member && activeConversation ? { conversationId: activeConversation.id, member: mobileUserProfile.member, currentRole, onMemberUpdated: (member) => setMobileUserProfile((current) => current ? { ...current, member } : current) } : undefined} onClose={() => setMobileUserProfile(null)} /> : null}
       {showAnnouncements && isGroup ? <AnnouncementModal conversation={conversation} canPublish={canPublishAnnouncement} mobile={isMobile} onClose={() => setShowAnnouncements(false)} /> : null}
-      {showInfoDrawer ? <ChatInfoDrawer conversation={conversation} currentUser={currentUser} members={members} friends={friends} membersLoading={membersLoading} currentRole={currentRole} conversations={conversations} isMobile={isMobile} onReportConversation={openConversationReport} onClose={closeInfoDrawer} /> : null}
+      {showInfoDrawer && selfChat ? <SelfChatInfoDrawer conversation={conversation} onClose={closeInfoDrawer} /> : null}
+      {showInfoDrawer && !selfChat ? <ChatInfoDrawer conversation={conversation} currentUser={currentUser} members={members} friends={friends} membersLoading={membersLoading} currentRole={currentRole} conversations={conversations} isMobile={isMobile} onReportConversation={openConversationReport} onClose={closeInfoDrawer} /> : null}
     </section>
   );
 }

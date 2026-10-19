@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { cx } from '@/components/chat/desktop/runtime';
 import { GiftRecordsButton } from '@/components/gifts/GiftEntry';
 import { RedPacketRecordsButton } from '@/components/redpacket/RedPacketEntry';
+import { RedPacketGlyph } from '@/components/redpacket/RedPacketGlyph';
 import { Icon } from '@/components/ui/Icon';
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import { getDesktopPortalRoot } from '@/components/ui/desktop/Modal';
@@ -32,7 +33,7 @@ export function ShopPage(): JSX.Element {
           <p className="ksp-head-sub">用 CCW 金币换聊天里的装扮</p>
           {data ? (
             <div className="ksp-head-actions">
-              <RedPacketRecordsButton className="kui-btn kui-btn--ghost kui-btn--sm"><Icon name="redPacket" className="h-3.5 w-3.5" />红包记录</RedPacketRecordsButton>
+              <RedPacketRecordsButton className="kui-btn kui-btn--ghost kui-btn--sm"><RedPacketGlyph size={16} />红包记录</RedPacketRecordsButton>
               <GiftRecordsButton className="kui-btn kui-btn--ghost kui-btn--sm"><Icon name="gift" className="h-3.5 w-3.5" />礼物记录</GiftRecordsButton>
               <button type="button" className="kui-btn kui-btn--ghost kui-btn--sm" data-action="history" onClick={() => shop.setHistoryOpen(true)}><Icon name="clock" className="h-3.5 w-3.5" />购买记录</button>
             </div>

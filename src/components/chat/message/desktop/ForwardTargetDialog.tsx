@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
 import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/desktop/Modal';
@@ -8,6 +9,9 @@ import { filterForwardTargets, type ForwardTargetModalProps } from '../forwardTa
 import { conversationDisplayTitle } from '../messageMeta';
 
 function TargetAvatar({ conversation, title }: { conversation: Conversation; title: string }): JSX.Element {
+  if (conversation.type === 'self') {
+    return <DeviceAvatar kind="phone" size="sm" />;
+  }
   return conversation.type === 'group'
     ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} size="sm" plusTier={conversationTier(conversation)} />
     : <Avatar user={conversation.direct_user} label={title} size="sm" />;
@@ -52,7 +56,7 @@ export function ForwardTargetDialog({ conversations, currentUser, activeConversa
                 <TargetAvatar conversation={conversation} title={title} />
                 <span className="kmd-option-text">
                   <span>{title}{conversation.id === activeConversationId ? <span className="kui-tag">当前</span> : null}</span>
-                  <span>{conversation.type === 'group' ? `群聊 · ${conversation.member_count ?? 0} 人` : '私聊'}</span>
+                  <span>{conversation.type === 'group' ? `群聊 · ${conversation.member_count ?? 0} 人` : conversation.type === 'self' ? '我的设备 · 传到自己的手机' : '私聊'}</span>
                 </span>
                 <span className="kmd-radio" />
               </button>
@@ -67,7 +71,7 @@ export function ForwardTargetDialog({ conversations, currentUser, activeConversa
             <TargetAvatar conversation={selected} title={selectedTitle} />
             <span className="kmd-option-text">
               <span>{selectedTitle}</span>
-              <span>{selected.type === 'group' ? '群聊' : '私聊'}</span>
+              <span>{selected.type === 'group' ? '群聊' : selected.type === 'self' ? '我的设备' : '私聊'}</span>
             </span>
           </div>
         ) : <p className="kmd-forward-target is-empty">请从左侧选择一个会话</p>}
