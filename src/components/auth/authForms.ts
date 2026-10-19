@@ -3,11 +3,10 @@ import { useMutation } from '@tanstack/react-query';
 import { confirmCcwReset, createCcwResetChallenge, getCookieSession, getRememberedUsername, login, lookupAccount, openSecureLoginPopup, register, setRememberedUsername, setRememberIpLogin, submitPasswordResetRequest } from '@/api/auth';
 import { ApiError, accountSuspensionFromError } from '@/api/client';
 import { SECURE_LOGIN_ORIGIN } from '@/config';
-import { configureNativeBackgroundRealtime } from '@/native/backgroundRealtime';
 import { saveNativeSession } from '@/native/session';
 import { useKukeStore } from '@/store/kukeStore';
 import type { CcwPasswordChallengeInfo } from '@/types/api';
-import { isNativeMobileApp, isTauriDesktopApp } from '@/utils/appMode';
+import { isTauriDesktopApp } from '@/utils/appMode';
 
 /** 登录 / 注册、找回密码的状态与请求。桌面和移动两套界面共用，界面只管怎么画。 */
 
@@ -40,7 +39,7 @@ export function useAuthForm() {
   const setSession = useKukeStore((state) => state.setSession);
   const setAccountSuspension = useKukeStore((state) => state.setAccountSuspension);
   const isRegister = mode === 'register';
-  const isNativeApp = isNativeMobileApp() || isTauriDesktopApp();
+  const isNativeApp = isTauriDesktopApp();
   const trimmedUsername = username.trim();
   const usernameFormatError = isRegister && trimmedUsername.length > 0 && !USERNAME_PATTERN.test(trimmedUsername) ? USERNAME_FORMAT_ERROR : '';
   const usernameLengthError = isRegister && trimmedUsername.length > 0 && (trimmedUsername.length < 3 || trimmedUsername.length > 50) ? '用户名长度需要在 3 到 50 个字符之间。' : '';
@@ -66,7 +65,6 @@ export function useAuthForm() {
     onSuccess: (session) => {
       if (isNativeApp) {
         void saveNativeSession(session);
-        void configureNativeBackgroundRealtime(session.token, session.user.id, true);
         setRememberedUsername(trimmedUsername);
       } else if (mode === 'login') {
         setRememberIpLogin(false);
@@ -87,7 +85,6 @@ export function useAuthForm() {
     onSuccess: (session) => {
       if (isNativeApp) {
         void saveNativeSession(session);
-        void configureNativeBackgroundRealtime(session.token, session.user.id, true);
       }
       setSession(session.token, session.user);
     },

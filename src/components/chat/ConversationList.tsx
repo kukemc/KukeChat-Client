@@ -18,7 +18,6 @@ import { PlusCornerBadge, PlusTierTag } from '@/components/groupPlus/PlusBadge';
 import { conversationTier } from '@/components/groupPlus/tier';
 import { ContextMenuItem, ContextMenuSurface } from '@/components/ui/ContextMenu';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
-import { updateNativeBackgroundRealtimeConversations } from '@/native/backgroundRealtime';
 import { resolveThumbnailUrl } from '@/utils/assetUrl';
 import { formatClockTime } from '@/utils/dateTime';
 import { isConversationPinnedForMe, sortConversationsByActivity } from '@/utils/conversations';
@@ -221,20 +220,15 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
   const groupSettingsMutation = useMutation({
     mutationFn: ({ conversationId, payload }: { conversationId: number; payload: { pinned?: boolean; do_not_disturb?: boolean; message_setting?: MessageSetting } }) => updateMyConversationSettings(conversationId, payload),
     onSuccess: (_member, variables) => {
-      let conversations: Conversation[] | undefined;
       queryClient.setQueryData<Conversation[]>(['conversations'], (current) => {
         if (!current) return current;
-        conversations = sortConversationsByActivity(current.map((conversation) => (conversation.id === variables.conversationId ? {
+        return sortConversationsByActivity(current.map((conversation) => (conversation.id === variables.conversationId ? {
           ...conversation,
           ...('pinned' in variables.payload ? { my_pinned: variables.payload.pinned } : {}),
           ...('do_not_disturb' in variables.payload ? { my_do_not_disturb: variables.payload.do_not_disturb } : {}),
           ...('message_setting' in variables.payload ? { my_message_setting: variables.payload.message_setting } : {})
         } : conversation)));
-        return conversations ?? current;
       });
-      if (conversations) {
-        void updateNativeBackgroundRealtimeConversations(conversations);
-      }
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
     onError: (_error, variables) => {

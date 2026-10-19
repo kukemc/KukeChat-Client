@@ -6,13 +6,22 @@
 
 **长在创作社区里的聊天客户端**
 
-一套 React + TypeScript 代码，构建出 Scratch / CCW 社区扩展、Windows 桌面端和移动端 Web。
+一套 React + TypeScript 代码，构建出 Scratch / CCW 社区扩展和 Windows 桌面端。
 
-[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)](LICENSE)
+<p align="center">
+<img src=".github/assets/icons/puzzle.svg" width="16" height="16" align="absmiddle">&nbsp;社区页面里的聊天浮窗&emsp;&emsp;
+<img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;Windows 桌面端&emsp;&emsp;
+<img src=".github/assets/icons/blocks.svg" width="16" height="16" align="absmiddle">&nbsp;40+ Scratch 积木&emsp;&emsp;
+<img src=".github/assets/icons/bot.svg" width="16" height="16" align="absmiddle">&nbsp;开放 Bot API
+</p>
+
+[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3-111111?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-111111?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-5-111111?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
 [![Tauri](https://img.shields.io/badge/Tauri-2-111111?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
-[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/Rust-stable-111111?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111&logo=githubactions&logoColor=white)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
 
 **简体中文** · [English](README.en.md)
 
@@ -49,47 +58,46 @@ KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。
 
 ## 形态
 
-| 形态 | 运行环境 | 实现 | 产物 | 状态 |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;形&#8288;态&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 运行环境 | 实现 | 产物 | 状态 |
 | --- | --- | --- | --- | --- |
-| 社区扩展 | CCW / Gandi IDE 网页 | Vite library 模式 + Shadow DOM | `dist/KukeChat.js` | 正式 |
-| Windows 桌面端 | Windows | Tauri 2（Rust + WebView2） | `.msi` / `-setup.exe` | 正式 |
-| 移动端 Web（H5） | 手机浏览器 | 移动端布局的独立网页 | `dist-mobile/` | 可自行部署 |
-| Android | Android | Kotlin + Jetpack Compose 原生应用 | 见 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 正式，另一个仓库 |
-| macOS | macOS | Tauri 2 | `mac-beta` 分支 | 测试中 |
-| Linux | Linux 桌面 | 社区维护 | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | 非官方 |
+| <img src=".github/assets/icons/puzzle.svg" width="16" height="16" align="absmiddle">&nbsp;社区扩展 | CCW / Gandi IDE 网页 | Vite library 模式 + Shadow DOM | `dist/KukeChat.js` | 正式 |
+| <img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;Windows 桌面端 | Windows | Tauri 2（Rust + WebView2） | `.msi` / `-setup.exe` | 正式 |
+| <img src=".github/assets/icons/smartphone.svg" width="16" height="16" align="absmiddle">&nbsp;Android | Android | Kotlin + Jetpack Compose 原生应用 | 见 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 正式，另一个仓库 |
+| <img src=".github/assets/icons/laptop.svg" width="16" height="16" align="absmiddle">&nbsp;macOS | macOS | Tauri 2 | `mac-beta` 分支 | 测试中 |
+| <img src=".github/assets/icons/terminal.svg" width="16" height="16" align="absmiddle">&nbsp;Linux | Linux 桌面 | 社区维护 | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | 非官方 |
 
 官方安装包（Windows、Android）在 [KukeChat 下载页](https://chat-api.kuke.ink/download)。
 
 桌面端带系统托盘、新消息托盘闪烁、开机自启、单实例和内置更新器。
 
-本仓库的 `android/` 是早期的 Capacitor 外壳（停在 1.3.1，不再随版本更新），正式的 Android 应用已迁到 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android)。
+本仓库构建两个目标：社区扩展和 Windows 桌面端（macOS 测试版在 `mac-beta` 分支）。Android 应用是独立的原生项目，见 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android)。
 
 ## 功能
 
-| 分类 | 内容 |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;分&#8288;类&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 内容 |
 | --- | --- |
-| 消息 | 私聊、群聊、临时会话；文本、图片、多图、语音、表情包（含动图）、文件；引用、@ 提及、表情回应、撤回；Markdown 与消息内按钮（机器人可动态更新） |
-| 语音 | 语音消息，点一下即可转成文字 |
-| 整理与转发 | 收藏、群精华、合并转发，三者都能完整展示所有消息类型，合并转发可嵌套查看 |
-| 查找 | QQ 式聊天记录搜索（分类、日期、发送人筛选，点击定位）、全局搜索、「有人 @ 我」跳转提示 |
-| 互动 | 红包（含按住说出口令才能领的语音红包）、礼物与礼物墙、投票、群待办 |
-| 群聊 | 群主 / 管理员 / 成员三级权限、全员禁言、慢速模式、入群审批、群公告、群表情、成员头衔与等级、签到 |
-| 群升级 | Pro / Pro+ / MAX 档位、群文件（配额、限时或永久保留、上传进度、取消与重试） |
-| 社交 | 好友申请与备注、动态（发布、评论、点赞）、组队中心、任务看板、亲密度、好友火花、生日、资料点赞、等级 |
-| 个性化 | 主题与壁纸、商店里的头像框和聊天气泡 |
-| 社区与安全 | CCW 账号绑定与作品卡片、举报、风纪委员（考试、合议、判例） |
-| 客户端 | 桌面通知与托盘提醒；自动更新，后端发版后实时推送，各端错峰检查 |
+| <img src=".github/assets/icons/message-circle.svg" width="16" height="16" align="absmiddle">&nbsp;消息 | 私聊、群聊、临时会话；文本、图片、多图、语音、表情包（含动图）、文件；引用、@ 提及、表情回应、撤回；Markdown 与消息内按钮（机器人可动态更新） |
+| <img src=".github/assets/icons/mic.svg" width="16" height="16" align="absmiddle">&nbsp;语音 | 语音消息，点一下即可转成文字 |
+| <img src=".github/assets/icons/bookmark.svg" width="16" height="16" align="absmiddle">&nbsp;整理与转发 | 收藏、群精华、合并转发，三者都能完整展示所有消息类型，合并转发可嵌套查看 |
+| <img src=".github/assets/icons/search.svg" width="16" height="16" align="absmiddle">&nbsp;查找 | QQ 式聊天记录搜索（分类、日期、发送人筛选，点击定位）、全局搜索、「有人 @ 我」跳转提示 |
+| <img src=".github/assets/icons/gift.svg" width="16" height="16" align="absmiddle">&nbsp;互动 | 红包（含按住说出口令才能领的语音红包）、礼物与礼物墙、投票、群待办 |
+| <img src=".github/assets/icons/users.svg" width="16" height="16" align="absmiddle">&nbsp;群聊 | 群主 / 管理员 / 成员三级权限、全员禁言、慢速模式、入群审批、群公告、群表情、成员头衔与等级、签到 |
+| <img src=".github/assets/icons/crown.svg" width="16" height="16" align="absmiddle">&nbsp;群升级 | Pro / Pro+ / MAX 档位、群文件（配额、限时或永久保留、上传进度、取消与重试） |
+| <img src=".github/assets/icons/heart.svg" width="16" height="16" align="absmiddle">&nbsp;社交 | 好友申请与备注、动态（发布、评论、点赞）、组队中心、任务看板、亲密度、好友火花、生日、资料点赞、等级 |
+| <img src=".github/assets/icons/palette.svg" width="16" height="16" align="absmiddle">&nbsp;个性化 | 主题与壁纸、商店里的头像框和聊天气泡 |
+| <img src=".github/assets/icons/shield-check.svg" width="16" height="16" align="absmiddle">&nbsp;社区与安全 | CCW 账号绑定与作品卡片、举报、风纪委员（考试、合议、判例） |
+| <img src=".github/assets/icons/bell.svg" width="16" height="16" align="absmiddle">&nbsp;客户端 | 桌面通知与托盘提醒；自动更新，后端发版后实时推送，各端错峰检查 |
 
 ### Scratch 积木
 
 扩展提供 40 多个积木，分为四组：
 
-| 分组 | 能做什么 |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;分&#8288;组&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 能做什么 |
 | --- | --- |
-| 基础 | 窗口控制、登录状态、未读数、新消息事件、推荐加群 / 加好友 |
-| 机器人 | 设置 Key 并连接实时消息；收到消息 / 被 @ 时触发；发送文字、图片、表情、语音、私信；表情回应、撤回、更新消息按钮 |
-| 群管 | 查询成员信息、禁言 / 解除禁言、移出群聊、审批入群申请（机器人需被设为管理员，权限规则与人类管理员一致） |
-| 游戏模式 | 把群聊接进作品舞台，请求玩家授权后以玩家身份发言，可自定义聊天框外观与位置 |
+| <img src=".github/assets/icons/app-window.svg" width="16" height="16" align="absmiddle">&nbsp;基础 | 窗口控制、登录状态、未读数、新消息事件、推荐加群 / 加好友 |
+| <img src=".github/assets/icons/bot.svg" width="16" height="16" align="absmiddle">&nbsp;机器人 | 设置 Key 并连接实时消息；收到消息 / 被 @ 时触发；发送文字、图片、表情、语音、私信；表情回应、撤回、更新消息按钮 |
+| <img src=".github/assets/icons/user-cog.svg" width="16" height="16" align="absmiddle">&nbsp;群管 | 查询成员信息、禁言 / 解除禁言、移出群聊、审批入群申请（机器人需被设为管理员，权限规则与人类管理员一致） |
+| <img src=".github/assets/icons/gamepad-2.svg" width="16" height="16" align="absmiddle">&nbsp;游戏模式 | 把群聊接进作品舞台，请求玩家授权后以玩家身份发言，可自定义聊天框外观与位置 |
 
 ```text
 设置机器人 Key [KEY]  →  连接机器人实时消息
@@ -100,10 +108,14 @@ KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。
 
 ## 技术栈
 
+<p align="center">
+<img src="https://skillicons.dev/icons?i=react,ts,vite,tailwind,tauri,rust&theme=dark" height="40" alt="React, TypeScript, Vite, Tailwind CSS, Tauri, Rust">
+</p>
+
 | 层 | 选型 |
 | --- | --- |
 | UI | React 18 + TypeScript 5.6（严格模式） |
-| 构建 | Vite 5，三份配置对应三个目标 |
+| 构建 | Vite 5，两份配置对应两个目标 |
 | 样式 | Tailwind CSS 3.4 + CSS 变量主题 |
 | 状态 | Zustand 5 |
 | 数据 | TanStack Query 5（无限滚动、乐观更新） |
@@ -121,9 +133,8 @@ Markdown 渲染器不使用 `dangerouslySetInnerHTML`，所有节点都由解析
 | --- | --- | --- | --- |
 | 社区扩展 | `src/extension/index.ts` | `vite.config.ts` | `dist/KukeChat.js`（IIFE 单文件） |
 | 桌面端 | `src/desktop-app.tsx` | `vite.desktop.config.ts` | `dist-desktop/`，由 Tauri 打包 |
-| 移动端 Web | `src/mobile-app.tsx` | `vite.mobile.config.ts` | `dist-mobile/` |
 
-平台差异收敛在 `src/native/`（原生能力封装）和 `src/utils/appMode.ts`（运行环境判断），业务组件不关心自己跑在哪个壳里。三份配置共用 `vite.env.ts` 校验环境变量。
+平台差异收敛在 `src/native/`（原生能力封装）和 `src/utils/appMode.ts`（运行环境判断），业务组件不关心自己跑在哪个壳里。两份配置共用 `vite.env.ts` 校验环境变量。
 
 ## 快速开始
 
@@ -164,7 +175,6 @@ npm run dev
 | `VITE_WS_URL` | 是 | 实时消息 WebSocket 地址 |
 | `VITE_SECURE_LOGIN_ORIGIN` | | 安全登录弹窗 `postMessage` 的可信来源，默认取 API 的 origin |
 | `VITE_DESKTOP_UPDATE_URL` | | 桌面端备用更新元数据地址，默认 `<API>/desktop-update.json` |
-| `VITE_MOBILE_UPDATE_URL` | | 移动端备用更新元数据地址，默认 `<API>/desktop-update.json` |
 | `VITE_EXTENSION_ASSET_URL` | | 已发布的扩展文件地址，用于机器人接入说明，留空则隐藏 |
 | `VITE_BOT_API_DOCS_URL` | | 机器人 API 文档地址，用于积木面板的文档入口，留空则隐藏 |
 | `KUKECHAT_UPDATE_METADATA_URL` | | 覆盖桌面端更新元数据地址（Rust 侧读取，运行期优先于编译期），便于本地测试 |
@@ -200,22 +210,14 @@ npm run tauri:build    # 打包 .msi 与 -setup.exe
 
 版本号以 `package.json` 的 `version` 为准。`tauri:dev` / `tauri:build` 会先执行 `sync:desktop-version`，把它同步到 `src-tauri/tauri.conf.json`、`Cargo.toml` 和 `Cargo.lock`。
 
-### 移动端 Web
-
-```bash
-npm run build:mobile-web
-```
-
-产物在 `dist-mobile/`，作为静态网站部署即可。
-
 ### 持续集成与发布
 
 | 工作流 | 触发 | 做什么 |
 | --- | --- | --- |
-| [`ci.yml`](.github/workflows/ci.yml) | 推送到 `main`、Pull Request | 类型检查，并构建扩展、桌面端 web、移动端 web 三份产物 |
+| [`ci.yml`](.github/workflows/ci.yml) | 推送到 `main`、Pull Request | 类型检查，并构建扩展、桌面端 web 两份产物 |
 | [`release.yml`](.github/workflows/release.yml) | 推送 `v*` 标签 | 并行构建各端产物，汇总成草稿 Release，人工确认后发布 |
 
-发布构建的后端地址取自仓库变量（Settings → Secrets and variables → Actions → Variables），变量名与上面的配置表一致，fork 后填你自己的即可。`release.yml` 里仍保留旧 Capacitor 外壳的 APK 任务，它需要 `ANDROID_KEYSTORE_*` 一组签名 secret。
+发布构建的后端地址取自仓库变量（Settings → Secrets and variables → Actions → Variables），变量名与上面的配置表一致，fork 后填你自己的即可。
 
 ## 项目结构
 
@@ -226,7 +228,7 @@ src/
   components/     业务 UI，按功能域分目录
   config/         部署配置、CCW 常量、品牌信息
   extension/      扩展入口、积木定义、游戏模式、自更新
-  native/         Tauri / 移动端原生能力封装
+  native/         Tauri 原生能力封装、返回键与页面过渡
   realtime/       WebSocket 客户端与事件分发
   store/          Zustand 全局状态
   styles/         Tailwind 与 Shadow DOM 样式注入
@@ -234,7 +236,6 @@ src/
   types/          接口与实时事件类型
   utils/          通用工具
 src-tauri/        Tauri 桌面端（Rust）
-android/          早期 Capacitor 外壳（已停止更新）
 dev/              组件预览页与假接口
 docs/             Bot API、CCW 运行时 API、各版本更新日志
 scripts/          版本同步、打包与测试脚本
@@ -249,20 +250,18 @@ scripts/          版本同步、打包与测试脚本
 | `npm run typecheck` | 应用与构建脚本的类型检查 |
 | `npm run build` | 类型检查后构建社区扩展 |
 | `npm run build:desktop-web` | 构建桌面端 web 产物 |
-| `npm run build:mobile-web` | 构建移动端 web 产物 |
 | `npm run preview` | 预览构建结果 |
 | `npm run tauri:dev` | 桌面端调试 |
 | `npm run tauri:build` | 桌面端打包 |
 | `npm run sync:desktop-version` | 把 `package.json` 版本号同步进 Tauri 配置 |
-| `npm run android:sync` / `android:apk` | 旧 Capacitor 外壳的同步与打包 |
 
 ## 相关仓库
 
 | 仓库 | 说明 |
 | --- | --- |
-| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | 本仓库：社区扩展、Windows 桌面端、移动端 Web |
-| [KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | 后端：REST API、WebSocket 与数据模型 |
-| [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 原生 Android 应用，Kotlin + Jetpack Compose |
+| <img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | 本仓库：社区扩展与桌面端（Windows，macOS 测试中） |
+| <img src=".github/assets/icons/server.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | 后端：REST API、WebSocket 与数据模型 |
+| <img src=".github/assets/icons/smartphone.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 原生 Android 应用，Kotlin + Jetpack Compose |
 
 ## 贡献
 

@@ -1,12 +1,11 @@
 name: Release
 
-# 推一个 v* 标签即可触发：三端并行构建，产物汇总成一个「草稿」Release，
+# 推一个 v* 标签即可触发：社区扩展和 Windows 桌面端并行构建，产物汇总成一个「草稿」Release，
 # 你在网页上确认无误后点 Publish 发布。
 #
 # 构建所需的生产地址来自仓库变量（Settings → Secrets and variables → Actions → Variables）：
 #   VITE_API_BASE_URL          必填，例如 https://chat-api.example.com
 #   VITE_WS_URL                必填，例如 wss://chat-api.example.com/ws
-#   VITE_MOBILE_UPDATE_URL     选填，安卓自更新元数据地址
 #   VITE_EXTENSION_ASSET_URL   选填，已发布的扩展文件地址
 #   VITE_BOT_API_DOCS_URL      选填，机器人 API 文档地址
 #   KUKECHAT_UPDATE_METADATA_URL 选填，覆盖桌面端更新地址（默认 <VITE_API_BASE_URL>/desktop-update.json）
@@ -28,7 +27,6 @@ permissions:
 env:
   VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
   VITE_WS_URL: ${{ vars.VITE_WS_URL }}
-  VITE_MOBILE_UPDATE_URL: ${{ vars.VITE_MOBILE_UPDATE_URL }}
   VITE_EXTENSION_ASSET_URL: ${{ vars.VITE_EXTENSION_ASSET_URL }}
   VITE_BOT_API_DOCS_URL: ${{ vars.VITE_BOT_API_DOCS_URL }}
 
@@ -114,81 +112,9 @@ jobs:
           path: out/*
           if-no-files-found: error
 
-  android:
-    name: 构建 Android APK
-    needs: preflight
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 20
-          cache: npm
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: 检查签名密钥
-        env:
-          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$KEYSTORE" ]; then
-            echo "::error::缺少 ANDROID_KEYSTORE_BASE64 等签名 secret。"
-            echo "未签名或用不同密钥签名的 APK 无法覆盖安装到已有版本上，"
-            echo "Android 会直接拒绝升级，客户端内的自动更新也会失效。"
-            echo "请参考 README 的「发布」一节配置签名密钥后重试。"
-            exit 1
-          fi
-
-      - run: npm ci
-      - run: npm run build:mobile-web
-      - run: npx cap sync android
-
-      - name: 写入签名配置
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/release.keystore
-          cat > android/keystore.properties <<EOF
-          storeFile=$(pwd)/android/release.keystore
-          storePassword=$KEYSTORE_PASSWORD
-          keyAlias=$KEY_ALIAS
-          keyPassword=$KEY_PASSWORD
-          EOF
-
-      - name: Gradle 打包
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
-
-      - name: 校验 APK 已签名
-        run: |
-          apk=android/app/build/outputs/apk/release/app-release.apk
-          if [ ! -f "$apk" ]; then
-            echo "::error::未找到 release APK；若产物是 app-release-unsigned.apk，说明签名配置没生效。"
-            ls -R android/app/build/outputs/apk || true
-            exit 1
-          fi
-          cp "$apk" "KukeChat-${{ needs.preflight.outputs.version }}.apk"
-
-      - name: 清理密钥材料
-        if: always()
-        run: rm -f android/release.keystore android/keystore.properties
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android
-          path: KukeChat-*.apk
-          if-no-files-found: error
-
   release:
     name: 汇总为草稿 Release
-    needs: [preflight, extension, desktop, android]
+    needs: [preflight, extension, desktop]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -212,7 +138,6 @@ jobs:
             | --- | --- | --- |
             | 社区扩展 | `KukeChat-*.js` | 在 CCW / Gandi 扩展加载器中加载 |
             | Windows 桌面端 | `*.msi` / `*-setup.exe` | 二选一安装 |
-            | Android | `KukeChat-*.apk` | 需允许安装未知来源应用 |
 
             > 以上产物已连接官方服务，下载后可直接使用。
             > 想连接自建后端请自行构建，见 README 的「配置」一节。

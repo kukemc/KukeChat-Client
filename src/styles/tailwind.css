@@ -61,14 +61,6 @@ body,
   min-height: 100%;
 }
 
-html:has(#kukechat-root[data-native-app='true']),
-html:has(#kukechat-root[data-native-app='true']) body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: var(--kc-mobile-bg, #11161f);
-}
-
 html:has(#kukechat-root[data-desktop-app='true']),
 html:has(#kukechat-root[data-desktop-app='true']) body {
   width: 100%;
@@ -94,15 +86,6 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-#kukechat-root[data-native-app='true'] {
-  pointer-events: auto;
-  position: static;
-  inset: auto;
-  z-index: auto;
-  width: 100%;
-  min-height: 100%;
-}
-
 #kukechat-root[data-desktop-app='true'] {
   pointer-events: auto;
   position: static;
@@ -112,8 +95,6 @@ body {
   min-height: 100%;
 }
 
-#kukechat-root[data-native-app='true'],
-#kukechat-root[data-native-app='true'] #root,
 #kukechat-root[data-desktop-app='true'],
 #kukechat-root[data-desktop-app='true'] #root {
   height: 100%;
@@ -230,23 +211,11 @@ textarea {
     height: 100%;
   }
 
-  .kc-native-app .kc-ios-route-viewport,
-  .kc-native-app .kc-native-route-viewport {
+  .kc-native-app .kc-ios-route-viewport {
     display: block;
     height: 100%;
     min-height: 0;
     overflow: hidden;
-  }
-
-  .kc-native-route-page {
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .kc-native-main {
-    height: 100%;
-    min-height: 0;
   }
 
   .kc-native-app .kc-qq-page,
@@ -297,29 +266,6 @@ textarea {
     pointer-events: none;
   }
 
-  #kukechat-root[data-keyboard='hiding'] .kc-native-composer,
-  #kukechat-root[data-keyboard='hiding'] .kc-native-app .kc-native-composer {
-    transition: padding-bottom 120ms linear;
-  }
-
-  .kc-native-app .kc-native-chat-page {
-    padding-bottom: var(--kc-ime-inset, 0px);
-    transition: padding-bottom 340ms cubic-bezier(0.2, 0, 0, 1);
-    touch-action: none;
-    overscroll-behavior: none;
-  }
-
-  #kukechat-root[data-keyboard='hiding'] .kc-native-app .kc-native-chat-page {
-    transition: padding-bottom 160ms linear;
-  }
-
-  #kukechat-root[data-keyboard='shown'] .kc-native-composer,
-  #kukechat-root[data-keyboard='hiding'] .kc-native-composer,
-  #kukechat-root[data-keyboard='shown'] .kc-native-app .kc-native-composer,
-  #kukechat-root[data-keyboard='hiding'] .kc-native-app .kc-native-composer {
-    padding-bottom: var(--kc-native-composer-keyboard-bottom-gap) !important;
-  }
-
   #kukechat-root .kc-native-keyboard-page,
   .kc-native-app .kc-native-keyboard-page {
     padding-bottom: var(--kc-ime-inset, 0px);
@@ -331,16 +277,6 @@ textarea {
     scroll-padding-bottom: calc(var(--kc-ime-inset, 0px) + 96px);
   }
 
-  #kukechat-root[data-keyboard='hiding'] .kc-native-keyboard-page,
-  #kukechat-root[data-keyboard='hiding'] .kc-native-app .kc-native-keyboard-page {
-    transition: padding-bottom 140ms linear;
-  }
-
-  .kc-native-app .kc-native-chat-page .kc-qq-chat-scroll {
-    overscroll-behavior: contain;
-    touch-action: pan-y;
-  }
-
   .kc-native-app .kc-mobile-composer-input,
   .kc-native-app .kc-mobile-composer-input [contenteditable='true'] {
     touch-action: none;
@@ -350,17 +286,6 @@ textarea {
   .kc-native-app .kc-mobile-composer-input [contenteditable='true'] {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-  }
-
-  .kc-native-app .kc-native-chat-page .kc-qq-chat-header {
-    min-height: calc(56px + var(--kc-native-safe-top));
-    padding-top: var(--kc-native-safe-top);
-    padding-bottom: 6px;
-  }
-
-  .kc-native-app .kc-native-chat-page .kc-qq-chat-header button,
-  .kc-native-app .kc-native-chat-page .kc-qq-chat-header h3 {
-    color: var(--kc-text) !important;
   }
 
   .kc-native-app button,
@@ -518,16 +443,6 @@ textarea {
     height: auto;
   }
 
-  /* Only promote the route viewport to its own view-transition layer WHILE a
-     transition is running. Leaving the name always-on keeps a persistent
-     composited full-viewport layer that repaints (flashes) every time a
-     transition ends and the layer is re-promoted (e.g. returning from a
-     secondary page). transition.ts sets the attribute before capture, so the
-     name is still present when the snapshot is taken. */
-  html[data-kc-route-transition]:not([data-kc-route-transition^='secondary']) .kc-native-route-viewport {
-    view-transition-name: kc-mobile-route;
-  }
-
   .kc-mobile-glass-nav,
   .kc-mobile-overlay,
   .kc-native-composer {
@@ -682,10 +597,6 @@ textarea {
     contain: layout paint;
     transform: translateZ(0);
     will-change: transform, opacity;
-  }
-
-  .kc-native-safe-top {
-    display: none;
   }
 
   .kc-font-size-range {
@@ -2276,7 +2187,6 @@ textarea {
     will-change: transform, opacity;
   }
 
-  [data-layout='mobile'] .kc-native-route-viewport,
   [data-layout='mobile'] .kc-ios-route-viewport {
     touch-action: pan-y;
     overscroll-behavior-x: contain;
@@ -3535,11 +3445,6 @@ textarea {
 
   .kc-native-app .kc-mobile-composer {
     padding-bottom: var(--kc-native-composer-bottom-gap) !important;
-  }
-
-  #kukechat-root[data-keyboard='shown'] .kc-native-app .kc-mobile-composer,
-  #kukechat-root[data-keyboard='hiding'] .kc-native-app .kc-mobile-composer {
-    padding-bottom: var(--kc-native-composer-keyboard-bottom-gap) !important;
   }
 
   .kc-qq-primary-button {

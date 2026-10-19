@@ -16,26 +16,11 @@ keystore.properties
 # 前端构建产物
 dist/
 dist-desktop/
-dist-mobile/
 .vite/
 
 # Tauri 桌面端
 src-tauri/target/
 src-tauri/gen/
-
-# Android
-android/.gradle/
-android/build/
-android/local.properties
-android/app/build/
-android/capacitor-cordova-android-plugins/
-# cap sync 生成，不入库
-android/app/src/main/assets/public/
-android/app/src/main/assets/capacitor.config.json
-android/app/src/main/assets/capacitor.plugins.json
-android/app/src/main/res/xml/config.xml
-*.apk
-*.aab
 
 # 日志与编辑器状态
 *.log

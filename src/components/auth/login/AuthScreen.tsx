@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type FormEvent, type ReactNode } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
-import { MOBILE_APP_VERSION } from '@/native/appUpdate';
-import { isNativeMobileApp, isTauriDesktopApp } from '@/utils/appMode';
+import { isTauriDesktopApp } from '@/utils/appMode';
 import packageJson from '../../../../package.json';
 import type { AuthForm } from '../authForms';
 import { buttonPath } from '../blocks/motion';
@@ -19,7 +18,6 @@ import { Wordmark, Workspace } from './Workspace';
 const USERNAME_HINT = '3–50 位，仅可使用字母、数字、下划线、点和短横线。';
 
 function versionLine(): string {
-  if (isNativeMobileApp()) return `NEXT · v${MOBILE_APP_VERSION} · Android`;
   return `NEXT · v${packageJson.version} · ${isTauriDesktopApp() ? '桌面版' : '扩展版'}`;
 }
 
@@ -296,7 +294,7 @@ export function AuthScreen({ form, kind, overlay }: AuthScreenProps): JSX.Elemen
 
   return (
     <div ref={rootRef} className={rootClass}>
-      {!isNativeMobileApp() ? <MobileStatusBar title="" /> : null}
+      <MobileStatusBar title="" />
       <Workspace kind="phone" vars={vars} focus={focus} kb={kb} still={still} runToken={runToken} />
       {formEl}
       {overlay}

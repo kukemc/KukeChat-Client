@@ -47,13 +47,6 @@ export const API_ORIGIN = originOf(API_BASE_URL);
 export const SECURE_LOGIN_ORIGIN = readEnv('VITE_SECURE_LOGIN_ORIGIN') ?? API_ORIGIN;
 
 /**
- * 安卓客户端检查更新用的元数据地址，需返回 `{ mobile_version, android_url }`。
- * 默认为 API 根目录下的 `/desktop-update.json`。
- */
-export const MOBILE_UPDATE_METADATA_URL =
-  readEnv('VITE_MOBILE_UPDATE_URL') ?? `${API_BASE_URL}/desktop-update.json`;
-
-/**
  * 已发布的扩展文件地址，展示在机器人接入说明里，供用户在 CCW/Gandi 中加载。
  * 未配置时相关入口自动隐藏。
  */

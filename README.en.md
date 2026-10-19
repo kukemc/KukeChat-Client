@@ -6,13 +6,22 @@
 
 **A chat client that lives inside the creator community**
 
-One React + TypeScript codebase that builds a Scratch / CCW community extension, a Windows desktop app and a mobile web app.
+One React + TypeScript codebase that builds a Scratch / CCW community extension and a Windows desktop app.
 
-[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)](LICENSE)
+<p align="center">
+<img src=".github/assets/icons/puzzle.svg" width="16" height="16" align="absmiddle">&nbsp;Chat floating on the community page&emsp;&emsp;
+<img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;Windows desktop&emsp;&emsp;
+<img src=".github/assets/icons/blocks.svg" width="16" height="16" align="absmiddle">&nbsp;40+ Scratch blocks&emsp;&emsp;
+<img src=".github/assets/icons/bot.svg" width="16" height="16" align="absmiddle">&nbsp;Open Bot API
+</p>
+
+[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3-111111?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-111111?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-5-111111?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
 [![Tauri](https://img.shields.io/badge/Tauri-2-111111?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
-[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/Rust-stable-111111?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111&logo=githubactions&logoColor=white)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
 
 [简体中文](README.md) · **English**
 
@@ -49,47 +58,46 @@ The client contains **no hard-coded server addresses**. You inject the backend a
 
 ## Platforms
 
-| Platform | Runs on | Built with | Output | Status |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Platform&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Runs on | Built with | Output | Status |
 | --- | --- | --- | --- | --- |
-| Community extension | CCW / Gandi IDE in the browser | Vite library mode + Shadow DOM | `dist/KukeChat.js` | Stable |
-| Windows desktop | Windows | Tauri 2 (Rust + WebView2) | `.msi` / `-setup.exe` | Stable |
-| Mobile web (H5) | Mobile browsers | Standalone page with the mobile layout | `dist-mobile/` | Self-hosted |
-| Android | Android | Native app, Kotlin + Jetpack Compose | See [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Stable, separate repo |
-| macOS | macOS | Tauri 2 | `mac-beta` branch | Beta |
-| Linux | Linux desktop | Community-maintained | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | Unofficial |
+| <img src=".github/assets/icons/puzzle.svg" width="16" height="16" align="absmiddle">&nbsp;Community extension | CCW / Gandi IDE in the browser | Vite library mode + Shadow DOM | `dist/KukeChat.js` | Stable |
+| <img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;Windows desktop | Windows | Tauri 2 (Rust + WebView2) | `.msi` / `-setup.exe` | Stable |
+| <img src=".github/assets/icons/smartphone.svg" width="16" height="16" align="absmiddle">&nbsp;Android | Android | Native app, Kotlin + Jetpack Compose | See [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Stable, separate repo |
+| <img src=".github/assets/icons/laptop.svg" width="16" height="16" align="absmiddle">&nbsp;macOS | macOS | Tauri 2 | `mac-beta` branch | Beta |
+| <img src=".github/assets/icons/terminal.svg" width="16" height="16" align="absmiddle">&nbsp;Linux | Linux desktop | Community-maintained | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | Unofficial |
 
 Official installers (Windows, Android) are on the [KukeChat download page](https://chat-api.kuke.ink/download).
 
 The desktop app comes with a system tray, tray flashing on new messages, launch at startup, single-instance mode and a built-in updater.
 
-The `android/` directory in this repo is the early Capacitor shell (frozen at 1.3.1 and no longer updated). The official Android app now lives in [KukeChat-Android](https://github.com/kukemc/KukeChat-Android).
+This repo builds two targets: the community extension and the Windows desktop app (the macOS beta lives on the `mac-beta` branch). The Android app is a separate native project; see [KukeChat-Android](https://github.com/kukemc/KukeChat-Android).
 
 ## Features
 
-| Area | What's included |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Area&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | What's included |
 | --- | --- |
-| Messaging | Direct, group and temporary chats; text, images, multi-image, voice, stickers (animated included) and files; replies, @-mentions, reactions, recall; Markdown and in-message buttons (bots can update them live) |
-| Voice | Voice messages that turn into text with one tap |
-| Saving and forwarding | Favorites, featured group messages and merged forwards, each rendering every message type in full; merged forwards can be opened level by level |
-| Finding things | QQ-style chat history search (by category, date and sender, click to jump), global search, an "@ mentioned you" jump pill |
-| Interaction | Red packets (including voice red packets you claim by saying the passphrase), gifts and gift walls, polls, group to-dos |
-| Groups | Owner / admin / member roles, mute all, slow mode, join approval, announcements, group stickers, member titles and levels, check-ins |
-| Group upgrades | Pro / Pro+ / MAX tiers; group files with quotas, timed or permanent retention, upload progress, cancel and retry |
-| Social | Friend requests and remarks, posts (publish, comment, like), team-up center, task boards, intimacy, friend streaks, birthdays, profile likes, levels |
-| Personalization | Themes and wallpapers; avatar frames and chat bubbles from the shop |
-| Community and safety | CCW account binding and project cards, reporting, community jury (exams, deliberation, precedents) |
-| Client | Desktop notifications and tray alerts; auto-update with a real-time push when the backend publishes a release, with staggered checks across clients |
+| <img src=".github/assets/icons/message-circle.svg" width="16" height="16" align="absmiddle">&nbsp;Messaging | Direct, group and temporary chats; text, images, multi-image, voice, stickers (animated included) and files; replies, @-mentions, reactions, recall; Markdown and in-message buttons (bots can update them live) |
+| <img src=".github/assets/icons/mic.svg" width="16" height="16" align="absmiddle">&nbsp;Voice | Voice messages that turn into text with one tap |
+| <img src=".github/assets/icons/bookmark.svg" width="16" height="16" align="absmiddle">&nbsp;Saving and forwarding | Favorites, featured group messages and merged forwards, each rendering every message type in full; merged forwards can be opened level by level |
+| <img src=".github/assets/icons/search.svg" width="16" height="16" align="absmiddle">&nbsp;Finding things | QQ-style chat history search (by category, date and sender, click to jump), global search, an "@ mentioned you" jump pill |
+| <img src=".github/assets/icons/gift.svg" width="16" height="16" align="absmiddle">&nbsp;Interaction | Red packets (including voice red packets you claim by saying the passphrase), gifts and gift walls, polls, group to-dos |
+| <img src=".github/assets/icons/users.svg" width="16" height="16" align="absmiddle">&nbsp;Groups | Owner / admin / member roles, mute all, slow mode, join approval, announcements, group stickers, member titles and levels, check-ins |
+| <img src=".github/assets/icons/crown.svg" width="16" height="16" align="absmiddle">&nbsp;Group upgrades | Pro / Pro+ / MAX tiers; group files with quotas, timed or permanent retention, upload progress, cancel and retry |
+| <img src=".github/assets/icons/heart.svg" width="16" height="16" align="absmiddle">&nbsp;Social | Friend requests and remarks, posts (publish, comment, like), team-up center, task boards, intimacy, friend streaks, birthdays, profile likes, levels |
+| <img src=".github/assets/icons/palette.svg" width="16" height="16" align="absmiddle">&nbsp;Personalization | Themes and wallpapers; avatar frames and chat bubbles from the shop |
+| <img src=".github/assets/icons/shield-check.svg" width="16" height="16" align="absmiddle">&nbsp;Community and safety | CCW account binding and project cards, reporting, community jury (exams, deliberation, precedents) |
+| <img src=".github/assets/icons/bell.svg" width="16" height="16" align="absmiddle">&nbsp;Client | Desktop notifications and tray alerts; auto-update with a real-time push when the backend publishes a release, with staggered checks across clients |
 
 ### Scratch blocks
 
 The extension provides more than 40 blocks in four groups:
 
-| Group | What it does |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Group&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | What it does |
 | --- | --- |
-| Basics | Window control, login state, unread count, new-message events, suggest joining a group / adding a friend |
-| Bots | Set a key and connect to real-time messages; trigger on messages or @-mentions; send text, images, stickers, voice and direct messages; react, recall and update message buttons |
-| Moderation | Look up members, mute / unmute, remove from group, review join requests (the bot must be an admin and follows the same permission rules as human admins) |
-| Game mode | Bring a group chat onto the project stage; after the player authorizes, send as the player; customize the chat box's look and position |
+| <img src=".github/assets/icons/app-window.svg" width="16" height="16" align="absmiddle">&nbsp;Basics | Window control, login state, unread count, new-message events, suggest joining a group / adding a friend |
+| <img src=".github/assets/icons/bot.svg" width="16" height="16" align="absmiddle">&nbsp;Bots | Set a key and connect to real-time messages; trigger on messages or @-mentions; send text, images, stickers, voice and direct messages; react, recall and update message buttons |
+| <img src=".github/assets/icons/user-cog.svg" width="16" height="16" align="absmiddle">&nbsp;Moderation | Look up members, mute / unmute, remove from group, review join requests (the bot must be an admin and follows the same permission rules as human admins) |
+| <img src=".github/assets/icons/gamepad-2.svg" width="16" height="16" align="absmiddle">&nbsp;Game mode | Bring a group chat onto the project stage; after the player authorizes, send as the player; customize the chat box's look and position |
 
 ```text
 Set bot key [KEY]  →  Connect bot realtime
@@ -99,6 +107,10 @@ Connect game chat to group [GROUP_ID]
 ```
 
 ## Tech stack
+
+<p align="center">
+<img src="https://skillicons.dev/icons?i=react,ts,vite,tailwind,tauri,rust&theme=dark" height="40" alt="React, TypeScript, Vite, Tailwind CSS, Tauri, Rust">
+</p>
 
 | Layer | Choice |
 | --- | --- |
@@ -121,9 +133,8 @@ Business UI (`src/components`), global state (`src/store`), the API layer (`src/
 | --- | --- | --- | --- |
 | Community extension | `src/extension/index.ts` | `vite.config.ts` | `dist/KukeChat.js` (single IIFE file) |
 | Desktop | `src/desktop-app.tsx` | `vite.desktop.config.ts` | `dist-desktop/`, packaged by Tauri |
-| Mobile web | `src/mobile-app.tsx` | `vite.mobile.config.ts` | `dist-mobile/` |
 
-Platform differences are confined to `src/native/` (native capability wrappers) and `src/utils/appMode.ts` (runtime detection), so business components don't care which shell they run in. All three configs share `vite.env.ts` for environment validation.
+Platform differences are confined to `src/native/` (native capability wrappers) and `src/utils/appMode.ts` (runtime detection), so business components don't care which shell they run in. Both configs share `vite.env.ts` for environment validation.
 
 ## Quick start
 
@@ -164,7 +175,6 @@ All deployment settings are injected from `.env` at build time; see [`.env.examp
 | `VITE_WS_URL` | Yes | Real-time WebSocket URL |
 | `VITE_SECURE_LOGIN_ORIGIN` | | Trusted origin for the secure-login popup's `postMessage`; defaults to the API origin |
 | `VITE_DESKTOP_UPDATE_URL` | | Fallback desktop update metadata URL; defaults to `<API>/desktop-update.json` |
-| `VITE_MOBILE_UPDATE_URL` | | Fallback mobile update metadata URL; defaults to `<API>/desktop-update.json` |
 | `VITE_EXTENSION_ASSET_URL` | | URL of the published extension file, shown in the bot setup guide; hidden if empty |
 | `VITE_BOT_API_DOCS_URL` | | Bot API docs URL for the block palette's docs link; hidden if empty |
 | `KUKECHAT_UPDATE_METADATA_URL` | | Overrides the desktop update metadata URL (read by Rust; runtime takes precedence over compile time), handy for local testing |
@@ -200,22 +210,14 @@ npm run tauri:build    # build the .msi and -setup.exe installers
 
 The version comes from `version` in `package.json`. `tauri:dev` / `tauri:build` run `sync:desktop-version` first, which copies it into `src-tauri/tauri.conf.json`, `Cargo.toml` and `Cargo.lock`.
 
-### Mobile web
-
-```bash
-npm run build:mobile-web
-```
-
-The output is in `dist-mobile/`; deploy it as a static site.
-
 ### CI and releases
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| [`ci.yml`](.github/workflows/ci.yml) | Push to `main`, pull requests | Type-checks and builds the extension, desktop web and mobile web bundles |
+| [`ci.yml`](.github/workflows/ci.yml) | Push to `main`, pull requests | Type-checks and builds the extension and desktop web bundles |
 | [`release.yml`](.github/workflows/release.yml) | Push a `v*` tag | Builds every target in parallel and collects them into a draft release to publish after review |
 
-Release builds read backend addresses from repository variables (Settings → Secrets and variables → Actions → Variables), using the same names as the configuration table above; set your own after forking. `release.yml` still includes the APK job for the legacy Capacitor shell, which needs the `ANDROID_KEYSTORE_*` set of signing secrets.
+Release builds read backend addresses from repository variables (Settings → Secrets and variables → Actions → Variables), using the same names as the configuration table above; set your own after forking.
 
 ## Project structure
 
@@ -226,7 +228,7 @@ src/
   components/     Business UI, grouped by feature
   config/         Deployment config, CCW constants, branding
   extension/      Extension entry, block definitions, game mode, self-update
-  native/         Tauri / mobile native capability wrappers
+  native/         Tauri native wrappers, back handling and page transitions
   realtime/       WebSocket client and event dispatch
   store/          Zustand global state
   styles/         Tailwind and Shadow DOM style injection
@@ -234,7 +236,6 @@ src/
   types/          API and real-time event types
   utils/          Shared utilities
 src-tauri/        Tauri desktop app (Rust)
-android/          Early Capacitor shell (no longer updated)
 dev/              Component preview pages and mock APIs
 docs/             Bot API, CCW runtime API, per-version release notes
 scripts/          Version sync, packaging and test scripts
@@ -249,20 +250,18 @@ scripts/          Version sync, packaging and test scripts
 | `npm run typecheck` | Type-check the app and build scripts |
 | `npm run build` | Type-check, then build the community extension |
 | `npm run build:desktop-web` | Build the desktop web bundle |
-| `npm run build:mobile-web` | Build the mobile web bundle |
 | `npm run preview` | Preview the build output |
 | `npm run tauri:dev` | Debug the desktop app |
 | `npm run tauri:build` | Package the desktop app |
 | `npm run sync:desktop-version` | Sync the `package.json` version into the Tauri config |
-| `npm run android:sync` / `android:apk` | Sync and package the legacy Capacitor shell |
 
 ## Related repositories
 
 | Repository | Description |
 | --- | --- |
-| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | This repo: community extension, Windows desktop, mobile web |
-| [KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | Backend: REST API, WebSocket and data models |
-| [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Native Android app, Kotlin + Jetpack Compose |
+| <img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | This repo: community extension and desktop app (Windows; macOS in beta) |
+| <img src=".github/assets/icons/server.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | Backend: REST API, WebSocket and data models |
+| <img src=".github/assets/icons/smartphone.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Native Android app, Kotlin + Jetpack Compose |
 
 ## Contributing
 

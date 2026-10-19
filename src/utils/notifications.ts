@@ -3,7 +3,7 @@ import { SOUND_KINDS, useSoundStore, type SoundKind } from '@/store/soundStore';
 import type { Conversation, Message } from '@/types/api';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { showDesktopMessageNotification } from '@/native/desktopNotifications';
-import { isNativeMobileApp, isTauriDesktopApp } from '@/utils/appMode';
+import { isTauriDesktopApp } from '@/utils/appMode';
 import { customSoundUrl, loadCustomSounds } from '@/utils/customSounds';
 import { messageMentionKind } from '@/utils/mentions';
 import { pokeInfoOf, pokeText } from '@/utils/poke';
@@ -40,47 +40,6 @@ useSoundStore.subscribe((state, previous) => {
     }
   }
 });
-
-async function showNativeNotification(title: string, body: string, iconUrl: string | undefined, conversationId: number): Promise<boolean> {
-  if (!isNativeMobileApp()) {
-    return false;
-  }
-
-  try {
-    const [{ LocalNotifications }, { Capacitor }] = await Promise.all([
-      import('@capacitor/local-notifications'),
-      import('@capacitor/core')
-    ]);
-    if (!Capacitor.isNativePlatform()) {
-      return false;
-    }
-
-    const permission = await LocalNotifications.checkPermissions();
-    const display = permission.display === 'granted' ? permission : await LocalNotifications.requestPermissions();
-    if (display.display !== 'granted') {
-      return false;
-    }
-
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          id: Number(`${conversationId}${Date.now()}`.slice(-9)),
-          title,
-          body,
-          largeBody: body,
-          summaryText: 'KukeChat',
-          extra: { conversationId },
-          largeIcon: iconUrl,
-          attachments: iconUrl ? [{ id: 'avatar', url: iconUrl }] : undefined,
-          channelId: 'messages'
-        }
-      ]
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function audioFor(kind: SoundKind, url: string): HTMLAudioElement {
   const cached = audioCache.get(kind);
@@ -219,11 +178,6 @@ export function notifyIncomingMessage(message: Message, conversation: Conversati
   // 戳一戳的文案里已经有发起人，不再加「某某：」前缀
   const body = poke ? pokeText(poke, state.currentUser.id) : conversation?.type === 'group' ? `${senderName(message)}：${messagePreview(message)}` : messagePreview(message);
   const iconUrl = resolveAssetUrl(conversation?.avatar_url || message.sender?.avatar_url) || undefined;
-
-  if (isNativeMobileApp()) {
-    void showNativeNotification(title, body, iconUrl, message.conversation_id);
-    return;
-  }
 
   if (isTauriDesktopApp()) {
     if (state.browserNotificationMode === 'on') {

@@ -1,5 +1,5 @@
 import type { AuthSession, User } from '@/types/api';
-import { isNativeMobileApp, isTauriDesktopApp } from '@/utils/appMode';
+import { isTauriDesktopApp } from '@/utils/appMode';
 
 const NATIVE_SESSION_KEY = 'kukechat-native-session';
 
@@ -22,61 +22,24 @@ function parseSession(value: string | null): AuthSession | null {
   return null;
 }
 
-function canUseLocalAppSession(): boolean {
-  return isNativeMobileApp() || isTauriDesktopApp();
-}
-
+/** 只有桌面端把登录态单独存一份；扩展形态的登录态走 store 的持久化。 */
 export async function loadNativeSession(): Promise<AuthSession | null> {
-  if (!canUseLocalAppSession()) {
+  if (!isTauriDesktopApp()) {
     return null;
   }
-
-  if (isTauriDesktopApp()) {
-    return parseSession(window.localStorage.getItem(NATIVE_SESSION_KEY));
-  }
-
-  try {
-    const { Preferences } = await import('@capacitor/preferences');
-    const result = await Preferences.get({ key: NATIVE_SESSION_KEY });
-    return parseSession(result.value);
-  } catch {
-    return parseSession(window.localStorage.getItem(NATIVE_SESSION_KEY));
-  }
+  return parseSession(window.localStorage.getItem(NATIVE_SESSION_KEY));
 }
 
 export async function saveNativeSession(session: AuthSession): Promise<void> {
-  if (!canUseLocalAppSession()) {
+  if (!isTauriDesktopApp()) {
     return;
   }
-
-  const value = JSON.stringify(session);
-  if (isTauriDesktopApp()) {
-    window.localStorage.setItem(NATIVE_SESSION_KEY, value);
-    return;
-  }
-
-  try {
-    const { Preferences } = await import('@capacitor/preferences');
-    await Preferences.set({ key: NATIVE_SESSION_KEY, value });
-  } catch {
-    window.localStorage.setItem(NATIVE_SESSION_KEY, value);
-  }
+  window.localStorage.setItem(NATIVE_SESSION_KEY, JSON.stringify(session));
 }
 
 export async function clearNativeSession(): Promise<void> {
-  if (!canUseLocalAppSession()) {
+  if (!isTauriDesktopApp()) {
     return;
   }
-
-  if (isTauriDesktopApp()) {
-    window.localStorage.removeItem(NATIVE_SESSION_KEY);
-    return;
-  }
-
-  try {
-    const { Preferences } = await import('@capacitor/preferences');
-    await Preferences.remove({ key: NATIVE_SESSION_KEY });
-  } catch {
-    window.localStorage.removeItem(NATIVE_SESSION_KEY);
-  }
+  window.localStorage.removeItem(NATIVE_SESSION_KEY);
 }

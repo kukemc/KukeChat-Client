@@ -9,8 +9,7 @@ import { AccountSuspensionModal } from '@/components/auth/AccountSuspensionModal
 import { ChatDashboard } from '@/components/chat/ChatDashboard';
 import { ToastHost } from '@/components/ui/toast';
 import { clearNativeSession, loadNativeSession } from '@/native/session';
-import { configureNativeBackgroundRealtime, stopNativeBackgroundRealtime } from '@/native/backgroundRealtime';
-import { isNativeMobileApp, isTauriDesktopApp } from '@/utils/appMode';
+import { isTauriDesktopApp } from '@/utils/appMode';
 import { accountSuspensionFromError } from '@/api/client';
 
 export function ChatShell(): JSX.Element {
@@ -44,12 +43,11 @@ export function ChatShell(): JSX.Element {
     let isActive = true;
     setIsCheckingCookieSession(true);
 
-    if (isNativeMobileApp() || isTauriDesktopApp()) {
+    if (isTauriDesktopApp()) {
       void loadNativeSession()
         .then((session) => {
           if (isActive && session) {
             setSession(session.token, session.user);
-            void configureNativeBackgroundRealtime(session.token, session.user.id, true);
             return;
           }
           if (isActive) {
@@ -70,9 +68,6 @@ export function ChatShell(): JSX.Element {
       .then((session) => {
         if (isActive) {
           setSession(session.token, session.user);
-          if (isNativeMobileApp()) {
-            void configureNativeBackgroundRealtime(session.token, session.user.id, true);
-          }
         }
       })
       .catch((error: unknown) => {
@@ -104,7 +99,6 @@ export function ChatShell(): JSX.Element {
         return;
       }
       void clearNativeSession();
-      void stopNativeBackgroundRealtime(true);
       logout();
     }
   }, [logout, meQuery.error, setAccountSuspension]);
@@ -113,7 +107,7 @@ export function ChatShell(): JSX.Element {
     if (!accountSuspension) {
       return;
     }
-    void Promise.all([clearNativeSession(), stopNativeBackgroundRealtime(true)]).finally(() => {
+    void clearNativeSession().finally(() => {
       logout();
     });
   }, [accountSuspension, logout]);

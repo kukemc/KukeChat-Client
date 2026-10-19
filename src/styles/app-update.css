@@ -1,6 +1,5 @@
 /* ───────── 应用更新与更新日志（前缀 kup-）─────────
-   桌面端的更新对话框（components/desktop/DesktopUpdateDialog.tsx）、Capacitor 安卓的更新弹窗
-   （components/settings/MobileUpdateModal.tsx）、更新日志列表（components/update/ReleaseNotes.tsx）共用。
+   桌面端的更新对话框（components/desktop/DesktopUpdateDialog.tsx）、更新日志列表（components/update/ReleaseNotes.tsx）共用。
    视觉同群升级（group-plus.css 的 kgp-）：近黑白的墨色、600 字重标题、发丝线分隔、墨色胶囊主按钮、留白宽。
    全页不用强调色；只有出错的文字是红色。 */
 

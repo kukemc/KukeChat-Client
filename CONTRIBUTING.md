@@ -22,7 +22,7 @@ npm run typecheck
 npm run build
 ```
 
-改动涉及桌面端或移动端时，也请分别验证 `npm run build:desktop-web` / `npm run build:mobile-web`。
+改动涉及桌面端时，也请验证 `npm run build:desktop-web`。
 
 ## 代码约定
 
@@ -34,7 +34,7 @@ npm run build
 
 ## 提交 Issue
 
-Bug 报告请说明：客户端形态（扩展 / 桌面 / Android）、版本号、复现步骤，以及浏览器或系统版本。
+Bug 报告请说明：客户端形态（扩展 / 桌面）、版本号、复现步骤，以及浏览器或系统版本。Android 应用的问题请提到 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android)。
 
 ## License
 
