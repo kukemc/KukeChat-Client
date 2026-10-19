@@ -8,11 +8,20 @@
 
 One React + TypeScript codebase that builds a Scratch / CCW community extension and a Windows desktop app.
 
-[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)](LICENSE)
+<p align="center">
+<img src=".github/assets/icons/puzzle.svg" width="16" height="16" align="absmiddle">&nbsp;Chat floating on the community page&emsp;&emsp;
+<img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;Windows desktop&emsp;&emsp;
+<img src=".github/assets/icons/blocks.svg" width="16" height="16" align="absmiddle">&nbsp;40+ Scratch blocks&emsp;&emsp;
+<img src=".github/assets/icons/bot.svg" width="16" height="16" align="absmiddle">&nbsp;Open Bot API
+</p>
+
+[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3-111111?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-111111?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-5-111111?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
 [![Tauri](https://img.shields.io/badge/Tauri-2-111111?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
-[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/Rust-stable-111111?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111&logo=githubactions&logoColor=white)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
 
 [简体中文](README.md) · **English**
 
@@ -49,13 +58,13 @@ The client contains **no hard-coded server addresses**. You inject the backend a
 
 ## Platforms
 
-| Platform | Runs on | Built with | Output | Status |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Platform&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Runs on | Built with | Output | Status |
 | --- | --- | --- | --- | --- |
-| Community extension | CCW / Gandi IDE in the browser | Vite library mode + Shadow DOM | `dist/KukeChat.js` | Stable |
-| Windows desktop | Windows | Tauri 2 (Rust + WebView2) | `.msi` / `-setup.exe` | Stable |
-| Android | Android | Native app, Kotlin + Jetpack Compose | See [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Stable, separate repo |
-| macOS | macOS | Tauri 2 | `mac-beta` branch | Beta |
-| Linux | Linux desktop | Community-maintained | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | Unofficial |
+| <img src=".github/assets/icons/puzzle.svg" width="16" height="16" align="absmiddle">&nbsp;Community extension | CCW / Gandi IDE in the browser | Vite library mode + Shadow DOM | `dist/KukeChat.js` | Stable |
+| <img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;Windows desktop | Windows | Tauri 2 (Rust + WebView2) | `.msi` / `-setup.exe` | Stable |
+| <img src=".github/assets/icons/smartphone.svg" width="16" height="16" align="absmiddle">&nbsp;Android | Android | Native app, Kotlin + Jetpack Compose | See [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Stable, separate repo |
+| <img src=".github/assets/icons/laptop.svg" width="16" height="16" align="absmiddle">&nbsp;macOS | macOS | Tauri 2 | `mac-beta` branch | Beta |
+| <img src=".github/assets/icons/terminal.svg" width="16" height="16" align="absmiddle">&nbsp;Linux | Linux desktop | Community-maintained | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | Unofficial |
 
 Official installers (Windows, Android) are on the [KukeChat download page](https://chat-api.kuke.ink/download).
 
@@ -65,30 +74,30 @@ This repo builds two targets: the community extension and the Windows desktop ap
 
 ## Features
 
-| Area | What's included |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Area&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | What's included |
 | --- | --- |
-| Messaging | Direct, group and temporary chats; text, images, multi-image, voice, stickers (animated included) and files; replies, @-mentions, reactions, recall; Markdown and in-message buttons (bots can update them live) |
-| Voice | Voice messages that turn into text with one tap |
-| Saving and forwarding | Favorites, featured group messages and merged forwards, each rendering every message type in full; merged forwards can be opened level by level |
-| Finding things | QQ-style chat history search (by category, date and sender, click to jump), global search, an "@ mentioned you" jump pill |
-| Interaction | Red packets (including voice red packets you claim by saying the passphrase), gifts and gift walls, polls, group to-dos |
-| Groups | Owner / admin / member roles, mute all, slow mode, join approval, announcements, group stickers, member titles and levels, check-ins |
-| Group upgrades | Pro / Pro+ / MAX tiers; group files with quotas, timed or permanent retention, upload progress, cancel and retry |
-| Social | Friend requests and remarks, posts (publish, comment, like), team-up center, task boards, intimacy, friend streaks, birthdays, profile likes, levels |
-| Personalization | Themes and wallpapers; avatar frames and chat bubbles from the shop |
-| Community and safety | CCW account binding and project cards, reporting, community jury (exams, deliberation, precedents) |
-| Client | Desktop notifications and tray alerts; auto-update with a real-time push when the backend publishes a release, with staggered checks across clients |
+| <img src=".github/assets/icons/message-circle.svg" width="16" height="16" align="absmiddle">&nbsp;Messaging | Direct, group and temporary chats; text, images, multi-image, voice, stickers (animated included) and files; replies, @-mentions, reactions, recall; Markdown and in-message buttons (bots can update them live) |
+| <img src=".github/assets/icons/mic.svg" width="16" height="16" align="absmiddle">&nbsp;Voice | Voice messages that turn into text with one tap |
+| <img src=".github/assets/icons/bookmark.svg" width="16" height="16" align="absmiddle">&nbsp;Saving and forwarding | Favorites, featured group messages and merged forwards, each rendering every message type in full; merged forwards can be opened level by level |
+| <img src=".github/assets/icons/search.svg" width="16" height="16" align="absmiddle">&nbsp;Finding things | QQ-style chat history search (by category, date and sender, click to jump), global search, an "@ mentioned you" jump pill |
+| <img src=".github/assets/icons/gift.svg" width="16" height="16" align="absmiddle">&nbsp;Interaction | Red packets (including voice red packets you claim by saying the passphrase), gifts and gift walls, polls, group to-dos |
+| <img src=".github/assets/icons/users.svg" width="16" height="16" align="absmiddle">&nbsp;Groups | Owner / admin / member roles, mute all, slow mode, join approval, announcements, group stickers, member titles and levels, check-ins |
+| <img src=".github/assets/icons/crown.svg" width="16" height="16" align="absmiddle">&nbsp;Group upgrades | Pro / Pro+ / MAX tiers; group files with quotas, timed or permanent retention, upload progress, cancel and retry |
+| <img src=".github/assets/icons/heart.svg" width="16" height="16" align="absmiddle">&nbsp;Social | Friend requests and remarks, posts (publish, comment, like), team-up center, task boards, intimacy, friend streaks, birthdays, profile likes, levels |
+| <img src=".github/assets/icons/palette.svg" width="16" height="16" align="absmiddle">&nbsp;Personalization | Themes and wallpapers; avatar frames and chat bubbles from the shop |
+| <img src=".github/assets/icons/shield-check.svg" width="16" height="16" align="absmiddle">&nbsp;Community and safety | CCW account binding and project cards, reporting, community jury (exams, deliberation, precedents) |
+| <img src=".github/assets/icons/bell.svg" width="16" height="16" align="absmiddle">&nbsp;Client | Desktop notifications and tray alerts; auto-update with a real-time push when the backend publishes a release, with staggered checks across clients |
 
 ### Scratch blocks
 
 The extension provides more than 40 blocks in four groups:
 
-| Group | What it does |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Group&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | What it does |
 | --- | --- |
-| Basics | Window control, login state, unread count, new-message events, suggest joining a group / adding a friend |
-| Bots | Set a key and connect to real-time messages; trigger on messages or @-mentions; send text, images, stickers, voice and direct messages; react, recall and update message buttons |
-| Moderation | Look up members, mute / unmute, remove from group, review join requests (the bot must be an admin and follows the same permission rules as human admins) |
-| Game mode | Bring a group chat onto the project stage; after the player authorizes, send as the player; customize the chat box's look and position |
+| <img src=".github/assets/icons/app-window.svg" width="16" height="16" align="absmiddle">&nbsp;Basics | Window control, login state, unread count, new-message events, suggest joining a group / adding a friend |
+| <img src=".github/assets/icons/bot.svg" width="16" height="16" align="absmiddle">&nbsp;Bots | Set a key and connect to real-time messages; trigger on messages or @-mentions; send text, images, stickers, voice and direct messages; react, recall and update message buttons |
+| <img src=".github/assets/icons/user-cog.svg" width="16" height="16" align="absmiddle">&nbsp;Moderation | Look up members, mute / unmute, remove from group, review join requests (the bot must be an admin and follows the same permission rules as human admins) |
+| <img src=".github/assets/icons/gamepad-2.svg" width="16" height="16" align="absmiddle">&nbsp;Game mode | Bring a group chat onto the project stage; after the player authorizes, send as the player; customize the chat box's look and position |
 
 ```text
 Set bot key [KEY]  →  Connect bot realtime
@@ -98,6 +107,10 @@ Connect game chat to group [GROUP_ID]
 ```
 
 ## Tech stack
+
+<p align="center">
+<img src="https://skillicons.dev/icons?i=react,ts,vite,tailwind,tauri,rust&theme=dark" height="40" alt="React, TypeScript, Vite, Tailwind CSS, Tauri, Rust">
+</p>
 
 | Layer | Choice |
 | --- | --- |
@@ -246,9 +259,9 @@ scripts/          Version sync, packaging and test scripts
 
 | Repository | Description |
 | --- | --- |
-| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | This repo: community extension, Windows desktop |
-| [KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | Backend: REST API, WebSocket and data models |
-| [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Native Android app, Kotlin + Jetpack Compose |
+| <img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | This repo: community extension and desktop app (Windows; macOS in beta) |
+| <img src=".github/assets/icons/server.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | Backend: REST API, WebSocket and data models |
+| <img src=".github/assets/icons/smartphone.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Native Android app, Kotlin + Jetpack Compose |
 
 ## Contributing
 

@@ -8,11 +8,20 @@
 
 一套 React + TypeScript 代码，构建出 Scratch / CCW 社区扩展和 Windows 桌面端。
 
-[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)](LICENSE)
+<p align="center">
+<img src=".github/assets/icons/puzzle.svg" width="16" height="16" align="absmiddle">&nbsp;社区页面里的聊天浮窗&emsp;&emsp;
+<img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;Windows 桌面端&emsp;&emsp;
+<img src=".github/assets/icons/blocks.svg" width="16" height="16" align="absmiddle">&nbsp;40+ Scratch 积木&emsp;&emsp;
+<img src=".github/assets/icons/bot.svg" width="16" height="16" align="absmiddle">&nbsp;开放 Bot API
+</p>
+
+[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3-111111?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-111111?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-5-111111?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
 [![Tauri](https://img.shields.io/badge/Tauri-2-111111?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
-[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/Rust-stable-111111?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111&logo=githubactions&logoColor=white)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
 
 **简体中文** · [English](README.en.md)
 
@@ -49,13 +58,13 @@ KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。
 
 ## 形态
 
-| 形态 | 运行环境 | 实现 | 产物 | 状态 |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;形&#8288;态&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 运行环境 | 实现 | 产物 | 状态 |
 | --- | --- | --- | --- | --- |
-| 社区扩展 | CCW / Gandi IDE 网页 | Vite library 模式 + Shadow DOM | `dist/KukeChat.js` | 正式 |
-| Windows 桌面端 | Windows | Tauri 2（Rust + WebView2） | `.msi` / `-setup.exe` | 正式 |
-| Android | Android | Kotlin + Jetpack Compose 原生应用 | 见 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 正式，另一个仓库 |
-| macOS | macOS | Tauri 2 | `mac-beta` 分支 | 测试中 |
-| Linux | Linux 桌面 | 社区维护 | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | 非官方 |
+| <img src=".github/assets/icons/puzzle.svg" width="16" height="16" align="absmiddle">&nbsp;社区扩展 | CCW / Gandi IDE 网页 | Vite library 模式 + Shadow DOM | `dist/KukeChat.js` | 正式 |
+| <img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;Windows 桌面端 | Windows | Tauri 2（Rust + WebView2） | `.msi` / `-setup.exe` | 正式 |
+| <img src=".github/assets/icons/smartphone.svg" width="16" height="16" align="absmiddle">&nbsp;Android | Android | Kotlin + Jetpack Compose 原生应用 | 见 [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 正式，另一个仓库 |
+| <img src=".github/assets/icons/laptop.svg" width="16" height="16" align="absmiddle">&nbsp;macOS | macOS | Tauri 2 | `mac-beta` 分支 | 测试中 |
+| <img src=".github/assets/icons/terminal.svg" width="16" height="16" align="absmiddle">&nbsp;Linux | Linux 桌面 | 社区维护 | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | 非官方 |
 
 官方安装包（Windows、Android）在 [KukeChat 下载页](https://chat-api.kuke.ink/download)。
 
@@ -65,30 +74,30 @@ KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。
 
 ## 功能
 
-| 分类 | 内容 |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;分&#8288;类&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 内容 |
 | --- | --- |
-| 消息 | 私聊、群聊、临时会话；文本、图片、多图、语音、表情包（含动图）、文件；引用、@ 提及、表情回应、撤回；Markdown 与消息内按钮（机器人可动态更新） |
-| 语音 | 语音消息，点一下即可转成文字 |
-| 整理与转发 | 收藏、群精华、合并转发，三者都能完整展示所有消息类型，合并转发可嵌套查看 |
-| 查找 | QQ 式聊天记录搜索（分类、日期、发送人筛选，点击定位）、全局搜索、「有人 @ 我」跳转提示 |
-| 互动 | 红包（含按住说出口令才能领的语音红包）、礼物与礼物墙、投票、群待办 |
-| 群聊 | 群主 / 管理员 / 成员三级权限、全员禁言、慢速模式、入群审批、群公告、群表情、成员头衔与等级、签到 |
-| 群升级 | Pro / Pro+ / MAX 档位、群文件（配额、限时或永久保留、上传进度、取消与重试） |
-| 社交 | 好友申请与备注、动态（发布、评论、点赞）、组队中心、任务看板、亲密度、好友火花、生日、资料点赞、等级 |
-| 个性化 | 主题与壁纸、商店里的头像框和聊天气泡 |
-| 社区与安全 | CCW 账号绑定与作品卡片、举报、风纪委员（考试、合议、判例） |
-| 客户端 | 桌面通知与托盘提醒；自动更新，后端发版后实时推送，各端错峰检查 |
+| <img src=".github/assets/icons/message-circle.svg" width="16" height="16" align="absmiddle">&nbsp;消息 | 私聊、群聊、临时会话；文本、图片、多图、语音、表情包（含动图）、文件；引用、@ 提及、表情回应、撤回；Markdown 与消息内按钮（机器人可动态更新） |
+| <img src=".github/assets/icons/mic.svg" width="16" height="16" align="absmiddle">&nbsp;语音 | 语音消息，点一下即可转成文字 |
+| <img src=".github/assets/icons/bookmark.svg" width="16" height="16" align="absmiddle">&nbsp;整理与转发 | 收藏、群精华、合并转发，三者都能完整展示所有消息类型，合并转发可嵌套查看 |
+| <img src=".github/assets/icons/search.svg" width="16" height="16" align="absmiddle">&nbsp;查找 | QQ 式聊天记录搜索（分类、日期、发送人筛选，点击定位）、全局搜索、「有人 @ 我」跳转提示 |
+| <img src=".github/assets/icons/gift.svg" width="16" height="16" align="absmiddle">&nbsp;互动 | 红包（含按住说出口令才能领的语音红包）、礼物与礼物墙、投票、群待办 |
+| <img src=".github/assets/icons/users.svg" width="16" height="16" align="absmiddle">&nbsp;群聊 | 群主 / 管理员 / 成员三级权限、全员禁言、慢速模式、入群审批、群公告、群表情、成员头衔与等级、签到 |
+| <img src=".github/assets/icons/crown.svg" width="16" height="16" align="absmiddle">&nbsp;群升级 | Pro / Pro+ / MAX 档位、群文件（配额、限时或永久保留、上传进度、取消与重试） |
+| <img src=".github/assets/icons/heart.svg" width="16" height="16" align="absmiddle">&nbsp;社交 | 好友申请与备注、动态（发布、评论、点赞）、组队中心、任务看板、亲密度、好友火花、生日、资料点赞、等级 |
+| <img src=".github/assets/icons/palette.svg" width="16" height="16" align="absmiddle">&nbsp;个性化 | 主题与壁纸、商店里的头像框和聊天气泡 |
+| <img src=".github/assets/icons/shield-check.svg" width="16" height="16" align="absmiddle">&nbsp;社区与安全 | CCW 账号绑定与作品卡片、举报、风纪委员（考试、合议、判例） |
+| <img src=".github/assets/icons/bell.svg" width="16" height="16" align="absmiddle">&nbsp;客户端 | 桌面通知与托盘提醒；自动更新，后端发版后实时推送，各端错峰检查 |
 
 ### Scratch 积木
 
 扩展提供 40 多个积木，分为四组：
 
-| 分组 | 能做什么 |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;分&#8288;组&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 能做什么 |
 | --- | --- |
-| 基础 | 窗口控制、登录状态、未读数、新消息事件、推荐加群 / 加好友 |
-| 机器人 | 设置 Key 并连接实时消息；收到消息 / 被 @ 时触发；发送文字、图片、表情、语音、私信；表情回应、撤回、更新消息按钮 |
-| 群管 | 查询成员信息、禁言 / 解除禁言、移出群聊、审批入群申请（机器人需被设为管理员，权限规则与人类管理员一致） |
-| 游戏模式 | 把群聊接进作品舞台，请求玩家授权后以玩家身份发言，可自定义聊天框外观与位置 |
+| <img src=".github/assets/icons/app-window.svg" width="16" height="16" align="absmiddle">&nbsp;基础 | 窗口控制、登录状态、未读数、新消息事件、推荐加群 / 加好友 |
+| <img src=".github/assets/icons/bot.svg" width="16" height="16" align="absmiddle">&nbsp;机器人 | 设置 Key 并连接实时消息；收到消息 / 被 @ 时触发；发送文字、图片、表情、语音、私信；表情回应、撤回、更新消息按钮 |
+| <img src=".github/assets/icons/user-cog.svg" width="16" height="16" align="absmiddle">&nbsp;群管 | 查询成员信息、禁言 / 解除禁言、移出群聊、审批入群申请（机器人需被设为管理员，权限规则与人类管理员一致） |
+| <img src=".github/assets/icons/gamepad-2.svg" width="16" height="16" align="absmiddle">&nbsp;游戏模式 | 把群聊接进作品舞台，请求玩家授权后以玩家身份发言，可自定义聊天框外观与位置 |
 
 ```text
 设置机器人 Key [KEY]  →  连接机器人实时消息
@@ -98,6 +107,10 @@ KukeChat 想做的事很简单：**把实时交流放回创作发生的地方。
 ```
 
 ## 技术栈
+
+<p align="center">
+<img src="https://skillicons.dev/icons?i=react,ts,vite,tailwind,tauri,rust&theme=dark" height="40" alt="React, TypeScript, Vite, Tailwind CSS, Tauri, Rust">
+</p>
 
 | 层 | 选型 |
 | --- | --- |
@@ -246,9 +259,9 @@ scripts/          版本同步、打包与测试脚本
 
 | 仓库 | 说明 |
 | --- | --- |
-| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | 本仓库：社区扩展、Windows 桌面端 |
-| [KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | 后端：REST API、WebSocket 与数据模型 |
-| [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 原生 Android 应用，Kotlin + Jetpack Compose |
+| <img src=".github/assets/icons/monitor.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | 本仓库：社区扩展与桌面端（Windows，macOS 测试中） |
+| <img src=".github/assets/icons/server.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | 后端：REST API、WebSocket 与数据模型 |
+| <img src=".github/assets/icons/smartphone.svg" width="16" height="16" align="absmiddle">&nbsp;[KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | 原生 Android 应用，Kotlin + Jetpack Compose |
 
 ## 贡献
 
