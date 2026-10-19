@@ -1,6 +1,6 @@
 [package]
 name = "kukechat"
-version = "2.0.3"
+version = "2.0.8"
 description = "KukeChat Windows desktop client"
 authors = ["KukeChat"]
 edition = "2021"
@@ -17,5 +17,6 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 ureq = { version = "2", default-features = false, features = ["json", "tls"] }
 sha2 = "0.10"

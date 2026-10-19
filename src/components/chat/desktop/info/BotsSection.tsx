@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getConversationBots, removeBotInstallation, updateBotInstallation } from '@/api/bots';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { useKukeStore } from '@/store/kukeStore';
 import type { BotInstallation, User } from '@/types/api';
 import { Section } from './controls';
 import { useInfo } from './infoContext';
@@ -15,6 +16,7 @@ function botUserOf(installation: BotInstallation): User {
 export function BotsSection(): JSX.Element {
   const { conversation, canManage } = useInfo();
   const queryClient = useQueryClient();
+  const openBot = useKukeStore((state) => state.openBot);
   const conversationId = conversation.id;
   const queryKey = ['conversation-bots', conversationId];
 
@@ -50,11 +52,13 @@ export function BotsSection(): JSX.Element {
         const name = installation.bot?.name ?? `机器人 ${installation.bot_id}`;
         return (
           <div key={installation.id} className="kui-row">
-            <Avatar user={botUserOf(installation)} label={name} size="sm" />
-            <span className="kui-row-label kci-clip">
-              {name}
-              <span className="kui-row-hint kci-clip">{installation.enabled ? installation.bot?.description || 'KukeChat Bot API' : '已停用，不会接收或发送消息'}</span>
-            </span>
+            <button type="button" className="kci-bot-open" title="查看机器人" onClick={() => openBot(installation.bot_id)}>
+              <Avatar user={botUserOf(installation)} label={name} size="sm" />
+              <span className="kui-row-label kci-clip">
+                {name}
+                <span className="kui-row-hint kci-clip">{installation.enabled ? installation.bot?.description || 'KukeChat Bot API' : '已停用，不会接收或发送消息'}</span>
+              </span>
+            </button>
             {canManage ? (
               <>
                 <input type="checkbox" role="switch" className="kui-switch" aria-label={`启用 ${name}`} checked={installation.enabled} disabled={toggleMutation.isPending} onChange={(event) => toggleMutation.mutate({ botId: installation.bot_id, enabled: event.target.checked })} />

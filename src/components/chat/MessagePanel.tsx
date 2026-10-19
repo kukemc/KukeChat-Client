@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { conversationSpark } from '@/components/spark/data';
+import { SparkMark } from '@/components/spark/SparkMark';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { blockTemporaryConversation, closeTemporaryConversation, createDirectConversation, getConversationMember, pokeMember, removeConversationMember, searchConversationMembers, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle } from '@/api/conversations';
 import { addFavoriteSticker, deleteMessageLocal, forwardMessageBundle, getFavoriteStickers, getMessageContext, getMessages, recallMessage, removeFavoriteSticker, sendMessage, toggleMessageBookmark, toggleMessageFeature, toggleMessageReaction, triggerMessageInteraction, uploadMessageImage, uploadMessageVoice, type FavoriteStickerItem } from '@/api/messages';
@@ -14,6 +16,7 @@ import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon } from '@/components/ui/Icon';
 import { ContextMenuItem, ContextMenuSurface } from '@/components/ui/ContextMenu';
 import { UserCard } from '@/components/ui/UserCard';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import { toast } from '@/components/ui/toast';
 import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { MobileUserProfilePage, type ProfileAction } from '@/components/ui/MobileUserProfilePage';
@@ -41,6 +44,7 @@ import { hasPendingOutgoingFriendRequest, isFriendUserId } from '@/utils/friends
 import { parseApiDate } from '@/utils/dateTime';
 import { ChatInfoDrawer } from './ChatInfoDrawer';
 import { AnnouncementModal } from './AnnouncementModal';
+import { AnnouncementCard, announcementCardOf } from '@/components/groupAnnouncement/AnnouncementCard';
 import { ReportModal } from './ReportModal';
 import { MobileStatusBar } from '@/components/mobile/MobileChrome';
 import { isNativeMobileApp } from '@/utils/appMode';
@@ -57,6 +61,7 @@ import { editablePlainText, pointInContainer, elementAnchorInContainer, clampOve
 import { MessageTimeDivider, renderQuoteBlock, renderMentionedText, CcwCreationCards, UnavailableImageLabel, renderLinkedPreview } from './message/messageText';
 import { renderBotElementContent, interactionPayload, renderSafeBotMarkdown } from './message/botMarkdown';
 import { VoiceMessageBubble, StagedVoicePreview } from './message/VoiceMessage';
+import { canTranscribeVoice, toggleVoiceTranscript, voiceTranscriptOf } from './message/voiceTranscripts';
 import { bubbleSkinClass } from '@/components/shop/skin/bubbleSkin';
 import { SkinDecor, messageSkin, useSkinSettings } from '@/components/shop/skin/SkinDecor';
 import { ForwardBundleCard, PostShareCard, BotShareCard, UserShareCard, TeamupShareCard, GroupShareCard } from './message/shareCards';
@@ -2147,6 +2152,13 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
   function openUserCardAtElement(element: HTMLElement, user?: User | null, label?: string, member?: ConversationMember | null): void {
     setMessageMenu(null);
     setMemberMenu(null);
+    // 机器人不进用户资料，直接打开机器人详情（消息头像 / 名字、成员列表都走这里）
+    const botUserId = (user ?? member?.user)?.is_bot ? user?.id ?? member?.user_id ?? member?.user?.id : null;
+    if (botUserId && botUserId !== currentUser.id) {
+      setUserCard(null);
+      openBotForUser(botUserId);
+      return;
+    }
     const resolvedMember = member ?? (isGroup ? memberFromUser(user) : null);
     if (isMobile) {
       setUserCard(null);
@@ -3154,8 +3166,9 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                     <span className="min-w-0 flex-1 truncate">{mobileTitleParts.name}</span>
                     {mobileTitleParts.suffix ? <span className="shrink-0">{mobileTitleParts.suffix}</span> : null}
                     {isGroup ? null : <FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" />}
+                    {isGroup ? null : <SparkMark spark={conversationSpark(conversation)} friendId={directUser?.id} size={15} openable hint className="shrink-0" />}
                   </>
-                ) : <><span className="truncate">{title}</span>{isGroup ? null : <FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" />}</>}
+                ) : <><span className="truncate">{title}</span>{isGroup ? null : <><FriendBadgeMark userId={directUser?.id} size={17} openable className="shrink-0" /><SparkMark spark={conversationSpark(conversation)} friendId={directUser?.id} size={15} openable hint className="shrink-0" /></>}</>}
                 {isGroup ? <PlusTierTag tier={conversationTier(conversation)} className="shrink-0" /> : null}
                 {isTemporaryDirect ? <span className="shrink-0 text-xs font-medium [color:var(--kc-muted)]">临时会话</span> : null}
               </h3>
@@ -3247,6 +3260,18 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                   +1
                 </button>
               ) : null;
+              // 群公告卡片（docs/group-announcements.md 第 5 节）：系统消息，但画成卡片；不挂消息菜单（系统消息不能转发、多选）
+              const announcementCard = recalled ? null : announcementCardOf(message);
+              if (announcementCard) {
+                return (
+                  <div key={message.id} data-virtual-message-id={message.id} ref={virtualMessages.measureRow} className="absolute left-0 right-0" style={{ top: virtualMessages.offsets[index] }}>
+                    {showTimeDivider ? <MessageTimeDivider value={message.created_at} /> : null}
+                    <div data-message-id={message.id} className="kc-message-enter kga-card-row">
+                      <AnnouncementCard message={message} card={announcementCard} />
+                    </div>
+                  </div>
+                );
+              }
               if (message.type === 'system') {
                 return (
                   <div key={message.id} data-virtual-message-id={message.id} ref={virtualMessages.measureRow} className="absolute left-0 right-0" style={{ top: virtualMessages.offsets[index] }}>
@@ -3304,7 +3329,9 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                   <div className={`min-w-0 ${isMobile ? 'kc-mobile-message-stack' : 'max-w-[75%]'} ${mine ? 'items-end' : 'items-start'} flex flex-col gap-0.5`} style={isMobile ? { flex: '0 1 auto', width: 'auto', maxWidth: isNativeApp ? '72vw' : '78%' } : undefined}>
                     <div className={`kc-mobile-message-meta flex flex-nowrap items-center gap-1 px-1 text-[11px] [color:var(--kc-muted)] ${mine ? 'justify-end' : 'justify-start'}`}>
                       <span className={`kc-mobile-message-identity inline-flex min-w-0 max-w-full items-center gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
-                        <span className="kc-mobile-message-name min-w-0 truncate">{messageSenderLabel(message)}</span>
+                        {message.sender?.is_bot && !mine ? (
+                          <button type="button" onClick={(event) => { event.stopPropagation(); openBotForUser(message.sender?.id); }} onDoubleClick={(event) => event.stopPropagation()} className="kc-mobile-message-name min-w-0 truncate text-left">{messageSenderLabel(message)}</button>
+                        ) : <span className="kc-mobile-message-name min-w-0 truncate">{messageSenderLabel(message)}</span>}
                         {message.sender?.is_bot ? (
                           <span className="kc-mobile-message-title inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-semibold leading-none [background:#dbeafe] [color:#2563eb]"><Icon name="bot" className="h-3 w-3" />机器人</span>
                         ) : isGroup && senderTitleBadge ? (
@@ -3597,6 +3624,10 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
               {isRedPacketMessage(messageMenu.message) || isGiftMessage(messageMenu.message) || groupFileMetaOf(messageMenu.message) ? null : <ContextMenuItem label="转发" icon="send" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => openForwardModal([messageMenu.message.id])} />}
               <ContextMenuItem label={messageMenu.message.bookmarked_by_me ? '取消收藏' : '收藏'} icon="star" disabled={Boolean(messageMenu.message.recalled_at) || bookmarkMutation.isPending} onClick={() => toggleSelectedMessageBookmark(messageMenu.message)} />
               {isRedPacketMessage(messageMenu.message) || isGiftMessage(messageMenu.message) || groupFileMetaOf(messageMenu.message) ? null : <ContextMenuItem label="多选" icon="checkSquare" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => startMultiSelect(messageMenu.message)} />}
+              {canTranscribeVoice(messageMenu.message) ? <ContextMenuItem label={voiceTranscriptOf(messageMenu.message).open ? '收起文字' : '转文字'} icon="fileText" onClick={() => {
+                toggleVoiceTranscript(messageMenu.message);
+                setMessageMenu(null);
+              }} /> : null}
               <ContextMenuItem label="引用" icon="quote" disabled={Boolean(messageMenu.message.recalled_at)} onClick={() => quoteMessage(messageMenu.message)} />
               {todoMenuAction ? <ContextMenuItem label={todoMenuAction.label} icon="checkSquare" onClick={() => { todoMenuAction.run(); setMessageMenu(null); }} /> : null}
               {isGroup && (currentRole === 'owner' || currentRole === 'admin') ? <ContextMenuItem label={messageMenu.message.featured ? '取消精华' : '设为精华'} icon="sparkles" disabled={!canFeatureMessage(messageMenu.message) || featureMutation.isPending} onClick={() => toggleSelectedMessageFeature(messageMenu.message)} /> : null}

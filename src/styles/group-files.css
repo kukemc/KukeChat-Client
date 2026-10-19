@@ -115,6 +115,183 @@
   to { transform: rotate(360deg); }
 }
 
+/* 视频卡片：左边整块是「播放」，右边单独一个下载按钮；播放图标是实心墨色方块，一眼和普通文件分开 */
+.kgp-file-card.is-video {
+  padding-right: 6px;
+}
+
+.kgp-file-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kgp-file-open:disabled {
+  cursor: default;
+}
+
+.kgp-file-play {
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+}
+
+button.kgp-file-play {
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.12s;
+}
+
+button.kgp-file-play:hover {
+  opacity: 0.86;
+}
+
+.kgp-file-open:active .kgp-file-play,
+button.kgp-file-play:active {
+  transform: scale(0.95);
+}
+
+.kgp-file-play svg {
+  margin-left: 2px;
+}
+
+.kgp-file-dl {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.kgp-file-dl:hover:not(:disabled) {
+  background: var(--kgp-file-wash-2);
+  color: var(--kgp-file-ink);
+}
+
+.kgp-file-card.is-video:hover:not(.is-expired) {
+  background: var(--kc-hover);
+}
+
+.kgp-file-card.is-video.is-expired {
+  cursor: default;
+}
+
+/* 聊天里正在上传的文件：同一张卡片，名字下面一条细的墨色进度线，右边是取消；失败时换成「重试」和删除 */
+.kgp-file-card.kgp-file-upload {
+  padding-right: 6px;
+  cursor: default;
+}
+
+.kgp-file-card.kgp-file-upload:hover {
+  background: var(--kc-panel);
+}
+
+.kgp-file-upload .kgp-file-sub {
+  font-variant-numeric: tabular-nums;
+}
+
+.kgp-file-progress {
+  position: relative;
+  display: block;
+  height: 3px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--kgp-file-wash-2);
+}
+
+.kgp-file-progress-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--kgp-file-ink);
+  transform-origin: left center;
+  transition: transform 0.2s ease-out;
+}
+
+/* 字节发完、等服务端落消息：进度线满格后轻轻呼吸，表示还在处理 */
+.kgp-file-progress-fill.is-finishing {
+  animation: kgp-file-breathe 1.2s ease-in-out infinite;
+}
+
+@keyframes kgp-file-breathe {
+  50% { opacity: 0.45; }
+}
+
+.kgp-file-upload.is-failed {
+  border-color: color-mix(in srgb, var(--kgp-file-danger) 32%, var(--kgp-file-line));
+}
+
+.kgp-file-upload.is-failed .kgp-file-icon {
+  background: color-mix(in srgb, var(--kgp-file-danger) 10%, transparent);
+  color: var(--kgp-file-danger);
+}
+
+.kgp-file-upload.is-failed .kgp-file-sub {
+  color: var(--kgp-file-danger);
+}
+
+.kgp-file-upload-btn {
+  color: var(--kc-muted);
+}
+
+.kgp-file-upload-btn:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.kgp-file-upload-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 墨色胶囊：失败后唯一要点的那个按钮 */
+.kgp-file-upload-retry {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--kgp-file-ink);
+  color: var(--kgp-file-on-ink);
+  font: inherit;
+  font-size: calc(12px * var(--kgp-file-fs));
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.kgp-file-upload-retry:hover {
+  opacity: 0.86;
+}
+
+.kgp-file-upload-retry:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kgp-file-progress-fill {
+    transition: none;
+  }
+
+  .kgp-file-progress-fill.is-finishing {
+    animation: none;
+  }
+}
+
 /* ───────── 面板 ─────────
    和群升级面板同一套克制的黑白（令牌在文件开头）：灰底条带放用量，虚线细框是上传区，文件列表用细分隔线，
    操作图标平时是灰的，悬停整行才清楚；红色只在删除悬停时出现，警示色只在「快满 / 快过期 / 失败」。 */

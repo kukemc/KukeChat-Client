@@ -5,6 +5,7 @@ import { upsertMessageIntoFirstPage, type MessagesInfiniteData } from '@/realtim
 import { applyLatestMessageToConversations } from '@/utils/conversations';
 import type { Conversation } from '@/types/api';
 import { useKukeStore } from '@/store/kukeStore';
+import { adoptServerMessage } from '@/components/chat/message/pendingSend';
 import { groupPlusErrorCode, groupPlusErrorDetail, groupPlusKeys } from './data';
 import { formatFileSize } from './tier';
 
@@ -32,11 +33,32 @@ export interface UploadTask {
   folderId: number | null;
   /** 想传进文件夹，结果被服务端放到了根目录（变成了临时文件，或者文件夹刚被删了 / 群降档了） */
   landedInRoot: boolean;
+  /** 从聊天里发的（输入框的文件按钮、拖进 / 粘贴进聊天）：聊天列表末尾会画一张带进度的上传卡片，传完换成真的文件消息 */
+  inChat: boolean;
+  /** 文件的类型，上传卡片按它挑图标 */
+  contentType: string;
+  /** 开始上传的时间（毫秒），上传卡片的发送时间 */
+  startedAt: number;
+  /** 传完后服务端落的那条文件消息的 id；聊天列表看到这条真消息后，上传卡片就不再显示 */
+  messageId: number | null;
+}
+
+/** 聊天上传卡片的行 key（pendingSend 的 client_nonce 位置）：真消息换上来时沿用它，同一行原地更新、不闪 */
+export function chatUploadNonce(taskId: number): string {
+  return `u${taskId}`;
+}
+
+interface StartOptions {
+  permanent?: boolean;
+  temporary?: boolean;
+  direct?: boolean;
+  folderId?: number | null;
+  inChat?: boolean;
 }
 
 interface UploadState {
   tasks: UploadTask[];
-  start: (queryClient: QueryClient, conversationId: number, file: File, options?: { permanent?: boolean; temporary?: boolean; direct?: boolean; folderId?: number | null }) => void;
+  start: (queryClient: QueryClient, conversationId: number, file: File, options?: StartOptions) => void;
   cancel: (id: number) => void;
   dismiss: (id: number) => void;
   retry: (queryClient: QueryClient, id: number) => void;
@@ -72,7 +94,7 @@ export const useGroupFileUploads = create<UploadState>((set, get) => ({
     const controller = new AbortController();
     controllers.set(id, controller);
     files.set(id, file);
-    const task: UploadTask = { id, conversationId, name: file.name, size: file.size, loaded: 0, status: 'uploading', error: null, code: null, permanent: options?.permanent === true, temporary: options?.temporary === true, direct: options?.direct === true, folderId: options?.folderId ?? null, landedInRoot: false };
+    const task: UploadTask = { id, conversationId, name: file.name, size: file.size, loaded: 0, status: 'uploading', error: null, code: null, permanent: options?.permanent === true, temporary: options?.temporary === true, direct: options?.direct === true, folderId: options?.folderId ?? null, landedInRoot: false, inChat: options?.inChat === true, contentType: file.type, startedAt: Date.now(), messageId: null };
     set((state) => ({ tasks: [...state.tasks, task] }));
     const patch = (change: Partial<UploadTask>): void => set((state) => ({ tasks: state.tasks.map((item) => (item.id === id ? { ...item, ...change } : item)) }));
     uploadGroupFile(conversationId, file, {
@@ -85,12 +107,16 @@ export const useGroupFileUploads = create<UploadState>((set, get) => ({
       const wanted = options?.folderId ?? null;
       // 旧服务端不回 folder_id（undefined）：不算放错地方
       const landedInRoot = wanted !== null && result.file !== null && result.file.folder_id === null;
-      patch({ status: 'done', loaded: file.size, temporary: result.file?.temporary ?? false, landedInRoot });
+      const message = result.message;
+      if (message && options?.inChat) {
+        // 先登记 key 再写缓存：真消息画出来时和上传卡片是同一行
+        adoptServerMessage(message.id, chatUploadNonce(id));
+      }
+      patch({ status: 'done', loaded: file.size, temporary: result.file?.temporary ?? false, landedInRoot, messageId: message?.id ?? null });
       files.delete(id);
       void queryClient.invalidateQueries({ queryKey: groupPlusKeys.files(conversationId) });
       void queryClient.invalidateQueries({ queryKey: groupPlusKeys.info(conversationId) });
       // 落了文件消息：和发普通消息一样直接写进缓存，不等实时事件
-      const message = result.message;
       if (message) {
         queryClient.setQueryData<MessagesInfiniteData | undefined>(['messages', message.conversation_id], (current) => upsertMessageIntoFirstPage(current, message));
         queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyLatestMessageToConversations(current, message, { visibleConversationId: useKukeStore.getState().visibleConversationId }));
@@ -121,6 +147,6 @@ export const useGroupFileUploads = create<UploadState>((set, get) => ({
       return;
     }
     get().dismiss(id);
-    get().start(queryClient, task.conversationId, file, { permanent: task.permanent, temporary: task.temporary, direct: task.direct, folderId: task.folderId });
+    get().start(queryClient, task.conversationId, file, { permanent: task.permanent, temporary: task.temporary, direct: task.direct, folderId: task.folderId, inChat: task.inChat });
   }
 }));

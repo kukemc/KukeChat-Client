@@ -90,6 +90,11 @@ export async function getBot(botId: number): Promise<Bot> {
   return apiRequest<Bot>(`/bots/${botId}`);
 }
 
+/** 按机器人的用户账号（users.is_bot）取机器人详情：聊天里点机器人头像 / 名字时用它换 bot_id */
+export async function getBotByUserId(userId: number): Promise<Bot> {
+  return apiRequest<Bot>(`/bots/by-user/${userId}`);
+}
+
 export async function getBotDashboard(botId: number): Promise<BotDashboard> {
   return apiRequest<BotDashboard>(`/bots/${botId}/dashboard`);
 }

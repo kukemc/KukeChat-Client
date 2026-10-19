@@ -1,0 +1,284 @@
+/* ───────── 语音气泡（src/components/chat/message/VoiceMessage.tsx 的 VoiceMessageBubble）─────────
+   一枚小胶囊：「播放键 · 细波形 · 时长」，宽度随时长变（由组件算好写在 style 上）。
+   聊天（桌面、移动）、收藏、精华、转发详情共用。颜色全取气泡的令牌：别人的跟文字气泡一样白面墨字，
+   自己的跟文字气泡同一个底色；播放键、波形、时长都是前景色的不同浓淡，不再单独上强调色。
+   穿了气泡皮肤时 shop.css 会把底色、前景色换成皮肤的（.kcsk .kc-voice-play / .kc-voice-bar）。 */
+
+.kc-voice-msg {
+  display: flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.kc-voice-msg.is-mine {
+  align-items: flex-end;
+}
+
+.kc-voice {
+  --kc-voice-fs: var(--kcd-fs, var(--kc-font-multiplier, 1));
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 6px;
+  border-radius: 18px;
+  border-top-left-radius: var(--kc-bubble-tail, 4px);
+  background: var(--kc-bubble-in);
+  -webkit-backdrop-filter: var(--kc-bubble-in-filter, none);
+  backdrop-filter: var(--kc-bubble-in-filter, none);
+  box-shadow: var(--kc-bubble-shadow, 0 1px 2px rgba(15, 23, 42, 0.08));
+  color: var(--kc-bubble-in-text, var(--kc-text));
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kc-voice.is-mine {
+  border-top-left-radius: 18px;
+  border-top-right-radius: var(--kc-bubble-tail, 4px);
+  background: var(--kc-bubble-out);
+  -webkit-backdrop-filter: var(--kc-bubble-out-filter, none);
+  backdrop-filter: var(--kc-bubble-out-filter, none);
+  box-shadow: var(--kc-bubble-shadow, 0 1px 2px rgba(15, 23, 42, 0.08)), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: var(--kc-bubble-out-text, var(--kc-text));
+}
+
+/* 不在聊天流里（收藏、精华、转发详情）：没有朝头像的尖角；底下多半也是白面，换成一层很淡的灰加细描边 */
+.kc-voice.is-plain {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--kc-text) 4%, transparent);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  color: var(--kc-text);
+}
+
+/* 播放键：一枚前景色淡淡铺底的小圆，里面一个实心的三角 / 两竖 */
+.kc-voice-play {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 11%, transparent);
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+
+.kc-voice:hover .kc-voice-play,
+.kc-voice.is-playing .kc-voice-play {
+  background: color-mix(in srgb, currentColor 17%, transparent);
+}
+
+.kc-voice-play:active {
+  transform: scale(0.9);
+}
+
+.kc-voice-play:focus-visible {
+  outline: 2px solid color-mix(in srgb, currentColor 45%, transparent);
+  outline-offset: 1px;
+}
+
+.kc-voice-play-icon {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+
+/* 三角形的重心偏左，往右挪半像素看着才居中 */
+.kc-voice:not(.is-playing) .kc-voice-play-icon {
+  transform: translateX(0.5px);
+}
+
+/* 波形兼进度条：底下一层淡的，上面一层实的按进度从左裁出来（裁的比例组件每帧写在 clip-path 上） */
+.kc-voice-wave {
+  position: relative;
+  display: flex;
+  height: 24px;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  /* 竖着划照常滚列表，横着拖才是拖进度 */
+  touch-action: pan-y;
+}
+
+.kc-voice-wave:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 32%, transparent);
+}
+
+.kc-voice-wave.is-scrubbing {
+  cursor: grabbing;
+}
+
+.kc-voice-bars {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.kc-voice-bars.is-played {
+  position: absolute;
+  inset: 0;
+}
+
+.kc-voice .kc-voice-bar {
+  width: 2px;
+  flex: none;
+  border-radius: 1px;
+  background: color-mix(in srgb, currentColor 26%, transparent);
+}
+
+.kc-voice .kc-voice-bar.is-active {
+  background: currentColor;
+}
+
+.kc-voice-time {
+  min-width: 2.4em;
+  flex: none;
+  font-size: calc(11.5px * var(--kc-voice-fs));
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  opacity: 0.6;
+  text-align: right;
+}
+
+.kc-voice.is-playing .kc-voice-time {
+  opacity: 0.85;
+}
+
+/* 胶囊下面的小字：播放失败、领取了语音红包 */
+.kc-voice-note {
+  margin: 0;
+  padding: 0 6px;
+  color: var(--kc-muted);
+  font-size: calc(10.5px * var(--kcd-fs, var(--kc-font-multiplier, 1)));
+  line-height: 16px;
+}
+
+.kc-voice-note.is-error {
+  color: #d5392c;
+}
+
+[data-theme='dark'] .kc-voice-note.is-error {
+  color: #ff8369;
+}
+
+.kc-voice-red-packet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kc-voice-red-packet-icon {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: #d5392c;
+}
+
+/* 转出来的文字：一块很淡的灰底小字，能选中复制；右边一个「收起」 */
+.kc-voice-transcript {
+  display: flex;
+  box-sizing: border-box;
+  max-width: min(320px, 100%);
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-muted);
+  font-size: calc(12.5px * var(--kcd-fs, var(--kc-font-multiplier, 1)));
+  line-height: 1.55;
+}
+
+.kc-voice-transcript-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  color: color-mix(in srgb, var(--kc-text) 80%, transparent);
+  cursor: text;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.kc-voice-transcript-text.is-empty {
+  color: var(--kc-muted);
+}
+
+.kc-voice-transcript-fold {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--kc-muted);
+  font-size: calc(11px * var(--kcd-fs, var(--kc-font-multiplier, 1)));
+  line-height: inherit;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.kc-voice-transcript-fold:hover,
+.kc-voice-transcript-fold:focus-visible {
+  color: var(--kc-text);
+  opacity: 1;
+}
+
+.kc-voice-transcript.is-loading {
+  align-items: center;
+  gap: 6px;
+}
+
+.kc-voice-transcript-spin {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  animation: kc-voice-spin 900ms linear infinite;
+}
+
+@keyframes kc-voice-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.kc-voice-unavailable {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 16px;
+  background: var(--kc-panel-muted);
+  box-shadow: inset 0 0 0 1px var(--kc-border);
+  color: var(--kc-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kc-voice-play {
+    transition: none;
+  }
+
+  .kc-voice-transcript-spin {
+    animation-duration: 2400ms;
+  }
+}

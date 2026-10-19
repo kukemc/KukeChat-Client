@@ -112,6 +112,32 @@ async function buildHistory(conversationId: number, count: number): Promise<Mess
   return messages;
 }
 
+/** 一段 seconds 秒的轻柔正弦音（8kHz 单声道 WAV），给预览页的语音消息用 */
+function toneUrl(seconds: number, frequency: number): string {
+  const rate = 8000;
+  const samples = rate * seconds;
+  const buffer = new ArrayBuffer(44 + samples * 2);
+  const view = new DataView(buffer);
+  const text = (offset: number, value: string): void => [...value].forEach((char, index) => view.setUint8(offset + index, char.charCodeAt(0)));
+  text(0, 'RIFF');
+  view.setUint32(4, 36 + samples * 2, true);
+  text(8, 'WAVEfmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  text(36, 'data');
+  view.setUint32(40, samples * 2, true);
+  for (let index = 0; index < samples; index += 1) {
+    const envelope = 0.5 + 0.5 * Math.sin((index / rate) * 3);
+    view.setInt16(44 + index * 2, Math.sin((2 * Math.PI * frequency * index) / rate) * 4000 * envelope, true);
+  }
+  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
@@ -121,6 +147,19 @@ async function start(): Promise<void> {
   // 进去落在最底部、第一条未读不在已加载范围里，右上角应出现「↑ 300 条新消息」；末尾放一个没领的红包，看两个提示上下排开
   const history: Record<number, Message[]> = { 1: await buildHistory(1, 900), 2: await buildHistory(2, 40), 3: await buildHistory(3, 600) };
   history[3][590] = { ...redPacketState.seed({ senderId: 2, conversationId: 3, kind: 'lucky', amount: 88, count: 5, greeting: '未读测试红包', messageId: 1590 }), created_at: history[3][590].created_at };
+  // 3 号群还放几条语音（长短不一、自己的和别人的、一条服务端已经转过文字的）和几条 @：
+  // 1400 那条 @我 不在首屏，靠 /mentions/unread 拿到；1597 那条 @全体 在首屏，本地就认得出来
+  const voiceAt = (index: number, senderId: number, seconds: number, extra: Partial<Message> = {}): void => {
+    const sender = people.find((user) => user.id === senderId) ?? people[1];
+    const waveform = Array.from({ length: 40 }, (_, step) => Number((0.2 + Math.abs(Math.sin(step * 0.5 + senderId)) * 0.7 * (step % 7 === 3 ? 0.4 : 1)).toFixed(2)));
+    history[3][index] = { ...history[3][index], sender_id: sender.id, sender, type: 'voice', content: toneUrl(seconds, 220 + senderId * 40), metadata: { voice: { duration_ms: seconds * 1000, content_type: 'audio/wav', size: 1024, waveform } }, recalled_at: null, ...extra } as Message;
+  };
+  voiceAt(588, 2, 2);
+  voiceAt(592, 1, 7, { voice_transcript: '我晚上八点上线，先把积木拼好再开会' });
+  voiceAt(594, 3, 18);
+  voiceAt(596, 1, 52);
+  history[3][400] = { ...history[3][400], type: 'text', content: '@酷可mc 你那个弹幕游戏的源码能发我看看吗', metadata: { mentions: [{ user_id: me.id, name: '酷可mc' }] }, recalled_at: null } as Message;
+  history[3][597] = { ...history[3][597], type: 'text', content: '@全体成员 周五晚上八点开会', metadata: { mention_all: true }, recalled_at: null } as Message;
   let nextId = 5000;
   // 戳一戳：给群友补上各自的设置，并在历史末尾放几条记录
   attachPokeMock(history, people, () => (nextId += 1));
@@ -177,6 +216,31 @@ async function start(): Promise<void> {
       await new Promise((resolve) => window.setTimeout(resolve, uploadControl?.uploadDelayMs ?? 600));
       const uploaded = history[1].find((item) => item.type === 'image')?.content ?? '';
       return json({ url: uploaded });
+    }
+    // 「有人@我」：已读位置之后点了我、@全体 的消息
+    const mentionsMatch = path.match(/^\/conversations\/(\d+)\/mentions\/unread$/);
+    if (mentionsMatch) {
+      const conversation = conversations.find((item) => item.id === Number(mentionsMatch[1]));
+      const afterId = Number(url.searchParams.get('after_id') ?? conversation?.my_last_read_message_id ?? 0);
+      const items = (history[Number(mentionsMatch[1])] ?? []).filter((message) => message.id > afterId && message.sender_id !== me.id).flatMap((message) => {
+        const metadata = (message.metadata ?? {}) as { mentions?: { user_id: number }[]; mention_all?: boolean };
+        const kind = metadata.mentions?.some((mention) => mention.user_id === me.id) ? 'me' : metadata.mention_all ? 'all' : null;
+        return kind ? [{ message_id: message.id, kind, created_at: message.created_at }] : [];
+      });
+      return json({ items, total: items.length });
+    }
+    // 语音转文字：等一会儿再回；52 秒那条模拟「太长」
+    const transcribeMatch = path.match(/^\/conversations\/(\d+)\/messages\/(\d+)\/transcribe$/);
+    if (transcribeMatch && method === 'POST') {
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+      const message = (history[Number(transcribeMatch[1])] ?? []).find((item) => item.id === Number(transcribeMatch[2]));
+      if (!message || message.type !== 'voice') {
+        return json({ detail: { code: 'not_voice', message: '不是语音消息' } }, 422);
+      }
+      if (((message.metadata as { voice?: { duration_ms?: number } } | null)?.voice?.duration_ms ?? 0) > 50_000) {
+        return json({ detail: { code: 'voice_too_long', message: '语音太长' } }, 422);
+      }
+      return json({ text: '这个关卡的跳跃判定有点问题，碰到墙角会卡住，你回头看一下碰撞那块', cached: false });
     }
     const contextMatch = path.match(/^\/conversations\/(\d+)\/messages\/(\d+)\/context$/);
     if (contextMatch) {

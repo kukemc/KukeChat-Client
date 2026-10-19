@@ -19,7 +19,7 @@ export interface FeaturedMessagesListProps {
   onToggleFeature: (message: Message) => void;
   onOpenForwardBundle: (message: Message) => void;
   onOpenImages?: (images: string[], index: number) => void;
-  /** 跳转到原消息之后要不要关掉面板 */
+  /** 跳转到原消息、或者点卡片去了别的页面（帖子、名片、群聊……）之后，关掉精华面板 */
   onJumped: () => void;
   mobile?: boolean;
 }
@@ -134,7 +134,7 @@ export function FeaturedMessagesList({ conversationId, canManage, isToggling, on
     ) : entry.snapshot_missing ? (
       <span className="kmv-notice">原消息已被清理，内容无法恢复</span>
     ) : (
-      <MessageView message={message} variant={open ? 'full' : 'compact'} conversationId={conversationId} onOpenImages={onOpenImages} onOpenBundle={onOpenForwardBundle} />
+      <MessageView message={message} variant={open ? 'full' : 'compact'} conversationId={conversationId} onOpenImages={onOpenImages} onOpenBundle={onOpenForwardBundle} onNavigate={onJumped} />
     );
     const name = messageSenderLabel(message);
     const actions = (

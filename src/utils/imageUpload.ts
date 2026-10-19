@@ -134,9 +134,44 @@ async function isDecodable(blob: Blob, signal?: AbortSignal): Promise<boolean> {
   return true;
 }
 
+/**
+ * 按文件内容认动图：QQ、微信存下来的表情常是 GIF / 动态 WebP / APNG，扩展名却是 .jpg（type 也报 image/jpeg）。
+ * 这种不能过 canvas（只剩第一帧），原样上传，服务端会保留 GIF、把动态 WebP / APNG 转成 GIF。
+ */
+async function sniffAnimatedType(file: File): Promise<string | null> {
+  const bytes = new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer());
+  const ascii = (start: number, length: number) => String.fromCharCode(...bytes.subarray(start, start + length));
+  if (ascii(0, 6) === 'GIF87a' || ascii(0, 6) === 'GIF89a') return 'image/gif';
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') {
+    return ascii(12, 4) === 'VP8X' && (bytes[20] & 0x02) ? 'image/webp' : null;
+  }
+  if (bytes.length >= 8 && bytes[0] === 0x89 && ascii(1, 3) === 'PNG') {
+    const view = new DataView(bytes.buffer);
+    // acTL 必须出现在第一个 IDAT 之前
+    for (let offset = 8; offset + 8 <= bytes.length;) {
+      const type = ascii(offset + 4, 4);
+      if (type === 'acTL') return 'image/png';
+      if (type === 'IDAT') return null;
+      offset += 12 + view.getUint32(offset);
+    }
+  }
+  return null;
+}
+
+const ANIMATED_EXTENSIONS: Record<string, string> = { 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png' };
+
 /** Best-effort image-only upload preparation; original File is returned on any codec failure. */
 export async function prepareImageUpload(file: File, signal?: AbortSignal): Promise<File> {
   checkAbort(signal);
+  const animatedType = ACCEPTED_IMAGE_TYPES.has(file.type.toLowerCase()) || !file.type ? await sniffAnimatedType(file) : null;
+  if (animatedType) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new Error('动图超过 3MB，发不了');
+    }
+    if (animatedType === file.type.toLowerCase()) return file;
+    const name = file.name.replace(/\.[^.]*$/, '') || 'image';
+    return new File([file], `${name}.${ANIMATED_EXTENSIONS[animatedType]}`, { type: animatedType, lastModified: file.lastModified });
+  }
   // GIF is always untouched (including animated GIF); voice and unsupported formats bypass canvas.
   if (!IMAGE_TYPES.has(file.type.toLowerCase())) return useOriginal(file);
   if (file.size > MAX_SOURCE_BYTES) {

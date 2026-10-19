@@ -10,6 +10,10 @@ export const DEFAULT_RED_PACKET_GREETING = '恭喜发财';
 export const RED_PACKET_GREETING_MAX = 30;
 /** 接龙口令最长几个字（docs/red-packets.md 3.6.1） */
 export const RED_PACKET_CHAIN_MAX = 30;
+/** 语音红包的口令最长几个字 */
+export const RED_PACKET_VOICE_TEXT_MAX = 30;
+/** 领语音红包时最多录多久（服务端超过 15 秒回 voice_too_long） */
+export const RED_PACKET_VOICE_MAX_MS = 15_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -32,6 +36,14 @@ export function normalizeRedPacketMeta(value: unknown): RedPacketMeta | null {
   if (chainText) {
     meta.chain_text = chainText;
   }
+  // 语音红包：消息上带了口令就记下（没带的话等红包状态取回来再说）
+  const voiceText = typeof value.voice_text === 'string' ? value.voice_text.trim() : '';
+  if (value.voice === true || voiceText) {
+    meta.voice = true;
+  }
+  if (voiceText) {
+    meta.voice_text = voiceText;
+  }
   if (typeof value.target_user_id === 'number' && Number.isInteger(value.target_user_id) && value.target_user_id > 0) {
     meta.target_user_id = value.target_user_id;
     meta.target = isRecord(value.target) && typeof value.target.id === 'number' ? value.target as unknown as User : null;
@@ -49,6 +61,12 @@ export function isExclusiveForOther(meta: Pick<RedPacketMeta, 'target_user_id'> 
 export function redPacketChainOf(message: Pick<Message, 'type' | 'metadata'> | null | undefined): RedPacketId | null {
   const chain = message?.type === 'text' ? message.metadata?.red_packet_chain : null;
   return isRecord(chain) && isRedPacketId(chain.red_packet_id) ? chain.red_packet_id : null;
+}
+
+/** 领取语音红包时以领取人身份发出的那条语音消息指向的红包 id；不是这种消息是 null。 */
+export function redPacketVoiceOf(message: Pick<Message, 'type' | 'metadata'> | null | undefined): RedPacketId | null {
+  const voice = message?.type === 'voice' ? message.metadata?.red_packet_voice : null;
+  return isRecord(voice) && isRedPacketId(voice.red_packet_id) ? voice.red_packet_id : null;
 }
 
 export function isRedPacketMessage(message: Pick<Message, 'type'> | null | undefined): boolean {
@@ -85,6 +103,7 @@ export function redPacketPreview(message: Message | null | undefined): string | 
   }
   const meta = normalizeRedPacketMeta(message.metadata?.red_packet);
   const greeting = meta?.greeting ?? DEFAULT_RED_PACKET_GREETING;
-  const label = meta?.target_user_id ? (meta.chain_text ? '专属接龙红包' : '专属红包') : meta?.chain_text ? '接龙红包' : '红包';
+  const mode = meta?.chain_text ? '接龙' : meta?.voice ? '语音' : '';
+  const label = `${meta?.target_user_id ? '专属' : ''}${mode}红包`;
   return `[${label}] ${greeting}`;
 }

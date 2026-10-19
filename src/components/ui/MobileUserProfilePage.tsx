@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { FriendIntimacyCard } from '@/components/intimacy/FriendIntimacyCard';
+import { FriendSparkRow } from '@/components/spark/FriendSparkRow';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ccwStudentProfileUrl } from '@/config';
 import { createDirectConversation, updateConversationMemberMute, updateConversationMemberRole } from '@/api/conversations';
@@ -15,6 +16,7 @@ import { Icon } from '@/components/ui/Icon';
 import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { MobilePostDetailPage } from '@/components/posts/MobilePostDetailPage';
 import { MobileProfileSummaryCard } from '@/components/profile/MobileProfileSummaryCard';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import { BirthdayToday, useBirthdayFact } from '@/components/birthday/BirthdayBits';
 import { isBirthdayToday } from '@/components/birthday/data';
 import { SendGiftButton, useCanGift } from '@/components/gifts/GiftEntry';
@@ -913,6 +915,7 @@ export function MobileUserProfilePage({ user, label, fallbackUserId, currentUser
           )} />
           {/* 我和 TA 的友谊（docs/intimacy.md）：不是好友时整块不出现 */}
           {isSelf ? null : <FriendIntimacyCard userId={displayUser?.id} className="kit-row--block" />}
+          {isSelf ? null : <FriendSparkRow userId={displayUser?.id} className="ksk-row--block" />}
           {/* 礼物墙：礼物功能关着、对方是机器人时整块不出现 */}
           <GiftWall user={displayUser} isSelf={isSelf} frame={(wall, charm) => (
             <section className="kc-qq-card kui p-4" data-gift="space-wall">
@@ -935,6 +938,8 @@ export function MobileUserProfilePage({ user, label, fallbackUserId, currentUser
               <Icon name="external" className="h-4 w-4 text-[#168bff]" />
             </button>
           ) : null}
+          {/* 机器人：打开它的机器人详情（介绍、指令、评价、加到群） */}
+          {isBot && !isSelf && (displayUser?.id ?? fallbackId) ? <button type="button" onClick={() => openBotForUser(displayUser?.id ?? fallbackId)} className="h-12 w-full rounded-[18px] text-[16px] font-black text-white transition [background:var(--kc-accent)]">查看机器人</button> : null}
           {effectiveCurrentUser && !isSelf && !action && !isBot ? <button type="button" onClick={handleInternalFriendAction} disabled={internalFriendButtonDisabled} className="h-12 w-full rounded-[18px] text-[16px] font-black text-white transition disabled:opacity-60 [background:var(--kc-accent)]">{internalFriendButtonLabel}</button> : null}
           <div className="flex items-center justify-between gap-3 px-1">
             <div>

@@ -1,4 +1,4 @@
-import type { Conversation, ConversationMember, CreateDirectPayload, CreateGroupAnnouncementPayload, CreateGroupJoinRequestPayload, CreateGroupPayload, GroupAnnouncement, GroupCheckin, GroupCheckinStatus, GroupJoinRequest, GroupJoinRequestDecisionPayload, GroupLeaderboard, GroupLeaderboardPeriod, GroupLeaderboardType, MemberRole, Message, UpdateConversationProfilePayload, UpdateGroupAnnouncementPayload, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload, UploadResponse } from '@/types/api';
+import type { Conversation, ConversationMember, CreateDirectPayload, CreateGroupJoinRequestPayload, CreateGroupPayload, GroupCheckin, GroupCheckinStatus, GroupJoinRequest, GroupJoinRequestDecisionPayload, GroupLeaderboard, GroupLeaderboardPeriod, GroupLeaderboardType, MemberRole, Message, UpdateConversationProfilePayload, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload, UploadResponse } from '@/types/api';
 import { applyLocalReadMarks } from '@/store/readMarks';
 import { apiRequest, uploadFile } from './client';
 import { asList, isRecord, pickNumber } from './normalizers';
@@ -154,29 +154,6 @@ export async function updateConversationAnnouncement(conversationId: number, ann
   return apiRequest<Conversation>(`/conversations/${conversationId}/announcement`, {
     method: 'PATCH',
     body: { announcement }
-  });
-}
-
-export async function getGroupAnnouncements(conversationId: number): Promise<GroupAnnouncement[]> {
-  const response = await apiRequest<unknown>(`/conversations/${conversationId}/announcements`);
-  return asList<GroupAnnouncement>(response);
-}
-
-export async function createGroupAnnouncement(conversationId: number, payload: CreateGroupAnnouncementPayload): Promise<GroupAnnouncement> {
-  return apiRequest<GroupAnnouncement>(`/conversations/${conversationId}/announcements`, {
-    method: 'POST',
-    body: payload
-  });
-}
-
-export async function deleteGroupAnnouncement(conversationId: number, announcementId: number): Promise<void> {
-  await apiRequest<unknown>(`/conversations/${conversationId}/announcements/${announcementId}`, { method: 'DELETE' });
-}
-
-export async function updateGroupAnnouncement(conversationId: number, announcementId: number, payload: UpdateGroupAnnouncementPayload): Promise<GroupAnnouncement> {
-  return apiRequest<GroupAnnouncement>(`/conversations/${conversationId}/announcements/${announcementId}`, {
-    method: 'PATCH',
-    body: payload
   });
 }
 

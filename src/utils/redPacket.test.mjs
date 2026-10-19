@@ -1,7 +1,7 @@
 // Run with: node --experimental-strip-types --test src/utils/redPacket.test.mjs
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isRedPacketMessage, normalizeRedPacketMeta, redPacketGreeting, redPacketOf, redPacketPreview } from './redPacket.ts';
+import { isRedPacketMessage, normalizeRedPacketMeta, redPacketGreeting, redPacketOf, redPacketPreview, redPacketVoiceOf } from './redPacket.ts';
 
 const message = (extra = {}) => ({ id: 1, conversation_id: 7, type: 'red_packet', content: '[红包] 给旧客户端的兜底文字', created_at: '2026-10-14T00:00:00Z', metadata: { red_packet: { id: 12, kind: 'lucky', greeting: '新年快乐', count: 5 } }, ...extra });
 
@@ -39,4 +39,21 @@ test('the bare greeting is available for lists that already show a "[有红包]"
   assert.equal(redPacketGreeting(message()), '新年快乐');
   assert.equal(redPacketGreeting(message({ metadata: {} })), '恭喜发财');
   assert.equal(redPacketGreeting(message({ type: 'text' })), null);
+});
+
+test('voice packets keep their phrase, and previews say "[语音红包]"', () => {
+  const voice = message({ metadata: { red_packet: { id: 12, kind: 'normal', greeting: '新年快乐', count: 1, voice: true, voice_text: ' 恭喜发财 ' } } });
+  assert.deepEqual(normalizeRedPacketMeta(voice.metadata.red_packet), { id: 12, kind: 'normal', greeting: '新年快乐', count: 1, voice: true, voice_text: '恭喜发财' });
+  assert.equal(normalizeRedPacketMeta({ id: 3, voice: true })?.voice, true);
+  assert.equal(normalizeRedPacketMeta({ id: 3, voice: false, voice_text: '' })?.voice, undefined);
+  assert.equal(redPacketPreview(voice), '[语音红包] 新年快乐');
+  assert.equal(redPacketPreview(message({ metadata: { red_packet: { id: 1, voice: true, target_user_id: 5 } } })), '[专属语音红包] 恭喜发财');
+});
+
+test('the voice message sent by claiming a voice packet points back to the packet', () => {
+  const sent = { id: 2, conversation_id: 7, type: 'voice', content: 'https://x/v.webm', created_at: '', metadata: { voice: { duration_ms: 2000 }, red_packet_voice: { red_packet_id: 12 } } };
+  assert.equal(redPacketVoiceOf(sent), 12);
+  assert.equal(redPacketVoiceOf({ ...sent, metadata: { voice: { duration_ms: 2000 } } }), null);
+  assert.equal(redPacketVoiceOf({ ...sent, type: 'text' }), null);
+  assert.equal(redPacketVoiceOf(null), null);
 });

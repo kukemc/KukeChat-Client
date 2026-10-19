@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer';
 import { Modal, ModalStatus } from '@/components/ui/desktop/Modal';
+import { useKukeStore } from '@/store/kukeStore';
 import type { Message } from '@/types/api';
 import { MessageView } from '../MessageView';
 import { formatMessageTime, parseForwardBundle, snapshotToMessage } from '../messageMeta';
@@ -41,6 +42,11 @@ export function ForwardBundleDialog({ message, onClose }: { message: Message; on
                   variant="full"
                   onOpenImages={(images, at) => setImageViewer({ images, index: at })}
                   onOpenBundle={(nested) => setStack((items) => [...items, nested])}
+                  // 机器人名片：先关掉本对话框，再去机器人中心打开详情（不在弹窗底下打开）
+                  onOpenBot={(botId) => {
+                    onClose();
+                    useKukeStore.getState().openBot(botId);
+                  }}
                 />
               </div>
             </div>

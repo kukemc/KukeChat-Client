@@ -5,6 +5,8 @@ import { ImageViewer, type ImageViewerState } from '@/components/ui/ImageViewer'
 import type { JuryCaseMessage, JuryCaseView } from '@/types/jury';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { formatClockTime } from '@/utils/dateTime';
+import { VoiceWaveform } from '@/components/chat/message/VoiceMessage';
+import { finiteNumber, formatVoiceDuration } from '@/components/chat/message/messageMeta';
 import { formatDateTime } from '../labels';
 import { useRestoreFocus } from './focus';
 
@@ -31,21 +33,125 @@ function Thumbs({ images, onOpen }: { images: string[]; onOpen: (images: string[
   );
 }
 
+/**
+ * 案件里的语音：和聊天里的语音气泡同一套波形和时长写法，但不带气泡皮肤、不带右键菜单。
+ * 证据里没有录音时长元数据，时长只能从音频本身读；MediaRecorder 录的 webm 往往报 Infinity，
+ * 这时把播放头拨到末尾逼浏览器算一遍真实时长，再拨回开头。
+ */
+function VoiceEvidence({ url }: { url: string }): JSX.Element {
+  const src = resolveAssetUrl(url);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const probingRef = useRef(false);
+  const [playing, setPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [playError, setPlayError] = useState('');
+  const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
+
+  function readDuration(audio: HTMLAudioElement): void {
+    const value = audio.duration;
+    if (Number.isFinite(value) && value > 0) {
+      setDuration(value);
+      if (probingRef.current) {
+        probingRef.current = false;
+        audio.currentTime = 0;
+        setCurrentTime(0);
+      }
+      return;
+    }
+    if (value === Infinity && !probingRef.current) {
+      probingRef.current = true;
+      audio.currentTime = 1e7;
+    }
+  }
+
+  async function togglePlayback(): Promise<void> {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+    if (audio.paused) {
+      try {
+        setPlayError('');
+        if (audio.readyState === 0) {
+          audio.load();
+        }
+        await audio.play();
+        setPlaying(true);
+      } catch {
+        setPlaying(false);
+        setPlayError('播放失败');
+      }
+      return;
+    }
+    audio.pause();
+    setPlaying(false);
+  }
+
+  function seekRatio(ratio: number): void {
+    const audio = audioRef.current;
+    if (!audio || duration <= 0) {
+      return;
+    }
+    const nextTime = Math.min(duration, Math.max(0, ratio) * duration);
+    audio.currentTime = nextTime;
+    setCurrentTime(nextTime);
+  }
+
+  if (!src) {
+    return <p className="kjr-msg-note">语音不可用</p>;
+  }
+
+  return (
+    <div className="kjr-voice">
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        onLoadedMetadata={(event) => readDuration(event.currentTarget)}
+        onDurationChange={(event) => readDuration(event.currentTarget)}
+        onTimeUpdate={(event) => { if (!probingRef.current) setCurrentTime(finiteNumber(event.currentTarget.currentTime, 0)); }}
+        onPause={() => setPlaying(false)}
+        onPlay={() => setPlaying(true)}
+        onError={() => { setPlaying(false); setPlayError('语音加载失败'); }}
+        onEnded={() => { setPlaying(false); setCurrentTime(0); }}
+      />
+      <button type="button" className="kjr-voice-play" onClick={() => void togglePlayback()} aria-label={playing ? '暂停语音' : '播放语音'}>
+        <span aria-hidden>{playing ? 'Ⅱ' : '▶'}</span>
+      </button>
+      <div className="kjr-voice-main">
+        <div className="kjr-voice-meta">
+          <span>语音消息</span>
+          <span>{duration > 0 ? formatVoiceDuration((playing || currentTime > 0 ? currentTime : duration) * 1000) : '--:--'}</span>
+        </div>
+        <VoiceWaveform progress={progress} onSeek={seekRatio} label="语音进度" />
+        {playError ? <p className="kjr-voice-error">{playError}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+// 后端给被举报人的固定代称。被举报人在上下文里说的每一句都标出来（淡边线 + 加粗），被举报的那一条再额外强调
+const REPORTED_SPEAKER = '被举报人';
+
 function messageImages(message: JuryCaseMessage): string[] {
   return [...(message.type === 'image' && message.content ? [message.content] : []), ...(message.images ?? [])];
 }
 
 function MessageRow({ message, onOpen }: { message: JuryCaseMessage; onOpen: (images: string[], index: number) => void }): JSX.Element {
   const images = messageImages(message);
+  const empty = !message.content?.trim() && images.length === 0;
   return (
-    <li className={cx('kjr-msg', message.is_target && 'is-target', message.content === null && 'is-recalled')}>
+    <li className={cx('kjr-msg', message.is_target && 'is-target', message.speaker === REPORTED_SPEAKER && 'is-reported', empty && 'is-recalled')}>
       <div className="kjr-msg-who">
         <span>{message.speaker}</span>
         <time>{formatClockTime(message.created_at)}</time>
       </div>
       <div className="kjr-msg-body">
         {message.is_target ? <span className="kjr-msg-flag">被举报的消息</span> : null}
-        {message.content === null ? <p className="kjr-msg-note">这条消息已被撤回</p> : message.type === 'image' ? null : <p>{message.content}</p>}
+        {message.type === 'voice' && message.content ? <VoiceEvidence url={message.content} />
+          : empty ? <p className="kjr-msg-note">这条消息已被撤回或删除</p>
+            : message.type === 'image' || !message.content?.trim() ? null : <p>{message.content}</p>}
         <Thumbs images={images} onOpen={onOpen} />
       </div>
     </li>

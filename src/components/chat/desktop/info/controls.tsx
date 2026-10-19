@@ -39,10 +39,10 @@ export function SelectRow<T extends string>({ label, value, options, disabled = 
   );
 }
 
-export function SegmentRow<T extends string>({ label, value, options, disabled = false, onChange }: { label: string; value: T; options: Array<SelectOption<T>>; disabled?: boolean; onChange: (value: T) => void }): JSX.Element {
+export function SegmentRow<T extends string>({ label, hint, value, options, disabled = false, onChange }: { label: string; hint?: string; value: T; options: Array<SelectOption<T>>; disabled?: boolean; onChange: (value: T) => void }): JSX.Element {
   return (
     <div className="kui-row">
-      <span className="kui-row-label">{label}</span>
+      <span className="kui-row-label">{label}{hint ? <span className="kui-row-hint">{hint}</span> : null}</span>
       <Segment value={value} options={options} disabled={disabled} onChange={onChange} />
     </div>
   );

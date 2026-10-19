@@ -15,6 +15,7 @@
  *   purchase=insufficient_balance|ccw_not_bound|verification_unavailable|plan_changed|price_changed|server（购买时强制返回的错误）
  *   upload=quota_exceeded|file_too_large|muted|rate_limited|server（上传时强制返回的错误）   full=1（设精华时返回已达上限）
  *   folders=legacy（模拟没有文件夹功能的旧后端：列表不带 folders）
+ *   video=地址（视频文件的直连播放地址，比如放在 dev/ 下的本地 mp4；不写时下载回来是假文本，播放器显示「格式不支持」）
  *   delay=毫秒（接口延迟）   w= h=（桌面窗口大小）
  *
  * 上传文件时 XMLHttpRequest 被换成假的（分块触发 upload.onprogress），进度条是真的在走；下载返回一个小文本。
@@ -465,6 +466,7 @@ async function start(): Promise<void> {
   }
   plusScenario.featuredFull = params.get('full') === '1';
   plusScenario.legacyFolders = params.get('folders') === 'legacy';
+  plusScenario.videoUrl = params.get('video');
   if (params.get('delay') !== null) {
     plusScenario.delay = Math.max(0, Number(params.get('delay')) || 0);
   }

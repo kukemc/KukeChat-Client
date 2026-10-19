@@ -662,6 +662,21 @@
   white-space: nowrap;
 }
 
+/* 机器人的名字可以点（打开机器人详情），外观和普通昵称一样，悬停时加下划线 */
+.kcd-meta-name--link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.kcd-meta-name--link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .kcd-meta-time {
   flex: none;
   color: var(--kc-subtle);
@@ -1072,7 +1087,7 @@
   transform: translateY(0);
 }
 
-/* 聊天区右上角的浮动提示栈：「↑ N 条新消息」在上，「N 个红包未领」在下，右对齐、上下排开不重叠。
+/* 聊天区右上角的浮动提示栈：从上往下「↑ N 条新消息」「有人@我」「N 个红包未领」，右对齐、上下排开不重叠。
    栈本身不接指针，按钮自己在可见时才接。淡出中的那个脱离排布，不在栈里留一块空位 */
 .kcd-float-hints {
   position: absolute;
@@ -1251,6 +1266,10 @@
 .kcd-composer {
   position: relative;
   display: flex;
+  /* 高度：拖出来的高度（--kcd-composer-h，Composer 给）是下限；引用条、待发图片、多行文字放不下时往上长，
+     长到上限后编辑区自己滚动。上限至少是设定的高度，不会比用户拖出来的还矮 */
+  min-height: var(--kcd-composer-h, 168px);
+  max-height: max(var(--kcd-composer-h, 168px), min(440px, 55vh));
   flex-direction: column;
   border-radius: var(--kui-r-lg);
   background: var(--kc-composer-surface);
@@ -1388,11 +1407,19 @@
 }
 
 .kcd-composer-body {
+  display: flex;
   min-height: 0;
   flex: 1 1 auto;
+  flex-direction: column;
   overflow-y: auto;
   padding: 6px 16px 4px;
   cursor: text;
+  scroll-padding-block: 6px;
+}
+
+/* 引用条、待发图片、语音预览都按自己的高度排，不跟编辑器抢；剩下的高度都给编辑器 */
+.kcd-composer-body > :not(.kcd-editor-wrap) {
+  flex: none;
 }
 
 .kcd-composer-quote {
@@ -1531,6 +1558,10 @@
 
 .kcd-editor-wrap {
   position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 0 auto;
+  flex-direction: column;
 }
 
 .kcd-editor-placeholder {
@@ -1545,6 +1576,7 @@
 
 .kcd-editor {
   min-height: 44px;
+  flex: 1 0 auto;
   outline: none;
   color: var(--kc-text);
   line-height: 1.6;
@@ -2413,4 +2445,13 @@
   border-color: transparent;
   background: color-mix(in srgb, var(--kc-text) 8%, transparent);
   color: var(--kc-subtle);
+}
+
+/* 「有人@我」（mentions/MentionHint）：胶囊本身借 .krp-pending，这里只给 @ 图标上墨色，不用红包那抹红 */
+.kcd-atme-hint-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--kc-text);
+  opacity: 0.85;
 }

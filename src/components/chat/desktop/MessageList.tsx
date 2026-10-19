@@ -4,18 +4,23 @@ import { getMessageContext, getMessages } from '@/api/messages';
 import { subscribePoke } from '@/realtime/poke';
 import { toast } from '@/components/ui/toast';
 import { useKukeStore } from '@/store/kukeStore';
-import { markConversationReadLocally } from '@/store/readMarks';
+import { localReadMarkOf, markConversationReadLocally } from '@/store/readMarks';
 import type { Conversation, Message } from '@/types/api';
 import { parseApiDate } from '@/utils/dateTime';
 import { MESSAGE_PAGE_SIZE } from '../message/constants';
 import { repeatableContentOf, senderOf, shouldShowTimeDivider } from '../message/messageMeta';
 import type { MessagesInfiniteData } from '../message/types';
 import { messageRowKey, usePendingEntries } from '../message/pendingSend';
+import { useChatUploadMessages } from '../message/chatUploads';
 import { MessageRow } from './MessageRow';
 import { cx } from './runtime';
 import { TypingIndicator } from './typing/TypingIndicator';
 import { paintRange, toastSelectionLimit } from './selection';
 import { RedPacketPendingHint } from '@/components/redpacket/RedPacketPendingHint';
+import { markRedPacketsSeen } from '@/components/redpacket/seenPackets';
+import { isRedPacketMessage } from '@/utils/redPacket';
+import { MentionHint } from './mentions/MentionHint';
+import { useUnreadMentions } from './mentions/useUnreadMentions';
 
 /*
  * 消息列表。
@@ -67,6 +72,8 @@ const UNREAD_TOP_OFFSET_PX = 12;
 /** 没有已读位置、只能按未读数往前数时，最多往前拉这么多页（再早的就跳到能拿到的最早一条） */
 const UNREAD_FETCH_MAX_PAGES = 20;
 const USER_SCROLL_EVENTS = ['wheel', 'touchmove', 'keydown', 'pointerdown', 'pointerup'] as const;
+/** 一行在视口里露出至少一半、停够这么久，才算「看过」（红包未领、有人@我 据此不再提醒）；划过去的不算 */
+const SEEN_DWELL_MS = 300;
 /** 按下后移动超过这么多才算拖动刷选；没到就是一次普通点击 */
 const BRUSH_START_PX = 4;
 /** 拖到离列表上下边缘这么近就开始自动滚动，越靠外滚得越快 */
@@ -183,13 +190,20 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   const loadingNewerRef = useRef(false);
   // 乐观发送的本地消息（还没确认、或者确认了但真消息还没进缓存的）接在最新一条后面；看历史片段时不接
   const pendingEntries = usePendingEntries(conversationId);
+  const loadedIds = useMemo(() => new Set(loadedMessages.map((message) => message.id)), [loadedMessages]);
+  // 聊天里发的文件：上传期间的卡片也是本地消息，接在同一个位置
+  const uploadMessages = useChatUploadMessages(conversationId, loadedIds);
   const messages = useMemo(() => {
     if (contextEdgeId === null) {
-      if (pendingEntries.length === 0) {
+      if (pendingEntries.length === 0 && uploadMessages.length === 0) {
         return loadedMessages;
       }
-      const loadedIds = new Set(loadedMessages.map((message) => message.id));
       const pending = pendingEntries.filter((entry) => entry.serverId === null || !loadedIds.has(entry.serverId)).map((entry) => entry.message);
+      if (uploadMessages.length > 0) {
+        pending.push(...uploadMessages);
+        // 两种本地消息按点发送的先后排（ISO 时间串直接比）
+        pending.sort((left, right) => (left.created_at ?? '').localeCompare(right.created_at ?? ''));
+      }
       return pending.length > 0 ? [...loadedMessages, ...pending] : loadedMessages;
     }
     // 边界消息还没进缓存（状态先于数据提交的那一帧）就先不过滤，免得列表闪空
@@ -197,7 +211,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
       return loadedMessages;
     }
     return loadedMessages.filter((message) => message.id <= contextEdgeId);
-  }, [contextEdgeId, loadedMessages, pendingEntries]);
+  }, [contextEdgeId, loadedIds, loadedMessages, pendingEntries, uploadMessages]);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const contextModeRef = useRef(false);
@@ -261,6 +275,20 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
   const [unreadJumping, setUnreadJumping] = useState(false);
   const unreadHintDoneRef = useRef(unreadHintDone);
   unreadHintDoneRef.current = unreadHintDone;
+
+  // 「有人@我」：进会话时的已读位置之后 @我 / @全体 的消息。已读位置取会话数据和本机标过的里更新的那个（前者不跟着本机标已读更新）
+  const [mentionBaselineId] = useState<number | null>(() => {
+    const marks = [unreadEntry.lastReadId, localReadMarkOf(conversationId)].filter((value): value is number => value !== null);
+    return marks.length > 0 ? Math.max(...marks) : null;
+  });
+  const mentions = useUnreadMentions({
+    conversationId,
+    currentUserId,
+    messages,
+    hasUnread: unreadEntry.count > 0 || Boolean(conversation.mention_pending),
+    baselineId: mentionBaselineId ?? (unreadEntry.knownId !== null ? unreadEntry.knownId - 1 : null)
+  });
+  const noteMentionsSeen = mentions.noteSeen;
 
   const rowMeta = useMemo(() => messages.map((message, position) => {
     const previous = messages[position - 1];
@@ -441,6 +469,10 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
       }
     });
     observer.observe(content);
+    // 列表本身变矮（输入框随内容长高）时也一样：贴底的话最后一条不能被输入框盖住
+    if (scrollerRef.current) {
+      observer.observe(scrollerRef.current);
+    }
     return () => observer.disconnect();
   }, [centerOn, pinToBottom]);
 
@@ -479,6 +511,98 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     return () => {
       rows.disconnect();
       visibility.disconnect();
+    };
+  }, []);
+
+  // 「看过了」：一行在视口里露出至少一半并停了 SEEN_DWELL_MS，就报给红包未领、有人@我 两个提示，看过的不再提醒。
+  // 窗口在后台（最小化、切走）时不算，回到前台再按当时还在视口里的行补算。
+  const handleRowsSeenRef = useRef<(ids: number[]) => void>(() => undefined);
+  handleRowsSeenRef.current = (ids: number[]) => {
+    noteMentionsSeen(ids);
+    const byId = new Map(messagesRef.current.map((message) => [message.id, message]));
+    const packets = ids.filter((id) => {
+      const message = byId.get(id);
+      return message !== undefined && isRedPacketMessage(message);
+    });
+    if (packets.length > 0) {
+      markRedPacketsSeen(packets);
+    }
+  };
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    const content = contentRef.current;
+    if (!scroller || !content || typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+    const shownRows = new Set<Element>();
+    const timers = new Map<Element, number>();
+    const idOf = (row: Element): number => Number(row.querySelector<HTMLElement>('[data-message-id]')?.dataset.messageId);
+    const arm = (row: Element): void => {
+      if (timers.has(row) || document.visibilityState !== 'visible') {
+        return;
+      }
+      timers.set(row, window.setTimeout(() => {
+        timers.delete(row);
+        const id = idOf(row);
+        if (shownRows.has(row) && row.isConnected && Number.isFinite(id) && id > 0) {
+          handleRowsSeenRef.current([id]);
+        }
+      }, SEEN_DWELL_MS));
+    };
+    const disarm = (row: Element): void => {
+      const timer = timers.get(row);
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+        timers.delete(row);
+      }
+    };
+    const seen = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        // 比视口还高的行（长消息）露出半个视口也算
+        const half = entry.intersectionRatio >= 0.5 || (entry.rootBounds !== null && entry.intersectionRect.height >= entry.rootBounds.height * 0.5);
+        if (entry.isIntersecting && half) {
+          shownRows.add(entry.target);
+          arm(entry.target);
+        } else {
+          shownRows.delete(entry.target);
+          disarm(entry.target);
+        }
+      }
+    }, { root: scroller, threshold: [0, 0.5, 1] });
+    const observeRows = (nodes: Iterable<Node>): void => {
+      for (const node of nodes) {
+        if (node instanceof HTMLElement) {
+          seen.observe(node);
+        }
+      }
+    };
+    observeRows(content.children);
+    const rows = new MutationObserver((records) => {
+      for (const record of records) {
+        observeRows(record.addedNodes);
+        record.removedNodes.forEach((node) => {
+          if (node instanceof HTMLElement) {
+            seen.unobserve(node);
+            shownRows.delete(node);
+            disarm(node);
+          }
+        });
+      }
+    });
+    rows.observe(content, { childList: true });
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'visible') {
+        shownRows.forEach(arm);
+      } else {
+        Array.from(timers.keys()).forEach(disarm);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      rows.disconnect();
+      seen.disconnect();
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
 
@@ -672,9 +796,10 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
 
   useEffect(() => {
     if (visibleConversationId === conversationId) {
-      markConversationReadLocally(queryClient, conversationId, newestLoadedId);
+      // 进会话时去问「已读位置之后有哪些 @我」的那个请求先落定，服务端再挪已读位置（本机的未读数照样立刻清）
+      markConversationReadLocally(queryClient, conversationId, newestLoadedId, { after: mentions.remoteGateRef.current });
     }
-  }, [conversationId, newestLoadedId, queryClient, visibleConversationId]);
+  }, [conversationId, mentions.remoteGateRef, newestLoadedId, queryClient, visibleConversationId]);
 
   // 被戳的人头像抖一下。聊天里的那行字是一条系统消息，走 message.created，不在这里处理
   useEffect(() => {
@@ -928,7 +1053,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
         </div>
       </div>
       <TypingIndicator conversationId={conversationId} />
-      {/* 右上角的浮动提示，上下排：「↑ N 条新消息」在上，「N 个红包未领」在下（都在滚动容器外面，不随消息滚动） */}
+      {/* 右上角的浮动提示，从上往下：「↑ N 条新消息」「有人@我」「N 个红包未领」（都在滚动容器外面，不随消息滚动） */}
       <div className="kcd-float-hints">
         {unreadEntry.count >= UNREAD_HINT_MIN ? (
           <button
@@ -944,6 +1069,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
             <span><b>{unreadEntry.count > 999 ? '999+' : unreadEntry.count}</b> 条新消息</span>
           </button>
         ) : null}
+        <MentionHint items={mentions.items} onJump={jumpToMessage} onSeen={noteMentionsSeen} />
         <RedPacketPendingHint conversationId={conversationId} onJump={jumpToMessage} />
       </div>
       <button type="button" className={cx('kcd-jump-latest', showJumpToLatest && 'is-visible', newCount > 0 && 'has-new')} onClick={scrollToLatest} tabIndex={showJumpToLatest ? 0 : -1} aria-hidden={!showJumpToLatest}>

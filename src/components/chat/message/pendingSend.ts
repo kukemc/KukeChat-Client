@@ -95,7 +95,7 @@ export function describeSendError(error: unknown): string {
 }
 
 /** 自己最近一条消息上的群名片、头衔、等级，给本地消息照抄一份，免得确认前后名字那一行变样 */
-function senderExtrasFrom(queryClient: QueryClient, conversationId: number, userId: number): Pick<Message, 'sender_display_name' | 'sender_title' | 'sender_level'> {
+export function senderExtrasFrom(queryClient: QueryClient, conversationId: number, userId: number): Pick<Message, 'sender_display_name' | 'sender_title' | 'sender_level'> {
   const pages = queryClient.getQueryData<MessagesInfiniteData>(['messages', conversationId])?.pages ?? [];
   for (const page of pages) {
     for (let index = page.length - 1; index >= 0; index -= 1) {
@@ -285,6 +285,11 @@ export function messageRowKey(message: Message): string | number {
   }
   const nonce = nonceByServerId.get(message.id);
   return nonce ? `n:${nonce}` : message.id;
+}
+
+/** 不走 enqueueSend 的本地行（聊天里的文件上传卡片）换成真消息时调用：真消息沿用本地那行的 key，原地更新。 */
+export function adoptServerMessage(serverId: number, nonce: string): void {
+  nonceByServerId.set(serverId, nonce);
 }
 
 /** 刚发出去的图：服务器地址对应的本地 object URL（有就优先用它显示）。 */

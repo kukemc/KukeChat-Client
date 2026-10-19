@@ -472,9 +472,25 @@
   padding: 26px 26px 22px;
 }
 
-.kcc-profile-head :is(.kc-avatar-tone, img.rounded-full) {
+/* 尺寸只给最外层（带档位角标 / 头像框的头像外面还有一层），里面的图铺满它，见 desktop-info.css 的 .kci-head */
+.kcc-profile-head :is(.kgp-avatar, .kcaf, .kc-avatar-tone, img.rounded-full):not(:is(.kgp-avatar, .kcaf) > *) {
   width: 72px;
   height: 72px;
+  flex: none;
+}
+
+.kcc-profile-head :is(.kgp-avatar, .kcaf) > .kc-avatar {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+.kcc-profile-head img.kc-avatar {
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.kcc-profile-head :is(.kc-avatar-tone, img.rounded-full) {
   font-size: calc(26px * var(--kui-fs));
 }
 

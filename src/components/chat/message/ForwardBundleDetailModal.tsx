@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
+import { useKukeStore } from '@/store/kukeStore';
 import type { Message } from '@/types/api';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
@@ -27,6 +28,11 @@ function MobileForwardBundleDetail({ message, onClose }: Omit<ForwardBundleDetai
   const bundle = parseForwardBundle(current);
   const [imageViewer, setImageViewer] = useState<ImageViewerState | null>(null);
   const openSnapshotImage = (images: string[], index: number): void => setImageViewer({ images, index });
+  // 机器人名片：先关掉整页转发详情，再推出机器人详情页（不压在本页下面）
+  const openBotFromCard = (botId: number): void => {
+    onClose();
+    useKukeStore.getState().openBot(botId);
+  };
   const goBack = (): void => {
     if (stack.length > 1) {
       setStack((items) => items.slice(0, -1));
@@ -70,7 +76,7 @@ function MobileForwardBundleDetail({ message, onClose }: Omit<ForwardBundleDetai
                         <span className="shrink-0">{formatMessageTime(snapshot.createdAt)}</span>
                       </div>
                       <div className="w-fit min-w-0 max-w-full overflow-hidden rounded-xl rounded-tl-sm px-3.5 py-2.5 shadow-none [background:var(--kc-bubble-in)] [color:var(--kc-text)]">
-                        <MessageView message={snapshotToMessage(snapshot, current.conversation_id, index)} depth={stack.length} variant="full" onOpenImages={openSnapshotImage} onOpenBundle={(nested) => setStack((items) => [...items, nested])} />
+                        <MessageView message={snapshotToMessage(snapshot, current.conversation_id, index)} depth={stack.length} variant="full" onOpenImages={openSnapshotImage} onOpenBundle={(nested) => setStack((items) => [...items, nested])} onOpenBot={openBotFromCard} />
                       </div>
                     </div>
                   </article>

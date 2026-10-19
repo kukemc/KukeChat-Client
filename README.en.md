@@ -4,18 +4,19 @@
 
 # KukeChat
 
-**A chat client that lives where the creating happens**
+**A chat client that lives inside the creator community**
 
-One React + TypeScript codebase, built as a Scratch / CCW community extension, a Windows desktop app, and an Android app.
+One React + TypeScript codebase that builds a Scratch / CCW community extension, a Windows desktop app and a mobile web app.
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![CI](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml/badge.svg)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
-[![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6.svg)](https://www.typescriptlang.org)
-[![Tauri](https://img.shields.io/badge/Tauri-2-ffc131.svg)](https://tauri.app)
-[![Capacitor](https://img.shields.io/badge/Capacitor-6-119eff.svg)](https://capacitorjs.com)
+[![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)](LICENSE)
+[![React](https://img.shields.io/badge/React-18.3-111111?style=flat-square&logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-111111?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tauri](https://img.shields.io/badge/Tauri-2-111111?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
+[![CI](https://img.shields.io/github/actions/workflow/status/kukemc/KukeChat-Client/ci.yml?branch=main&style=flat-square&label=CI&color=111111)](https://github.com/kukemc/KukeChat-Client/actions/workflows/ci.yml)
 
-**English** · [简体中文](README.md)
+[简体中文](README.md) · **English**
+
+[About](#about) · [Platforms](#platforms) · [Features](#features) · [Quick start](#quick-start) · [Configuration](#configuration) · [Building](#building) · [Related repositories](#related-repositories)
 
 </div>
 
@@ -23,237 +24,162 @@ One React + TypeScript codebase, built as a Scratch / CCW community extension, a
 
 ## About
 
-In block-based programming communities, creators are structurally **disconnected**.
+In visual programming communities, creators have always been scattered.
 
-Comment sections are asynchronous — a reply might come hours later. Community DMs feel more like email than conversation. Wanting to find a collaborator, wanting to ask "why won't this block fire," wanting to tell a friend "this is really good" the night they publish something — none of this can happen in the moment on Scratch or CCW. So everyone leaves for another chat app, builds a group there, and the community ends up as a place you can look at but not talk in.
+Project comments are asynchronous, with replies hours apart; community messages feel more like email than conversation. Finding someone to build a project with, asking "why won't this block run", telling a friend at midnight that their new project is great — none of this happens in real time on Scratch / CCW. So people set up group chats elsewhere: the creating stays in the community, the talking moves away.
 
-KukeChat exists to do one thing: **put real-time conversation back where the creating happens.**
+KukeChat sets out to do one simple thing: **bring real-time conversation back to where creation happens.**
 
-### Three commitments
+### Three principles
 
-**1. Chat should live on the creation page, not in another window.**
+**Chat lives on the creative page.** The first form is a community extension. Once loaded, it mounts a draggable, resizable, minimizable floating window on the current page via Shadow DOM. You snap blocks together in the editor while the chat floats beside you, and you never leave your project. Shadow DOM keeps its styles and the host page's styles from interfering with each other.
 
-KukeChat's primary form is a community extension. Once loaded, it mounts a draggable, resizable, minimizable floating window onto the current page using Shadow DOM — you're writing blocks in the editor and the chat floats right beside it. No tab switching, no leaving your project. Shadow DOM guarantees it won't leak styles into the host page, and the host page can't leak into it.
+**Chat wherever you create.** The extension in the community, the desktop app on your computer, an app on your phone. They share one set of business logic, state management and API layer, with only the shell swapped per platform. Change a feature once and every platform gets it.
 
-**2. Wherever you create, that's where you chat.**
-
-The same codebase builds three forms: the extension inside the community, a desktop client on your computer, an app on your phone. Not three projects drifting apart — one business layer, one state store, one API layer, with the shell swapped per platform. Change a feature once, all three get it.
-
-**3. Chat itself should be programmable.**
-
-This is a chat app for Scratchers, so it has to be drivable the Scratch way. The extension ships 30+ blocks: check login state, listen for new messages, recommend a group, recommend a friend — plus a full bot block set for connecting to the realtime feed, sending and receiving messages, posting images / voice / stickers, adding reactions, recalling messages, and updating buttons embedded in messages. You can build a group-moderation bot out of blocks, or call the [Bot API](docs/bot-api.md) from any language. **Users can extend it using what they already know** — that's the community spirit, encoded.
+**Chat itself is programmable.** This is a chat app for Scratchers, so it can be driven the Scratch way. The extension ships more than 40 blocks, from listening for new messages to full bot and group-moderation capabilities. If blocks aren't your thing, call the [Bot API](docs/bot-api.md) from any language. Letting users extend it with the skills they already have is what community spirit is about.
 
 ### Why open source
 
-Something built to serve a community shouldn't be a black box that only one person can see inside.
+Something that serves a community shouldn't be a black box only one person can see into. You can audit exactly what data the client sends and where, deploy the whole stack for your own community, or fork it into something entirely different.
 
-Open source means: you can audit exactly what the client sends and where; you can deploy the whole thing yourself for your own community; you can fork it into something completely different. The client contains **no hardcoded server address anywhere** — the backend URL must be injected by you at build time. That's a deliberate design decision, not an oversight.
+The client contains **no hard-coded server addresses**. You inject the backend address at build time — by design.
 
-Released under the [MIT License](LICENSE), so you can do nearly anything with it, commercial use included.
+> [!NOTE]
+> This repository contains only the client. The matching backend is [KukeChat-Server](https://github.com/kukemc/KukeChat-Server). You can also write your own backend that exposes the same REST + WebSocket interface; see [`docs/bot-api.md`](docs/bot-api.md), `src/api/` and `src/types/`.
 
-> **Note: this repository contains the client only**, and ships no server address. The matching backend is open source too: **[KukeChat-Server](https://github.com/kukemc/KukeChat-Server)** (FastAPI + WebSocket, deployable with Docker).
-> You can also implement your own backend exposing the same REST + WebSocket contract — see [`docs/bot-api.md`](docs/bot-api.md) along with `src/api/` and `src/types/`.
+## Platforms
 
----
+| Platform | Runs on | Built with | Output | Status |
+| --- | --- | --- | --- | --- |
+| Community extension | CCW / Gandi IDE in the browser | Vite library mode + Shadow DOM | `dist/KukeChat.js` | Stable |
+| Windows desktop | Windows | Tauri 2 (Rust + WebView2) | `.msi` / `-setup.exe` | Stable |
+| Mobile web (H5) | Mobile browsers | Standalone page with the mobile layout | `dist-mobile/` | Self-hosted |
+| Android | Android | Native app, Kotlin + Jetpack Compose | See [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Stable, separate repo |
+| macOS | macOS | Tauri 2 | `mac-beta` branch | Beta |
+| Linux | Linux desktop | Community-maintained | [kenins.l2.ink/kukechat](https://kenins.l2.ink/kukechat/) | Unofficial |
 
-## Three forms
+Official installers (Windows, Android) are on the [KukeChat download page](https://chat-api.kuke.ink/download).
 
-| Form | Runs on | Built with | Output |
-| --- | --- | --- | --- |
-| **Community extension** | CCW / Gandi IDE web page | Vite library mode + Shadow DOM | `dist/KukeChat.js` |
-| **Desktop** | Windows | Tauri 2 (Rust + WebView2) | `.msi` / `.exe` |
-| **Mobile** | Android 5.1+ | Capacitor 6 | `.apk` |
+The desktop app comes with a system tray, tray flashing on new messages, launch at startup, single-instance mode and a built-in updater.
 
-The desktop build adds a system tray, blinking message alerts, launch-on-startup, and a built-in updater. The mobile build adds local notifications, a background realtime connection, back-button handling, and APK self-update.
+The `android/` directory in this repo is the early Capacitor shell (frozen at 1.3.1 and no longer updated). The official Android app now lives in [KukeChat-Android](https://github.com/kukemc/KukeChat-Android).
 
 ## Features
 
-<table>
-<tr><td width="33%" valign="top">
-
-**Messaging**
-- Direct, group, and temporary conversations
-- Text, images, multi-image, voice, stickers
-- Quotes, @mentions, emoji reactions
-- Recall, forward, bookmark, feature
-- In-message button components (bots can update them live)
-- Built-in image viewer (zoom / pan / multi-image)
-- In-conversation search with context jump
-
-</td><td width="33%" valign="top">
-
-**Social**
-- Friend search, requests, nicknames
-- Group creation, profiles, announcements
-- Roles: owner / admin / member
-- Mute-all, slow mode, join approval
-- Member titles, levels, check-ins
-- Posts: publish, comment, like
-- Team-up hub: profiles, skill tags, portfolios
-
-</td><td width="33%" valign="top">
-
-**Extensibility**
-- 30+ Scratch blocks
-- Bots: key auth + WebSocket events
-- Task system: boards, groups, event cards
-- CCW account binding and project card parsing
-- Global search, invites, reporting
-- Announcements, notifications, presence
-- Reorderable feature entries on mobile
-
-</td></tr>
-</table>
+| Area | What's included |
+| --- | --- |
+| Messaging | Direct, group and temporary chats; text, images, multi-image, voice, stickers (animated included) and files; replies, @-mentions, reactions, recall; Markdown and in-message buttons (bots can update them live) |
+| Voice | Voice messages that turn into text with one tap |
+| Saving and forwarding | Favorites, featured group messages and merged forwards, each rendering every message type in full; merged forwards can be opened level by level |
+| Finding things | QQ-style chat history search (by category, date and sender, click to jump), global search, an "@ mentioned you" jump pill |
+| Interaction | Red packets (including voice red packets you claim by saying the passphrase), gifts and gift walls, polls, group to-dos |
+| Groups | Owner / admin / member roles, mute all, slow mode, join approval, announcements, group stickers, member titles and levels, check-ins |
+| Group upgrades | Pro / Pro+ / MAX tiers; group files with quotas, timed or permanent retention, upload progress, cancel and retry |
+| Social | Friend requests and remarks, posts (publish, comment, like), team-up center, task boards, intimacy, friend streaks, birthdays, profile likes, levels |
+| Personalization | Themes and wallpapers; avatar frames and chat bubbles from the shop |
+| Community and safety | CCW account binding and project cards, reporting, community jury (exams, deliberation, precedents) |
+| Client | Desktop notifications and tray alerts; auto-update with a real-time push when the backend publishes a release, with staggered checks across clients |
 
 ### Scratch blocks
 
-Window control, login state, unread count, new-message events, recommend-a-group / recommend-a-friend, plus the full bot block set:
+The extension provides more than 40 blocks in four groups:
 
-```
-set bot key [KEY]  →  connect bot realtime
-when bot receives message  conv=[] msg=[] sender=[] type=[] content=[]
-when bot is mentioned      conv=[] msg=[] sender=[] type=[] content=[]
-bot send message [MESSAGE] to conversation [GROUP_ID]
-bot send [image/sticker] URL [URL] to group [GROUP_ID]
-bot toggle reaction [EMOJI] on message [] in group []
-bot update button [] label [] variant [] disabled [] scope [] on message [] in conversation []
-```
+| Group | What it does |
+| --- | --- |
+| Basics | Window control, login state, unread count, new-message events, suggest joining a group / adding a friend |
+| Bots | Set a key and connect to real-time messages; trigger on messages or @-mentions; send text, images, stickers, voice and direct messages; react, recall and update message buttons |
+| Moderation | Look up members, mute / unmute, remove from group, review join requests (the bot must be an admin and follows the same permission rules as human admins) |
+| Game mode | Bring a group chat onto the project stage; after the player authorizes, send as the player; customize the chat box's look and position |
 
-Once the group owner promotes the bot to admin, the moderation blocks unlock too —
-they follow exactly the same rules as a human admin:
-
+```text
+Set bot key [KEY]  →  Connect bot realtime
+When bot is mentioned conversation=[] message=[] sender id=[] sender=[] type=[] content=[]
+Bot send message [MESSAGE] to conversation [GROUP_ID]
+Connect game chat to group [GROUP_ID]
 ```
-group [GROUP_ID] member [USER_ID] [level/role/is admin/muted/…]
-mute group [GROUP_ID] member [USER_ID] for [MINUTES] minutes   (0 = no expiry)
-unmute group [GROUP_ID] member [USER_ID]
-remove member [USER_ID] from group [GROUP_ID]
-group [GROUP_ID] pending join requests JSON
-[approve/reject] join request [REQUEST_ID] note [NOTE]
-```
-
-Game mode wires a group chat onto the project stage, so players can chat inside the game:
-
-```
-connect game chat to group [GROUP_ID]
-[show/hide/focus/collapse/expand] stage chat box
-ask player to authorize KukeChat account  →  send message as player [MESSAGE]
-set chat box [preset/corner/size/accent/radius/blur/custom CSS] to [VALUE]
-when game mode receives message  sender=[] sender id=[] content=[] is self=[]
-```
-
-Prefer not to use blocks? Call the REST + WebSocket API directly — see the [Bot API docs](docs/bot-api.md).
 
 ## Tech stack
 
-**Core**
-
-| | |
+| Layer | Choice |
 | --- | --- |
 | UI | React 18 + TypeScript 5.6 (strict mode) |
-| Build | Vite 5 (three configs, one per target) |
-| Styling | Tailwind CSS 3.4 + CSS-variable theming |
-| State | Zustand 5 (with persistence and per-platform strategies) |
-| Data | TanStack Query 5 (infinite scroll, optimistic updates) |
+| Build | Vite 5, one config per target |
+| Styling | Tailwind CSS 3.4 + CSS-variable themes |
+| State | Zustand 5 |
+| Data | TanStack Query 5 (infinite scrolling, optimistic updates) |
+| Real-time | Native WebSocket with reconnection and state sync |
+| Desktop | Tauri 2 + Rust: tray, single instance, notifications, autostart, updater |
 | Icons | lucide-react |
 
-**Platform layer**
-
-| | |
-| --- | --- |
-| Extension | Shadow DOM mount, single-file IIFE bundle, injects `window.tempExt` at runtime |
-| Desktop | Tauri 2 + Rust: tray, single instance, notifications, autostart, updater |
-| Mobile | Capacitor 6 + custom Android plugins (system bars, APK download & install) |
-| Realtime | Native WebSocket, 40+ event types, reconnection and state reconciliation |
-
-**Engineering**
-
-- Full TypeScript strict mode; `npm run typecheck` covers both app code and build scripts
-- Deployment config centralized in `src/config/`, validated at build time — missing values fail the build
-- GitHub Actions runs typecheck plus all three builds on every PR
-- Hardened Markdown renderer: no `dangerouslySetInnerHTML`, every node constructed from parsed tokens, URLs filtered through an http(s) allow-list
+The Markdown renderer never uses `dangerouslySetInnerHTML`: every node is built from parsed tokens, and only http(s) links are allowed.
 
 ## Architecture
 
-```
-                    ┌─────────────────────────────┐
-                    │  src/components   business UI│
-                    │  src/store        global state│
-                    │  src/api          API layer  │
-                    │  src/realtime     event feed │
-                    └──────────────┬──────────────┘
-                                   │  shared
-              ┌────────────────────┼────────────────────┐
-              │                    │                    │
-      ┌───────▼───────┐   ┌────────▼────────┐   ┌───────▼───────┐
-      │ extension/    │   │ desktop-app.tsx │   │ mobile-app.tsx│
-      │ Shadow DOM    │   │ Tauri window    │   │ Capacitor     │
-      │ + block defs  │   │ + tray/updater  │   │ + notif/bg    │
-      └───────────────┘   └─────────────────┘   └───────────────┘
-       vite.config.ts    vite.desktop.config   vite.mobile.config
-```
+Business UI (`src/components`), global state (`src/store`), the API layer (`src/api`) and real-time events (`src/realtime`) are shared by every target. Each target only has its own entry point and shell:
 
-Platform differences are confined to `src/native/` (native capability wrappers) and `src/utils/appMode.ts` (runtime environment detection), so business components generally don't need to know which shell they're running in. Layout mode (desktop / mobile) is decided centrally in `src/store/kukeStore.ts` and can be overridden by the user.
+| Target | Entry | Vite config | Output |
+| --- | --- | --- | --- |
+| Community extension | `src/extension/index.ts` | `vite.config.ts` | `dist/KukeChat.js` (single IIFE file) |
+| Desktop | `src/desktop-app.tsx` | `vite.desktop.config.ts` | `dist-desktop/`, packaged by Tauri |
+| Mobile web | `src/mobile-app.tsx` | `vite.mobile.config.ts` | `dist-mobile/` |
 
----
+Platform differences are confined to `src/native/` (native capability wrappers) and `src/utils/appMode.ts` (runtime detection), so business components don't care which shell they run in. All three configs share `vite.env.ts` for environment validation.
 
-## Getting started
+## Quick start
 
-### Requirements
-
-- Node.js 18+ and npm
-- For desktop: stable Rust toolchain + [Tauri 2 system dependencies](https://tauri.app/start/prerequisites/)
-- For Android: JDK 17 + Android SDK (on Windows, `scripts/build-android.ps1` can fetch the command-line tools automatically)
-
-### Install and configure
+You need Node.js 18+ (CI uses 20). The desktop app also needs stable Rust and the [Tauri 2 prerequisites](https://tauri.app/start/prerequisites/).
 
 ```bash
 git clone https://github.com/kukemc/KukeChat-Client.git
 cd KukeChat-Client
 npm install
-cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
+cp .env.example .env          # PowerShell: Copy-Item .env.example .env
 ```
 
-Edit `.env` and fill in at least these two:
+Fill in your backend in `.env`:
 
 ```env
 VITE_API_BASE_URL=https://chat.example.com
 VITE_WS_URL=wss://chat.example.com/ws
 ```
 
-**Without them the build will not run.** `vite.env.ts` validates required values across all three build configs and fails fast with a clear message, rather than producing a bundle that can't reach a backend.
-
-### Local preview
+Start the local preview:
 
 ```bash
 npm run dev
 ```
 
-The preview page mounts the chat window into an ordinary web page via Shadow DOM, behaving exactly as it does when triggered by a block inside CCW. In dev mode, requests are proxied to a local backend at `http://127.0.0.1:8000`.
+The preview page (`:5173`) mounts the chat window on a plain web page and behaves exactly as the extension does inside CCW. During development, `/api`, `/uploads` and `/ws` are proxied to a local backend at `http://127.0.0.1:8000` by default; set `KUKE_DEV_REMOTE=1` to proxy to the backend configured in `.env` instead.
+
+> [!IMPORTANT]
+> If a required variable is missing, `dev` and every `build` fail immediately with a hint, rather than producing a bundle that can't reach a backend.
 
 ## Configuration
 
-All deployment configuration lives in [`src/config/`](src/config/) and is injected by Vite from `.env` at build time:
+All deployment settings are injected from `.env` at build time; see [`.env.example`](.env.example) for the template.
 
 | Variable | Required | Description |
 | --- | :---: | --- |
-| `VITE_API_BASE_URL` | ✅ | Backend HTTP API root, without `/api/v1` |
-| `VITE_WS_URL` | ✅ | Realtime WebSocket endpoint |
+| `VITE_API_BASE_URL` | Yes | Backend HTTP API root, without `/api/v1` or a trailing slash |
+| `VITE_WS_URL` | Yes | Real-time WebSocket URL |
 | `VITE_SECURE_LOGIN_ORIGIN` | | Trusted origin for the secure-login popup's `postMessage`; defaults to the API origin |
-| `VITE_MOBILE_UPDATE_URL` | | Android update metadata URL; defaults to `<API>/desktop-update.json` |
-| `VITE_EXTENSION_ASSET_URL` | | Published extension file URL, shown in the bot onboarding dialog; hidden if unset |
-| `VITE_BOT_API_DOCS_URL` | | Bot API docs URL for the block palette's docs entry; hidden if unset |
+| `VITE_DESKTOP_UPDATE_URL` | | Fallback desktop update metadata URL; defaults to `<API>/desktop-update.json` |
+| `VITE_MOBILE_UPDATE_URL` | | Fallback mobile update metadata URL; defaults to `<API>/desktop-update.json` |
+| `VITE_EXTENSION_ASSET_URL` | | URL of the published extension file, shown in the bot setup guide; hidden if empty |
+| `VITE_BOT_API_DOCS_URL` | | Bot API docs URL for the block palette's docs link; hidden if empty |
+| `KUKECHAT_UPDATE_METADATA_URL` | | Overrides the desktop update metadata URL (read by Rust; runtime takes precedence over compile time), handy for local testing |
 
-Desktop auto-update reads `<VITE_API_BASE_URL>/desktop-update.json` by default (the PC version and installer URL from the admin "download settings"); set `VITE_DESKTOP_UPDATE_URL` to use another address. `KUKECHAT_UPDATE_METADATA_URL` (compile-time or runtime) still overrides it for local testing.
+When checking for updates, the client first asks the backend's `/api/v1/releases/latest` for the changelog, forced-update flag and sha256, and only falls back to the metadata URLs above if that endpoint is unavailable.
 
-The three config files have clear boundaries:
+Configuration code lives in `src/config/`:
 
 | File | Responsibility |
 | --- | --- |
-| `src/config/env.ts` | Deployment values, entirely from environment variables, no defaults |
-| `src/config/ccw.ts` | CCW community platform domains and link builders |
-| `src/config/branding.ts` | App name, extension ID, credits, sponsorship link |
+| `env.ts` | Deployment settings, all from environment variables, with no default server address |
+| `ccw.ts` | Public CCW platform domains and link builders |
+| `branding.ts` | App name, extension ID, credits and sponsor links |
 
-Forking into your own version? Editing `branding.ts` alone is enough to rebrand (MIT requires keeping the original copyright notice in `LICENSE`).
+To fork your own edition, editing `branding.ts` is enough to rebrand the whole app (MIT requires keeping the original copyright notice in `LICENSE`).
 
 ## Building
 
@@ -263,134 +189,93 @@ Forking into your own version? Editing `branding.ts` alone is enough to rebrand 
 npm run build
 ```
 
-Produces `dist/KukeChat.js`. Load it in the CCW / Gandi extension loader — it sets `window.tempExt`.
-
-> The community caches extensions, so after an update it's best to remove the old extension before loading the new file.
+The output is `dist/KukeChat.js`; load it with the CCW / Gandi extension loader. The community caches extensions, so remove the old one before loading an update.
 
 ### Windows desktop
 
 ```bash
-npm run tauri:dev      # development
-npm run tauri:build    # build installers
+npm run tauri:dev      # debug
+npm run tauri:build    # build the .msi and -setup.exe installers
 ```
 
-The desktop version number follows `version` in `package.json`. `npm run sync:desktop-version` propagates it to `src-tauri/tauri.conf.json`, `Cargo.toml`, and `Cargo.lock`; both `tauri:dev` and `tauri:build` run it automatically.
+The version comes from `version` in `package.json`. `tauri:dev` / `tauri:build` run `sync:desktop-version` first, which copies it into `src-tauri/tauri.conf.json`, `Cargo.toml` and `Cargo.lock`.
 
-### Android
+### Mobile web
 
 ```bash
-npm run android:sync   # build the mobile web bundle and sync into android/
-npm run android:apk    # Windows: one-shot APK build
+npm run build:mobile-web
 ```
 
-A signed release APK needs your own `keystore.properties` in `android/` (excluded via `.gitignore`):
+The output is in `dist-mobile/`; deploy it as a static site.
 
-```properties
-storeFile=your-release.keystore
-storePassword=...
-keyAlias=...
-keyPassword=...
-```
+### CI and releases
 
-Without it you'll only get an unsigned APK, and the build script will fail loudly.
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| [`ci.yml`](.github/workflows/ci.yml) | Push to `main`, pull requests | Type-checks and builds the extension, desktop web and mobile web bundles |
+| [`release.yml`](.github/workflows/release.yml) | Push a `v*` tag | Builds every target in parallel and collects them into a draft release to publish after review |
 
-> **Release note:** the mobile version number lives in two places that must stay in sync — `MOBILE_APP_VERSION` in `src/native/appUpdate.ts` and `versionName` / `versionCode` in `android/app/build.gradle`. The former is the baseline the client compares against when checking for updates.
+Release builds read backend addresses from repository variables (Settings → Secrets and variables → Actions → Variables), using the same names as the configuration table above; set your own after forking. `release.yml` still includes the APK job for the legacy Capacitor shell, which needs the `ANDROID_KEYSTORE_*` set of signing secrets.
 
 ## Project structure
 
 ```text
 src/
-  api/          REST wrappers, split by domain
-  app/          app shell, window management, panel routing
-  components/   business UI, organized by domain
-  config/       deployment config, CCW constants, branding
-  extension/    community extension entry, block definitions, bridge, self-update
-  mobile/       mobile feature toggles and ordering
-  native/       Capacitor / Tauri native capability wrappers
-  realtime/     WebSocket client and event dispatch
-  store/        Zustand global state
-  styles/       Tailwind and Shadow DOM style injection
-  types/        API and realtime event types
-  utils/        shared utilities
-android/        Capacitor Android project (with custom native plugins)
-src-tauri/      Tauri desktop project (Rust)
-docs/           Bot API documentation
-scripts/        version sync and Android build scripts
+  api/            REST wrappers, split by domain
+  app/            App shell, window management, panel switching
+  components/     Business UI, grouped by feature
+  config/         Deployment config, CCW constants, branding
+  extension/      Extension entry, block definitions, game mode, self-update
+  native/         Tauri / mobile native capability wrappers
+  realtime/       WebSocket client and event dispatch
+  store/          Zustand global state
+  styles/         Tailwind and Shadow DOM style injection
+  theme/          Themes and wallpapers
+  types/          API and real-time event types
+  utils/          Shared utilities
+src-tauri/        Tauri desktop app (Rust)
+android/          Early Capacitor shell (no longer updated)
+dev/              Component preview pages and mock APIs
+docs/             Bot API, CCW runtime API, per-version release notes
+scripts/          Version sync, packaging and test scripts
 ```
 
-## Common commands
+## Scripts
 
 | Command | Description |
 | --- | --- |
-| `npm run dev` | Local extension preview |
-| `npm run typecheck` | Type-check app code and build scripts |
-| `npm run build` | Build the community extension |
+| `npm run dev` | Local extension preview (`:5173`) |
+| `npm run dev:desktop` | Desktop web dev server (`:1420`) |
+| `npm run typecheck` | Type-check the app and build scripts |
+| `npm run build` | Type-check, then build the community extension |
 | `npm run build:desktop-web` | Build the desktop web bundle |
 | `npm run build:mobile-web` | Build the mobile web bundle |
-| `npm run tauri:dev` / `tauri:build` | Desktop development / packaging |
-| `npm run android:sync` / `android:apk` | Mobile sync / packaging |
+| `npm run preview` | Preview the build output |
+| `npm run tauri:dev` | Debug the desktop app |
+| `npm run tauri:build` | Package the desktop app |
+| `npm run sync:desktop-version` | Sync the `package.json` version into the Tauri config |
+| `npm run android:sync` / `android:apk` | Sync and package the legacy Capacitor shell |
 
-## Releasing
+## Related repositories
 
-Push a `v*` tag to trigger [`release.yml`](.github/workflows/release.yml): all three targets build
-in parallel and the artifacts are collected into a **draft** release for you to review and publish.
-
-```bash
-npm version 1.2.2 --no-git-tag-version
-git commit -am "chore: release 1.2.2" && git push
-git tag v1.2.2 && git push origin v1.2.2
-```
-
-Produces the community extension `KukeChat-<version>.js`, Windows `.msi` / `-setup.exe`,
-and `KukeChat-<version>.apk`.
-
-### Build configuration
-
-The backend the release artifacts point at comes from **repository variables**
-(Settings → Secrets and variables → Actions → Variables), not from source, so forks can
-target their own deployment:
-
-| Variable | Required | Purpose |
-| --- | :---: | --- |
-| `VITE_API_BASE_URL` | ✅ | Backend API root |
-| `VITE_WS_URL` | ✅ | Realtime WebSocket endpoint |
-| `VITE_MOBILE_UPDATE_URL` | | Android update metadata |
-| `VITE_EXTENSION_ASSET_URL` | | Published extension file URL |
-| `VITE_BOT_API_DOCS_URL` | | Bot API docs URL |
-| `KUKECHAT_UPDATE_METADATA_URL` | | Optional override for the desktop update endpoint (compile time or runtime) |
-
-Missing a required one fails the workflow at its first step with an explanation.
-
-### Android signing
-
-APKs must be signed with a **stable** key. An APK signed with a different key cannot be
-installed over an existing one — Android refuses the upgrade, and the in-app updater breaks
-along with it. Always use the same keystore.
-
-Store your keystore as repository secrets:
-
-```bash
-# base64-encode the keystore (Windows PowerShell)
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore")) | Set-Clipboard
-
-gh secret set ANDROID_KEYSTORE_BASE64     # paste the base64 from above
-gh secret set ANDROID_KEYSTORE_PASSWORD
-gh secret set ANDROID_KEY_ALIAS
-gh secret set ANDROID_KEY_PASSWORD
-```
-
-The workflow writes a temporary `android/keystore.properties` from these values, deletes the key
-material as soon as the build finishes, and verifies the output is actually signed (it fails
-rather than shipping an `app-release-unsigned.apk` nobody can install).
+| Repository | Description |
+| --- | --- |
+| [KukeChat-Client](https://github.com/kukemc/KukeChat-Client) | This repo: community extension, Windows desktop, mobile web |
+| [KukeChat-Server](https://github.com/kukemc/KukeChat-Server) | Backend: REST API, WebSocket and data models |
+| [KukeChat-Android](https://github.com/kukemc/KukeChat-Android) | Native Android app, Kotlin + Jetpack Compose |
 
 ## Contributing
 
-Issues and pull requests are welcome. Please make sure `npm run typecheck` and `npm run build` both pass before submitting — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests are welcome. Please make sure `npm run typecheck` and `npm run build` pass before submitting; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-One hard rule: **never hardcode a server domain in business code.** Any new deployment-related URL goes through `src/config/env.ts` and `.env.example`.
+One hard rule: never hard-code a server domain in business code. Any new deployment address goes through `src/config/env.ts` and `.env.example`.
 
 ## License
 
-[MIT](LICENSE) © kukemc
+Released under the [MIT](LICENSE) License.
 
-If this project helped you, a Star is appreciated.
+---
+
+<div align="center">
+<sub>MIT © 2026 kukemc</sub>
+</div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useKukeStore } from '@/store/kukeStore';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import type { CSSProperties } from 'react';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
@@ -125,6 +126,7 @@ function MobileUserCard({ user, anchor, containerRef, label, action, onClose }: 
             </button>
           ) : null}
           {user && !isBot ? <button type="button" onClick={() => { openUserSpace(user.id); onClose(); }} className="mt-3 w-full rounded-2xl px-3 py-2 text-sm font-semibold transition [background:var(--kc-panel-muted)] [color:var(--kc-text)] hover:[background:var(--kc-hover)]">进入个人主页</button> : null}
+          {user && isBot ? <button type="button" onClick={() => { openBotForUser(user.id); onClose(); }} className="mt-3 w-full rounded-2xl px-3 py-2 text-sm font-semibold transition [background:var(--kc-panel-muted)] [color:var(--kc-text)] hover:[background:var(--kc-hover)]">查看机器人</button> : null}
           {/* 从资料卡送礼物不落聊天消息。礼物功能关着、是自己时不出现 */}
           <SendGiftButton user={user} className="kgf-send--block mt-2" onOpen={onClose}>{isBirthdayToday(user) ? <><GiftGlyph icon="gift" size={16} />送生日礼物</> : undefined}</SendGiftButton>
           {user && !isBot && action ? (

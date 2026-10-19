@@ -6,6 +6,7 @@ import { isRedPacketMessage } from '@/utils/redPacket';
 import { groupFileMetaOf } from '@/api/groupPlus';
 import { clampOverlayPosition } from '../message/chatDom';
 import { QUICK_REACTION_EMOJIS } from '../message/constants';
+import { canTranscribeVoice, toggleVoiceTranscript, voiceTranscriptOf } from '../message/voiceTranscripts';
 import { ReactionPickerPanel } from './reactions/ReactionPickerPanel';
 import { readRecentReactions, rememberReaction } from './reactions/reactionRecent';
 
@@ -76,6 +77,8 @@ export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, o
         ) : null}
         {message.type !== 'image' ? <ContextMenuItem label="复制" icon="copy" disabled={recalled} onClick={run(() => onCopy(message))} /> : null}
         {menu.clickedImageUrl ? <ContextMenuItem label="添加到表情" icon="heart" disabled={recalled} onClick={run(() => onFavoriteImage(menu.clickedImageUrl ?? ''))} /> : null}
+        {/* 语音转文字：字挂在气泡下面；已经展开着就是「收起文字」 */}
+        {canTranscribeVoice(message) ? <ContextMenuItem label={voiceTranscriptOf(message).open ? '收起文字' : '转文字'} icon="fileText" onClick={run(() => toggleVoiceTranscript(message))} /> : null}
         {system ? null : <ContextMenuItem label="引用" icon="quote" disabled={recalled} onClick={run(() => onQuote(message))} />}
         {notForwardable ? null : <ContextMenuItem label="转发" icon="send" disabled={recalled} onClick={run(() => onForward(message))} />}
         {notForwardable ? null : <ContextMenuItem label="多选" icon="checkSquare" disabled={recalled} onClick={run(() => onMultiSelect(message))} />}

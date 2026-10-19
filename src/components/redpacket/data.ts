@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
 import { ApiError, NetworkError } from '@/api/client';
+import { uploadMessageVoice } from '@/api/messages';
 import { claimRedPacket, getMyRedPackets, getPendingRedPackets, getRedPacket, getRedPacketConfig, sendRedPacket } from '@/api/redPackets';
 import { applyShopPatch, isShopUnavailable, shopErrorCode, shopErrorDetail, shopKeys } from '@/components/shop/data';
 import { formatCoins } from '@/components/shop/labels';
@@ -7,7 +8,7 @@ import { upsertMessageIntoFirstPage, type MessagesInfiniteData } from '@/realtim
 import { useModerationStore } from '@/store/moderationStore';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation, Message } from '@/types/api';
-import type { ClaimRedPacketResult, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketConfig, RedPacketDirection, RedPacketFeature, RedPacketId, RedPacketRecordPage, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
+import type { ClaimRedPacketResult, ClaimRedPacketVoice, PendingRedPacket, RedPacket, RedPacketBalance, RedPacketConfig, RedPacketDirection, RedPacketFeature, RedPacketId, RedPacketRecordPage, SendRedPacketPayload, SendRedPacketResult } from '@/types/redPacket';
 import type { ShopOverview } from '@/types/shop';
 import { normalizeRedPacketUpdate } from '@/api/redPackets';
 import { applyLatestMessageToConversations } from '@/utils/conversations';
@@ -92,7 +93,7 @@ export function useRedPacketEnabled(enabled = true): boolean {
 /** 服务端支持哪些新玩法（接龙、专属）。旧服务端的 config 里没有 features，两样都是 false，发红包界面上不出现新选项。 */
 export function useRedPacketFeatures(enabled = true): Record<RedPacketFeature, boolean> {
   const features = useRedPacketConfig(enabled).data?.features ?? [];
-  return { chain: features.includes('chain'), exclusive: features.includes('exclusive') };
+  return { chain: features.includes('chain'), exclusive: features.includes('exclusive'), voice: features.includes('voice') };
 }
 
 /** 红包记录的入口要不要出现：服务端有红包接口就出现，哪怕现在关着（以前发的、抢的还在）。 */
@@ -379,16 +380,38 @@ export function useSendRedPacket(): UseMutationResult<SendRedPacketResult, Error
   });
 }
 
+/** 领语音红包时现场录下的那段：和发语音消息时录出来的是同一种东西（useVoiceRecorder 的产物） */
+export interface RedPacketClaimRecording {
+  file: File;
+  durationMs: number;
+  waveform: number[];
+}
+
+export interface ClaimRedPacketVariables {
+  id: RedPacketId;
+  /** 语音红包才有：先传到 /uploads/message-voice，再带着 url 去领 */
+  voice?: RedPacketClaimRecording;
+}
+
+/** 录音上传之后交给 claim 的那份：url + 和平时语音消息 metadata.voice 一样的字段 */
+async function uploadClaimVoice(recording: RedPacketClaimRecording): Promise<ClaimRedPacketVoice> {
+  const uploaded = await uploadMessageVoice(recording.file);
+  return {
+    voice_url: uploaded.url,
+    voice_metadata: { duration_ms: recording.durationMs, content_type: uploaded.content_type ?? recording.file.type, size: recording.file.size, waveform: recording.waveform }
+  };
+}
+
 /**
  * 抢红包。成功：红包状态和余额都换成回包里的。失败的那几种（抢完、过期、领过了）由弹层重取状态后各自给结果页。
  * 接龙红包领到时，服务端以我的身份发了一条消息（回包里的 message）：和发普通消息一样直接写进缓存；
  * 同一条随后还会从 message.created 推过来，写缓存是按 id 合并的，不会出现两条。
  */
-export function useClaimRedPacket(): UseMutationResult<ClaimRedPacketResult, Error, RedPacketId> {
+export function useClaimRedPacket(): UseMutationResult<ClaimRedPacketResult, Error, ClaimRedPacketVariables> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: RedPacketId) => claimRedPacket(id),
-    onSuccess: (result, id) => {
+    mutationFn: async ({ id, voice }: ClaimRedPacketVariables) => claimRedPacket(id, voice ? await uploadClaimVoice(voice) : undefined),
+    onSuccess: (result, { id }) => {
       if (result.red_packet) {
         storeRedPacket(queryClient, result.red_packet);
       } else {
@@ -407,7 +430,7 @@ export function useClaimRedPacket(): UseMutationResult<ClaimRedPacketResult, Err
         queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => applyLatestMessageToConversations(current, message, { visibleConversationId: message.conversation_id }));
       }
     },
-    onError: (error, id) => {
+    onError: (error, { id }) => {
       const code = redPacketErrorCode(error);
       // 平台禁言带 muted_until；接龙红包在群里被禁言是另一个码（muted_in_group），不动平台的禁言状态
       if (code === 'muted') {
@@ -485,6 +508,9 @@ export function describeSendError(error: unknown): RedPacketFailure {
     case 'chain_text_rejected':
       // 有换行、超过 30 字、没通过审核都是这个码；是哪一种服务端的 message 里写了
       return { code, message: serverMessage(error) ?? '接龙口令没有通过审核，换一句试试。这次没有扣币。' };
+    case 'voice_text_rejected':
+      // 格式不对、和接龙一起开了、没通过审核：服务端的 message 里写了是哪一种
+      return { code, message: serverMessage(error) ?? '语音口令没有通过审核，换一句试试。这次没有扣币。' };
     case 'invalid_target':
       return { code, message: invalidTargetText(detail.reason) };
     case 'greeting_rejected':
@@ -536,8 +562,26 @@ export function describeClaimError(error: unknown): RedPacketFailure {
     case 'not_target':
       return { code, message: '这是给别人的专属红包，你领不了。' };
     case 'muted_in_group':
-      return { code, message: '这是接龙红包，领了要在群里发言。你在这个群里被禁言了（或者群开了全员禁言），暂时领不了。' };
+      return { code, message: '领这个红包要在群里发言（接龙口令或者语音）。你在这个群里被禁言了（或者群开了全员禁言），暂时领不了。' };
+    case 'voice_required':
+      return { code, message: '这是语音红包，要按住按钮说出口令才能领。' };
+    case 'voice_mismatch':
+      return { code, message: serverMessage(error) ?? '没听清，再说一次' };
+    case 'voice_attempts_exhausted':
+      return { code, message: '这个红包的尝试次数用完了，领不了了。' };
+    case 'voice_too_long':
+      return { code, message: '录得太长了，口令要在 15 秒以内说完。' };
+    case 'voice_unavailable':
+      return { code, message: '语音识别暂时用不了，稍后再试。' };
     default:
       return { code, message: fallbackText(error, '没有领到，稍后再试。') };
   }
+}
+
+/** 语音红包没念对（voice_mismatch）时服务端听到的那句话、还剩几次；读不出来的项是 null。 */
+export function voiceMismatchOf(error: unknown): { recognized: string | null; attemptsLeft: number | null } {
+  const detail = shopErrorDetail(error);
+  const recognized = typeof detail.recognized === 'string' && detail.recognized.trim() ? detail.recognized.trim() : null;
+  const attemptsLeft = typeof detail.attempts_left === 'number' && Number.isFinite(detail.attempts_left) ? Math.max(0, Math.floor(detail.attempts_left)) : null;
+  return { recognized, attemptsLeft };
 }

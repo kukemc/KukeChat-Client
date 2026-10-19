@@ -11,10 +11,12 @@ import { handleLevelEvent } from '@/components/level/data';
 import { handleProfileLikeEvent } from '@/components/likes/data';
 import { handleGiftEvent, refreshGiftsAfterReconnect } from '@/components/gifts/data';
 import { handleIntimacyEvent, refreshIntimacyAfterReconnect } from '@/components/intimacy/data';
+import { handleSparkEvent, refreshSparksAfterReconnect } from '@/components/spark/data';
 import { noteGiftArrival } from '@/components/gifts/ui';
 import { handleRedPacketEvent, noteRedPacketMessage, refreshRedPacketsAfterReconnect } from '@/components/redpacket/data';
 import { handleShopEvent } from '@/components/shop/data';
 import { groupPlusKeys, handleGroupPlusEvent, refreshGroupPlusAfterReconnect } from '@/components/groupPlus/data';
+import { handleGroupAnnouncementEvent } from '@/components/groupAnnouncement/data';
 import { useModerationStore } from '@/store/moderationStore';
 import { messageMentionKind } from '@/utils/mentions';
 import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead, UnifiedNotificationList } from '@/types/api';
@@ -172,6 +174,7 @@ export function useRealtime(enabled: boolean): void {
       refreshRedPacketsAfterReconnect(queryClient);
       refreshGiftsAfterReconnect(queryClient);
       refreshIntimacyAfterReconnect(queryClient);
+      refreshSparksAfterReconnect(queryClient);
       refreshGroupPlusAfterReconnect(queryClient);
     };
 
@@ -590,6 +593,11 @@ export function useRealtime(enabled: boolean): void {
         if (event.rawType === 'group.plus.updated' || event.rawType === 'group.todo.updated' || event.rawType === 'group.file.updated' || event.rawType === 'group.file.folders.changed') {
           handleGroupPlusEvent(queryClient, event.rawType, event.data);
         }
+        // 群公告 v2（KukeChat-Server/docs/group-announcements.md 第 6 节）：详情、聊天卡片的删除态、进群弹窗、确认人数。
+        // 缓存怎么跟上写在 components/groupAnnouncement/data.ts（列表的整表失效在上面）
+        if (event.rawType.startsWith('group.announcement.')) {
+          handleGroupAnnouncementEvent(queryClient, event.rawType, event.data);
+        }
         // 账号等级（docs/account-level.md 第 4 节）：我升级了。缓存怎么跟上写在 components/level/data.ts
         if (event.rawType === 'account.level.up') {
           handleLevelEvent(queryClient, event.rawType, event.data);
@@ -610,6 +618,10 @@ export function useRealtime(enabled: boolean): void {
         // 缓存怎么跟上写在 components/intimacy/data.ts，提示由 IntimacyToasts 出
         if (event.rawType.startsWith('intimacy.') || event.rawType === 'friendship.deleted' || event.rawType === 'friend_request.accepted') {
           handleIntimacyEvent(queryClient, event.rawType, event.data);
+        }
+        // 好友火花（KukeChat-Server/docs/sparks.md 第 4 节）：续上、升级、熄灭、重燃。缓存怎么跟上写在 components/spark/data.ts
+        if (event.rawType === 'spark.updated') {
+          handleSparkEvent(queryClient, event.data);
         }
 
         emitRealtimeEvent(event);

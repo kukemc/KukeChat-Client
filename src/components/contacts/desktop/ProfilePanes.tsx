@@ -1,6 +1,7 @@
 import { BirthdayToday, useBirthdayFact } from '@/components/birthday/BirthdayBits';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { FriendIntimacyCard } from '@/components/intimacy/FriendIntimacyCard';
+import { FriendSparkRow } from '@/components/spark/FriendSparkRow';
 import { SendGiftButton } from '@/components/gifts/GiftEntry';
 import { UserLevelCard } from '@/components/level/UserLevelCard';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
@@ -52,6 +53,7 @@ export function FriendProfile({ friendship, chatPending, deletePending, onStartC
             <UserLevelCard user={user} charm className="klv-user--profile" />
             {/* 我和 TA 的友谊（docs/intimacy.md）：等级、亲密度、徽章数，点开「我们的友谊」 */}
             <FriendIntimacyCard userId={user.id} className="kit-row--profile" />
+            <FriendSparkRow userId={user.id} className="ksk-row--profile" />
             <p className={bio ? 'kcc-profile-bio' : 'kcc-profile-bio is-empty'}>{bio || '这个人很神秘，还没有简介'}</p>
             <div className="kcc-profile-actions">
               <button type="button" className="kui-btn kui-btn--primary" disabled={chatPending} onClick={() => onStartChat(user.id)}>发消息</button>

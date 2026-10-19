@@ -8,7 +8,7 @@ import { registerNativeBackHandler } from '@/native/back';
 import { FavoritesDesktop } from './desktop/FavoritesDesktop';
 import { formatMessageTime, messageSenderLabel } from './messageMeta';
 import { ConversationAvatar } from './messageText';
-import { MessageView } from './MessageView';
+import { MessageView, type MessageViewNavigation } from './MessageView';
 import { FAVORITE_FILTERS, useFavorites } from './useFavorites';
 
 
@@ -70,6 +70,13 @@ function FavoritesMobile({ conversations, currentUser, items, isLoading, error, 
   });
 
   useEffect(() => () => clearFavoriteLongPress(), []);
+
+  // 卡片要换掉整个主界面（组队、进群聊）时，先退出收藏这一页，免得结果被压在下面；帖子、主页、机器人是叠在上面的新页面，不用退
+  const navigateFromFavorite = (kind: MessageViewNavigation): void => {
+    if (kind === 'view') {
+      onMobileBack?.();
+    }
+  };
 
   useEffect(() => {
     if (!imageViewer) {
@@ -149,6 +156,13 @@ function FavoritesMobile({ conversations, currentUser, items, isLoading, error, 
                   onPointerUp={finishFavoritePress}
                   onPointerCancel={finishFavoritePress}
                   onPointerLeave={finishFavoritePress}
+                  // 长按弹出了操作面板：松手那一下的点击不算点到里面的卡片（不下载、不播放、不打开转发）
+                  onClickCapture={(event) => {
+                    if (favoriteLongPressTriggered.current) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }
+                  }}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     openFavoriteAction(item);
@@ -161,7 +175,7 @@ function FavoritesMobile({ conversations, currentUser, items, isLoading, error, 
                       <span className="shrink-0 text-[11px] font-semibold text-[#b0b6c0]">{formatMessageTime(item.message.created_at)}</span>
                     </div>
                     <p className="mt-1 truncate text-[12px] font-semibold text-[#8b95a5]">{messageSenderLabel(item.message)}</p>
-                    <div className="mt-2 line-clamp-2 text-[13px] leading-5 text-[#526070]"><MessageView message={item.message} variant="compact" conversationId={item.conversation_id} onOpenImages={openImage} onOpenBundle={onOpenForwardBundle} /></div>
+                    <div className="mt-2 min-w-0 text-[13px] leading-5"><MessageView message={item.message} variant="compact" conversationId={item.conversation_id} onOpenImages={openImage} onOpenBundle={onOpenForwardBundle} onNavigate={navigateFromFavorite} /></div>
                   </div>
                 </article>
               );

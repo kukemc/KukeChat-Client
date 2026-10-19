@@ -453,6 +453,8 @@ export interface Message {
   reactions?: MessageReactionSummary[];
   sender_display_name?: string | null;
   conversation?: Conversation | null;
+  /** 语音消息转出来的文字（服务端转过就带上）；没转过、旧后端都是 null / 没有 */
+  voice_transcript?: string | null;
 }
 
 export interface MessageSearchResult {
@@ -747,7 +749,8 @@ export interface HomeData {
 }
 
 export interface AccountSuspension {
-  code: 'account_suspended';
+  /** account_suspended：账号被封；device_banned：这台设备被限制（换号也登不上），期限读 banned_until（服务端的 expires_at） */
+  code: 'account_suspended' | 'device_banned';
   reason?: string | null;
   banned_until?: string | null;
   permanent: boolean;
@@ -919,17 +922,6 @@ export interface GroupLeaderboard {
   period: GroupLeaderboardPeriod;
   items: GroupLeaderboardItem[];
   my_rank?: GroupLeaderboardItem | null;
-}
-
-export interface GroupAnnouncement {
-  id: number;
-  conversation_id: number;
-  author_id: number | null;
-  author?: User | null;
-  content: string;
-  pinned: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
@@ -1135,6 +1127,8 @@ export interface Conversation {
   level_titles_enabled?: boolean;
   /** 生效的等级头衔分档，按 min_level 升序；群没自定义时是服务端的默认分档 */
   level_titles?: LevelTitleTier[];
+  /** 群里显不显示「正在输入」：auto 只在 200 人以下的群显示；on 大群也显示；off 不显示。由群主/管理员设置，服务端据此决定推不推；旧后端没有这个字段，按 auto */
+  typing_indicator?: TypingIndicatorMode;
   joined?: boolean;
   /** 群升级的有效档位（记录的档位已过期就是 free）。私聊恒为 free；旧后端没有这个字段，按 free */
   plus_tier?: import('./groupPlus').GroupPlusTier;
@@ -1146,6 +1140,8 @@ export interface Conversation {
   file_default_ttl_hours?: number;
   /** 群待办；没有为 null。旧后端没有这个字段，按 null */
   group_todo?: import('./groupPlus').GroupTodo | null;
+  /** 好友火花（KukeChat-Server/docs/sparks.md）：好友私聊才有，没有可画的为 null。旧后端没有这个字段 */
+  spark?: import('./spark').Spark | null;
 }
 
 export interface Bot {
@@ -1347,16 +1343,6 @@ export interface CreateDirectPayload {
   temporary?: boolean;
 }
 
-export interface CreateGroupAnnouncementPayload {
-  content: string;
-  pinned?: boolean;
-}
-
-export interface UpdateGroupAnnouncementPayload {
-  content: string;
-  pinned?: boolean;
-}
-
 export interface UpdateConversationProfilePayload {
   title?: string;
   avatar_url?: string;
@@ -1378,7 +1364,11 @@ export interface UpdateGroupSettingsPayload {
   level_titles?: LevelTitleTier[];
   /** 群文件默认保留时长（小时），只能是 24 / 168 / 720，只影响之后上传的文件 */
   file_default_ttl_hours?: number;
+  typing_indicator?: TypingIndicatorMode;
 }
+
+/** 群的「正在输入」提示：auto 按人数（200 人以下显示），on 总是显示，off 不显示。 */
+export type TypingIndicatorMode = 'auto' | 'on' | 'off';
 
 export interface UpdateMyConversationSettingsPayload {
   nickname?: string;

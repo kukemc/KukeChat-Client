@@ -23,6 +23,7 @@ import { NavRail } from '@/components/shell/NavRail';
 import { MessagePanel } from './MessagePanel';
 import { DesktopChatPanel } from './desktop/DesktopChatPanel';
 import { GroupPlusHosts } from '@/components/groupPlus/GroupPlusHosts';
+import { GroupAnnouncementHost } from '@/components/groupAnnouncement/GroupAnnouncementHost';
 import { FavoritesPanel } from './message/FavoritesPanel';
 import { ForwardBundleDetailModal } from './message/ForwardBundleDetailModal';
 import { ContactsPanel } from '@/components/contacts/ContactsPanel';
@@ -48,6 +49,7 @@ import { MobileShopPage } from '@/components/shop/mobile/MobileShopPage';
 import { GiftEffectsHost, GiftSendHost } from '@/components/gifts/GiftHosts';
 import { GiftToasts } from '@/components/gifts/GiftToasts';
 import { IntimacyHost } from '@/components/intimacy/IntimacyDialog';
+import { SparkHost } from '@/components/spark/SparkDialog';
 import { IntimacyToasts } from '@/components/intimacy/IntimacyToasts';
 import { ShopGrantToasts } from '@/components/shop/ShopGrantToasts';
 import { LevelUpToasts } from '@/components/level/LevelUpToasts';
@@ -1645,12 +1647,14 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
       <ShopGrantToasts />
       <GiftSendHost />
       <GroupPlusHosts />
+      <GroupAnnouncementHost />
       <GiftEffectsHost />
       <BirthdayCelebration user={currentUser} />
       <LevelUpToasts />
       {/* 好友成就解锁、友谊升级的提示，和「我们的友谊」弹层（谁要看就 openIntimacy） */}
       <IntimacyToasts />
       <IntimacyHost />
+      <SparkHost />
       <ProfileLikeToasts />
       <LevelHoverCard />
     </div>

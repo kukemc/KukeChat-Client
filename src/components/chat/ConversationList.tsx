@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { conversationSpark } from '@/components/spark/data';
+import { SparkMark } from '@/components/spark/SparkMark';
 import { VirtualConversationList } from './VirtualConversationList';
 import { conversationTitle, currentMessageSetting, isConversationPinned, lastMessagePreview, matchesConversation, messageSettingLabel, messageSettingPayload } from './conversationMeta';
 import { createPortal } from 'react-dom';
@@ -174,7 +176,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, currentUse
       </span>
       <span className="min-w-0 flex-1 overflow-hidden">
         <span className="flex min-w-0 items-start justify-between gap-3">
-          <span className="kgp-name-row flex min-w-0 flex-1 items-center gap-[5px] text-[15px] font-semibold text-[#151922]"><span className="min-w-0 truncate">{title}</span><PlusTierTag tier={conversationTier(conversation)} />{conversation.type === 'direct' ? <FriendBadgeMark userId={peer?.id} size={15} className="shrink-0" /> : null}</span>
+          <span className="kgp-name-row flex min-w-0 flex-1 items-center gap-[5px] text-[15px] font-semibold text-[#151922]"><span className="min-w-0 truncate">{title}</span><PlusTierTag tier={conversationTier(conversation)} />{conversation.type === 'direct' ? <><FriendBadgeMark userId={peer?.id} size={15} className="shrink-0" /><SparkMark spark={conversationSpark(conversation)} friendId={peer?.id} size={14} className="shrink-0" /></> : null}</span>
           <span className="shrink-0 pt-0.5 text-[11px] font-medium text-[#b0b6c0]">{formatClockTime(conversation.updated_at)}</span>
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden">

@@ -36,7 +36,8 @@ import { subscribeRealtimeEvents } from '@/realtime/events';
 import { useKukeStore } from '@/store/kukeStore';
 import { ThemeEffects } from '@/theme/ThemeEffects';
 import { useThemeRootProps } from '@/theme/useTheme';
-import type { Announcement, Conversation, ConversationMember, Friendship, GroupAnnouncement, Message, User } from '@/types/api';
+import type { Announcement, Conversation, ConversationMember, Friendship, Message, User } from '@/types/api';
+import type { GroupAnnouncement } from '@/types/groupAnnouncement';
 
 /** 聊天记录搜索现在由全局宿主（ChatSearchHost）渲染：这里只负责「打开它」。 */
 function ChatSearchOpener(): JSX.Element {
@@ -156,10 +157,12 @@ async function start(): Promise<void> {
     // 回应的假数据在 mocks/announcementReactions.ts：3 号数量跨量级，2 号种类很多，4 号种类到了上限，1 号还没人回应
     { id: 4, title: '回应种类到上限的公告', created_at: ago(60 * 24 * 60), updated_at: ago(60 * 24 * 60), content: '这条公告下面的回应已经有 30 种了，不能再出现新的。' }
   ];
+  // 群公告 v2（KukeChat-Server/docs/group-announcements.md）
+  const noticeBase = { conversation_id: 1, author_display_name: null, images: [], pinned: false, pinned_at: null, popup: false, require_confirm: false, send_to_new_members: false, guide_nickname: false, edited_at: null, confirmed_count: 0, member_count: 128, my_seen: true, my_confirmed: false };
   let groupAnnouncements: GroupAnnouncement[] = [
-    { id: 1, conversation_id: 1, author_id: 1, author: me, pinned: true, content: '欢迎加入！发作品请带上链接 https://www.ccw.site ，禁止刷屏。\n每周五晚上有创作接龙。', created_at: ago(60 * 24 * 3), updated_at: ago(60 * 24 * 3) },
-    { id: 2, conversation_id: 1, author_id: 2, author: people[1], pinned: false, content: LONG_TEXT.repeat(3), created_at: ago(60 * 24), updated_at: ago(60 * 24) },
-    { id: 3, conversation_id: 1, author_id: null, author: null, pinned: false, content: '这条公告的发布者已经注销了。', created_at: ago(60 * 24 * 30), updated_at: ago(60 * 24 * 30) }
+    { ...noticeBase, id: 1, author_id: 1, author: me, author_display_name: '群主小明', pinned: true, pinned_at: ago(60), require_confirm: true, confirmed_count: 37, guide_nickname: true, images: [{ url: pictures[0] }, { url: pictures[1] }, { url: pictures[2] }], content: '欢迎加入！发作品请带上链接 https://www.ccw.site ，禁止刷屏。\n每周五晚上有创作接龙。', created_at: ago(60 * 24 * 3), updated_at: ago(60 * 24 * 3) },
+    { ...noticeBase, id: 2, author_id: 2, author: people[1], popup: true, my_seen: false, edited_at: ago(30), content: LONG_TEXT.repeat(3), created_at: ago(60 * 24), updated_at: ago(30) },
+    { ...noticeBase, id: 3, author_id: null, author: null, content: '这条公告的发布者已经注销了。', created_at: ago(60 * 24 * 30), updated_at: ago(60 * 24 * 30) }
   ];
 
   const realFetch = window.fetch.bind(window);
@@ -241,22 +244,44 @@ async function start(): Promise<void> {
       const announcements = announcementLoad.mode === 'cover' ? systemAnnouncements.map((item) => (item.cover_url ? { ...item, cover_url: UNREACHABLE_COVER_URL } : item)) : systemAnnouncements;
       return json(scenario.empty ? [] : withAnnouncementReactions(announcements));
     }
+    if (/^\/conversations\/\d+\/announcements\/popups$/.test(path)) {
+      return json(groupAnnouncements.filter((item) => item.popup && !item.my_seen));
+    }
+    const noticeAction = path.match(/^\/conversations\/\d+\/announcements\/(\d+)\/(seen|confirm|confirmations)$/);
+    if (noticeAction) {
+      const id = Number(noticeAction[1]);
+      if (noticeAction[2] === 'confirmations') {
+        const status = url.searchParams.get('status') === 'confirmed' ? 'confirmed' : 'unconfirmed';
+        const items = people.map((user, index) => ({ user, nickname: index === 0 ? '群主小明' : null, role: index === 0 ? 'owner' : 'member', confirmed_at: status === 'confirmed' ? ago(index * 7) : null }));
+        return json({ announcement_id: id, status, member_count: 128, confirmed_count: 37, unconfirmed_count: 91, items, limit: 50, offset: 0, has_more: false });
+      }
+      const confirming = noticeAction[2] === 'confirm';
+      groupAnnouncements = groupAnnouncements.map((item) => (item.id === id ? { ...item, my_seen: true, my_confirmed: item.my_confirmed || confirming, confirmed_count: item.confirmed_count + (confirming && !item.my_confirmed ? 1 : 0) } : item));
+      return json(groupAnnouncements.find((item) => item.id === id) ?? {});
+    }
     const noticeMatch = path.match(/^\/conversations\/\d+\/announcements(?:\/(\d+))?$/);
     if (noticeMatch) {
+      const id = Number(noticeMatch[1]);
+      const options = { pinned: Boolean(body.pinned), popup: Boolean(body.popup), require_confirm: Boolean(body.require_confirm), send_to_new_members: Boolean(body.send_to_new_members), guide_nickname: Boolean(body.guide_nickname) };
+      const images = Array.isArray(body.images) ? body.images.map((item: unknown) => ({ url: String(item) })) : [];
       if (method === 'GET') {
+        if (noticeMatch[1]) {
+          const found = groupAnnouncements.find((item) => item.id === id);
+          return found ? json(found) : json({ detail: { code: 'announcement_not_found', message: '公告不存在或已删除' } }, 404);
+        }
         return json(scenario.empty ? [] : groupAnnouncements);
       }
       if (method === 'POST') {
-        const created = { id: Date.now(), conversation_id: 1, author_id: 1, author: me, content: String(body.content ?? ''), pinned: Boolean(body.pinned), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        const created: GroupAnnouncement = { ...noticeBase, ...options, images, id: Date.now(), author_id: 1, author: me, pinned_at: options.pinned ? new Date().toISOString() : null, content: String(body.content ?? ''), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
         groupAnnouncements = [created, ...groupAnnouncements];
-        return json(created);
+        return json(created, 201);
       }
       if (method === 'DELETE') {
-        groupAnnouncements = groupAnnouncements.filter((item) => item.id !== Number(noticeMatch[1]));
+        groupAnnouncements = groupAnnouncements.filter((item) => item.id !== id);
         return json({});
       }
-      groupAnnouncements = groupAnnouncements.map((item) => (item.id === Number(noticeMatch[1]) ? { ...item, content: String(body.content ?? item.content), pinned: Boolean(body.pinned) } : item));
-      return json(groupAnnouncements[0]);
+      groupAnnouncements = groupAnnouncements.map((item) => (item.id === id ? { ...item, ...options, images, content: String(body.content ?? item.content), edited_at: new Date().toISOString() } : item));
+      return json(groupAnnouncements.find((item) => item.id === id) ?? {});
     }
     if (path === '/conversations/groups' && method === 'POST') {
       return json({ detail: '创建群聊太频繁，请稍后再试' }, 429);

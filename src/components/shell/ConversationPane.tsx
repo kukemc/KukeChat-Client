@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PaneResizeHandle } from './paneSizes';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { conversationSpark } from '@/components/spark/data';
+import { SparkMark } from '@/components/spark/SparkMark';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateMyConversationSettings } from '@/api/conversations';
 import { createGroupInvite } from '@/api/invites';
@@ -64,7 +66,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, currentUse
       {conversation.type === 'group' ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} plusTier={conversationTier(conversation)} /> : <Avatar user={peer} label={title} />}
       <span className="ksh-conv-main">
         <span className="ksh-conv-line">
-          <span className="ksh-conv-title"><span className="ksh-conv-name">{title}</span><PlusTierTag tier={conversationTier(conversation)} />{conversation.type === 'direct' ? <FriendBadgeMark userId={peer?.id} size={15} /> : null}</span>
+          <span className="ksh-conv-title"><span className="ksh-conv-name">{title}</span><PlusTierTag tier={conversationTier(conversation)} />{conversation.type === 'direct' ? <><FriendBadgeMark userId={peer?.id} size={15} /><SparkMark spark={conversationSpark(conversation)} friendId={peer?.id} size={14} /></> : null}</span>
           <time className="ksh-conv-time">{formatClockTime(conversation.updated_at)}</time>
         </span>
         <span className="ksh-conv-line">

@@ -1,6 +1,7 @@
 import { memo, useState } from 'react';
 import { prewarmReactionPicker } from './reactions/ReactionPickerPanel';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { openBotForUser } from '@/components/bots/openBotForUser';
 import { useQuery } from '@tanstack/react-query';
 import { getConversations } from '@/api/conversations';
 import type { Conversation, ConversationMember, GroupShareCardMetadata, LevelTitleTier, Message, MessageQuoteMetadata } from '@/types/api';
@@ -12,6 +13,7 @@ import { TaskEventCard } from '@/components/tasks/TaskEventCard';
 import { GiftCard } from '@/components/gifts/GiftCard';
 import { RedPacketCard } from '@/components/redpacket/RedPacketCard';
 import { GroupFileCard } from '@/components/groupPlus/files/GroupFileCard';
+import { UploadingFileCard } from '@/components/groupPlus/files/UploadingFileCard';
 import { groupFileMetaOf } from '@/api/groupPlus';
 import { bubbleSkinClass, type BubbleSkin } from '@/components/shop/skin/bubbleSkin';
 import { SkinDecor, messageSkin, useSkinSettings } from '@/components/shop/skin/SkinDecor';
@@ -51,9 +53,11 @@ import type { BotInteraction } from '../message/types';
 import { PollCard } from './polls/PollCard';
 import { pollOf } from './polls/pollCache';
 import { PokeNotice } from './poke/PokeNotice';
+import { AnnouncementCard, announcementCardOf } from '@/components/groupAnnouncement/AnnouncementCard';
 import { cx, useChatRow, type ChatRowActions, type ChatRowContextValue } from './runtime';
 import { PendingImageSpinner, PendingSideStatus } from './PendingMessage';
 import { isLocalMessage, localPreviewFor } from '../message/pendingSend';
+import { chatUploadTaskIdOf } from '../message/chatUploads';
 import { isSelectableMessage } from './selection';
 
 export interface MessageRowProps {
@@ -206,6 +210,12 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
     return { bare: true, node: <GiftCard message={message} meta={gift} mine={mine} /> };
   }
 
+  // 聊天里正在上传的文件（本地消息）：带进度和取消的卡片，传完原地换成下面的文件卡片
+  const uploadTaskId = chatUploadTaskIdOf(message);
+  if (uploadTaskId !== null) {
+    return { bare: true, node: <UploadingFileCard taskId={uploadTaskId} /> };
+  }
+
   // 群文件消息：type 仍是 text（旧客户端只看到「[文件] 名」），新客户端按 metadata.file 画卡片
   const fileMeta = groupFileMetaOf(message);
   if (fileMeta) {
@@ -328,7 +338,21 @@ function SenderMeta({ message, context, mine }: { message: Message; context: Cha
       {isBot ? <span className="kcd-tag kcd-tag--admin"><Icon name="bot" className="h-3 w-3" />机器人</span> : null}
       {/* 公开身份的在任风纪委员（本人选择展示时用户对象上才有 jury_badge） */}
       {isBot ? null : <JuryBadge tier={sender?.jury_badge} />}
-      <span className="kcd-meta-name">{messageSenderLabel(message)}</span>
+      {/* 机器人的名字点了打开机器人详情（头像同样，见 DesktopChatPanel 的 avatarTap） */}
+      {isBot && sender?.id ? (
+        <button
+          type="button"
+          className="kcd-meta-name kcd-meta-name--link"
+          title="查看机器人"
+          onClick={(event) => {
+            event.stopPropagation();
+            openBotForUser(sender.id);
+          }}
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          {messageSenderLabel(message)}
+        </button>
+      ) : <span className="kcd-meta-name">{messageSenderLabel(message)}</span>}
       {/* 发言人是我的好友、我们之间解锁过好友徽章：名字后面挂我选的那一枚（不是好友什么都不画） */}
       {isBot || mine ? null : <FriendBadgeMark userId={sender?.id} size={14} openable />}
       <time className="kcd-meta-time" title={formatMessageDateTime(message.created_at)}>{formatClockTime(message.created_at)}</time>
@@ -388,6 +412,19 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
     const createdAt = parseApiDate(message.created_at);
     return Boolean(createdAt && Math.abs(Date.now() - createdAt.getTime()) < 4000);
   });
+
+  // 群公告卡片（docs/group-announcements.md 第 5 节）：系统消息，但画成卡片
+  const announcementCard = message.recalled_at ? null : announcementCardOf(message);
+  if (announcementCard) {
+    return (
+      <div className="kcd-item">
+        <Dividers message={message} showTime={showTime} unreadBefore={unreadBefore} />
+        <div data-message-id={message.id} className={cx('kga-card-row', highlighted && 'is-highlighted')} onContextMenu={(event) => actions.openMessageMenu(event, message)}>
+          <AnnouncementCard message={message} card={announcementCard} />
+        </div>
+      </div>
+    );
+  }
 
   if (message.type === 'system' || message.recalled_at) {
     // 戳一戳用结构化字段自己拼；字段不全的旧消息退回显示服务端拼好的 content

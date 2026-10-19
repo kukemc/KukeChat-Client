@@ -14,7 +14,7 @@ export function fileIconName(contentType: string, name: string): IconName {
   if (type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) {
     return 'image';
   }
-  if (type.startsWith('video/') || ['mp4', 'mov', 'mkv', 'avi', 'webm'].includes(ext)) {
+  if (type.startsWith('video/') || ['mp4', 'm4v', 'mov', 'mkv', 'avi', 'webm', 'ogv'].includes(ext)) {
     return 'video';
   }
   if (type.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext)) {
@@ -30,6 +30,41 @@ export function fileIconName(contentType: string, name: string): IconName {
     return 'fileText';
   }
   return 'file';
+}
+
+function extensionOf(name: string): string {
+  return name.includes('.') ? name.slice(name.lastIndexOf('.') + 1).toLowerCase() : '';
+}
+
+/** 能交给 <video> 试着放的扩展名 → 用来给经服务器取回的 Blob 标类型（Chromium 主要靠嗅探容器，类型只是兜底）。 */
+const PLAYABLE_VIDEO: Record<string, string> = {
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/mp4',
+  webm: 'video/webm',
+  mkv: 'video/webm',
+  ogv: 'video/ogg'
+};
+const UNPLAYABLE_VIDEO_EXTS = ['avi', 'wmv', 'flv', 'rm', 'rmvb', 'mpg', 'mpeg', 'ts', 'vob', '3gp'];
+const PLAYABLE_VIDEO_TYPES = ['video/mp4', 'video/x-m4v', 'video/webm', 'video/quicktime', 'video/x-matroska', 'video/ogg'];
+
+/**
+ * 文件能不能在应用里点开播放。看扩展名为主（上传时 content_type 常是 octet-stream）；扩展名认不出才看类型。
+ * avi / wmv / flv 这类浏览器肯定放不了的不算，卡片照旧只给下载。mkv / mov 里的编码不一定能放，交给播放器报错兜底。
+ */
+export function isPlayableVideo(contentType: string, name: string): boolean {
+  const ext = extensionOf(name);
+  if (ext in PLAYABLE_VIDEO) {
+    return true;
+  }
+  if (UNPLAYABLE_VIDEO_EXTS.includes(ext)) {
+    return false;
+  }
+  return PLAYABLE_VIDEO_TYPES.includes(contentType.toLowerCase().split(';')[0].trim());
+}
+
+export function videoMimeOf(name: string): string {
+  return PLAYABLE_VIDEO[extensionOf(name)] ?? 'video/mp4';
 }
 
 /** 过期与否自己按时间算：消息卡片里的 expires_at 是发消息时的快照，不等服务端事件。永久文件（null）不过期。 */

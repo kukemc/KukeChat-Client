@@ -16,7 +16,13 @@ interface FavoritesDesktopProps {
   onOpenForwardBundle: (message: Message) => void;
 }
 
-/** 桌面端的收藏页：所有会话里收藏过的消息排成一列，可以按私聊 / 群聊筛选。 */
+/** 收藏页是主界面的一个视图：点卡片跳去帖子、名片、群聊时主界面自己会换，这里不用收起什么 */
+function stayOnNavigate(): void {}
+
+/**
+ * 桌面端的收藏页：所有会话里收藏过的消息排成一列，可以按私聊 / 群聊筛选。
+ * 内容和聊天里一样能用：语音能播、文件能下载、合并转发能点开、名片能跳转（MessageView 的 onNavigate）。
+ */
 export function FavoritesDesktop({ conversations, currentUser, items, isLoading, error, onOpenForwardBundle }: FavoritesDesktopProps): JSX.Element {
   const { filter, setFilter, counts, visible, imageViewer, setImageViewer, openImage, navigateImage } = useFavorites(items, conversations, currentUser);
 
@@ -58,7 +64,7 @@ export function FavoritesDesktop({ conversations, currentUser, items, isLoading,
                         <strong>{sender}</strong>
                         <time>{formatMessageTime(item.message.created_at)}</time>
                       </div>
-                      <div className="kfv-item-content"><MessageView message={item.message} variant="compact" conversationId={item.conversation_id} onOpenImages={openImage} onOpenBundle={onOpenForwardBundle} /></div>
+                      <div className="kfv-item-content"><MessageView message={item.message} variant="compact" conversationId={item.conversation_id} onOpenImages={openImage} onOpenBundle={onOpenForwardBundle} onNavigate={stayOnNavigate} /></div>
                       <div className="kfv-item-from">
                         <ConversationAvatar conversation={conversation} title={title} size="sm" />
                         <span>{title}</span>

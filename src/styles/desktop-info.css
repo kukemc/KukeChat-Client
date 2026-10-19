@@ -169,6 +169,26 @@
   white-space: nowrap;
 }
 
+/* 群机器人一行里，头像 + 名字这块点了打开机器人详情 */
+.kci-bot-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kci-bot-open:hover {
+  opacity: 0.78;
+}
+
 .kci-hint {
   padding: 8px 0 12px;
   color: var(--kc-muted);
@@ -205,10 +225,27 @@
   text-align: center;
 }
 
-/* 头像外面留一圈面的颜色，再套一圈发丝线，下面落一点影子 */
-.kci-head :is(.kc-avatar-tone, img.rounded-full) {
+/* 尺寸只给最外层：群头像带档位角标、用户头像带头像框时外面还套着一层（.kgp-avatar / .kcaf），
+   里面那张图要铺满它。要是把 68px 也压到里面的图上，外层还是 56px，图会被 max-width: 100% 挤成扁的。 */
+.kci-head :is(.kgp-avatar, .kcaf, .kc-avatar-tone, img.rounded-full):not(:is(.kgp-avatar, .kcaf) > *) {
   width: 68px;
   height: 68px;
+  flex: none;
+}
+
+.kci-head :is(.kgp-avatar, .kcaf) > .kc-avatar {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+.kci-head img.kc-avatar {
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+/* 头像外面留一圈面的颜色，再套一圈发丝线，下面落一点影子 */
+.kci-head :is(.kc-avatar-tone, img.rounded-full) {
   box-shadow: 0 0 0 3px var(--kci-card), 0 0 0 4px var(--kc-border), 0 8px 18px -8px color-mix(in srgb, var(--kui-scrim) 75%, transparent);
   font-size: 26px;
 }

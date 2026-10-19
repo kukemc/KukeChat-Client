@@ -1,0 +1,507 @@
+/* ───────── 视频播放（前缀 kvp-，组件在 components/groupPlus/files/VideoPlayer.tsx）─────────
+   和看图浮层（desktop-modals.css 的 kmd-viewer）同一套：浅色主题下也是深色，颜色全部写死不取主题令牌。
+   桌面：遮罩 + 居中画面，上面一条文件名 / 下载 / 关闭，下面一条悬浮控件，播放中静止一会儿就收起。
+   手机：整屏，上下两条叠在画面上（带渐变），点画面显示 / 收起。按钮是白色胶囊（深底上的「墨色」）。 */
+
+.kvp {
+  --kvp-fs: var(--kc-font-multiplier, 1);
+  --kvp-text: rgba(255, 255, 255, 0.9);
+  --kvp-sub: rgba(255, 255, 255, 0.56);
+  --kvp-line: rgba(255, 255, 255, 0.12);
+  --kvp-wash: rgba(255, 255, 255, 0.1);
+  --kvp-wash-strong: rgba(255, 255, 255, 0.18);
+  --kvp-surface: rgba(30, 32, 38, 0.92);
+  position: fixed;
+  z-index: 2147483647;
+  inset: 0;
+  overflow: hidden;
+  background: rgba(11, 12, 15, 0.94);
+  color: var(--kvp-text);
+  font-size: calc(12.5px * var(--kvp-fs));
+  outline: none;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.kvp.is-mobile,
+.kvp.is-fullscreen {
+  background: #000000;
+}
+
+.kvp.is-idle {
+  cursor: none;
+}
+
+/* 画面区：上下给工具条留出位置；全屏 / 手机上铺满，工具条叠在画面上 */
+.kvp-stage {
+  position: absolute;
+  inset: 68px 40px 104px;
+  display: grid;
+  /* 行列都定死成画面区的大小，<video> 的 100% 才是相对它（auto 行会被视频的原始高度撑开） */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  pointer-events: none;
+}
+
+.kvp.is-mobile .kvp-stage,
+.kvp.is-fullscreen .kvp-stage {
+  inset: 0;
+}
+
+.kvp-stage > video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  outline: none;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.kvp-stage > video.is-hidden {
+  visibility: hidden;
+}
+
+.kvp-stage > video,
+.kvp-status,
+.kvp-center {
+  grid-area: 1 / 1;
+}
+
+/* 载入中 / 放不了 / 加载失败 */
+.kvp-status {
+  display: flex;
+  max-width: min(360px, calc(100% - 32px));
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--kvp-sub);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.kvp-status.is-quiet {
+  color: rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+}
+
+.kvp-status p {
+  margin: 0;
+}
+
+.kvp-status-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--kvp-wash);
+  color: var(--kvp-text);
+}
+
+.kvp-status-title {
+  color: var(--kvp-text);
+  font-size: 1.12em;
+  font-weight: 600;
+}
+
+.kvp-status-sub {
+  font-size: 0.96em;
+}
+
+.kvp-status > .kvp-pill,
+.kvp-status-actions {
+  margin-top: 14px;
+}
+
+.kvp-status-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.kvp-center {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px var(--kvp-line);
+  color: #ffffff;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
+.kvp-center svg {
+  margin-left: 3px;
+}
+
+/* ───────── 按钮 ───────── */
+
+.kvp-btn {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.kvp-btn:hover {
+  background: var(--kvp-wash);
+  color: #ffffff;
+}
+
+.kvp-btn:active {
+  background: var(--kvp-wash-strong);
+}
+
+.kvp-round {
+  background: var(--kvp-surface);
+  box-shadow: 0 0 0 1px var(--kvp-line);
+}
+
+.kvp-round:hover {
+  background: rgba(58, 61, 70, 0.96);
+}
+
+.kvp-pill {
+  display: inline-flex;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--kvp-wash);
+  color: var(--kvp-text);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 100ms ease, opacity 100ms ease, transform 100ms ease;
+}
+
+.kvp-pill:hover:not(:disabled) {
+  background: var(--kvp-wash-strong);
+}
+
+.kvp-pill:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.kvp-pill:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 深底上的「墨色胶囊」：白底黑字 */
+.kvp-pill.is-ink {
+  background: #ffffff;
+  color: #111214;
+}
+
+.kvp-pill.is-ink:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.kvp-pill.is-small {
+  height: 28px;
+  min-width: 48px;
+  justify-content: center;
+  padding: 0 10px;
+  background: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.kvp-pill.is-small:hover:not(:disabled),
+.kvp-pill.is-small.is-on {
+  background: var(--kvp-wash);
+}
+
+.kvp-btn:focus-visible,
+.kvp-pill:focus-visible,
+.kvp-center:focus-visible,
+.kvp-rate-menu button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 1px;
+}
+
+.kvp-spin {
+  animation: kvp-spin 0.9s linear infinite;
+}
+
+@keyframes kvp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ───────── 顶部：文件名 · 下载 · 关闭 ───────── */
+
+.kvp-top,
+.kvp-bar {
+  position: absolute;
+  right: 0;
+  left: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.kvp-top {
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 0 24px;
+  pointer-events: none;
+}
+
+.kvp-top > * {
+  pointer-events: auto;
+}
+
+.kvp-title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.kvp-name {
+  overflow: hidden;
+  color: var(--kvp-text);
+  font-size: 1.04em;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kvp-size {
+  flex: none;
+  color: var(--kvp-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── 底部控件 ───────── */
+
+.kvp-bar {
+  bottom: 22px;
+  display: flex;
+  width: min(760px, calc(100% - 48px));
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 auto;
+  padding: 8px 10px 6px;
+  border-radius: 14px;
+  background: var(--kvp-surface);
+  box-shadow: 0 0 0 1px var(--kvp-line), 0 12px 32px -12px rgba(0, 0, 0, 0.8);
+}
+
+.kvp-seek {
+  display: flex;
+  padding: 0 6px;
+}
+
+.kvp-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kvp-time {
+  padding: 0 6px;
+  color: var(--kvp-sub);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kvp-time i {
+  padding: 0 2px;
+  font-style: normal;
+  opacity: 0.6;
+}
+
+.kvp-spacer {
+  flex: 1;
+}
+
+.kvp-volume {
+  display: flex;
+  align-items: center;
+}
+
+.kvp-volume-range {
+  width: 76px;
+  margin: 0 8px 0 2px;
+}
+
+.kvp-rate {
+  position: relative;
+}
+
+.kvp-rate-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  display: flex;
+  min-width: 88px;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--kvp-surface);
+  box-shadow: 0 0 0 1px var(--kvp-line), 0 12px 28px -10px rgba(0, 0, 0, 0.8);
+  transform: translateX(-50%);
+}
+
+.kvp-rate-menu button {
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--kvp-sub);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  cursor: pointer;
+}
+
+.kvp-rate-menu button:hover {
+  background: var(--kvp-wash);
+  color: var(--kvp-text);
+}
+
+.kvp-rate-menu button.is-active {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* 静止一会儿收起顶部和控件 */
+.kvp.is-idle .kvp-top,
+.kvp.is-idle .kvp-bar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.kvp.is-idle .kvp-top > *,
+.kvp.is-idle .kvp-bar * {
+  pointer-events: none;
+}
+
+.kvp.is-idle .kvp-bar {
+  transform: translateY(6px);
+}
+
+/* ───────── 进度条 / 音量条 ───────── */
+
+.kvp-range {
+  --kvp-track: rgba(255, 255, 255, 0.18);
+  --kvp-buffered: rgba(255, 255, 255, 0.32);
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  background: none;
+  cursor: pointer;
+  appearance: none;
+}
+
+.kvp-range:focus {
+  outline: none;
+}
+
+.kvp-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #ffffff 0 var(--kvp-fill, 0%), var(--kvp-buffered) var(--kvp-fill, 0%) var(--kvp-buffer, 0%), var(--kvp-track) var(--kvp-buffer, 0%) 100%);
+}
+
+.kvp-range::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  appearance: none;
+  transition: transform 100ms ease;
+}
+
+.kvp-range:hover::-webkit-slider-thumb,
+.kvp-range:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.kvp-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #ffffff 0 var(--kvp-fill, 0%), var(--kvp-buffered) var(--kvp-fill, 0%) var(--kvp-buffer, 0%), var(--kvp-track) var(--kvp-buffer, 0%) 100%);
+}
+
+.kvp-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+/* ───────── 手机 / 全屏：工具条叠在画面上 ───────── */
+
+.kvp.is-mobile .kvp-top,
+.kvp.is-fullscreen .kvp-top {
+  padding-bottom: 28px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.66), transparent);
+}
+
+.kvp.is-fullscreen .kvp-bar {
+  bottom: 28px;
+}
+
+.kvp.is-mobile .kvp-top {
+  gap: 8px;
+  padding: max(14px, env(safe-area-inset-top)) 14px 32px 10px;
+}
+
+.kvp.is-mobile .kvp-title {
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kvp.is-mobile .kvp-size {
+  font-size: 0.9em;
+}
+
+.kvp.is-mobile .kvp-round {
+  width: 38px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+}
+
+.kvp.is-mobile .kvp-bar {
+  bottom: 0;
+  width: 100%;
+  padding: 36px 12px max(12px, var(--kc-native-safe-bottom, env(safe-area-inset-bottom)));
+  border-radius: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent);
+  box-shadow: none;
+}
+
+.kvp.is-mobile .kvp-range {
+  height: 24px;
+}
+
+.kvp.is-mobile .kvp-btn {
+  width: 40px;
+  height: 40px;
+}

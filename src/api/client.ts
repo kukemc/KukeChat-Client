@@ -3,6 +3,7 @@ import { useKukeStore } from '@/store/kukeStore';
 import { isRecord } from './normalizers';
 import type { AccountSuspension } from '@/types/api';
 import { prepareImageUpload } from '@/utils/imageUpload';
+import { DEVICE_ISSUE_HEADER, attachDeviceHeaders, rememberIssuedDevice, sha256Hex } from './device';
 
 function resolveApiBaseUrl(): string {
   if (import.meta.env.DEV) {
@@ -108,6 +109,17 @@ export function accountSuspensionFromError(error: unknown): AccountSuspension | 
     return null;
   }
   const detail = isRecord(payload.detail) ? payload.detail : payload;
+  if (detail.code === 'device_banned') {
+    // 设备封禁和账号封禁共用一个提示层，只是标题、措辞不同；期限字段叫 expires_at
+    const expiresAt = typeof detail.expires_at === 'string' ? detail.expires_at : null;
+    return {
+      code: 'device_banned',
+      reason: typeof detail.reason === 'string' ? detail.reason : null,
+      banned_until: expiresAt,
+      permanent: detail.permanent === true || !expiresAt,
+      appeal_token: null
+    };
+  }
   if (detail.code !== 'account_suspended') {
     return null;
   }
@@ -140,12 +152,6 @@ function randomHex(length: number): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, length);
 }
 
-async function sha256Hex(input: string): Promise<string> {
-  const bytes = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
 async function attachClientProof(headers: Record<string, string>, method: string, path: string): Promise<void> {
   if (typeof crypto === 'undefined' || !crypto.subtle) {
     return;
@@ -157,6 +163,25 @@ async function attachClientProof(headers: Record<string, string>, method: string
   headers['X-Kuke-Timestamp'] = timestamp;
   headers['X-Kuke-Nonce'] = nonce;
   headers['X-Kuke-Proof'] = await sha256Hex(`${method.toUpperCase()}|${proofPath}|${timestamp}|${nonce}|KukeChat`);
+}
+
+/**
+ * 每个 /api/v1 请求都要带的头：设备标识（见 device.ts）+ 客户端证明。
+ * 先加设备头再算证明：设备头第一次可能要等一会儿，证明的时间戳要尽量贴近真正发出的时刻。
+ * 返回这次带出去的设备令牌，收到响应后交给 noteDeviceIssue。
+ */
+async function attachRequestHeaders(headers: Record<string, string>, method: string, path: string): Promise<string | null> {
+  const sentDevice = await attachDeviceHeaders(headers, path).catch(() => null);
+  await attachClientProof(headers, method, path);
+  return sentDevice;
+}
+
+function noteDeviceIssue(responseHeaders: Pick<Headers, 'get'>, sentDevice: string | null): void {
+  try {
+    rememberIssuedDevice(responseHeaders.get(DEVICE_ISSUE_HEADER), sentDevice);
+  } catch {
+    // 读不到响应头（跨域没暴露之类）就算了
+  }
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -191,7 +216,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   const method = options.method ?? 'GET';
-  await attachClientProof(headers, method, path);
+  const sentDevice = await attachRequestHeaders(headers, method, path);
 
   const url = joinApiPath(resolveApiBaseUrl(), path);
   const response = await fetch(url, {
@@ -208,6 +233,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
     throw new NetworkError(url, error);
   });
+  noteDeviceIssue(response.headers, sentDevice);
 
   const payload = await readJson(response);
   if (!response.ok) {
@@ -232,7 +258,7 @@ export async function uploadFile<T>(path: string, file: File, fieldName = 'file'
     headers.Authorization = `Bearer ${state.token}`;
   }
 
-  await attachClientProof(headers, 'POST', path);
+  const sentDevice = await attachRequestHeaders(headers, 'POST', path);
 
   const url = joinApiPath(resolveApiBaseUrl(), path);
   const response = await fetch(url, {
@@ -242,6 +268,7 @@ export async function uploadFile<T>(path: string, file: File, fieldName = 'file'
   }).catch((error: unknown) => {
     throw new NetworkError(url, error);
   });
+  noteDeviceIssue(response.headers, sentDevice);
 
   const payload = await readJson(response);
   if (!response.ok) {
@@ -264,11 +291,12 @@ export async function apiRequestWithHeaders<T>(path: string, options: RequestOpt
     headers.Authorization = `Bearer ${token}`;
   }
   const method = options.method ?? 'GET';
-  await attachClientProof(headers, method, path);
+  const sentDevice = await attachRequestHeaders(headers, method, path);
   const url = joinApiPath(resolveApiBaseUrl(), path);
   const response = await fetch(url, { method, headers, cache: options.cache }).catch((error: unknown) => {
     throw new NetworkError(url, error);
   });
+  noteDeviceIssue(response.headers, sentDevice);
   const payload = await readJson(response);
   if (!response.ok) {
     handleAccountSuspension(payload);
@@ -288,7 +316,7 @@ export function uploadFormWithProgress<T>(path: string, form: FormData, onProgre
     if (state.token) {
       headers.Authorization = `Bearer ${state.token}`;
     }
-    void attachClientProof(headers, 'POST', path).then(() => {
+    void attachRequestHeaders(headers, 'POST', path).then((sentDevice) => {
       const url = joinApiPath(resolveApiBaseUrl(), path);
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url);
@@ -303,6 +331,7 @@ export function uploadFormWithProgress<T>(path: string, form: FormData, onProgre
       xhr.onerror = () => reject(new NetworkError(url, null));
       xhr.onabort = () => reject(new DOMException('上传已取消', 'AbortError'));
       xhr.onload = () => {
+        noteDeviceIssue({ get: (name: string) => xhr.getResponseHeader(name) }, sentDevice);
         let payload: unknown;
         try {
           payload = xhr.responseText ? JSON.parse(xhr.responseText) as unknown : undefined;
@@ -383,11 +412,12 @@ export async function apiDownloadBlob(path: string): Promise<Blob> {
   if (state.token) {
     headers.Authorization = `Bearer ${state.token}`;
   }
-  await attachClientProof(headers, 'GET', path);
+  const sentDevice = await attachRequestHeaders(headers, 'GET', path);
   const url = joinApiPath(resolveApiBaseUrl(), path);
   const response = await fetch(url, { method: 'GET', headers }).catch((error: unknown) => {
     throw new NetworkError(url, error);
   });
+  noteDeviceIssue(response.headers, sentDevice);
   if (!response.ok) {
     const payload = await readJson(response);
     handleAccountSuspension(payload);

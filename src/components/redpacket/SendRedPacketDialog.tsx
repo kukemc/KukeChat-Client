@@ -9,7 +9,7 @@ import { useKukeStore } from '@/store/kukeStore';
 import type { ConversationMember } from '@/types/api';
 import type { RedPacketKind, RedPacketLimits, SendRedPacketPayload } from '@/types/redPacket';
 import { openExternalUrl } from '@/utils/openExternalUrl';
-import { DEFAULT_RED_PACKET_GREETING, RED_PACKET_CHAIN_MAX, RED_PACKET_GREETING_MAX } from '@/utils/redPacket';
+import { DEFAULT_RED_PACKET_GREETING, RED_PACKET_CHAIN_MAX, RED_PACKET_GREETING_MAX, RED_PACKET_VOICE_TEXT_MAX } from '@/utils/redPacket';
 import { describeSendError, useRedPacketConfig, useRedPacketFeatures, useSendRedPacket } from './data';
 import { RedPacketLayer } from './RedPacketLayer';
 import { RedPacketRecords } from './RedPacketRecords';
@@ -69,6 +69,7 @@ function singleLine(value: string): string {
  * 群里还有两种玩法（服务端 config.features 里有才出现，可以一起用）：
  *   专属   选一个群成员，只有他能领；选了之后种类固定为普通、个数固定为 1
  *   接龙   打开后填一句口令，谁领了就自动以谁的身份把这句话发到群里
+ * 语音红包私聊、群里都能发（config.features 里有 voice 才出现）：打开后填一句口令，领的人要按住说出这句话才领得到；和接龙二选一。
  * 总额、现在的余额、发完剩多少随着输入实时算出来；超过上限、余额不够都当场说，不等接口报错。
  * 余额不够给「去投币」（和商店的充值是同一个地方）；没绑定 CCW 账号时整个表单换成去绑定的引导。
  */
@@ -78,6 +79,7 @@ export function SendRedPacketDialog({ conversationId, isGroup, members = [], onC
   const meId = useKukeStore((state) => state.currentUser?.id ?? 0);
   const canChain = isGroup && features.chain;
   const canExclusive = isGroup && features.exclusive;
+  const canVoice = features.voice;
   // 开着弹窗的时候开关被关掉了，或者连的服务端根本没有红包：表单留着，说明发不了
   const closed = config === null || config?.enabled === false;
   const shop = useShop().data;
@@ -93,12 +95,16 @@ export function SendRedPacketDialog({ conversationId, isGroup, members = [], onC
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [chainOn, setChainOn] = useState(false);
   const [chainText, setChainText] = useState('');
+  const [voiceOn, setVoiceOn] = useState(false);
+  const [voiceText, setVoiceText] = useState('');
   const [target, setTarget] = useState<RedPacketTargetChoice | null>(null);
   const [picking, setPicking] = useState(false);
 
   // 专属红包：种类固定为普通、个数固定为 1（服务端也只接受这样：invalid_kind / invalid_count）
   const exclusive = canExclusive && target !== null;
-  const chain = canChain && chainOn;
+  // 接龙和语音二选一（服务端两个一起传会拒：voice_text_rejected）；开关上已经互斥，这里再兜一层
+  const voice = canVoice && voiceOn;
+  const chain = canChain && chainOn && !voice;
   const effectiveKind: RedPacketKind = exclusive ? 'normal' : kind;
   const fixedCount = !isGroup || exclusive;
   const balance = shop?.balance ?? null;
@@ -108,7 +114,7 @@ export function SendRedPacketDialog({ conversationId, isGroup, members = [], onC
   const total = amount === null || count === null ? null : effectiveKind === 'normal' ? amount * count : amount;
   const limits = config?.limits ?? null;
   // 开了接龙就得有口令（空口令服务端当成没开，那就不是接龙红包了）
-  const chainMissing = chain && !chainText.trim();
+  const chainMissing = (chain && !chainText.trim()) || (voice && !voiceText.trim());
   const problem = limits ? validate(effectiveKind, amountText, fixedCount ? '1' : countText, amount, count, limits) : null;
   const dailyLeft = config ? Math.max(0, config.limits.daily_send_limit - config.sent_today) : null;
   const dailyUsedUp = dailyLeft === 0;
@@ -142,6 +148,9 @@ export function SendRedPacketDialog({ conversationId, isGroup, members = [], onC
     const payload: SendRedPacketPayload = { conversation_id: conversationId, kind: effectiveKind, amount, count, greeting: greeting.trim() };
     if (chain) {
       payload.chain_text = chainText.trim();
+    }
+    if (voice) {
+      payload.voice_text = voiceText.trim();
     }
     if (exclusive && target) {
       payload.target_user_id = target.user.id;
@@ -257,7 +266,7 @@ export function SendRedPacketDialog({ conversationId, isGroup, members = [], onC
             <span className="krp-row-unit">{greeting.length}/{RED_PACKET_GREETING_MAX}</span>
           </label>
 
-          {canChain || canExclusive ? (
+          {canChain || canExclusive || canVoice ? (
             <div className="krp-modes" data-red-packet="modes">
               {canExclusive ? (
                 <div className={cx('krp-mode', exclusive && 'is-on')} data-red-packet-mode="exclusive">
@@ -285,7 +294,12 @@ export function SendRedPacketDialog({ conversationId, isGroup, members = [], onC
                       <span className="krp-mode-title">接龙</span>
                       <span className="krp-mode-hint">领取的人会自动发出一句口令</span>
                     </span>
-                    <input type="checkbox" role="switch" className="kui-switch" data-field="chain" aria-label="接龙" checked={chainOn} onChange={(event) => edit(() => setChainOn(event.target.checked))} />
+                    <input type="checkbox" role="switch" className="kui-switch" data-field="chain" aria-label="接龙" checked={chain} onChange={(event) => edit(() => {
+                      setChainOn(event.target.checked);
+                      if (event.target.checked) {
+                        setVoiceOn(false);
+                      }
+                    })} />
                   </label>
                   {chain ? (
                     <div className="krp-mode-extra">
@@ -295,6 +309,37 @@ export function SendRedPacketDialog({ conversationId, isGroup, members = [], onC
                         <span className="krp-row-unit">{chainText.length}/{RED_PACKET_CHAIN_MAX}</span>
                       </label>
                       <p className="krp-field-hint">领取时会自动发出这句话</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              {canVoice ? (
+                <>
+                  <label className={cx('krp-mode', voice && 'is-on')} data-red-packet-mode="voice">
+                    <span className="krp-mode-text">
+                      <span className="krp-mode-title">语音红包</span>
+                      <span className="krp-mode-hint">{canChain ? '领的人要说出口令，和接龙二选一' : '领的人要按住说出口令'}</span>
+                    </span>
+                    <input type="checkbox" role="switch" className="kui-switch" data-field="voice" aria-label="语音红包" checked={voice} onChange={(event) => edit(() => {
+                      const on = event.target.checked;
+                      setVoiceOn(on);
+                      if (on) {
+                        setChainOn(false);
+                        // 先替他填上祝福语，想改再改
+                        if (!voiceText.trim()) {
+                          setVoiceText((greeting.trim() || DEFAULT_RED_PACKET_GREETING).slice(0, RED_PACKET_VOICE_TEXT_MAX));
+                        }
+                      }
+                    })} />
+                  </label>
+                  {voice ? (
+                    <div className="krp-mode-extra">
+                      <label className="krp-row krp-row--text">
+                        <span className="krp-row-label">口令</span>
+                        <input className="krp-row-input" data-field="voice-text" value={voiceText} maxLength={RED_PACKET_VOICE_TEXT_MAX} autoFocus placeholder="要大家念的口令" onChange={(event) => edit(() => setVoiceText(singleLine(event.target.value)))} />
+                        <span className="krp-row-unit">{voiceText.length}/{RED_PACKET_VOICE_TEXT_MAX}</span>
+                      </label>
+                      <p className="krp-field-hint">领的人按住说出这句话，念对了才能领到</p>
                     </div>
                   ) : null}
                 </>

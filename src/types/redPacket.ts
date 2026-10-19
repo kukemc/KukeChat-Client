@@ -1,4 +1,4 @@
-import type { Message, User } from './api';
+import type { Message, User, VoiceMessageMetadata } from './api';
 
 /**
  * 红包（前缀 /api/v1/red-packets）。用金币余额发、抢；余额的算法见 KukeChat-Server 的 docs/shop.md 第 1 节：
@@ -20,12 +20,16 @@ export interface RedPacketMeta {
   chain_text?: string | null;
   /** 专属红包给谁（3.6.2）。只有目标本人能领 */
   target_user_id?: number | null;
+  /** 语音红包（消息上标了 voice 或者带了口令）。不是语音红包没有这一项 */
+  voice?: boolean;
+  /** 语音红包：要念出来的口令。消息上不一定带（以红包状态里的为准）；不是语音红包没有这一项 */
+  voice_text?: string | null;
   /** 专属红包的目标，发的时候的快照 */
   target?: User | null;
 }
 
 /** 服务端支持的玩法（GET /red-packets/config 的 features）。旧服务端没有这个字段，当成空列表 */
-export type RedPacketFeature = 'chain' | 'exclusive';
+export type RedPacketFeature = 'chain' | 'exclusive' | 'voice';
 
 export interface RedPacketClaim {
   user: User;
@@ -42,6 +46,10 @@ export interface RedPacket {
   sender: User | null;
   /** 接龙口令；不是接龙红包为 null */
   chain_text: string | null;
+  /** 是不是语音红包：领的时候要现场录音念出 voice_text */
+  voice: boolean;
+  /** 语音红包要念的口令；不是语音红包为 null */
+  voice_text: string | null;
   /** 专属红包给谁；不是专属红包为 null */
   target_user_id: number | null;
   target: User | null;
@@ -95,6 +103,14 @@ export interface SendRedPacketPayload {
   chain_text?: string;
   /** 专属红包的目标。只能在群里用，kind 必须是 normal、count 为 1 */
   target_user_id?: number;
+  /** 语音红包的口令（1–30 字，不能换行），和 chain_text 互斥。不是语音红包就不带 */
+  voice_text?: string;
+}
+
+/** 领语音红包时的请求体：录音先传到 /uploads/message-voice，再把 url 和平时语音消息 metadata.voice 里的那些字段一起交上去 */
+export interface ClaimRedPacketVoice {
+  voice_url: string;
+  voice_metadata: VoiceMessageMetadata;
 }
 
 /**
@@ -115,7 +131,7 @@ export interface ClaimRedPacketResult {
   amount: number;
   red_packet: RedPacket | null;
   balance: RedPacketBalance;
-  /** 接龙红包：领取时以我的身份自动发出的那条消息；其它红包为 null。同一条还会从 message.created 推过来，按 id 去重 */
+  /** 接龙红包 / 语音红包：领取时以我的身份发出的那条消息（接龙是口令文字，语音是我的录音）；其它红包为 null。同一条还会从 message.created 推过来，按 id 去重 */
   message: Message | null;
 }
 
@@ -170,4 +186,6 @@ export interface PendingRedPacket {
   created_at: string;
   chain_text: string | null;
   target_user_id: number | null;
+  /** 语音红包的口令；不是语音红包、或者旧服务端没给是 null */
+  voice_text: string | null;
 }

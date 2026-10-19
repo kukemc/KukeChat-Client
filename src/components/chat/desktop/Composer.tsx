@@ -18,7 +18,7 @@ import { formatMuteEnd, useMuteStatus } from '@/store/moderationStore';
 import { useComposerPrefs } from '@/store/composerPrefs';
 import { matchBotCommandInput } from '@/utils/botCommands';
 import { PollComposerButton } from './polls/PollComposerButton';
-import { FileComposerButton } from '@/components/groupPlus/files/FileComposerButton';
+import { FileComposerButton, useChatFileSender } from '@/components/groupPlus/files/FileComposerButton';
 import { GiftComposerButton } from '@/components/gifts/GiftEntry';
 import { RedPacketComposerButton } from '@/components/redpacket/RedPacketEntry';
 import { cx, readNumberPreference, writePreference } from './runtime';
@@ -45,6 +45,8 @@ interface ComposerProps {
   canSendRedPacket: boolean;
   /** 私聊的对方：工具栏上的「送礼物」在私聊里直接送给 Ta（群里在面板里选人）。和机器人、任务助手的会话里礼物入口跟着红包一起不出现 */
   directUser?: User | null;
+  /** 要不要上报「正在输入」。群主把这个群的提示关了（typing_indicator = off）就不发，省得白发；大群的「自动」由服务端判断，这里照发 */
+  reportsTyping?: boolean;
   onSend: (variables: SendMessageVariables) => void;
   /** 不经过 onSend 发出去的消息（比如投票、红包）发成功后调用，让列表回到最新。 */
   onOwnMessageSent?: () => void;
@@ -67,8 +69,10 @@ function memberName(member: ConversationMember): string {
   return member.nickname?.trim() || getDisplayName(member.user, userId ? `用户 ${userId}` : '成员');
 }
 
-const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Composer({ conversationId, isGroup, currentRole, members, sending, canCreateTask, isTaskAssistantChat, canSendRedPacket, directUser, onSend, onOwnMessageSent, onMembersNeeded, onCreateTask, onOpenTaskCenter, onOpenPenalties, setError }, ref) {
+const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Composer({ conversationId, isGroup, currentRole, members, sending, canCreateTask, isTaskAssistantChat, canSendRedPacket, directUser, reportsTyping = true, onSend, onOwnMessageSent, onMembersNeeded, onCreateTask, onOpenTaskCenter, onOpenPenalties, setError }, ref) {
   const mute = useMuteStatus();
+  // 群文件开着时，拖进来 / 粘贴进来的非图片文件直接当文件发（带进度的上传卡片）；私聊和没开群文件的群是 null
+  const sendFiles = useChatFileSender(conversationId, isGroup);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [text, setText] = useState('');
@@ -180,7 +184,9 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
     if (!composing) {
       setCommittedText(next);
     }
-    reportTyping(conversationId, next);
+    if (reportsTyping) {
+      reportTyping(conversationId, next);
+    }
   }
 
   function refreshMention(): void {
@@ -230,12 +236,24 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
   }
 
   function stageFiles(files: File[]): void {
-    if (stagedVoice || voice.recording) {
-      setError('语音消息不能和图片一起发送。');
-      return;
+    const others = files.filter((file) => !file.type.startsWith('image/'));
+    if (others.length > 0) {
+      if (mute.muted) {
+        return;
+      }
+      if (sendFiles) {
+        sendFiles(others);
+        onOwnMessageSent?.();
+      } else {
+        setError(isGroup ? '这个群还没有开通群文件，只能发送图片。' : '私聊暂时只能发送图片。');
+      }
     }
     const images = files.filter((file) => file.type.startsWith('image/'));
     if (images.length === 0) {
+      return;
+    }
+    if (stagedVoice || voice.recording) {
+      setError('语音消息不能和图片一起发送。');
       return;
     }
     const oversized = images.filter((file) => file.size > (/^(image\/jpeg|image\/png|image\/webp)$/i.test(file.type) ? MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES : MAX_IMAGE_UPLOAD_BYTES));
@@ -469,10 +487,11 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
   }
 
   function handlePaste(event: React.ClipboardEvent<HTMLFormElement>): void {
-    const images = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith('image/'));
-    if (images.length > 0) {
+    // 复制的文件：图片照旧放进输入框 / 确认框，其他文件在群里直接发（stageFiles 里分）
+    const pastedFiles = Array.from(event.clipboardData.files);
+    if (pastedFiles.length > 0) {
       event.preventDefault();
-      stageFiles(images);
+      stageFiles(pastedFiles);
       return;
     }
     const pasted = event.clipboardData.getData('text/plain');
@@ -489,8 +508,10 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
   function startResize(event: React.PointerEvent<HTMLDivElement>): void {
     event.preventDefault();
     const startY = event.clientY;
-    const startHeight = height;
     const handle = event.currentTarget;
+    // 内容多时卡片会比设定的高度高：从眼前的实际高度开始拖，不然一按下去会先跳回设定值
+    const shown = handle.parentElement?.getBoundingClientRect().height ?? height;
+    const startHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(shown)));
     handle.setPointerCapture(event.pointerId);
     let latest = startHeight;
     const move = (moveEvent: PointerEvent): void => {
@@ -552,7 +573,8 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
   return (
     <form
       className={cx('kcd-composer', mute.muted && 'is-muted')}
-      style={{ height }}
+      // 拖出来的高度是下限：引用、待发图片、多行文字放不下时整张卡片往上长（到样式表里的上限为止），而不是把编辑器挤成一行
+      style={{ '--kcd-composer-h': `${height}px` } as React.CSSProperties}
       onSubmit={(event) => {
         event.preventDefault();
         submit();
@@ -641,7 +663,7 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
           setEmojiOpen((current) => !current);
         }}><Icon name="emoji" className="h-[18px] w-[18px]" /></button>
         <button type="button" className="kcd-tool" title="图片（也可以直接粘贴或拖进来）" aria-label="发送图片" disabled={sending} onClick={() => imageInputRef.current?.click()}><Icon name="image" className="h-[18px] w-[18px]" /></button>
-        {isGroup ? <FileComposerButton conversationId={conversationId} disabled={sending || mute.muted} /> : null}
+        {isGroup ? <FileComposerButton conversationId={conversationId} disabled={sending || mute.muted} onQueued={onOwnMessageSent} /> : null}
         <button type="button" className={cx('kcd-tool', voice.recording && 'is-recording')} title={voice.recording ? '结束录音' : '语音消息'} aria-label={voice.recording ? '结束录音' : '录制语音'} disabled={sending || stagedImages.length > 0} onClick={() => {
           if (voice.recording) {
             voice.stop();

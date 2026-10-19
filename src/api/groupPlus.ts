@@ -508,8 +508,13 @@ export async function getGroupFileLink(conversationId: number, fileId: number): 
   }
 }
 
+/** 经服务器转发整份取回（没开直连、或直连失败时用）。带登录令牌，所以不能直接塞给 <video src>。 */
+export function downloadGroupFileViaServer(conversationId: number, fileId: number): Promise<Blob> {
+  return apiDownloadBlob(`/conversations/${conversationId}/files/${fileId}/download`);
+}
+
 export async function downloadGroupFile(conversationId: number, fileId: number): Promise<Blob> {
-  const proxied = (): Promise<Blob> => apiDownloadBlob(`/conversations/${conversationId}/files/${fileId}/download`);
+  const proxied = (): Promise<Blob> => downloadGroupFileViaServer(conversationId, fileId);
   const url = await getGroupFileLink(conversationId, fileId);
   if (!url) {
     return proxied();

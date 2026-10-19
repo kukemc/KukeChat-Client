@@ -98,8 +98,19 @@
 
 /* ───────── 会话列表 ───────── */
 
+/* 和普通预览一样高、一样截断：换成提示时这一行不塌、不跳 */
 .kct-preview {
   display: flex;
   min-width: 0;
+  max-width: 100%;
+  min-height: 1lh;
+  align-items: baseline;
   color: var(--kc-accent);
+  line-height: inherit;
+}
+
+/* 选中行是强调色实底，强调色的字压在上面就看不见了：跟标题一样反白 */
+.ksh-conv.is-active .kct-preview {
+  color: var(--kui-on-fill);
+  font-weight: 500;
 }

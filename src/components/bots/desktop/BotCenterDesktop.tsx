@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Bot, Conversation } from '@/types/api';
@@ -61,6 +61,16 @@ export function BotCenterDesktop({ conversations }: { conversations: Conversatio
     openUser: openUserSpace,
     report: (error) => setNotice(error ? errorMessage(error) : '')
   }), [openUserSpace, rotateKey]);
+
+  // 从别处（聊天里的机器人名片、通知）跳过来：openBot 把要看的机器人放在 pendingBotId，这里接住打开它的详情
+  const pendingBotId = useKukeStore((state) => state.pendingBotId);
+  const clearPendingBot = useKukeStore((state) => state.clearPendingBot);
+  useEffect(() => {
+    if (pendingBotId === null) return;
+    setEditing(null);
+    actions.select(pendingBotId);
+    clearPendingBot(pendingBotId);
+  }, [actions, clearPendingBot, pendingBotId]);
 
   const closeDialog = (): void => setDialog(null);
 
