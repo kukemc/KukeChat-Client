@@ -357,6 +357,59 @@ export function uploadFormWithProgress<T>(path: string, form: FormData, onProgre
   });
 }
 
+/**
+ * 带上传进度的 PUT，请求体就是文件字节（不是 multipart）。和别的 API 请求一样带登录和客户端证明头，
+ * 再叠上 extraHeaders（服务端发上传地址时要求的那几个）。「我的设备」临时文件没开直传时走这里（self-chat.md 5.1）。
+ * path 是 /api/v1 之后的部分，证明里用的也是它。
+ */
+export function apiPutWithProgress<T>(path: string, body: Blob, extraHeaders: Record<string, string> = {}, onProgress?: (loaded: number, total: number) => void, signal?: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const state = useKukeStore.getState();
+    const headers: Record<string, string> = { ...extraHeaders };
+    if (state.token) {
+      headers.Authorization = `Bearer ${state.token}`;
+    }
+    void attachRequestHeaders(headers, 'PUT', path).then((sentDevice) => {
+      const url = joinApiPath(resolveApiBaseUrl(), path);
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url);
+      for (const [name, value] of Object.entries(headers)) {
+        xhr.setRequestHeader(name, value);
+      }
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress?.(event.loaded, event.total);
+        }
+      };
+      xhr.onerror = () => reject(new NetworkError(url, null));
+      xhr.onabort = () => reject(new DOMException('上传已取消', 'AbortError'));
+      xhr.onload = () => {
+        noteDeviceIssue({ get: (name: string) => xhr.getResponseHeader(name) }, sentDevice);
+        let payload: unknown;
+        try {
+          payload = xhr.responseText ? JSON.parse(xhr.responseText) as unknown : undefined;
+        } catch {
+          payload = xhr.responseText;
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(payload as T);
+          return;
+        }
+        handleAccountSuspension(payload);
+        reject(new ApiError(xhr.status, payload));
+      };
+      if (signal) {
+        if (signal.aborted) {
+          reject(new DOMException('上传已取消', 'AbortError'));
+          return;
+        }
+        signal.addEventListener('abort', () => xhr.abort(), { once: true });
+      }
+      xhr.send(body);
+    }, reject);
+  });
+}
+
 /** 存储桶拒绝了直传（签名过期、大小不符、桶没配好）。和 NetworkError 分开：网络 / 跨域失败时可以退回经后端上传。 */
 export class StorageUploadError extends Error {
   readonly status: number;

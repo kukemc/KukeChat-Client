@@ -53,7 +53,7 @@ function MobileForwardTargetModal({ conversations, currentUser, activeConversati
                       <ConversationAvatar conversation={conversation} title={title} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold">{title}{current ? '（当前）' : ''}</span>
-                        <span className="mt-0.5 block truncate text-xs [color:var(--kc-muted)]">{conversation.type === 'group' ? `群聊 · ${conversation.member_count ?? 0} 人` : '私聊'}</span>
+                        <span className="mt-0.5 block truncate text-xs [color:var(--kc-muted)]">{conversation.type === 'group' ? `群聊 · ${conversation.member_count ?? 0} 人` : conversation.type === 'self' ? '我的设备 · 传到自己的手机' : '私聊'}</span>
                       </span>
                       {active ? <Icon name="check" className="h-4 w-4 shrink-0 [color:var(--kc-accent)]" /> : null}
                     </button>
@@ -70,7 +70,7 @@ function MobileForwardTargetModal({ conversations, currentUser, activeConversati
                   <ConversationAvatar conversation={selectedConversation} title={conversationDisplayTitle(selectedConversation, currentUser)} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{conversationDisplayTitle(selectedConversation, currentUser)}</p>
-                    <p className="text-xs [color:var(--kc-muted)]">{selectedConversation.type === 'group' ? '群聊' : '私聊'}</p>
+                    <p className="text-xs [color:var(--kc-muted)]">{selectedConversation.type === 'group' ? '群聊' : selectedConversation.type === 'self' ? '我的设备' : '私聊'}</p>
                   </div>
                 </div>
               ) : <p className="text-sm [color:var(--kc-muted)]">请从左侧选择一个会话</p>}

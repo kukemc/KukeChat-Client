@@ -13,6 +13,7 @@ import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation, Friendship, GroupJoinRequest, Message, User } from '@/types/api';
 import { giftPreview } from '@/utils/gift';
 import { redPacketPreview } from '@/utils/redPacket';
+import { SELF_CHAT_TITLE } from '@/utils/selfChat';
 
 // 全局搜索的数据和操作。手机端的整页和桌面端的搜索面板共用，各自只管怎么画。
 
@@ -47,6 +48,9 @@ export function groupTitle(conversation: Conversation): string {
 export function conversationTitle(conversation?: Conversation | null): string {
   if (!conversation) {
     return '聊天记录';
+  }
+  if (conversation.type === 'self') {
+    return SELF_CHAT_TITLE;
   }
   return conversation.display_title?.trim() || conversation.title?.trim() || conversation.direct_user?.nickname?.trim() || conversation.direct_user?.username?.trim() || `会话 ${conversation.id}`;
 }

@@ -3,6 +3,7 @@ import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { conversationSpark } from '@/components/spark/data';
 import { SparkMark } from '@/components/spark/SparkMark';
 import { Avatar } from '@/components/ui/Avatar';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
 import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
 import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -60,6 +61,24 @@ function DirectStatus({ conversationId, user }: { conversationId: number; user: 
 /** 聊天面板的头部：左边是会话的头像、名称和一行状态（整块点开聊天资料），右边是调用方给的操作按钮。 */
 export function ChatHeader({ conversation, name, directUser, onOpenInfo, children }: ChatHeaderProps): JSX.Element {
   const isGroup = conversation.type === 'group';
+  if (conversation.type === 'self') {
+    // 「我的设备」：没有对方资料、在线状态、火花；第二行说清楚这是干什么的
+    return (
+      <header className="kcd-header">
+        <button type="button" className="kcd-header-id" title="查看聊天资料" onClick={onOpenInfo}>
+          <DeviceAvatar kind="phone" size="sm" />
+          <span className="kcd-header-text">
+            <span className="kcd-header-title"><span className="kcd-header-name" role="heading" aria-level={3}>{name}</span></span>
+            <span className="kcd-header-sub">
+              <span className="kself-header-hint">在手机和电脑之间传消息、传文件 · 文件保留 24 小时</span>
+              {isConversationMuted(conversation) ? <span className="kcd-header-flag"><Icon name="bellOff" className="h-3 w-3" />免打扰</span> : null}
+            </span>
+          </span>
+        </button>
+        <div className="kcd-header-actions">{children}</div>
+      </header>
+    );
+  }
   return (
     <header className="kcd-header">
       <button type="button" className="kcd-header-id" title={isGroup ? '查看群聊资料' : '查看聊天资料'} onClick={onOpenInfo}>

@@ -2,6 +2,7 @@ import { toast } from '@/components/ui/toast';
 import type { Message } from '@/types/api';
 import { isGiftMessage } from '@/utils/gift';
 import { isRedPacketMessage } from '@/utils/redPacket';
+import { isSelfTransferMessage } from '@/utils/selfChat';
 
 /*
  * 多选消息的公共规则：哪些能选、一次最多选多少、按一段范围批量改。
@@ -14,7 +15,8 @@ export const MAX_SELECTED_MESSAGES = 100;
 /** 多选出来是要合并转发的：撤回的、系统提示、红包、礼物都选不上。 */
 export function isSelectableMessage(message: Message): boolean {
   // 还没发出去的本地消息（负数 id）不进多选
-  return message.id > 0 && !message.recalled_at && message.type !== 'system' && !isRedPacketMessage(message) && !isGiftMessage(message);
+  // 「我的设备」的临时文件不能转发，也不进多选（self-chat.md 5.5）
+  return message.id > 0 && !message.recalled_at && message.type !== 'system' && !isRedPacketMessage(message) && !isGiftMessage(message) && !isSelfTransferMessage(message);
 }
 
 export interface PaintResult {

@@ -7,6 +7,8 @@ import { RedPacketGlyph } from '@/components/redpacket/RedPacketGlyph';
 import { TaskEventCard } from '@/components/tasks/TaskEventCard';
 import { TaskShareCard } from '@/components/tasks/TaskShareCard';
 import { GroupFileCard } from '@/components/groupPlus/files/GroupFileCard';
+import { SelfTransferCard } from '@/components/selfChat/TransferCard';
+import { selfTransferOf } from '@/utils/selfChat';
 import { groupFileMetaOf } from '@/api/groupPlus';
 import { toast } from '@/components/ui/toast';
 import { useKukeStore } from '@/store/kukeStore';
@@ -238,6 +240,8 @@ export function MessageView({ message, depth = 0, variant = 'full', conversation
   const taskEvent = taskEventCardOf(message);
   // 群文件消息：type 是 text，按 metadata.file 画卡片（和聊天行同一个判断）
   const fileMeta = groupFileMetaOf(message);
+  // 「我的设备」的临时文件（metadata.transfer）：聊天记录搜索里会出现
+  const transfer = selfTransferOf(message);
   // 跳到别处的卡片：给了 onNavigate 才能点，点之前先让调用方收起自己
   const go = (kind: MessageViewNavigation, open: () => void) => () => {
     onNavigate?.(kind);
@@ -264,6 +268,8 @@ export function MessageView({ message, depth = 0, variant = 'full', conversation
     body = <GiftSummary message={message} />;
   } else if (message.type === 'forward_bundle') {
     body = <NestedBundle message={message} depth={depth} maxDepth={maxDepth} variant={variant} conversationId={cid} onOpenImages={onOpenImages} onOpenBundle={onOpenBundle} onOpenBot={onOpenBot} onNavigate={onNavigate} />;
+  } else if (transfer) {
+    body = <SelfTransferCard meta={transfer} conversationId={cid} compact={compact} />;
   } else if (fileMeta) {
     body = <GroupFileCard meta={fileMeta} conversationId={cid} compact={compact} />;
   } else if (groupCard) {

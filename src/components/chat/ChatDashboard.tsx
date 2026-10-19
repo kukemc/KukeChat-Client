@@ -21,6 +21,7 @@ import { usePaneSizes } from '@/components/shell/paneSizes';
 import { ConversationPane } from '@/components/shell/ConversationPane';
 import { NavRail } from '@/components/shell/NavRail';
 import { MessagePanel } from './MessagePanel';
+import { useSelfChatSync } from '@/components/selfChat/useSelfChatSync';
 import { DesktopChatPanel } from './desktop/DesktopChatPanel';
 import { GroupPlusHosts } from '@/components/groupPlus/GroupPlusHosts';
 import { GroupAnnouncementHost } from '@/components/groupAnnouncement/GroupAnnouncementHost';
@@ -336,6 +337,8 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   const friendsQuery = useQuery({ queryKey: ['friends'], queryFn: getFriends });
   const conversations = conversationsQuery.data ?? [];
   const friends = friendsQuery.data ?? [];
+  // 「我的设备」的本地未读（self-chat.md 3.3）：离线期间另一台设备发的补数，角标写回会话缓存
+  useSelfChatSync(conversations, currentUser.id);
   const previousProjectionRef = useRef<ReturnType<typeof projectDashboardConversations> | null>(null);
   const conversationProjection = useMemo(() => {
     const next = projectDashboardConversations(conversations, previousProjectionRef.current ?? undefined);

@@ -59,6 +59,10 @@ import { PendingImageSpinner, PendingSideStatus } from './PendingMessage';
 import { isLocalMessage, localPreviewFor } from '../message/pendingSend';
 import { chatUploadTaskIdOf } from '../message/chatUploads';
 import { isSelectableMessage } from './selection';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
+import { SelfTransferCard, SelfTransferUploadCard } from '@/components/selfChat/TransferCard';
+import { selfTransferTaskIdOf } from '@/components/selfChat/transfers';
+import { deviceLabel, isLocalDeviceMessage, messageDeviceOrLocal, selfTransferOf } from '@/utils/selfChat';
 
 export interface MessageRowProps {
   message: Message;
@@ -216,6 +220,17 @@ function renderBody(message: Message, mine: boolean, context: ChatRowContextValu
     return { bare: true, node: <UploadingFileCard taskId={uploadTaskId} /> };
   }
 
+  // 「我的设备」里正在发的临时文件（本地消息）：带进度和取消，传完原地换成下面的文件卡片
+  const selfTaskId = selfTransferTaskIdOf(message);
+  if (selfTaskId !== null) {
+    return { bare: true, node: <SelfTransferUploadCard taskId={selfTaskId} /> };
+  }
+  // 「我的设备」的临时文件消息（metadata.transfer，self-chat.md 5.3）：type 是 text，旧客户端只看到「[文件] 名（大小）」
+  const transfer = selfTransferOf(message);
+  if (transfer) {
+    return { bare: true, node: <SelfTransferCard meta={transfer} conversationId={message.conversation_id} /> };
+  }
+
   // 群文件消息：type 仍是 text（旧客户端只看到「[文件] 名」），新客户端按 metadata.file 画卡片
   const fileMeta = groupFileMetaOf(message);
   if (fileMeta) {
@@ -329,6 +344,15 @@ function identityTag(message: Message, context: ChatRowContextValue): { text: st
 }
 
 function SenderMeta({ message, context, mine }: { message: Message; context: ChatRowContextValue; mine: boolean }): JSX.Element {
+  if (context.selfChat) {
+    // 「我的设备」：另一类设备发的叫「我的手机」，这台的照常是自己的名字；没有头衔、徽章
+    return (
+      <div className="kcd-meta">
+        <span className="kcd-meta-name">{mine ? messageSenderLabel(message) : deviceLabel(messageDeviceOrLocal(message))}</span>
+        <time className="kcd-meta-time" title={formatMessageDateTime(message.created_at)}>{formatClockTime(message.created_at)}</time>
+      </div>
+    );
+  }
   const sender = senderOf(message);
   const isBot = Boolean(sender?.is_bot);
   const identity = isBot ? null : identityTag(message, context);
@@ -440,7 +464,8 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
   }
 
   const sender = senderOf(message);
-  const mine = (message.sender_id ?? sender?.id) === currentUser.id;
+  // 「我的设备」里的消息都是自己发的：左右改按发消息的设备类分（self-chat.md 第 2 节）
+  const mine = context.selfChat ? isLocalDeviceMessage(message) : (message.sender_id ?? sender?.id) === currentUser.id;
   const quote = quoteMetadataOf(message);
   // 气泡皮肤（docs/shop.md 2.2）：自己的消息用自己装备的，别人的用发送者对象上带的。
   // 机器人的 Markdown / 组件消息里有按钮、表格、代码块这些自带底色的东西，不穿皮肤
@@ -483,6 +508,8 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
         <div className="kcd-avatar-slot">
           {grouped ? (
             <time className="kcd-gutter-time">{formatClockTime(message.created_at)}</time>
+          ) : context.selfChat && !mine ? (
+            <span className="kcd-avatar kself-avatar-slot"><DeviceAvatar kind={messageDeviceOrLocal(message)} size="message" /></span>
           ) : (
             <button
               type="button"
@@ -531,7 +558,7 @@ function MessageRowInner({ message, showTime, grouped, unreadBefore, selected, s
                 <button type="button" title="表情回应" onPointerEnter={() => prewarmReactionPicker()} onClick={(event) => actions.openReactionPicker(event, message)}><Icon name="emoji" className="h-4 w-4" /></button>
                 <button type="button" title="引用" onClick={() => actions.quote(message)}><Icon name="quote" className="h-4 w-4" /></button>
                 {/* 红包、礼物不能转发 */}
-                {isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) ? null : <button type="button" title="转发" onClick={() => actions.forward(message)}><Icon name="share" className="h-4 w-4" /></button>}
+                {isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) || selfTransferOf(message) ? null : <button type="button" title="转发" onClick={() => actions.forward(message)}><Icon name="share" className="h-4 w-4" /></button>}
                 <button type="button" title="更多" onClick={(event) => actions.openMessageMenuAt(event.currentTarget, message)}><Icon name="more" className="h-4 w-4" /></button>
               </div>
             )}

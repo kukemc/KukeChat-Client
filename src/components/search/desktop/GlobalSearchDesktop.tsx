@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cx } from '@/components/chat/desktop/runtime';
 import { UserLevelIcons } from '@/components/level/LevelIcons';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
 import { Icon } from '@/components/ui/Icon';
 import { useEscapeLayer } from '@/components/ui/desktop/Modal';
 import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
@@ -30,6 +31,9 @@ function highlight(text: string, keyword: string): ReactNode {
 /** 聚合行里的会话头像：群聊带档位角标，私聊是对方的头像。 */
 function SummaryAvatar({ conversation }: { conversation: ChatSearchConversation }): JSX.Element {
   const title = chatSearchTitle(conversation);
+  if (conversation.type === 'self') {
+    return <DeviceAvatar kind="phone" size="message" />;
+  }
   if (conversation.type === 'group') {
     return <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} size="message" plusTier={effectiveTier(conversation.plus_tier, conversation.plus_expires_at)} />;
   }

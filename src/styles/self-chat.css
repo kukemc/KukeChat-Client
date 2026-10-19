@@ -1,0 +1,258 @@
+/* ───────── 「我的设备」（前缀 kself-）─────────
+   自己设备之间的私密会话：设备头像、临时文件卡片的有效期、会话资料里的临时文件列表。
+   和群文件、群升级同一套黑白灰阶：墨色 + 半透明灰，警示色只给「快过期」。桌面与移动、扩展的 Shadow DOM 共用。 */
+
+/* 设备头像：墨色底、白色细线图标；深色主题反过来 */
+.kself-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: #17191e;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(18, 22, 38, 0.12);
+  color: #f6f7f9;
+}
+
+.kself-avatar.is-squircle {
+  border-radius: 16px;
+}
+
+.kself-avatar svg {
+  stroke-width: 1.6;
+}
+
+[data-theme='dark'] .kself-avatar {
+  background: #eceef2;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  color: #15171b;
+}
+
+/* 聊天头像位上的设备头像（替换消息行里的用户头像）：和 .kcd-avatar 同样大小，不可点 */
+.kcd-avatar.kself-avatar-slot {
+  display: block;
+  cursor: default;
+}
+
+.kcd-avatar.kself-avatar-slot:hover {
+  filter: none;
+}
+
+/* 跟着外观设置里的头像形状走（圆 / 圆角方） */
+.kcd-avatar.kself-avatar-slot > .kself-avatar {
+  border-radius: var(--kc-avatar-radius, 50%);
+}
+
+/* ───────── 临时文件卡片 ───────── */
+
+.kself-file .kgp-file-name {
+  letter-spacing: -0.01em;
+}
+
+.kself-file-ttl {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kself-file-ttl::before {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  content: '';
+  opacity: 0.55;
+}
+
+.kself-file-ttl.is-soon {
+  color: var(--kgp-file-warn);
+}
+
+.kself-file-ttl.is-expired {
+  color: var(--kc-muted);
+  font-weight: 600;
+}
+
+.kgp-file-card.kself-file.is-expired {
+  opacity: 1;
+  border-style: dashed;
+  background: transparent;
+}
+
+.kgp-file-card.kself-file.is-expired .kgp-file-name {
+  color: var(--kc-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--kc-muted) 55%, transparent);
+}
+
+/* 手机布局：上传中的卡片排在输入框上面一条 */
+.kself-mobile-tray {
+  display: flex;
+  max-height: 168px;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding: 6px 10px 2px;
+}
+
+.kself-mobile-tray .kgp-file-card {
+  width: 100%;
+}
+
+/* ───────── 会话资料里的临时文件 ───────── */
+
+.kself-info-muted {
+  color: var(--kc-muted);
+  font-size: calc(11px * var(--kui-fs, 1));
+  font-weight: 500;
+}
+
+.kself-info-empty {
+  margin: 4px 0 2px;
+  padding: 14px 12px;
+  border: 1px dashed color-mix(in srgb, var(--kc-text) 12%, transparent);
+  border-radius: 10px;
+  color: var(--kc-muted);
+  font-size: calc(12px * var(--kui-fs, 1));
+  text-align: center;
+}
+
+.kself-link {
+  border: 0;
+  background: none;
+  color: var(--kc-text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.kself-quota {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+
+.kself-quota-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+.kself-quota-line span:first-child {
+  color: var(--kc-text);
+  font-weight: 600;
+}
+
+.kself-quota-bar {
+  position: relative;
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kself-quota-bar > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--kc-text);
+  transform-origin: left center;
+  transition: transform 0.25s ease-out;
+}
+
+.kself-quota-bar > span.is-full {
+  background: #b4610c;
+}
+
+.kself-transfer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kself-transfer-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--kc-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.kself-transfer-row:hover:not(:disabled) {
+  background: var(--kc-hover);
+}
+
+.kself-transfer-row:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.kself-transfer-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--kc-text) 7.5%, transparent);
+}
+
+.kself-transfer-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kself-transfer-name {
+  overflow: hidden;
+  font-size: calc(13px * var(--kui-fs, 1));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kself-transfer-sub {
+  color: var(--kc-muted);
+  font-size: calc(11.5px * var(--kui-fs, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+.kself-transfer-dl {
+  flex: none;
+  color: var(--kc-muted);
+}
+
+/* 标题栏第二行 */
+.kcd-header-sub .kself-header-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kgp-file-card.kself-file {
+  width: 272px;
+}
+
+/* 手机布局的工具栏是固定列数的格子：多一个「文件」就多一列 */
+.kc-mobile-composer-toolbar:has(.kself-tool) {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}

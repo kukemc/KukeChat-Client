@@ -12,6 +12,7 @@ import { copyText } from '@/components/chat/message/chatDom';
 import { VirtualConversationList } from '@/components/chat/VirtualConversationList';
 import { ConversationPrefixes } from '@/components/chat/ConversationPrefixes';
 import { Avatar } from '@/components/ui/Avatar';
+import { DeviceAvatar } from '@/components/selfChat/DeviceAvatar';
 import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
 import { conversationTier } from '@/components/groupPlus/tier';
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuSurface, MenuLayer } from '@/components/ui/ContextMenu';
@@ -63,7 +64,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, currentUse
   const peer = conversation.direct_user ?? conversation.members?.find((member) => member.user_id !== currentUser.id)?.user;
   return (
     <button type="button" className={`ksh-conv${active ? ' is-active' : ''}${pinned ? ' is-pinned' : ''}${unread && !quiet ? ' has-unread' : ''}`} onClick={() => onSelect(conversation)} onContextMenu={(event) => onContextMenu(event, conversation)}>
-      {conversation.type === 'group' ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} plusTier={conversationTier(conversation)} /> : <Avatar user={peer} label={title} />}
+      {conversation.type === 'self' ? <DeviceAvatar kind="phone" /> : conversation.type === 'group' ? <Avatar avatarUrl={conversation.avatar_url} label={title} toneKey={conversation.id} plusTier={conversationTier(conversation)} /> : <Avatar user={peer} label={title} />}
       <span className="ksh-conv-main">
         <span className="ksh-conv-line">
           <span className="ksh-conv-title"><span className="ksh-conv-name">{title}</span><PlusTierTag tier={conversationTier(conversation)} />{conversation.type === 'direct' ? <><FriendBadgeMark userId={peer?.id} size={15} /><SparkMark spark={conversationSpark(conversation)} friendId={peer?.id} size={14} /></> : null}</span>

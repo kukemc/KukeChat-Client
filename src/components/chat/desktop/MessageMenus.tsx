@@ -4,6 +4,7 @@ import type { Message } from '@/types/api';
 import { isGiftMessage } from '@/utils/gift';
 import { isRedPacketMessage } from '@/utils/redPacket';
 import { groupFileMetaOf } from '@/api/groupPlus';
+import { selfTransferOf } from '@/utils/selfChat';
 import { clampOverlayPosition } from '../message/chatDom';
 import { QUICK_REACTION_EMOJIS } from '../message/constants';
 import { canTranscribeVoice, toggleVoiceTranscript, voiceTranscriptOf } from '../message/voiceTranscripts';
@@ -35,16 +36,20 @@ interface MessageMenuProps {
   onRecall: (message: Message) => void;
   onDelete: (message: Message) => void;
   onReport: (message: Message) => void;
+  /** 「我的设备」里没有举报（只有自己，服务端也拒绝，self-chat.md 第 4 节） */
+  canReport?: boolean;
 }
 
 /** 消息右键菜单。每个条目点完都会关闭菜单。 */
-export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, onClose, onReact, onMoreReactions, onCopy, onFavoriteImage, onForward, onBookmark, onMultiSelect, onQuote, onFeature, todoAction, onRecall, onDelete, onReport }: MessageMenuProps): JSX.Element {
+export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, onClose, onReact, onMoreReactions, onCopy, onFavoriteImage, onForward, onBookmark, onMultiSelect, onQuote, onFeature, todoAction, onRecall, onDelete, onReport, canReport = true }: MessageMenuProps): JSX.Element {
   const { message } = menu;
   const recalled = Boolean(message.recalled_at);
   // 系统消息（入群提示、戳一戳……）不显示回应、不能被引用，也不能被举报（服务端会拒绝）
   const system = message.type === 'system';
   // 红包、礼物、群文件消息不能转发（服务端对带文件的合并转发整个拒绝），也不进多选（多选是为了合并转发）
-  const redPacket = isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) !== null;
+  // 「我的设备」的临时文件 24 小时后就没了：不能转发、不能收藏（self-chat.md 5.5）
+  const transfer = selfTransferOf(message) !== null;
+  const redPacket = isRedPacketMessage(message) || isGiftMessage(message) || groupFileMetaOf(message) !== null || transfer;
   // 系统消息（戳一戳、入群提示）也不能转发、不进多选：它们没有发送者，转出去后别处的界面画不了
   const notForwardable = redPacket || system;
   const position = clampOverlayPosition(menu, MENU_WIDTH, MENU_HEIGHT, overlayRoot);
@@ -83,13 +88,13 @@ export function MessageMenu({ menu, overlayRoot, canManageFeatured, canRecall, o
         {notForwardable ? null : <ContextMenuItem label="转发" icon="send" disabled={recalled} onClick={run(() => onForward(message))} />}
         {notForwardable ? null : <ContextMenuItem label="多选" icon="checkSquare" disabled={recalled} onClick={run(() => onMultiSelect(message))} />}
         <ContextMenuSeparator />
-        <ContextMenuItem label={message.bookmarked_by_me ? '取消收藏' : '收藏'} icon="star" disabled={recalled} onClick={run(() => onBookmark(message))} />
+        {transfer ? null : <ContextMenuItem label={message.bookmarked_by_me ? '取消收藏' : '收藏'} icon="star" disabled={recalled} onClick={run(() => onBookmark(message))} />}
         {canManageFeatured ? <ContextMenuItem label={message.featured ? '取消精华' : '设为精华'} icon="sparkles" disabled={recalled} onClick={run(() => onFeature(message))} /> : null}
         {todoAction ? <ContextMenuItem label={todoAction.label} icon="checkSquare" onClick={run(todoAction.run)} /> : null}
         <ContextMenuSeparator />
         {canRecall ? <ContextMenuItem label="撤回" icon="recall" onClick={run(() => onRecall(message))} /> : null}
         <ContextMenuItem label="删除" icon="trash" onClick={run(() => onDelete(message))} />
-        {system ? null : <ContextMenuItem label="举报" icon="flag" danger disabled={recalled} onClick={run(() => onReport(message))} />}
+        {system || !canReport ? null : <ContextMenuItem label="举报" icon="flag" danger disabled={recalled} onClick={run(() => onReport(message))} />}
       </ContextMenuSurface>
     </MenuLayer>
   );

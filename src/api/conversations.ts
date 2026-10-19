@@ -1,6 +1,11 @@
 import type { Conversation, ConversationMember, CreateDirectPayload, CreateGroupJoinRequestPayload, CreateGroupPayload, GroupCheckin, GroupCheckinStatus, GroupJoinRequest, GroupJoinRequestDecisionPayload, GroupLeaderboard, GroupLeaderboardPeriod, GroupLeaderboardType, MemberRole, Message, UpdateConversationProfilePayload, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload, UploadResponse } from '@/types/api';
 import { applyLocalReadMarks } from '@/store/readMarks';
+import { applySelfUnread, bindSelfChatUser, noteSelfConversationId } from '@/store/selfChatStore';
+import { useKukeStore } from '@/store/kukeStore';
+import { normalizeSelfConversation } from '@/utils/selfChat';
+import { sortConversationsByActivity } from '@/utils/conversations';
 import { apiRequest, uploadFile } from './client';
+import { ensureSelfConversation } from './selfChat';
 import { asList, isRecord, pickNumber } from './normalizers';
 
 export interface ConversationMembersPage {
@@ -16,9 +21,26 @@ export async function pokeMember(conversationId: number, userId: number, action?
   return apiRequest<Message>(`/conversations/${conversationId}/members/${userId}/poke`, { method: 'POST', body: action ? { action } : undefined });
 }
 
+/**
+ * 会话列表。「我的设备」会话（KukeChat-Server/docs/self-chat.md 1.2）要先 GET /conversations/self 建好，
+ * 再带 include_self=true 才会出现在列表里；旧后端两样都不认，列表和以前一样。
+ * 它的未读数服务端恒为 0，换成本机算的（store/selfChatStore.ts）；名字按这个客户端的叫法换掉。
+ */
 export async function getConversations(): Promise<Conversation[]> {
-  const response = await apiRequest<unknown>('/conversations');
-  return applyLocalReadMarks(asList<Conversation>(response));
+  const selfConversation = await ensureSelfConversation();
+  const response = await apiRequest<unknown>(selfConversation ? '/conversations?include_self=true' : '/conversations');
+  let list = asList<Conversation>(response).map(normalizeSelfConversation);
+  const self = list.find((conversation) => conversation.type === 'self') ?? null;
+  if (selfConversation && !self) {
+    // 刚建好、列表缓存还没跟上：自己补上，保证它一直在
+    list = sortConversationsByActivity([...list, selfConversation]);
+  }
+  const selfId = self?.id ?? selfConversation?.id ?? null;
+  if (selfId !== null) {
+    bindSelfChatUser(useKukeStore.getState().currentUser?.id ?? null);
+    noteSelfConversationId(selfId);
+  }
+  return applySelfUnread(applyLocalReadMarks(list));
 }
 
 export async function createDirectConversation(payload: CreateDirectPayload): Promise<Conversation> {

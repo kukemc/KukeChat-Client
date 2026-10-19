@@ -68,7 +68,7 @@ export function FavoritesDesktop({ conversations, currentUser, items, isLoading,
                       <div className="kfv-item-from">
                         <ConversationAvatar conversation={conversation} title={title} size="sm" />
                         <span>{title}</span>
-                        <span>{conversation?.type === 'group' ? '群聊' : '私聊'}</span>
+                        <span>{conversation?.type === 'group' ? '群聊' : conversation?.type === 'self' ? '我的设备' : '私聊'}</span>
                       </div>
                     </div>
                   </li>

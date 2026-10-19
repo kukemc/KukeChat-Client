@@ -284,7 +284,7 @@ export type ChatSearchCategory = 'all' | 'media' | 'sticker' | 'file' | 'link';
 
 export interface ChatSearchConversation {
   id: number;
-  type: 'group' | 'direct';
+  type: 'group' | 'direct' | 'self';
   title: string | null;
   display_title: string | null;
   avatar_url: string | null;

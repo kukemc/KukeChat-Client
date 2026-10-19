@@ -3,6 +3,7 @@ import type { ChatSearchConversation, ChatSearchHit, ChatSearchPage, ChatSearchP
 import { normalizeTier } from './groupPlus';
 import { apiRequest } from './client';
 import { isRecord } from './normalizers';
+import { SELF_CHAT_TITLE } from '@/utils/selfChat';
 
 /**
  * 聊天记录搜索（QQ 式）。契约：KukeChat-Server/docs/group-plus.md 第 8 节。
@@ -26,9 +27,10 @@ function normalizeConversation(value: unknown): ChatSearchConversation | null {
   const directUser = isRecord(value.direct_user) && typeof value.direct_user.id === 'number' ? value.direct_user as unknown as User : null;
   return {
     id: value.id,
-    type: value.type === 'direct' ? 'direct' : 'group',
-    title: typeof value.title === 'string' ? value.title : null,
-    display_title: typeof value.display_title === 'string' ? value.display_title : null,
+    type: value.type === 'direct' ? 'direct' : value.type === 'self' ? 'self' : 'group',
+    // 「我的设备」：服务端给的是中性的「我的设备」，这个客户端叫它「我的手机」（self-chat.md 1.3）
+    title: value.type === 'self' ? SELF_CHAT_TITLE : typeof value.title === 'string' ? value.title : null,
+    display_title: value.type === 'self' ? SELF_CHAT_TITLE : typeof value.display_title === 'string' ? value.display_title : null,
     avatar_url: typeof value.avatar_url === 'string' ? value.avatar_url : null,
     plus_tier: normalizeTier(value.plus_tier),
     plus_expires_at: typeof value.plus_expires_at === 'string' ? value.plus_expires_at : null,
