@@ -11,6 +11,7 @@ import type { RedPacketKind, RedPacketLimits, SendRedPacketPayload } from '@/typ
 import { openExternalUrl } from '@/utils/openExternalUrl';
 import { DEFAULT_RED_PACKET_GREETING, RED_PACKET_CHAIN_MAX, RED_PACKET_GREETING_MAX, RED_PACKET_VOICE_TEXT_MAX } from '@/utils/redPacket';
 import { describeSendError, useRedPacketConfig, useRedPacketFeatures, useSendRedPacket } from './data';
+import { RedPacketGlyph } from './RedPacketGlyph';
 import { RedPacketLayer } from './RedPacketLayer';
 import { RedPacketRecords } from './RedPacketRecords';
 import { RedPacketTargetPicker, type RedPacketTargetChoice } from './RedPacketTargetPicker';
@@ -201,7 +202,7 @@ export function SendRedPacketDialog({ conversationId, isGroup, members = [], onC
 
   const header = (
     <header className="krp-panel-head">
-      <span className="krp-panel-icon"><Icon name="redPacket" className="h-4 w-4" /></span>
+      <RedPacketGlyph size={24} className="krp-panel-glyph" />
       <h2>发红包</h2>
       <button type="button" className="krp-link" data-action="red-packet-records" onClick={() => setRecordsOpen(true)}>红包记录</button>
       <button type="button" className="kui-icon-btn" aria-label="关闭" disabled={send.isPending} onClick={onClose}><Icon name="close" className="h-4 w-4" /></button>

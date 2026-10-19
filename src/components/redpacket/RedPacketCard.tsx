@@ -8,6 +8,7 @@ import type { Message, User } from '@/types/api';
 import type { RedPacket, RedPacketMeta } from '@/types/redPacket';
 import { parseApiDate } from '@/utils/dateTime';
 import { isRedPacketExpired, recheckRedPacketPending, useRedPacket } from './data';
+import { RedPacketGlyph } from './RedPacketGlyph';
 import { useRedPacketUi } from './ui';
 
 /** 专属红包的目标怎么称呼：消息上的快照 > 红包状态里的；都没有就是「Ta」 */
@@ -156,7 +157,7 @@ export function RedPacketCard({ message, meta, mine, isGroup }: { message: Messa
       onDoubleClick={stop}
     >
       <span className="krp-card-body">
-        <span className="krp-seal" aria-hidden="true"><i>福</i></span>
+        <span className="krp-seal" aria-hidden="true"><RedPacketGlyph size={46} onRed /></span>
         <span className="krp-card-text">
           <span className="krp-card-greeting">{meta.greeting}</span>
           {chainText ? <span className="krp-card-chain" title="领取时会自动发出这句话"><b>接龙</b><span>{chainText}</span></span> : null}

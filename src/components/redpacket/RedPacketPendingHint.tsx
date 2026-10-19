@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Icon } from '@/components/ui/Icon';
 import type { PendingRedPacket } from '@/types/redPacket';
 import { parseApiDate } from '@/utils/dateTime';
 import { usePendingRedPackets } from './data';
+import { RedPacketGlyph } from './RedPacketGlyph';
 import { isRedPacketSeen, markRedPacketsSeen, useSeenRedPacketsVersion } from './seenPackets';
 
 export interface RedPacketPendingHintProps {
@@ -90,7 +90,7 @@ export function RedPacketPendingHint({ conversationId, onJump }: RedPacketPendin
       aria-label={`${countText} 个红包未领，${hint}`}
       data-red-packet-pending={visible ? items.length : 0}
     >
-      <Icon name="redPacket" className="krp-pending-icon" />
+      <RedPacketGlyph size={16} className="krp-pending-icon" />
       <span className="krp-pending-text"><b>{countText}</b> 个红包未领</span>
       <span className="krp-pending-arrow" aria-hidden="true" />
     </button>

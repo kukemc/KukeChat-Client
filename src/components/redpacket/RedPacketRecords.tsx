@@ -9,6 +9,7 @@ import type { Conversation } from '@/types/api';
 import type { RedPacketDirection, RedPacketRecord, RedPacketStatus } from '@/types/redPacket';
 import { useMyRedPackets } from './data';
 import { OpenRedPacketDialog } from './OpenRedPacketDialog';
+import { RedPacketGlyph } from './RedPacketGlyph';
 import { RedPacketLayer } from './RedPacketLayer';
 
 const PAGE_SIZE = 20;
@@ -59,7 +60,7 @@ export function RedPacketRecords({ onClose }: { onClose: () => void }): JSX.Elem
     <RedPacketLayer label="红包记录" onClose={onClose}>
       <section className="krp-panel krp-panel--tall" data-red-packet-view="records" data-direction={direction}>
         <header className="krp-panel-head">
-          <span className="krp-panel-icon"><Icon name="redPacket" className="h-4 w-4" /></span>
+          <RedPacketGlyph size={24} className="krp-panel-glyph" />
           <h2>红包记录</h2>
           <button type="button" className="kui-icon-btn" aria-label="关闭" onClick={onClose}><Icon name="close" className="h-4 w-4" /></button>
         </header>

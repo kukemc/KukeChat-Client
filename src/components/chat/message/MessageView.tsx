@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getConversations } from '@/api/conversations';
 import type { Conversation, Message } from '@/types/api';
 import { Icon } from '@/components/ui/Icon';
+import { RedPacketGlyph } from '@/components/redpacket/RedPacketGlyph';
 import { TaskEventCard } from '@/components/tasks/TaskEventCard';
 import { TaskShareCard } from '@/components/tasks/TaskShareCard';
 import { GroupFileCard } from '@/components/groupPlus/files/GroupFileCard';
@@ -90,7 +91,9 @@ function LiveGroupCard({ card, onNavigate }: { card: NonNullable<ReturnType<type
 }
 
 function Chip({ icon, children }: { icon?: 'mic' | 'redPacket' | 'gift' | 'poll' | 'message'; children: React.ReactNode }): JSX.Element {
-  return <span className="kmv-chip">{icon ? <Icon name={icon} className="h-4 w-4 shrink-0" /> : null}<span className="kmv-chip-text">{children}</span></span>;
+  // 红包用自己画的小红包（RedPacketGlyph），其余是图标库的线框
+  const glyph = icon === 'redPacket' ? <RedPacketGlyph size={16} /> : icon ? <Icon name={icon} className="h-4 w-4 shrink-0" /> : null;
+  return <span className="kmv-chip">{glyph}<span className="kmv-chip-text">{children}</span></span>;
 }
 
 function PollSummary({ message }: { message: Message }): JSX.Element {
@@ -141,7 +144,7 @@ function RedPacketSummary({ message }: { message: Message }): JSX.Element {
   }
   return (
     <div className="kmv-card kmv-card--red">
-      <p className="kmv-card-title"><Icon name="redPacket" className="h-4 w-4 shrink-0" />{meta.greeting}</p>
+      <p className="kmv-card-title"><RedPacketGlyph size={18} />{meta.greeting}</p>
       <p className="kmv-card-foot">{redPacketKindLabel(meta)} · 共 {meta.count} 个</p>
     </div>
   );

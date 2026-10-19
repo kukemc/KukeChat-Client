@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Message } from '@/types/api';
 import { Icon } from '@/components/ui/Icon';
+import { RedPacketGlyph } from '@/components/redpacket/RedPacketGlyph';
 import { bubbleSkinClass, type BubbleSkin } from '@/components/shop/skin/bubbleSkin';
 import { SkinDecor } from '@/components/shop/skin/SkinDecor';
 import { resolveAssetUrl } from '@/utils/assetUrl';
@@ -338,7 +339,7 @@ export function VoiceMessageBubble({ message, mine, skin = null, skinMotion = tr
         <span className="kc-voice-time" aria-hidden="true">{formatVoiceDuration((showPosition ? position : effectiveDuration) * 1000)}</span>
       </div>
       {playError ? <p className="kc-voice-note is-error">{playError}</p> : null}
-      {fromRedPacket ? <p className="kc-voice-note kc-voice-red-packet" data-red-packet-voice=""><Icon name="redPacket" className="kc-voice-red-packet-icon" />领取了语音红包</p> : null}
+      {fromRedPacket ? <p className="kc-voice-note kc-voice-red-packet" data-red-packet-voice=""><RedPacketGlyph size={14} className="kc-voice-red-packet-icon" />领取了语音红包</p> : null}
       <VoiceTranscriptLine message={message} view={transcript} />
     </div>
   );

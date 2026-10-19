@@ -5,6 +5,7 @@ import { CoinIcon } from '@/components/ui/CoinIcon';
 import { registerNativeBackHandler } from '@/native/back';
 import { GiftRecordsButton } from '@/components/gifts/GiftEntry';
 import { RedPacketRecordsButton } from '@/components/redpacket/RedPacketEntry';
+import { RedPacketGlyph } from '@/components/redpacket/RedPacketGlyph';
 import type { ShopItem } from '@/types/shop';
 import { useShopPurchases } from '../data';
 import { doneText, ItemButton, ItemTags, PriceLine, TermRows } from '../ItemParts';
@@ -98,7 +99,7 @@ function MobileContent({ shop, onOpenCcwBinding }: { shop: ShopController; onOpe
       ) : null}
 
       {/* 余额除了买装扮，还会因为发红包、抢红包变：记录的入口放在余额下面 */}
-      <RedPacketRecordsButton className="ksp-m-link-row"><Icon name="redPacket" className="h-4 w-4" /><span>红包记录</span><Icon name="chevron" className="h-4 w-4" /></RedPacketRecordsButton>
+      <RedPacketRecordsButton className="ksp-m-link-row"><RedPacketGlyph size={20} /><span>红包记录</span><Icon name="chevron" className="h-4 w-4" /></RedPacketRecordsButton>
       <GiftRecordsButton className="ksp-m-link-row"><Icon name="gift" className="h-4 w-4" /><span>礼物记录</span><Icon name="chevron" className="h-4 w-4" /></GiftRecordsButton>
 
       {balance?.bound ? (
