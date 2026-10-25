@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { isRecord } from '@/api/normalizers';
 import { isOrnamentCorner, isOrnamentKey, type OrnamentSpec } from './ornaments';
 import { isPatternKey, patternPaint, type PatternPaint } from './patterns';
+import { ensureSkinFont, readSkinFont, skinFontFamily, type SkinFont } from './skinFont';
 
 /**
  * 气泡皮肤：把服务端给的 `style`（docs/shop.md 2.2）变成能挂到气泡上的样式。
@@ -17,9 +18,11 @@ import { isPatternKey, patternPaint, type PatternPaint } from './patterns';
  *   · 纹样、角饰的 key 不认识 → 跳过那一项，其余照常画（契约：以后加新图案要发版，旧客户端照样能画出别的部分）。
  *   · `dark` 里有任何一项不合法 → 整个深色覆盖作废，深色下沿用浅色那一套（同样是为了不出现「新底色配旧字色」）。
  *   · 数值都有上限：阴影的偏移、模糊、扩散会被夹到一个不会盖住旁边消息的范围里；角饰最多两个、最大 28 像素。
+ *   · 专属字体不在 style 里，在它旁边（cosmetics.bubble.font，见 skinFont.ts）；withSkinFont 把它并进皮肤。
  */
 
-export type BubbleSkinAnimation = 'none' | 'flow' | 'shimmer' | 'breathe';
+/** scan（一道扫描线从上往下扫）是 2.0.10 加的 */
+export type BubbleSkinAnimation = 'none' | 'flow' | 'shimmer' | 'breathe' | 'scan';
 
 interface SkinPaint {
   background: string;
@@ -43,6 +46,8 @@ export interface BubbleSkin {
   ornaments: OrnamentSpec[];
   /** 浅色或深色下有纹样 */
   hasPattern: boolean;
+  /** 专属字体；只有 withSkinFont 并过的才有 */
+  font: SkinFont | null;
   /** 挂到气泡元素上的自定义属性，解析时算好，同一件皮肤的所有气泡共用一个对象 */
   vars: CSSProperties;
 }
@@ -393,7 +398,7 @@ function buildSkin(source: Record<string, unknown>): BubbleSkin | null {
   }
 
   const radius = inRange(source.radius, MIN_RADIUS, MAX_RADIUS) ? Math.round(source.radius) : null;
-  const animation: BubbleSkinAnimation = source.animation === 'flow' || source.animation === 'shimmer' || source.animation === 'breathe' ? source.animation : 'none';
+  const animation: BubbleSkinAnimation = source.animation === 'flow' || source.animation === 'shimmer' || source.animation === 'breathe' || source.animation === 'scan' ? source.animation : 'none';
   const ornamentList = ornaments === INVALID ? [] : ornaments;
 
   const vars: Record<string, string> = {};
@@ -412,7 +417,7 @@ function buildSkin(source: Record<string, unknown>): BubbleSkin | null {
   if (marginBottom > 0) {
     vars['--kcsk-mb'] = `${marginBottom}px`;
   }
-  return { light, dark, radius, animation, ornaments: ornamentList, hasPattern: Boolean(light.pattern || dark.pattern), vars: vars as CSSProperties };
+  return { light, dark, radius, animation, ornaments: ornamentList, hasPattern: Boolean(light.pattern || dark.pattern), font: null, vars: vars as CSSProperties };
 }
 
 // 聊天里每条消息的发送者对象是各自的一份，同一件皮肤会以很多个不同的对象出现。
@@ -454,13 +459,41 @@ export function parseBubbleSkin(style: unknown): BubbleSkin | null {
   return skin;
 }
 
-/** 一个人装备着的气泡皮肤。用户对象没有 cosmetics（旧后端）、没装备、皮肤不合法，都是 null。 */
+const withFont = new WeakMap<BubbleSkin, Map<string, BubbleSkin>>();
+
+/**
+ * 给皮肤并上专属字体（服务端给的 font 对象，不合法就当没有）。同一件皮肤配同一款字体总是同一个对象；
+ * 第一次用到某款字体时开始下载，下载完之前、下载失败时文字用原来的字体。
+ */
+export function withSkinFont(skin: BubbleSkin, fontSource: unknown): BubbleSkin {
+  const font = readSkinFont(fontSource);
+  if (!font) {
+    return skin;
+  }
+  const id = `${font.key}|${font.url}`;
+  let variants = withFont.get(skin);
+  const known = variants?.get(id);
+  if (known) {
+    return known;
+  }
+  void ensureSkinFont(font);
+  const worn: BubbleSkin = { ...skin, font, vars: { ...skin.vars, '--kcsk-font': skinFontFamily(font) } as CSSProperties };
+  if (!variants) {
+    variants = new Map();
+    withFont.set(skin, variants);
+  }
+  variants.set(id, worn);
+  return worn;
+}
+
+/** 一个人装备着的气泡皮肤（连同专属字体）。用户对象没有 cosmetics（旧后端）、没装备、皮肤不合法，都是 null。 */
 export function bubbleSkinOf(user: { cosmetics?: unknown } | null | undefined): BubbleSkin | null {
   const cosmetics = user?.cosmetics;
   if (!isRecord(cosmetics) || !isRecord(cosmetics.bubble)) {
     return null;
   }
-  return parseBubbleSkin(cosmetics.bubble.style);
+  const skin = parseBubbleSkin(cosmetics.bubble.style);
+  return skin ? withSkinFont(skin, cosmetics.bubble.font) : null;
 }
 
 /**
@@ -470,6 +503,7 @@ export function bubbleSkinOf(user: { cosmetics?: unknown } | null | undefined): 
  *   kcsk--r             皮肤自带圆角
  *   kcsk--spill         有东西要探出气泡（角饰、呼吸的光晕），气泡不能裁切自己的内容
  *   kcsk--orn-tl 等     哪些角上有角饰，气泡角上原有的收藏 / 精华标记据此让位
+ *   kcsk--font          用专属字体（字体族在 --kcsk-font 里）
  */
 export function bubbleSkinClass(skin: BubbleSkin, mine: boolean): string {
   let name = `kcsk ${mine ? 'kcsk--out' : 'kcsk--in'}`;
@@ -481,6 +515,9 @@ export function bubbleSkinClass(skin: BubbleSkin, mine: boolean): string {
   }
   for (const ornament of skin.ornaments) {
     name += ` kcsk--orn-${ornament.corner}`;
+  }
+  if (skin.font) {
+    name += ' kcsk--font';
   }
   return name;
 }

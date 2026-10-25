@@ -54,6 +54,8 @@ export interface ShopController {
   donated: boolean;
 
   equip: (item: ShopItem) => void;
+  /** 装备着的那件：打开 / 关掉它的专属字体 */
+  setFontEnabled: (item: ShopItem, enabled: boolean) => void;
   unequip: (slot: string) => void;
   /** 卸下某件商品所在的槽 */
   unequipItem: (item: ShopItem) => void;
@@ -219,18 +221,19 @@ export function useShopController(): ShopController {
     void openExternalUrl(target);
   });
 
-  const runEquip = (slot: string, sku: string | null, pendingKey: string, done: string): void => {
+  const runEquip = (slot: string, sku: string | null, pendingKey: string, done: string, useFont?: boolean): void => {
     if (equipMutation.isPending) {
       return;
     }
     setEquipPending(pendingKey);
-    equipMutation.mutate({ slot, sku }, {
+    equipMutation.mutate({ slot, sku, useFont }, {
       onSuccess: () => toast.success(done),
       onError: (error) => toast.error(describeEquipError(error)),
       onSettled: () => setEquipPending(null)
     });
   };
   const equip = useEvent((item: ShopItem): void => runEquip(slotOfCategory(shop?.categories ?? [], item.category), item.sku, item.sku, `已换上「${item.name}」`));
+  const setFontEnabled = useEvent((item: ShopItem, enabled: boolean): void => runEquip(slotOfCategory(shop?.categories ?? [], item.category), item.sku, item.sku, enabled ? '已打开专属字体' : '已关掉专属字体，消息用回普通字体', enabled));
   const unequip = useEvent((slot: string): void => runEquip(slot, null, slot, categoryText((shop?.categories ?? []).find((category) => category.slot === slot)?.key).unequipped));
   const unequipItem = useEvent((item: ShopItem): void => runEquip(slotOfCategory(shop?.categories ?? [], item.category), null, item.sku, categoryText(item.category).unequipped));
 
@@ -263,6 +266,7 @@ export function useShopController(): ShopController {
     canDonate: Boolean(donateUrl),
     donated,
     equip,
+    setFontEnabled,
     unequip,
     unequipItem,
     equipPending,

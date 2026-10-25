@@ -230,6 +230,34 @@
   }
 }
 
+/* scan：一道和字同色的淡光带从上往下扫过气泡，像老显示器的扫描线。五秒一趟，扫完停一会儿 */
+.kcsk-fx-scan {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 36%;
+  background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--kcsk-c-text) 22%, transparent) 70%, color-mix(in srgb, var(--kcsk-c-text) 34%, transparent) 100%);
+  transform: translate3d(0, -110%, 0);
+  animation: kcsk-scan 5s linear var(--kcsk-delay, 0s) infinite;
+}
+
+@keyframes kcsk-scan {
+  0% {
+    transform: translate3d(0, -110%, 0);
+  }
+
+  60%,
+  100% {
+    transform: translate3d(0, 290%, 0);
+  }
+}
+
+/* 专属字体：字体族（带着应用自己的字体栈兜底）在 --kcsk-font 里，字体没下载完之前就是兜底的那几款 */
+#kukechat-root .kcsk--font,
+#kukechat-root .kcsk--font :is(p, span, a, li, blockquote, strong, em) {
+  font-family: var(--kcsk-font);
+}
+
 /* breathe：光晕画一次（外沿一圈 + 里面一层薄薄的亮），之后只改它的不透明度。一呼一吸九秒 */
 .kcsk-glow {
   position: absolute;
@@ -322,6 +350,23 @@
   animation: kcsk-pulse 3.2s ease-in-out var(--kcsk-delay, 0s) infinite alternate;
 }
 
+/* 光标：亮一会儿灭一会儿，不渐变 */
+.kcsk-orn--blink {
+  animation: kcsk-blink 1.1s steps(1, end) var(--kcsk-delay, 0s) infinite;
+}
+
+@keyframes kcsk-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+
+  56%,
+  100% {
+    opacity: 0.12;
+  }
+}
+
 @keyframes kcsk-twinkle {
   from {
     opacity: 1;
@@ -400,7 +445,8 @@
 @media (prefers-reduced-motion: reduce) {
   .kcsk-glow,
   .kcsk-fx-flow,
-  .kcsk-fx-shine {
+  .kcsk-fx-shine,
+  .kcsk-fx-scan {
     display: none;
   }
 
@@ -611,6 +657,65 @@
   animation: kcsk-pulse 3.2s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
 }
 
+.kcaf-orn--blink > i {
+  animation: kcsk-blink 1.1s steps(1, end) var(--kcaf-delay, 0s) infinite;
+}
+
+/* 火苗：从底部往上一窜一窜，高矮、左右都轻轻变 */
+.kcaf-orn--burn > i {
+  transform-origin: 50% 92%;
+  animation: kcaf-burn 1.6s ease-in-out var(--kcaf-delay, 0s) infinite alternate;
+}
+
+@keyframes kcaf-burn {
+  0% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+
+  40% {
+    transform: scale(0.94, 1.08) skewX(-3deg);
+  }
+
+  100% {
+    transform: scale(1.04, 0.95) skewX(3deg);
+  }
+}
+
+/* flicker：霓虹灯管接触不良，环和外发光一起不规则地暗一下，大部分时间是亮的 */
+.kcaf-flicker {
+  animation: kcaf-flicker 4.2s linear var(--kcaf-delay, 0s) infinite;
+}
+
+@keyframes kcaf-flicker {
+  0%,
+  9%,
+  13%,
+  44%,
+  100% {
+    opacity: 1;
+  }
+
+  10% {
+    opacity: 0.35;
+  }
+
+  12% {
+    opacity: 0.8;
+  }
+
+  45% {
+    opacity: 0.5;
+  }
+
+  47% {
+    opacity: 1;
+  }
+
+  48% {
+    opacity: 0.7;
+  }
+}
+
 /* 耳朵：绕着根部偶尔抖一下，大部分时间不动 */
 .kcaf-orn--twitch > i {
   transform-origin: 50% 92%;
@@ -672,6 +777,7 @@
 
   .kcaf-glow--pulse,
   .kcaf-spin,
+  .kcaf-flicker,
   .kcaf-orn > i {
     animation: none;
   }
@@ -685,8 +791,8 @@
  *   · 窗口不在前台（最小化、藏到托盘、切到别的程序）：useWindowMotionPause 给 #kukechat-root 打上 data-kc-motion="paused"。
  * 停用的是 animation-play-state: paused，回到视口 / 窗口回到前台时接着原来的进度播，不会从头跳一下。
  */
-[data-kc-offscreen] :is(.kcsk-glow, .kcsk-fx-flow, .kcsk-fx-shine, .kcsk-orn, .kcaf-glow--pulse, .kcaf-spin, .kcaf-shine, .kcaf-orn > i),
-[data-kc-motion='paused'] :is(.kcsk-glow, .kcsk-fx-flow, .kcsk-fx-shine, .kcsk-orn, .kcaf-glow--pulse, .kcaf-spin, .kcaf-shine, .kcaf-orn > i) {
+[data-kc-offscreen] :is(.kcsk-glow, .kcsk-fx-flow, .kcsk-fx-shine, .kcsk-fx-scan, .kcsk-orn, .kcaf-glow--pulse, .kcaf-spin, .kcaf-shine, .kcaf-flicker, .kcaf-orn > i),
+[data-kc-motion='paused'] :is(.kcsk-glow, .kcsk-fx-flow, .kcsk-fx-shine, .kcsk-fx-scan, .kcsk-orn, .kcaf-glow--pulse, .kcaf-spin, .kcaf-shine, .kcaf-flicker, .kcaf-orn > i) {
   animation-play-state: paused !important;
 }
 
@@ -2101,4 +2207,39 @@
 .ksp-price--text > svg {
   width: 13px;
   height: 13px;
+}
+
+/* ───────── 专属字体 ───────── */
+
+/* 商品名后面的「字体」标签 */
+.ksp-tag-font {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* 「我的装扮」里装备着带字体的气泡时：用不用专属字体 */
+.ksp-font-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--kc-muted);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ksp-font-toggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--kc-accent, #111827);
+  cursor: pointer;
+}
+
+.ksp-font-toggle input:disabled,
+.ksp-font-toggle input:disabled + span {
+  cursor: progress;
+  opacity: 0.6;
 }

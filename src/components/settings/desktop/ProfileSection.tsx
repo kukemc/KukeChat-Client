@@ -129,7 +129,7 @@ export function ProfileSection({ user, compact }: { user: User; compact: boolean
   async function share(): Promise<void> {
     try {
       const invite = await createUserInvite(user.id);
-      await navigator.clipboard.writeText(`${window.location.origin}/?invite=${invite.token}`);
+      await navigator.clipboard.writeText(invite.url);
       setShareState('copied');
       window.setTimeout(() => setShareState('idle'), 1800);
     } catch (error) {

@@ -6,7 +6,7 @@ import { FrameOrnament } from './frameOrnaments';
 /**
  * 头像框画在头像外面的那几层。由 ui/Avatar 在头像外面套一层 .kcaf（和头像一样大、不改变布局）之后放进去：
  *
- *   kcaf-glow          外发光：环外面一圈柔和的光。pulse 时它慢慢呼吸
+ *   kcaf-glow          外发光：环外面一圈柔和的光。pulse 时它慢慢呼吸；flicker 时它和环一起像霓虹灯那样闪
  *   kcaf-orn--back     垫在头像后面的装饰（猫耳、恶魔角、翅膀）
  *   （头像本身）
  *   kcaf-ring          环：一块铺了底色的方块，用 mask 把中间挖空。spin 时里面一层渐变慢慢转，shimmer 时一道弧形的光绕着走
@@ -21,15 +21,16 @@ export function AvatarFrameDecor({ frame, seed = 0 }: { frame: AvatarFrame; seed
   const spin = motion && frame.animation === 'spin' && (frame.light.gradient || frame.dark.gradient);
   const shine = motion && frame.animation === 'shimmer';
   const pulse = motion && frame.animation === 'pulse';
+  const flicker = motion && frame.animation === 'flicker';
   const step = Math.abs(Math.trunc(seed)) % 9;
   const delay = { '--kcaf-delay': `${-(step * 0.9)}s` } as CSSProperties;
   const back = frame.pieces.filter((piece) => piece.back);
   const front = frame.pieces.filter((piece) => !piece.back);
   return (
     <>
-      {frame.hasGlow ? <span className={pulse ? 'kcaf-glow kcaf-glow--pulse' : 'kcaf-glow'} style={delay} aria-hidden="true" /> : null}
+      {frame.hasGlow ? <span className={`kcaf-glow${pulse ? ' kcaf-glow--pulse' : ''}${flicker ? ' kcaf-flicker' : ''}`} style={delay} aria-hidden="true" /> : null}
       {back.map((piece, index) => <FrameOrnament key={piece.id} piece={piece} motion={motion} delay={-((step + index * 2) % 9) * 0.6} />)}
-      <span className={`kcaf-ring${spin ? ' kcaf-ring--spin' : ''}${frame.gap === 0 ? ' kcaf-ring--tight' : ''}`} style={delay} aria-hidden="true">
+      <span className={`kcaf-ring${spin ? ' kcaf-ring--spin' : ''}${frame.gap === 0 ? ' kcaf-ring--tight' : ''}${flicker ? ' kcaf-flicker' : ''}`} style={delay} aria-hidden="true">
         {spin ? <i className="kcaf-spin" /> : null}
         {shine ? <i className="kcaf-shine" /> : null}
       </span>

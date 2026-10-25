@@ -47,6 +47,7 @@ import {
   Gift,
   Cake,
   Trophy,
+  Type as TypeGlyph,
   Heart,
   Heading,
   House,
@@ -231,7 +232,8 @@ const icons = {
   redPacket: RedPacket,
   shirt: Shirt,
   cake: Cake,
-  trophy: Trophy
+  trophy: Trophy,
+  type: TypeGlyph
 } satisfies Record<string, LucideIcon | Glyph>;
 
 export type IconName = keyof typeof icons;

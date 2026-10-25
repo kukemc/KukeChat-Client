@@ -50,6 +50,8 @@ export function normalizeShopItem(value: unknown): ShopItem | null {
     available_until: availableUntil,
     duration_days: durationDaysOf(value.duration_days),
     expires_at: expiresAt,
+    font: isRecord(value.font) ? value.font : null,
+    font_enabled: value.font_enabled !== false,
     owned,
     equipped: value.equipped === true,
     obtainable,
@@ -133,9 +135,12 @@ export async function purchaseShopItem(itemId: number): Promise<ShopPurchaseResu
   return item ? { item, balance: normalizeShopBalance(source.balance), equipped: normalizeEquipped(source.equipped) } : null;
 }
 
-/** 装备 / 卸下（sku 传 null）。只能装备自己拥有的（403 not_owned）。 */
-export async function setShopEquipped(slot: string, sku: string | null): Promise<Record<string, string | null>> {
-  const response = await apiRequest<unknown>('/shop/equipped', { method: 'PUT', body: { slot, sku } });
+/**
+ * 装备 / 卸下（sku 传 null）。只能装备自己拥有的（403 not_owned）。
+ * useFont：用不用这件的专属字体（docs/shop.md 2.6）；不传时服务端对同一件保持原来的选择，换了一件就是打开。
+ */
+export async function setShopEquipped(slot: string, sku: string | null, useFont?: boolean): Promise<Record<string, string | null>> {
+  const response = await apiRequest<unknown>('/shop/equipped', { method: 'PUT', body: useFont === undefined ? { slot, sku } : { slot, sku, use_font: useFont } });
   return normalizeEquipped(isRecord(response) ? response.equipped : null);
 }
 

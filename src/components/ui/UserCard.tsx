@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getUserProfile } from '@/api/users';
 import { useKukeStore } from '@/store/kukeStore';
 import { openBotForUser } from '@/components/bots/openBotForUser';
 import type { CSSProperties } from 'react';
@@ -19,10 +21,24 @@ import { openExternalUrl } from '@/utils/openExternalUrl';
 /** 点头像弹出的资料卡。 */
 export function UserCard(props: UserCardProps): JSX.Element | null {
   const desktop = useIsDesktopLayout();
-  if (!props.user && !props.label) {
+  // 打开卡片的地方手里常常只有半份资料（大群里没加载到的成员、戳一戳里的名字只带 ID），
+  // 这里再拉一次完整资料补上昵称、头像、简介，没拉到之前先用手里的
+  const userId = props.user?.is_bot ? undefined : props.user?.id;
+  const profileQuery = useQuery({
+    queryKey: ['user-profile', userId],
+    queryFn: () => getUserProfile(userId ?? 0),
+    enabled: Boolean(userId),
+    staleTime: 60_000,
+    retry: false
+  });
+  const user = useMemo(
+    () => (props.user && profileQuery.data?.id === props.user.id ? { ...props.user, ...profileQuery.data } : props.user),
+    [props.user, profileQuery.data]
+  );
+  if (!user && !props.label) {
     return null;
   }
-  return desktop ? <UserCardDesktop {...props} /> : <MobileUserCard {...props} />;
+  return desktop ? <UserCardDesktop {...props} user={user} /> : <MobileUserCard {...props} user={user} />;
 }
 
 /** 手机布局下的资料卡（外观由 kc-mobile-user-card 的样式接管）。 */

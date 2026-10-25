@@ -5,7 +5,7 @@ import { renderMentionedText, renderQuoteBlock } from '@/components/chat/message
 import { Avatar } from '@/components/ui/Avatar';
 import { useKukeStore } from '@/store/kukeStore';
 import type { MessageQuoteMetadata } from '@/types/api';
-import { bubbleSkinClass, parseBubbleSkin, type BubbleSkin } from './skin/bubbleSkin';
+import { bubbleSkinClass, parseBubbleSkin, withSkinFont, type BubbleSkin } from './skin/bubbleSkin';
 import { SkinDecor, useSkinSettings } from './skin/SkinDecor';
 import { DEFAULT_PREVIEW_TEXT } from './labels';
 
@@ -65,13 +65,21 @@ interface BubbleStageProps {
   both?: boolean;
   /** 头像框的试穿：自己那几条消息的头像套上这一份头像框（要带 avatars） */
   frameStyle?: unknown;
+  /** 商品的专属字体（服务端给的 font 对象）；配合 style 用 */
+  font?: unknown;
   className?: string;
 }
 
-export function BubbleStage({ style, skin: givenSkin, messages, layout, avatars = false, both = true, frameStyle, className }: BubbleStageProps): JSX.Element {
+export function BubbleStage({ style, skin: givenSkin, messages, layout, avatars = false, both = true, frameStyle, font, className }: BubbleStageProps): JSX.Element {
   const currentUser = useKukeStore((state) => state.currentUser);
   const { motion } = useSkinSettings();
-  const skin = useMemo(() => (givenSkin !== undefined ? givenSkin : parseBubbleSkin(style)), [givenSkin, style]);
+  const skin = useMemo(() => {
+    if (givenSkin !== undefined) {
+      return givenSkin;
+    }
+    const parsed = parseBubbleSkin(style);
+    return parsed && font ? withSkinFont(parsed, font) : parsed;
+  }, [givenSkin, style, font]);
 
   if (layout === 'mobile') {
     return (

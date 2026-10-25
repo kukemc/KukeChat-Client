@@ -14,21 +14,23 @@ import { DEFAULT_PREVIEW_TEXT } from './labels';
 interface ItemPreviewProps {
   category: string;
   style: unknown;
+  /** 气泡的专属字体（商品上的 font）；不传或 null 就不用字体 */
+  font?: unknown;
   previewText?: string | null;
   variant: 'card' | 'slot' | 'buy' | 'tryon';
   layout: 'desktop' | 'mobile';
 }
 
-export function ItemPreview({ category, style, previewText, variant, layout }: ItemPreviewProps): JSX.Element {
+export function ItemPreview({ category, style, font, previewText, variant, layout }: ItemPreviewProps): JSX.Element {
   if (category === 'frame') {
     return <FrameStage style={style} variant={variant === 'buy' ? 'boxed' : variant} layout={layout} />;
   }
   const text = previewText?.trim() || DEFAULT_PREVIEW_TEXT;
   if (variant === 'card') {
-    return <BubbleStage style={style} messages={cardSamples(text)} layout={layout} />;
+    return <BubbleStage style={style} font={font} messages={cardSamples(text)} layout={layout} />;
   }
   if (variant === 'tryon') {
-    return <BubbleStage style={style} messages={tryOnSamples(text)} layout={layout} avatars className={layout === 'desktop' ? 'ksp-stage--boxed ksp-stage--tall' : 'ksp-stage--boxed'} />;
+    return <BubbleStage style={style} font={font} messages={tryOnSamples(text)} layout={layout} avatars className={layout === 'desktop' ? 'ksp-stage--boxed ksp-stage--tall' : 'ksp-stage--boxed'} />;
   }
-  return <BubbleStage style={style} messages={[{ mine: true, text }]} layout={layout} className={variant === 'slot' ? 'ksp-stage--slot' : 'ksp-stage--boxed'} />;
+  return <BubbleStage style={style} font={font} messages={[{ mine: true, text }]} layout={layout} className={variant === 'slot' ? 'ksp-stage--slot' : 'ksp-stage--boxed'} />;
 }

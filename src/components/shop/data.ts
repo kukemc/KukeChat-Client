@@ -84,8 +84,10 @@ export function syncMyCosmetics(queryClient: QueryClient, overview: ShopOverview
       continue;
     }
     const item = overview.items.find((candidate) => candidate.sku === sku);
-    if (item && (next[slot]?.sku !== sku || !sameStyle(next[slot]?.style, item.style))) {
-      next[slot] = { sku, style: item.style };
+    // 专属字体和服务端发给别人的一样：有字体、而且我没关掉才带上
+    const font = item?.font && item.font_enabled ? item.font : undefined;
+    if (item && (next[slot]?.sku !== sku || !sameStyle(next[slot]?.style, item.style) || !sameStyle(next[slot]?.font, font))) {
+      next[slot] = font ? { sku, style: item.style, font } : { sku, style: item.style };
       changed = true;
     }
   }
@@ -205,13 +207,26 @@ export function usePurchaseItem(): UseMutationResult<ShopPurchaseResult | null, 
   });
 }
 
-/** 装备 / 卸下。成功后缓存和当前用户对象一起改，聊天里自己的气泡马上跟着变。 */
-export function useEquipItem(): UseMutationResult<Record<string, string | null>, Error, { slot: string; sku: string | null }> {
+/**
+ * 装备 / 卸下。成功后缓存和当前用户对象一起改，聊天里自己的气泡马上跟着变。
+ * useFont 是专属字体的开关（不传 = 服务端对同一件保持原来的选择，换了一件就是打开），这里照同样的规则改商品上的 font_enabled。
+ */
+export function useEquipItem(): UseMutationResult<Record<string, string | null>, Error, { slot: string; sku: string | null; useFont?: boolean }> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ slot, sku }) => setShopEquipped(slot, sku),
-    onSuccess: (equipped, { sku }) => {
+    mutationFn: ({ slot, sku, useFont }) => setShopEquipped(slot, sku, useFont),
+    onSuccess: (equipped, { sku, useFont }) => {
       applyShopPatch(queryClient, { equipped });
+      queryClient.setQueryData<ShopOverview | null>(shopKeys.overview, (current) => {
+        if (!current) {
+          return current;
+        }
+        const items = current.items.map((item) => {
+          const enabled = item.sku === sku && item.equipped ? useFont ?? item.font_enabled : true;
+          return item.font_enabled === enabled ? item : { ...item, font_enabled: enabled };
+        });
+        return { ...current, items };
+      });
       const overview = queryClient.getQueryData<ShopOverview | null>(shopKeys.overview);
       if (overview) {
         syncMyCosmetics(queryClient, overview);

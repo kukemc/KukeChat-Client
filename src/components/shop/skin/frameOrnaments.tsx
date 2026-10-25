@@ -4,8 +4,8 @@ import { ORNAMENT_KEYS, ORNAMENT_MOTION, ORNAMENT_SHAPES, SHADE, type OrnamentKe
 /**
  * 头像框上的装饰（docs/shop.md 头像框一节的 ornaments[].key）：贴在环上的小矢量图形。
  *
- * 气泡的十三个角饰在这里都能用（图形直接取 ornaments.tsx 的），另外有六个头像框专用的：
- *   cat_ears 猫耳 / halo 光环 / horns 小恶魔角 / laurel 月桂 / wings 翅膀 / bow 蝴蝶结。
+ * 气泡的角饰在这里都能用（图形直接取 ornaments.tsx 的），另外有几个头像框专用的：
+ *   cat_ears 猫耳 / halo 光环 / horns 小恶魔角 / laurel 月桂 / wings 翅膀 / bow 蝴蝶结，2.0.10 起还有 headphones 耳机 / flame 火苗。
  * 画法和角饰一样：24×24 的画板，主体用 currentColor，叠一点白色高光和压暗的细节。
  *
  * 其中四个是「成对」的 —— 样式里写一项，画出来是左右各一片：猫耳、恶魔角、翅膀、月桂。这里只画右边那一片，
@@ -14,7 +14,7 @@ import { ORNAMENT_KEYS, ORNAMENT_MOTION, ORNAMENT_SHAPES, SHADE, type OrnamentKe
  * 猫耳、恶魔角、翅膀垫在头像后面（根部被头像盖住，像是从后面长出来的），其余的压在环上面。
  */
 
-export const FRAME_ONLY_ORNAMENT_KEYS = ['cat_ears', 'halo', 'horns', 'laurel', 'wings', 'bow'] as const;
+export const FRAME_ONLY_ORNAMENT_KEYS = ['cat_ears', 'halo', 'horns', 'laurel', 'wings', 'bow', 'headphones', 'flame'] as const;
 export type FrameOnlyOrnamentKey = (typeof FRAME_ONLY_ORNAMENT_KEYS)[number];
 export type FrameOrnamentKey = OrnamentKey | FrameOnlyOrnamentKey;
 export const FRAME_ORNAMENT_KEYS: readonly FrameOrnamentKey[] = [...ORNAMENT_KEYS, ...FRAME_ONLY_ORNAMENT_KEYS];
@@ -30,10 +30,10 @@ export function isFramePosition(value: unknown): value is FramePosition {
   return typeof value === 'string' && (FRAME_POSITIONS as readonly string[]).includes(value);
 }
 
-/** animated 时怎么动。前四种和气泡角饰共用关键帧；twitch 是耳朵偶尔抖一下，flap 是翅膀慢慢扇。 */
-type FrameMotion = 'twinkle' | 'sway' | 'float' | 'pulse' | 'twitch' | 'flap';
+/** animated 时怎么动。前五种和气泡角饰共用关键帧；twitch 是耳朵偶尔抖一下，flap 是翅膀慢慢扇，burn 是火苗一窜一窜。 */
+type FrameMotion = 'twinkle' | 'sway' | 'float' | 'pulse' | 'blink' | 'twitch' | 'flap' | 'burn';
 
-const FRAME_MOTION: Record<FrameOnlyOrnamentKey, FrameMotion> = { cat_ears: 'twitch', halo: 'float', horns: 'pulse', laurel: 'float', wings: 'flap', bow: 'sway' };
+const FRAME_MOTION: Record<FrameOnlyOrnamentKey, FrameMotion> = { cat_ears: 'twitch', halo: 'float', horns: 'pulse', laurel: 'float', wings: 'flap', bow: 'sway', headphones: 'float', flame: 'burn' };
 
 export function frameOrnamentMotion(key: FrameOrnamentKey): FrameMotion {
   return key in FRAME_MOTION ? FRAME_MOTION[key as FrameOnlyOrnamentKey] : ORNAMENT_MOTION[key as OrnamentKey];
@@ -46,6 +46,7 @@ export function frameOrnamentMotion(key: FrameOrnamentKey): FrameMotion {
  *   turn     跟着 position 转：out 朝外（顶上是正的，右边就向右倒）；hug 贴着环（底下是正的，月桂、底下的蝴蝶结）；不写就一直正着
  *   lift     中心比环的外沿再往外多少（乘以 size）；不写就骑在环的中线上
  *   half     图形在自己画板里实际占的半宽、半高（占 size 的比例），用来算它探出头像多远
+ *   scale    画出来比 size 大多少倍（size 有 28 的上限，耳机要跨过整个头顶才像样）；探出多远按放大后的算
  */
 export interface FrameOrnamentLayout {
   pair?: { spread: number };
@@ -53,6 +54,7 @@ export interface FrameOrnamentLayout {
   turn?: 'out' | 'hug';
   lift?: number;
   half: [number, number];
+  scale?: number;
 }
 
 const DEFAULT_LAYOUT: FrameOrnamentLayout = { half: [0.46, 0.46] };
@@ -64,7 +66,10 @@ const LAYOUT: Partial<Record<FrameOrnamentKey, FrameOrnamentLayout>> = {
   wings: { pair: { spread: 90 }, back: true, lift: 0.26, half: [0.48, 0.4] },
   laurel: { pair: { spread: 27 }, turn: 'hug', lift: -0.04, half: [0.44, 0.3] },
   halo: { turn: 'out', lift: 0.24, half: [0.46, 0.2] },
-  bow: { turn: 'hug', lift: 0.02, half: [0.46, 0.34] }
+  bow: { turn: 'hug', lift: 0.02, half: [0.46, 0.34] },
+  // 耳机放大到能跨过整个头顶：头梁贴着环的上沿，两只耳罩落在头像两侧耳朵的高度；火苗压在环的顶上往上窜
+  headphones: { turn: 'out', lift: -0.38, half: [0.5, 0.42], scale: 1.55 },
+  flame: { turn: 'out', lift: 0.42, half: [0.48, 0.46] }
 };
 
 export function frameOrnamentLayout(key: FrameOrnamentKey): FrameOrnamentLayout {
@@ -142,6 +147,26 @@ const FRAME_SHAPES: Record<FrameOnlyOrnamentKey, () => JSX.Element> = {
       <path d="M1.6 15.2C6.4 20.6 13 21.4 19.2 18.8C18.9 17.9 18.2 17.3 17.2 16.9C13 18.6 7.6 18.6 1.6 15.2Z" {...SHADE} />
       <path d={WING_FEATHERS} fill="none" stroke="#000000" strokeOpacity="0.18" strokeWidth="0.9" strokeLinecap="round" />
       <path d="M3.8 12.2C5.6 8 9.8 5 15.6 3.9" fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="1.2" strokeLinecap="round" />
+    </>
+  ),
+  // 耳机：一道头梁，两只耳罩，耳罩上一圈软垫
+  headphones: () => (
+    <>
+      <path d="M3.4 16.4C3.4 9.4 7.2 4.8 12 4.8C16.8 4.8 20.6 9.4 20.6 16.4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M5.4 10.6C6.6 8 9 6.4 12 6.4" fill="none" stroke="#ffffff" strokeOpacity="0.55" strokeWidth="1" strokeLinecap="round" />
+      <rect x="0.8" y="13.2" width="5.6" height="9" rx="2.6" fill="currentColor" />
+      <rect x="17.6" y="13.2" width="5.6" height="9" rx="2.6" fill="currentColor" />
+      <rect x="4.4" y="14.6" width="2.4" height="6.2" rx="1.2" {...SHADE} />
+      <rect x="17.2" y="14.6" width="2.4" height="6.2" rx="1.2" {...SHADE} />
+      <path d="M2.2 15.6V19.4M19 15.6V19.4" fill="none" stroke="#ffffff" strokeOpacity="0.55" strokeWidth="1.1" strokeLinecap="round" />
+    </>
+  ),
+  // 火苗：三簇连在一起的火，中间高、两边矮；外焰用主体色，里面一团亮黄的内焰
+  flame: () => (
+    <>
+      <path d="M12 23.2C6.6 23.2 1.6 21 1 17C0.6 14.2 2 11.8 3.2 9.8C4.2 11.4 4.6 12.8 4.4 14C5.6 12.6 6.4 10.6 6.4 8.2C8.2 9.4 9 11 9.2 12.4C10.4 10 11.4 6.4 11.6 1.6C15.2 4.4 16.4 8.6 15.6 12.4C16.4 11.2 17.6 10.2 18 8.2C19.4 10 19.6 12.2 19.6 14C20.4 12.8 20.6 11.2 20.8 9.8C22.4 11.8 23.4 14.4 23 17C22.4 21 17.4 23.2 12 23.2Z" fill="currentColor" />
+      <path d="M12 21.8C8.6 21.8 6.4 20.4 6.6 18.2C6.8 16.4 8.4 15.2 9.2 13.6C10.2 14.6 10.6 15.6 10.6 16.6C11.6 15.4 12.4 13.6 12.4 11.4C14.8 13 16.8 15.4 17 17.8C17.2 20.2 15.2 21.8 12 21.8Z" fill="#ffe08a" fillOpacity="0.95" />
+      <path d="M3 15.6C3.2 14 3.8 12.8 4.6 11.8M9.6 9.6C10.4 8 10.8 6.4 11 4.8" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="1.1" strokeLinecap="round" />
     </>
   ),
   // 蝴蝶结：两个环、一个结、两条飘带

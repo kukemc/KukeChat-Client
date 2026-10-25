@@ -19,7 +19,8 @@ import { frameOrnamentLayout, isFrameOrnamentKey, isFramePosition, type FrameOrn
  * （1 个单位 = 2.5%），所以同一份结果套在 24 像素到 80 像素的头像上都是等比的，不用知道头像实际多大。
  */
 
-export type AvatarFrameAnimation = 'none' | 'spin' | 'pulse' | 'shimmer';
+/** flicker（霓虹灯那样不规则地闪）是 2.0.10 加的 */
+export type AvatarFrameAnimation = 'none' | 'spin' | 'pulse' | 'shimmer' | 'flicker';
 
 interface FramePaint {
   background: string;
@@ -186,6 +187,8 @@ function buildPieces(ornaments: OrnamentEntry[], width: number, gap: number): Fr
     const natural = layout.lift === undefined ? middle : outer + entry.size * layout.lift;
     const back = layout.back === true;
     const base = ANGLE_OF[entry.position];
+    // 放大画的装饰：位置照原来的 size 算（lift），大小和探出多远按放大后的
+    const drawn = layout.scale ? { ...entry, size: entry.size * layout.scale } : entry;
     if (entry.key === 'wings') {
       const angle = wingAngle(entry.position);
       const tilt = (angle - 90) * 0.5;
@@ -215,7 +218,7 @@ function buildPieces(ornaments: OrnamentEntry[], width: number, gap: number): Fr
       pieces.push(placePiece(entry, `${entry.position}-l`, left, turnOf(left), true, natural, layout.half, back));
       continue;
     }
-    pieces.push(placePiece(entry, entry.position, base, turnOf(base), false, natural, layout.half, back));
+    pieces.push(placePiece(drawn, entry.position, base, turnOf(base), false, natural, layout.half, back));
   }
   return pieces;
 }
@@ -245,7 +248,7 @@ function buildFrame(source: Record<string, unknown>): AvatarFrame | null {
   if (glow === UNKNOWN_FIELD || ornaments === UNKNOWN_FIELD) {
     return null;
   }
-  const animation: AvatarFrameAnimation = source.animation === 'spin' || source.animation === 'pulse' || source.animation === 'shimmer' ? source.animation : 'none';
+  const animation: AvatarFrameAnimation = source.animation === 'spin' || source.animation === 'pulse' || source.animation === 'shimmer' || source.animation === 'flicker' ? source.animation : 'none';
   const lightGlow = glow === INVALID ? null : glow;
   const light: FramePaint = { background: background.value, gradient: background.gradient, glow: lightGlow ?? (animation === 'pulse' ? fallbackGlow(background.value) : null) };
 

@@ -8,7 +8,7 @@ import { CoinIcon } from '@/components/ui/CoinIcon';
 import { getDesktopPortalRoot } from '@/components/ui/desktop/Modal';
 import { useKukeStore } from '@/store/kukeStore';
 import type { ShopItem } from '@/types/shop';
-import { ItemButton, ItemTags, PriceLine } from '../ItemParts';
+import { FontToggle, ItemButton, ItemTags, PriceLine } from '../ItemParts';
 import { ItemPreview } from '../ItemPreview';
 import { balanceExtras, canRenew, categoryText, formatCoins, formatVerifiedAt, itemAction, ownedExpiry } from '../labels';
 import { useShopController, type ShopController } from '../useShopController';
@@ -157,8 +157,9 @@ function WardrobeCard({ shop }: { shop: ShopController }): JSX.Element | null {
               <p className="ksp-slot-label">{category.label}</p>
               <p className="ksp-slot-name">{item ? item.name : sku ? '已装备一件装扮' : '没有装备'}{expiry ? <span className={cx('ksp-expiry', expiry.soon && 'is-soon')} data-shop="slot-expiry" data-soon={expiry.soon || undefined}><Icon name="clock" className="h-3 w-3" />{expiry.text}</span> : null}</p>
               <p className="ksp-slot-hint">{expiry?.soon ? '快到期了，到期后会自动卸下。续期可以接着用。' : sku ? categoryText(category.key).slotEquipped : categoryText(category.key).slotEmpty}</p>
+              {item ? <FontToggle item={item} shop={shop} /> : null}
             </div>
-            <ItemPreview category={category.key} style={item?.style} previewText={item?.preview_text} variant="slot" layout="desktop" />
+            <ItemPreview category={category.key} style={item?.style} font={item?.font_enabled ? item.font : null} previewText={item?.preview_text} variant="slot" layout="desktop" />
             {item && canRenew(item) ? <button type="button" className={cx('kui-btn kui-btn--sm', expiry?.soon && 'kui-btn--primary')} data-action="renew-slot" onClick={() => shop.openPurchase(item)}>续期</button> : null}
             {sku ? <button type="button" className="kui-btn kui-btn--sm" data-action="unequip-slot" disabled={shop.equipPending !== null} onClick={() => shop.unequip(category.slot)}>{shop.equipPending === category.slot ? '卸下中…' : '卸下'}</button> : null}
           </div>
@@ -179,7 +180,7 @@ function ItemCard({ item, shop }: { item: ShopItem; shop: ShopController }): JSX
           shop.openTryOn(item);
         }
       }}>
-        <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="card" layout="desktop" />
+        <ItemPreview category={item.category} style={item.style} font={item.font} previewText={item.preview_text} variant="card" layout="desktop" />
         <span className="ksp-item-try"><Icon name="eye" className="h-3.5 w-3.5" />试穿</span>
       </div>
       <div className="ksp-item-body">

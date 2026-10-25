@@ -7,6 +7,7 @@ import { canRenew, expiryDateLabel, formatRemaining, itemAction, ownedExpiry, pr
 import { durationLabel } from '@/utils/shopExpiry';
 import { parseAvatarFrame } from './skin/avatarFrame';
 import { parseBubbleSkin } from './skin/bubbleSkin';
+import { readSkinFont } from './skin/skinFont';
 import type { ShopController } from './useShopController';
 
 /** 商品卡片、试穿、确认框里都会出现的几个小部件。桌面和移动两套界面共用（类名前缀 ksp-，样式在 shop.css）。 */
@@ -35,6 +36,10 @@ export function ItemTags({ item, now }: { item: ShopItem; now: number }): JSX.El
     tags.push(<span key="expiry" className={cx('kui-tag ksp-tag-term', expiry.soon ? 'kui-tag--danger is-soon' : 'kui-tag--warn')} data-shop="expiry" data-soon={expiry.soon || undefined}><Icon name="clock" className="h-3 w-3" />{expiry.text}</span>);
   } else if (duration) {
     tags.push(<span key="duration" className="kui-tag kui-tag--warn ksp-tag-term" data-shop="duration" title={`买一次拥有 ${duration}，到期后自动卸下，可以续期`}><Icon name="clock" className="h-3 w-3" />{duration}</span>);
+  }
+  const font = readSkinFont(item.font);
+  if (font) {
+    tags.push(<span key="font" className="kui-tag ksp-tag-font" data-shop="font" title={`这件气泡带专属字体「${font.name}」，别人看你的消息也是这个字体；装备后可以关掉`}><Icon name="type" className="h-3 w-3" />{font.name}</span>);
   }
   if (item.delisted) {
     tags.push(<span key="delisted" className="kui-tag">已下架</span>);
@@ -137,4 +142,22 @@ export function doneText(item: ShopItem, action: ShopItemAction, justObtained: b
     return `「${item.name}」正在使用中${term}，${inUse}`;
   }
   return `「${item.name}」${justObtained ? '已经是你的了' : '已经在你的装扮里'}${term}。现在就换上？`;
+}
+
+/**
+ * 装备着、而且带专属字体的气泡：「使用专属字体」的开关。关掉之后自己和别人看到的消息都用回普通字体（docs/shop.md 2.6）。
+ * 其余商品不出现。桌面和移动共用，className 由调用方给。
+ */
+export function FontToggle({ item, shop, className }: { item: ShopItem; shop: ShopController; className?: string }): JSX.Element | null {
+  const font = readSkinFont(item.font);
+  if (!font || !item.equipped) {
+    return null;
+  }
+  const busy = shop.equipPending === item.sku;
+  return (
+    <label className={cx('ksp-font-toggle', className)} data-shop="font-toggle" title={`关掉之后，自己和别人看到你的消息都用普通字体`}>
+      <input type="checkbox" checked={item.font_enabled} disabled={busy} onChange={(event) => shop.setFontEnabled(item, event.currentTarget.checked)} />
+      <span>使用专属字体「{font.name}」</span>
+    </label>
+  );
 }

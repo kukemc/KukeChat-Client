@@ -374,7 +374,7 @@ function EnvelopeFit({ text, sub = null, voice }: { text: string; sub?: string |
   return (
     <div className="krp-envelope-fit" ref={boxRef}>
       <div className="krp-envelope-fit-inner" ref={innerRef}>
-        <p ref={textRef} className={cx('krp-fit', voice ? 'krp-envelope-phrase' : 'krp-envelope-greeting')} data-red-packet={voice ? 'voice-text' : undefined}>{text}</p>
+        <p ref={textRef} className={cx('krp-fit', voice ? 'krp-envelope-phrase' : 'krp-envelope-greeting')} data-red-packet={voice ? 'voice-text' : undefined} title={text}>{text}</p>
         {sub !== null ? <p className="krp-envelope-sub" title={sub}>{sub}</p> : null}
       </div>
     </div>

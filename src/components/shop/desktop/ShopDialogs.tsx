@@ -73,7 +73,7 @@ export function PurchaseDialog({ item, shop, openBinding }: { item: ShopItem; sh
   return (
     <Modal title={title} subtitle={item.name} className="kmd-modal--sm" raised dismissOnBackdrop={!flow.pending} dismissOnEscape={!flow.pending} onClose={close} footer={footer}>
       <div className="ksp-buy" data-shop="purchase" data-view={flow.view}>
-        <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="buy" layout="desktop" />
+        <ItemPreview category={item.category} style={item.style} font={item.font} previewText={item.preview_text} variant="buy" layout="desktop" />
         {flow.view === 'confirm' ? (
           flow.free ? <p className="ksp-buy-lead">{item.unlock_level !== null ? `你的账号等级已经达到 Lv.${item.unlock_level}，` : ''}这件可以免费领取，不扣金币。</p> : (
             <dl className="ksp-bill">
@@ -123,7 +123,7 @@ export function TryOnDialog({ item, shop }: { item: ShopItem; shop: ShopControll
       )}
     >
       <div className="ksp-tryon" data-shop="tryon">
-        <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="tryon" layout="desktop" />
+        <ItemPreview category={item.category} style={item.style} font={item.font} previewText={item.preview_text} variant="tryon" layout="desktop" />
         <div className="ksp-tryon-info">
           <div className="ksp-item-title"><h3>{item.name}</h3><ItemTags item={item} now={shop.now} /></div>
           {item.description ? <p className="ksp-item-desc">{item.description}</p> : null}

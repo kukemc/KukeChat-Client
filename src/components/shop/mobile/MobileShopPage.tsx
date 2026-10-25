@@ -8,7 +8,7 @@ import { RedPacketRecordsButton } from '@/components/redpacket/RedPacketEntry';
 import { RedPacketGlyph } from '@/components/redpacket/RedPacketGlyph';
 import type { ShopItem } from '@/types/shop';
 import { useShopPurchases } from '../data';
-import { doneText, ItemButton, ItemTags, PriceLine, TermRows } from '../ItemParts';
+import { doneText, FontToggle, ItemButton, ItemTags, PriceLine, TermRows } from '../ItemParts';
 import { ItemPreview } from '../ItemPreview';
 import { balanceExtras, canRenew, categoryText, expiryDateLabel, formatCoins, formatShopTime, formatVerifiedAt, itemAction, ownedExpiry, purchaseSourceLabel } from '../labels';
 import { durationLabel } from '@/utils/shopExpiry';
@@ -123,7 +123,8 @@ function MobileContent({ shop, onOpenCcwBinding }: { shop: ShopController; onOpe
               <div key={category.key} className="ksp-m-slot" data-slot={category.slot}>
                 <div className="min-w-0 flex-1">
                   <p className="ksp-m-slot-name"><span>{category.label}</span>{item ? item.name : sku ? '已装备一件装扮' : '没有装备'}{expiry ? <span className={cx('ksp-expiry', expiry.soon && 'is-soon')} data-shop="slot-expiry" data-soon={expiry.soon || undefined}><Icon name="clock" className="h-3 w-3" />{expiry.text}</span> : null}</p>
-                  <ItemPreview category={category.key} style={item?.style} previewText={item?.preview_text} variant="slot" layout="mobile" />
+                  <ItemPreview category={category.key} style={item?.style} font={item?.font_enabled ? item.font : null} previewText={item?.preview_text} variant="slot" layout="mobile" />
+                  {item ? <FontToggle item={item} shop={shop} className="mt-2" /> : null}
                 </div>
                 <div className="ksp-m-slot-actions">
                   {item && canRenew(item) ? <button type="button" className={cx(BUTTON, expiry?.soon && BUTTON_PRIMARY)} data-action="renew-slot" onClick={() => shop.openPurchase(item)}>续期</button> : null}
@@ -159,7 +160,7 @@ function MobileItemCard({ item, shop }: { item: ShopItem; shop: ShopController }
   return (
     <article className={cx('kc-qq-card ksp-m-item', action === 'equipped' && 'is-equipped')} data-sku={item.sku} data-state={action}>
       <div className="ksp-m-item-preview" role="button" tabIndex={0} aria-label={`试穿 ${item.name}`} onClick={() => shop.openTryOn(item)}>
-        <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="card" layout="mobile" />
+        <ItemPreview category={item.category} style={item.style} font={item.font} previewText={item.preview_text} variant="card" layout="mobile" />
       </div>
       <div className="ksp-m-item-body">
         <h3>{item.name}</h3>
@@ -204,7 +205,7 @@ function Sheet({ title, subtitle, tall, onClose, footer, children, dataShop }: {
 function TryOnSheet({ item, shop }: { item: ShopItem; shop: ShopController }): JSX.Element {
   return (
     <Sheet title="试穿" subtitle={item.name} tall onClose={shop.closeTryOn} dataShop="tryon" footer={<><PriceLine item={item} /><ItemButton item={item} shop={shop} className={`${BUTTON} is-large`} primaryClassName={BUTTON_PRIMARY} /></>}>
-      <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="tryon" layout="mobile" />
+      <ItemPreview category={item.category} style={item.style} font={item.font} previewText={item.preview_text} variant="tryon" layout="mobile" />
       <div className="ksp-m-tryon-info">
         <ItemTags item={item} now={shop.now} />
         {item.description ? <p>{item.description}</p> : null}
@@ -250,7 +251,7 @@ function PurchaseSheet({ item, shop, onOpenCcwBinding }: { item: ShopItem; shop:
   return (
     <Sheet title={title} subtitle={item.name} onClose={flow.pending ? () => undefined : close} dataShop="purchase" footer={footer}>
       <div data-view={flow.view}>
-        <ItemPreview category={item.category} style={item.style} previewText={item.preview_text} variant="buy" layout="mobile" />
+        <ItemPreview category={item.category} style={item.style} font={item.font} previewText={item.preview_text} variant="buy" layout="mobile" />
         {flow.view === 'confirm' ? (
           flow.free ? <p className="ksp-m-lead">{item.unlock_level !== null ? `你的账号等级已经达到 Lv.${item.unlock_level}，` : ''}这件可以免费领取，不扣金币。</p> : (
             <dl className="ksp-bill">

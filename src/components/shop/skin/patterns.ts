@@ -9,7 +9,8 @@
  * 一块里的元素大小、位置错开一点（不要一眼看出格子）。加新图案要发版，名字也要写进契约。
  */
 
-export const PATTERN_KEYS = ['dots', 'grid', 'stripes', 'waves', 'stars', 'hearts', 'pixels', 'clouds', 'petals', 'noise'] as const;
+// 后五个是 2.0.10 加的
+export const PATTERN_KEYS = ['dots', 'grid', 'stripes', 'waves', 'stars', 'hearts', 'pixels', 'clouds', 'petals', 'noise', 'scanlines', 'circuit', 'fizz', 'ruled', 'confetti'] as const;
 export type PatternKey = (typeof PATTERN_KEYS)[number];
 
 export function isPatternKey(value: unknown): value is PatternKey {
@@ -73,6 +74,10 @@ const NOISE_PATHS: string[] = (() => {
   return paths;
 })();
 
+/** 电路的走线和焊点（40×40 一块）。从左边 y=10、y=30 进来的线，右边同一高度有出去的那一截；上下的 x=8、x=30 也一样 */
+const CIRCUIT_TRACES = 'M0 10h12l6 6v8h10M30 0v4l6 6h4M40 30H30l-4-4v-6M0 30h5M8 40v-6l5-5M8 0v3M30 40v-3';
+const CIRCUIT_PADS = [[28, 24], [26, 20], [13, 29], [5, 30], [8, 3], [30, 37]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='1.8'/>`).join('');
+
 const TILES: Record<PatternKey, PatternTile> = {
   // 圆点：错开的两排
   dots: {
@@ -133,6 +138,36 @@ const TILES: Record<PatternKey, PatternTile> = {
     width: NOISE_SIZE,
     height: NOISE_SIZE,
     draw: (color, alpha) => `<g fill='${color}'>${NOISE_PATHS.map((path, level) => `<path d='${path}' fill-opacity='${round(alpha * NOISE_LEVELS[level])}'/>`).join('')}</g>`
+  },
+  // 扫描线：老显示器那样，每三像素一道细横线
+  scanlines: {
+    width: 6,
+    height: 3,
+    draw: (color, alpha) => `<rect width='6' height='1' fill='${color}' fill-opacity='${alpha}'/>`
+  },
+  // 电路：几条走线拐着弯，末端一个焊点；走线碰到边的地方对边都有接上的那一截
+  circuit: {
+    width: 40,
+    height: 40,
+    draw: (color, alpha) => `<g fill='none' stroke='${color}' stroke-opacity='${alpha}' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'><path d='${CIRCUIT_TRACES}'/></g><g fill='${color}' fill-opacity='${alpha}'>${CIRCUIT_PADS}</g>`
+  },
+  // 汽水泡：大小不一的空心小圈，往上越来越小，夹着两粒实心的
+  fizz: {
+    width: 30,
+    height: 44,
+    draw: (color, alpha) => `<g fill='none' stroke='${color}' stroke-opacity='${alpha}' stroke-width='1.1'><circle cx='7' cy='35' r='3.2'/><circle cx='21' cy='22' r='2.3'/><circle cx='9' cy='11' r='1.6'/><circle cx='24' cy='5' r='1.1'/></g><g fill='${color}' fill-opacity='${alpha}'><circle cx='16' cy='40' r='1'/><circle cx='3' cy='22' r='.8'/></g>`
+  },
+  // 信纸横线：每 22 像素一道，和正文的行高差不多
+  ruled: {
+    width: 10,
+    height: 22,
+    draw: (color, alpha) => `<rect y='20.5' width='10' height='1' fill='${color}' fill-opacity='${alpha}'/>`
+  },
+  // 彩纸屑：几条歪着的小纸条和圆点，深浅不一
+  confetti: {
+    width: 44,
+    height: 44,
+    draw: (color, alpha) => `<g fill='${color}'><rect x='5' y='6' width='6' height='2.4' rx='1' transform='rotate(28 8 7.2)' fill-opacity='${alpha}'/><rect x='28' y='9' width='5' height='2.2' rx='1' transform='rotate(-35 30.5 10.1)' fill-opacity='${round(alpha * 0.7)}'/><circle cx='20' cy='22' r='1.6' fill-opacity='${round(alpha * 0.85)}'/><rect x='33' y='30' width='6' height='2.4' rx='1' transform='rotate(62 36 31.2)' fill-opacity='${alpha}'/><rect x='8' y='33' width='5' height='2.2' rx='1' transform='rotate(-12 10.5 34.1)' fill-opacity='${round(alpha * 0.6)}'/><circle cx='40' cy='18' r='1' fill-opacity='${round(alpha * 0.7)}'/><circle cx='24' cy='40' r='1.2' fill-opacity='${round(alpha * 0.5)}'/></g>`
   }
 };
 

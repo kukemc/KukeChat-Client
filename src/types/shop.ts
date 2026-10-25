@@ -9,6 +9,8 @@
 export interface UserCosmetic {
   sku: string;
   style: unknown;
+  /** 气泡的专属字体 { key, name, woff2, ttf }（docs/shop.md 2.6），过 skin/skinFont.ts 的 readSkinFont 再用；本人关掉了字体就没有 */
+  font?: unknown;
 }
 
 export interface UserCosmetics {
@@ -51,6 +53,10 @@ export interface ShopItem {
   duration_days: number | null;
   /** 我拥有的这件什么时候到期；永久或未拥有为 null。到期后视同不再拥有，服务端自动卸下 */
   expires_at: string | null;
+  /** 气泡的专属字体（docs/shop.md 2.6），没有为 null；画之前过 readSkinFont */
+  font: unknown;
+  /** 装备着它、它有专属字体时我开没开字体；其余情况恒为 true。旧后端没有这个字段，按开着 */
+  font_enabled: boolean;
   owned: boolean;
   equipped: boolean;
   obtainable: ShopObtainable;

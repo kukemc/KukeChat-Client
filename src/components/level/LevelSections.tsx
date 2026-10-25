@@ -246,7 +246,7 @@ export function LevelRewardsCard({ level, layout }: { level: number; layout: 'de
           const reached = level >= need;
           return (
             <li key={item.id} className={cx(owned && 'is-owned', !owned && reached && 'is-ready')} data-reward={item.sku} data-reward-state={owned ? 'owned' : reached ? 'ready' : 'locked'}>
-              <BubbleStage style={item.style} messages={[{ mine: true, text: item.preview_text.trim() || DEFAULT_PREVIEW_TEXT }]} layout={layout} className="ksp-stage--slot" />
+              <BubbleStage style={item.style} font={item.font} messages={[{ mine: true, text: item.preview_text.trim() || DEFAULT_PREVIEW_TEXT }]} layout={layout} className="ksp-stage--slot" />
               <span className="klv-reward-name">{item.name}</span>
               <span className="klv-reward-need">Lv.{need} 免费解锁{item.price > 0 ? '，也可以直接买' : ''}</span>
               {owned ? <span className="kui-tag kui-tag--ok">已拥有</span>

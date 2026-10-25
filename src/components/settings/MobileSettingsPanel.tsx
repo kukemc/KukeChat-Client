@@ -704,7 +704,7 @@ export function MobileSettingsPanel({ user, isMobile = false, onMobileBack, onLo
     setProfileInviteError(null);
     try {
       const invite = await createUserInvite(user.id);
-      const url = `${window.location.origin}/?invite=${invite.token}`;
+      const url = invite.url;
       await navigator.clipboard.writeText(url);
       setProfileInviteCopied(true);
       window.setTimeout(() => setProfileInviteCopied(false), 1800);
