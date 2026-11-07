@@ -8,6 +8,7 @@ name: Release
 #   VITE_WS_URL                必填，例如 wss://chat-api.example.com/ws
 #   VITE_EXTENSION_ASSET_URL   选填，已发布的扩展文件地址
 #   VITE_BOT_API_DOCS_URL      选填，机器人 API 文档地址
+#   VITE_GANDI_BLOCKS_BASE     选填，gandi-blocks 积木渲染库目录（扩展在播放器页画积木消息用，见 docs/gandi-dsl-blocks.md）
 #   KUKECHAT_UPDATE_METADATA_URL 选填，覆盖桌面端更新地址（默认 <VITE_API_BASE_URL>/desktop-update.json）
 #
 # 仓库源码不含任何服务器地址，fork 后请设置你自己的变量。
@@ -29,6 +30,7 @@ env:
   VITE_WS_URL: ${{ vars.VITE_WS_URL }}
   VITE_EXTENSION_ASSET_URL: ${{ vars.VITE_EXTENSION_ASSET_URL }}
   VITE_BOT_API_DOCS_URL: ${{ vars.VITE_BOT_API_DOCS_URL }}
+  VITE_GANDI_BLOCKS_BASE: ${{ vars.VITE_GANDI_BLOCKS_BASE }}
 
 jobs:
   preflight:

@@ -18,6 +18,7 @@ import { formatMuteEnd, useMuteStatus } from '@/store/moderationStore';
 import { useComposerPrefs } from '@/store/composerPrefs';
 import { matchBotCommandInput } from '@/utils/botCommands';
 import { PollComposerButton } from './polls/PollComposerButton';
+import { DslComposerButton } from '../gandiDsl/DslComposerButton';
 import { FileComposerButton, useChatFileSender } from '@/components/groupPlus/files/FileComposerButton';
 import { GiftComposerButton } from '@/components/gifts/GiftEntry';
 import { SelfFileComposerButton, useSelfFileSender } from '@/components/selfChat/SelfFileButton';
@@ -689,6 +690,10 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
           }
         }}><Icon name="atSign" className="h-[18px] w-[18px]" /></button> : null}
         {selfChat ? null : <PollComposerButton conversationId={conversationId} onCreated={onOwnMessageSent} />}
+        <DslComposerButton disabled={sending} onSend={(variables) => {
+          setError('');
+          onSend(variables);
+        }} />
         {canSendRedPacket ? <RedPacketComposerButton conversationId={conversationId} isGroup={isGroup} members={members} variant="desktop" onCreated={onOwnMessageSent} /> : null}
         {canSendRedPacket ? <GiftComposerButton conversationId={conversationId} isGroup={isGroup} members={members} directUser={directUser} variant="desktop" onCreated={onOwnMessageSent} onMembersNeeded={onMembersNeeded} /> : null}
         {botCommands.length > 0 ? <button type="button" className={cx('kcd-tool', openBotPanel && 'is-active')} title="机器人指令" aria-label="机器人指令" aria-expanded={Boolean(openBotPanel)} onMouseDown={(event) => {

@@ -13,7 +13,14 @@ interface ImportMetaEnv {
   readonly VITE_EXTENSION_ASSET_URL?: string;
   /** 可选：机器人 API 文档地址，用于积木面板的文档入口。 */
   readonly VITE_BOT_API_DOCS_URL?: string;
+  /** 可选：gandi-blocks 积木渲染库的目录地址（结尾带 /），扩展在播放器页渲染积木消息时懒加载。 */
+  readonly VITE_GANDI_BLOCKS_BASE?: string;
 }
+
+/** 构建期注入：随包发布的 gandi-blocks 相对页面的目录（扩展构建为空串）。见 vite.gandiBlocks.ts。 */
+declare const __KUKE_GANDI_BLOCKS_LOCAL__: string;
+/** 构建期注入：gandi-blocks 文件内容的指纹，拼在脚本地址后面防缓存。 */
+declare const __KUKE_GANDI_BLOCKS_VERSION__: string;
 
 interface KukeChatPreviewConfig {
   apiBaseUrl?: string;

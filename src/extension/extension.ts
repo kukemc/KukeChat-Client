@@ -11,6 +11,7 @@ import { subscribeExtensionEvents } from './bridge';
 import { authorizeGameMode, isGameAuthorized, requestSendPermission, restoreGameAuth, getGameAuth } from './gameMode/auth';
 import { setCcwRuntime } from './gameMode/ccwIdentity';
 import { setStageRuntime, stageLogicalSize } from './gameMode/stage';
+import { setHostBlocklyProvider, setHostRuntimeProvider } from '@/gandiDsl';
 import {
   detectCreationOid,
   getGameChatState,
@@ -229,6 +230,10 @@ export default class KukeChatExtension {
     // 供游戏模式读取 CCW 社区身份（仅用于界面提示，不作身份凭据）
     setCcwRuntime(runtime);
     setStageRuntime(runtime);
+    // 聊天里的积木消息优先借编辑器自带的积木库画（只在离屏工作区里画，不碰主工作区），见 src/gandiDsl/blockly.ts
+    setHostBlocklyProvider(() => runtime?.scratchBlocks);
+    // 作品里装了的扩展（含第三方）按 runtime 里的积木信息编译、画出来，见 src/gandiDsl/hostExtensions.ts
+    setHostRuntimeProvider(() => runtime ?? null);
   }
 
   getInfo(): ScratchInfo {

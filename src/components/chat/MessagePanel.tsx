@@ -62,7 +62,7 @@ import { MAX_IMAGE_UPLOAD_BYTES, MAX_COMPRESSIBLE_IMAGE_ORIGINAL_BYTES, MAX_VOIC
 import { formatBytes, senderOf, memberUserId, resolveKnownUser, roleBadgeLabel, formatVoiceDuration, messageImageUrls, resolveMessageImagePreviewUrl, isStickerMessage, quoteMetadataOf, mentionMetadataOf, memberMentionName, groupShareCardOf, postShareCardOf, botShareCardOf, userShareCardOf, teamupShareCardOf, taskShareCardOf, taskEventCardOf, reactionUserNames, shouldShowTimeDivider, truncateText, isBotMarkdownMessage, botMarkdownContent, hasBotRenderableElements, messagePreview, messageSenderLabel, messageCopyText, messageReadableLine, repeatableContentOf, conversationDisplayTitle, conversationMobileTitleParts, ccwCreationPreviewsFromMetadata, defaultVoiceWaveform, matchesMember } from './message/messageMeta';
 import { patchMessageInPages, upsertMessageIntoFirstPage, replaceMessagesWithContextPage, appendNewerMessagesIntoFirstPage } from './message/messageCache';
 import { editablePlainText, pointInContainer, elementAnchorInContainer, clampOverlayPosition, copyText, isNearBottom, scrollMessagesToBottom, forceScrollMessagesToBottom } from './message/chatDom';
-import { MessageTimeDivider, renderQuoteBlock, renderMentionedText, CcwCreationCards, UnavailableImageLabel, renderLinkedPreview } from './message/messageText';
+import { MessageTimeDivider, renderQuoteBlock, CcwCreationCards, UnavailableImageLabel, renderLinkedPreview } from './message/messageText';
 import { renderBotElementContent, interactionPayload, renderSafeBotMarkdown } from './message/botMarkdown';
 import { VoiceMessageBubble, StagedVoicePreview } from './message/VoiceMessage';
 import { canTranscribeVoice, toggleVoiceTranscript, voiceTranscriptOf } from './message/voiceTranscripts';
@@ -75,6 +75,7 @@ import { ForwardBundleDetailModal } from './message/ForwardBundleDetailModal';
 import { reportFeaturedLimit } from './message/featuredLimit';
 import { ForwardTargetModal } from './message/ForwardTargetModal';
 import { FeaturedMessagesModal } from './message/FeaturedMessagesModal';
+import { renderMessageText } from './gandiDsl/DslMessageText';
 
 export function MessagePanel({ conversations, currentUser, currentRole = 'member', members = [], friends = [], membersLoading = false, membersHasMore = false, membersLoadingMore = false, isMobile = false, mobileBackUnreadCount = 0, onMembersNeeded, onLoadMoreMembers, onMemberSearchChange, onOpenPost, onBack }: MessagePanelProps): JSX.Element {
   const skinSettings = useSkinSettings();
@@ -3361,7 +3362,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                       <div style={bubbleSkin?.vars} className={`min-w-0 max-w-full select-text rounded-xl shadow-none ${isMobile ? 'kc-mobile-message-bubble rounded-[16px] px-3 py-2 text-[13px] leading-5' : 'px-3.5 py-2.5 text-sm leading-6'} ${mine ? 'rounded-tr-sm [background:var(--kc-bubble-out)] [color:var(--kc-text)]' : 'rounded-tl-sm [background:var(--kc-bubble-in)] [color:var(--kc-text)]'} ${WRAP_ANYWHERE_CLASS}${bubbleSkinClassName}`}>
                         {bubbleSkin ? <SkinDecor skin={bubbleSkin} motion={skinSettings.motion} seed={message.id} /> : null}
                         {messageQuote ? renderQuoteBlock(messageQuote, false, jumpToQuotedMessage) : null}
-                        {message.content || hasBotRenderableElements(message) ? <><div className={`break-words ${!isBotMarkdownMessage(message) && !hasBotRenderableElements(message) ? 'whitespace-pre-wrap' : ''} ${WRAP_ANYWHERE_CLASS}`}>{hasBotRenderableElements(message) ? renderBotElementContent(message, messageMentionData, (interaction) => handleBotInteraction(message, interaction)) : isBotMarkdownMessage(message) ? renderSafeBotMarkdown(botMarkdownContent(message), (interaction) => handleBotInteraction(message, interaction), message) : renderMentionedText(message.content, messageMentionData)}</div><CcwCreationCards previews={ccwCreationPreviewsFromMetadata(message.metadata)} compact={isMobile} /></> : null}
+                        {message.content || hasBotRenderableElements(message) ? <><div className={`break-words ${!isBotMarkdownMessage(message) && !hasBotRenderableElements(message) ? 'whitespace-pre-wrap' : ''} ${WRAP_ANYWHERE_CLASS}`}>{hasBotRenderableElements(message) ? renderBotElementContent(message, messageMentionData, (interaction) => handleBotInteraction(message, interaction)) : isBotMarkdownMessage(message) ? renderSafeBotMarkdown(botMarkdownContent(message), (interaction) => handleBotInteraction(message, interaction), message) : renderMessageText(message.content, messageMentionData)}</div><CcwCreationCards previews={ccwCreationPreviewsFromMetadata(message.metadata)} compact={isMobile} /></> : null}
                         <div className={`mt-2 grid gap-2 ${messageImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                           {messageImages.map((imageUrl, index) => {
                             const originalSrc = resolveAssetUrl(imageUrl);
@@ -3374,7 +3375,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
                       <div style={bubbleSkin?.vars} className={`min-w-0 max-w-full select-text whitespace-pre-wrap rounded-xl shadow-none ${isMobile ? 'kc-mobile-message-bubble rounded-[16px] px-3 py-2 text-[13px] leading-5' : 'px-3.5 py-2.5 text-sm leading-6'} ${mine ? 'rounded-tr-sm [background:var(--kc-bubble-out)] [color:var(--kc-text)]' : 'rounded-tl-sm [background:var(--kc-bubble-in)] [color:var(--kc-text)]'} ${WRAP_ANYWHERE_CLASS}${bubbleSkinClassName}`}>
                         {bubbleSkin ? <SkinDecor skin={bubbleSkin} motion={skinSettings.motion} seed={message.id} /> : null}
                         {messageQuote ? renderQuoteBlock(messageQuote, false, jumpToQuotedMessage) : null}
-                        {hasBotRenderableElements(message) ? renderBotElementContent(message, messageMentionData, (interaction) => handleBotInteraction(message, interaction)) : isBotMarkdownMessage(message) ? renderSafeBotMarkdown(botMarkdownContent(message), (interaction) => handleBotInteraction(message, interaction), message) : renderMentionedText(message.content, messageMentionData)}
+                        {hasBotRenderableElements(message) ? renderBotElementContent(message, messageMentionData, (interaction) => handleBotInteraction(message, interaction)) : isBotMarkdownMessage(message) ? renderSafeBotMarkdown(botMarkdownContent(message), (interaction) => handleBotInteraction(message, interaction), message) : renderMessageText(message.content, messageMentionData)}
                         {message.content ? <CcwCreationCards previews={ccwCreationPreviewsFromMetadata(message.metadata)} compact={isMobile} /> : null}
                       </div>
                     )}

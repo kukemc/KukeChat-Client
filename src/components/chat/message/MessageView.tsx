@@ -21,12 +21,13 @@ import { AnnouncementCard, announcementCardOf } from '@/components/groupAnnounce
 import { pollOf } from '../desktop/polls/pollCache';
 import { BilibiliVideoCards } from './BilibiliVideoCard';
 import { renderBotElementContent, renderSafeBotMarkdown } from './botMarkdown';
+import { renderMessageText } from '../gandiDsl/DslMessageText';
 import {
   botMarkdownContent, botShareCardOf, ccwCreationPreviewsFromMetadata, groupShareCardOf, hasBotRenderableElements, isBotMarkdownMessage,
   isStickerMessage, mentionMetadataOf, messageImageUrls, messagePreview, parseForwardBundle, postShareCardOf, quoteMetadataOf, resolveMessageImagePreviewUrl,
   snapshotPreview, snapshotToMessage, taskEventCardOf, taskShareCardOf, teamupShareCardOf, userShareCardOf
 } from './messageMeta';
-import { CcwCreationCards, renderMentionedText, renderQuoteBlock, UnavailableImageLabel } from './messageText';
+import { CcwCreationCards, renderQuoteBlock, UnavailableImageLabel } from './messageText';
 import { BotShareCardPreview, GroupShareCard, GroupShareCardPreview, PostShareCardPreview, TeamupShareCardPreview, UserShareCardPreview } from './shareCards';
 import { VoiceMessageBubble } from './VoiceMessage';
 
@@ -303,7 +304,7 @@ export function MessageView({ message, depth = 0, variant = 'full', conversation
       text = renderSafeBotMarkdown(botMarkdownContent(message), undefined, message);
     } else if (message.content || images.length === 0) {
       // 内容是「[群待办] xxx」时标签已经在文字里，不重复画
-      text = renderMentionedText(message.content || '[空消息]', mentionData);
+      text = renderMessageText(message.content || '[空消息]', mentionData);
     } else {
       text = null;
     }

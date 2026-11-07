@@ -160,6 +160,16 @@ async function start(): Promise<void> {
   voiceAt(596, 1, 52);
   history[3][400] = { ...history[3][400], type: 'text', content: '@酷可mc 你那个弹幕游戏的源码能发我看看吗', metadata: { mentions: [{ user_id: me.id, name: '酷可mc' }] }, recalled_at: null } as Message;
   history[3][597] = { ...history[3][597], type: 'text', content: '@全体成员 周五晚上八点开会', metadata: { mention_all: true }, recalled_at: null } as Message;
+  // 2 号私聊末尾放几条积木文本（Gandi DSL）：围栏 + 文字、没有围栏自动识别的、写错的、很长的、自己发的。见 docs/gandi-dsl-blocks.md
+  const dslAt = (offset: number, content: string, sender = people[1]): void => {
+    const index = history[2].length - offset;
+    history[2][index] = { ...history[2][index], sender_id: sender.id, sender, type: 'text', content, metadata: undefined, recalled_at: null, reactions: undefined } as Message;
+  };
+  dslAt(6, '我写了个转圈圈的：\n```gandi-dsl\nwhen.flagclicked(() => {\n  looks.say("你好！");\n  repeat(10, () => {\n    motion.movesteps(10);\n    motion.turnright(15);\n  });\n});\n```\n拖进编辑器试试');
+  dslAt(5, 'when.thisspriteclicked(() => { score += 1; looks.sayforsecs(`得分 ${score}`, 1); });', me);
+  dslAt(4, '这段报错了帮我看看\n```dsl\nwhen.flagclicked(() => {\n  looks.say("a");\n  foo.bar(1);\n});\n```');
+  dslAt(3, '```gandi\n' + Array.from({ length: 4 }, (_, n) => `when.keypressed("${'abcd'[n]}", () => {\n  if (sensing.touchingobject("_edge_")) { motion.ifonedgebounce(); } else { motion.changexby(${n + 1}); }\n  for (let i = 1; i <= 3; i++) { items.push(i * ${n + 2}); }\n  looks.say(items.length);\n});`).join('\n') + '\n```');
+  dslAt(2, '普通消息里提到 looks.say("hi") 不会被当成积木');
   let nextId = 5000;
   // 戳一戳：给群友补上各自的设置，并在历史末尾放几条记录
   attachPokeMock(history, people, () => (nextId += 1));
@@ -315,7 +325,7 @@ async function start(): Promise<void> {
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, staleTime: Infinity } } });
   queryClient.setQueryData(['conversations'], conversations);
-  useKukeStore.setState({ token: 'harness', currentUser: me, activeConversationId: Number(new URLSearchParams(window.location.search).get('c')) || 1, layoutMode: 'desktop', themeMode: 'light' });
+  useKukeStore.setState({ token: 'harness', currentUser: me, activeConversationId: Number(new URLSearchParams(window.location.search).get('c')) || 1, layoutMode: 'desktop', themeMode: new URLSearchParams(window.location.search).get('theme') === 'dark' ? 'dark' : 'light' });
   // 给自动化脚本用：直接改主题状态，不用一下下点设置界面
   Object.assign(window, { __harness: { store: useKukeStore, themeStore: useThemeStore } });
 
@@ -330,7 +340,7 @@ async function start(): Promise<void> {
   }
 
   function Harness(): JSX.Element {
-    const [theme, setTheme] = useState<'light' | 'dark'>('light');
+    const [theme, setTheme] = useState<'light' | 'dark'>(() => useKukeStore.getState().themeMode === 'dark' ? 'dark' : 'light');
     const [view, setView] = useState<'chat' | 'appearance' | 'penalties'>('chat');
     const themeRoot = useThemeRootProps(theme);
     const activeConversationId = useKukeStore((state) => state.activeConversationId);

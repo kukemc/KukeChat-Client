@@ -1,0 +1,5236 @@
+{
+  "argument_editor_boolean": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {
+      "TEXT": {}
+    },
+    "parameters": [
+      "TEXT"
+    ],
+    "category": "argument",
+    "text": {
+      "en": "foo",
+      "zh": "foo"
+    }
+  },
+  "argument_editor_branch": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TEXT": {}
+    },
+    "parameters": [
+      "TEXT"
+    ],
+    "category": "argument",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "argument_editor_string_number": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TEXT": {}
+    },
+    "parameters": [
+      "TEXT"
+    ],
+    "category": "argument",
+    "text": {
+      "en": "foo",
+      "zh": "foo"
+    }
+  },
+  "argument_reporter_boolean": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {
+      "VALUE": {}
+    },
+    "parameters": [
+      "VALUE"
+    ],
+    "category": "argument",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "argument_reporter_branch": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "VALUE": {}
+    },
+    "parameters": [
+      "VALUE"
+    ],
+    "category": "argument",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "argument_reporter_string_number": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "VALUE": {}
+    },
+    "parameters": [
+      "VALUE"
+    ],
+    "category": "argument",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "ccw_hat_parameter": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "VALUE": {}
+    },
+    "parameters": [
+      "VALUE"
+    ],
+    "category": "ccw",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "colour_picker": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "COLOUR": {}
+    },
+    "parameters": [
+      "COLOUR"
+    ],
+    "category": "colour"
+  },
+  "control_all_at_once": {
+    "shape": "command",
+    "inputs": {
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SUBSTACK"
+    ],
+    "category": "control",
+    "branchCount": 1,
+    "text": {
+      "en": "all at once ?",
+      "zh": "所有脚本 ?"
+    }
+  },
+  "control_break": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "control",
+    "terminal": true,
+    "text": {
+      "en": "break loop",
+      "zh": "break loop"
+    }
+  },
+  "control_clear_counter": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "control",
+    "text": {
+      "en": "clear counter",
+      "zh": "计数器归零"
+    }
+  },
+  "control_continue": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "control",
+    "terminal": true,
+    "text": {
+      "en": "skip to next loop",
+      "zh": "skip to next loop"
+    }
+  },
+  "control_create_clone_of": {
+    "shape": "command",
+    "inputs": {
+      "CLONE_OPTION": {
+        "type": "string",
+        "shadowOpcode": "control_create_clone_of_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CLONE_OPTION"
+    ],
+    "category": "control",
+    "text": {
+      "en": "create clone of ?",
+      "zh": "克隆 ?"
+    }
+  },
+  "control_create_clone_of_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "CLONE_OPTION": {
+        "options": [
+          "_myself_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "CLONE_OPTION"
+    ],
+    "category": "control",
+    "text": {
+      "en": "myself",
+      "zh": "自己"
+    }
+  },
+  "control_delete_this_clone": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "control",
+    "terminal": true,
+    "text": {
+      "en": "delete this clone",
+      "zh": "删除此克隆体"
+    }
+  },
+  "control_for_each": {
+    "shape": "command",
+    "inputs": {
+      "VALUE": {
+        "type": "string"
+      },
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {
+      "VARIABLE": {
+        "variableType": "variable"
+      }
+    },
+    "parameters": [
+      "VARIABLE",
+      "VALUE",
+      "SUBSTACK"
+    ],
+    "category": "control",
+    "branchCount": 1,
+    "text": {
+      "en": "for each ? in ? ?",
+      "zh": "对于 ? 中的每个 ? ?"
+    }
+  },
+  "control_forever": {
+    "shape": "command",
+    "inputs": {
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SUBSTACK"
+    ],
+    "category": "control",
+    "branchCount": 1,
+    "terminal": true,
+    "text": {
+      "en": "forever ? *",
+      "zh": "重复执行 ? *"
+    }
+  },
+  "control_get_counter": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "control",
+    "text": {
+      "en": "counter",
+      "zh": "计数器"
+    }
+  },
+  "control_if": {
+    "shape": "command",
+    "inputs": {
+      "CONDITION": {
+        "type": "boolean"
+      },
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CONDITION",
+      "SUBSTACK"
+    ],
+    "category": "control",
+    "branchCount": 1,
+    "text": {
+      "en": "if ? then ?",
+      "zh": "如果 ? 那么 ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "CONDITION",
+            "kind": "input",
+            "type": "boolean"
+          },
+          {
+            "name": "SUBSTACK",
+            "kind": "branch",
+            "type": "stack",
+            "offset": 1
+          }
+        ],
+        "min": 1,
+        "max": 64,
+        "start": 1,
+        "firstDynamic": 2,
+        "insertAfter": "SUBSTACK",
+        "grownTail": {
+          "name": "SUBSTACK2",
+          "like": "SUBSTACK"
+        },
+        "mutation": {
+          "count": "elif",
+          "extra": {
+            "base": "control_if"
+          }
+        }
+      }
+    ]
+  },
+  "control_if_else": {
+    "shape": "command",
+    "inputs": {
+      "CONDITION": {
+        "type": "boolean"
+      },
+      "SUBSTACK": {
+        "type": "stack"
+      },
+      "SUBSTACK2": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CONDITION",
+      "SUBSTACK",
+      "SUBSTACK2"
+    ],
+    "category": "control",
+    "branchCount": 2,
+    "text": {
+      "en": "if ? then ? else ?",
+      "zh": "如果 ? 那么 ? 否则 ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "CONDITION",
+            "kind": "input",
+            "type": "boolean"
+          },
+          {
+            "name": "SUBSTACK",
+            "kind": "branch",
+            "type": "stack",
+            "offset": 1
+          }
+        ],
+        "min": 1,
+        "max": 64,
+        "start": 1,
+        "firstDynamic": 2,
+        "insertAfter": "SUBSTACK",
+        "grownTail": {
+          "name": "SUBSTACK2",
+          "like": "SUBSTACK"
+        },
+        "mutation": {
+          "count": "elif"
+        }
+      }
+    ]
+  },
+  "CONTROL_IF_ELSE_LABEL": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "CONTROL",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "CONTROL_IF_MAX_ELIF": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "CONTROL",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "CONTROL_IF_MIXIN": {
+    "shape": "command",
+    "inputs": {
+      "CONDITION": {
+        "type": "boolean"
+      },
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CONDITION",
+      "SUBSTACK"
+    ],
+    "category": "CONTROL",
+    "branchCount": 1,
+    "text": {
+      "en": "if ? then ?",
+      "zh": "如果 ? 那么 ?"
+    }
+  },
+  "CONTROL_IF_TAIL": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "CONTROL",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "control_incr_counter": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "control",
+    "text": {
+      "en": "increment counter",
+      "zh": "计数器加一"
+    }
+  },
+  "control_isclone": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "control",
+    "text": {
+      "en": "clone?",
+      "zh": "clone?"
+    }
+  },
+  "control_repeat": {
+    "shape": "command",
+    "inputs": {
+      "TIMES": {
+        "type": "string",
+        "shadowOpcode": "math_whole_number"
+      },
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "TIMES",
+      "SUBSTACK"
+    ],
+    "category": "control",
+    "branchCount": 1,
+    "text": {
+      "en": "repeat ? ? *",
+      "zh": "重复执行 ? 次 ? *"
+    }
+  },
+  "control_repeat_until": {
+    "shape": "command",
+    "inputs": {
+      "CONDITION": {
+        "type": "boolean"
+      },
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CONDITION",
+      "SUBSTACK"
+    ],
+    "category": "control",
+    "branchCount": 1,
+    "text": {
+      "en": "repeat until ? ? *",
+      "zh": "重复执行直到 ? ? *"
+    }
+  },
+  "control_start_as_clone": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "control",
+    "text": {
+      "en": "when I start as a clone",
+      "zh": "当作为克隆体启动时"
+    }
+  },
+  "control_stop": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "STOP_OPTION": {
+        "options": [
+          "all",
+          "this script",
+          "other scripts in sprite"
+        ]
+      }
+    },
+    "parameters": [
+      "STOP_OPTION"
+    ],
+    "category": "control",
+    "terminal": true,
+    "text": {
+      "en": "stop all",
+      "zh": "停止 全部脚本"
+    }
+  },
+  "control_wait": {
+    "shape": "command",
+    "inputs": {
+      "DURATION": {
+        "type": "string",
+        "shadowOpcode": "math_positive_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DURATION"
+    ],
+    "category": "control",
+    "text": {
+      "en": "wait ? seconds",
+      "zh": "等待 ? 秒"
+    }
+  },
+  "control_wait_until": {
+    "shape": "command",
+    "inputs": {
+      "CONDITION": {
+        "type": "boolean"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CONDITION"
+    ],
+    "category": "control",
+    "text": {
+      "en": "wait until ?",
+      "zh": "等待 ?"
+    }
+  },
+  "control_warp": {
+    "shape": "command",
+    "inputs": {
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SUBSTACK"
+    ],
+    "category": "control",
+    "branchCount": 1,
+    "text": {
+      "en": "run instantly ?",
+      "zh": "run instantly ?"
+    }
+  },
+  "control_while": {
+    "shape": "command",
+    "inputs": {
+      "CONDITION": {
+        "type": "boolean"
+      },
+      "SUBSTACK": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CONDITION",
+      "SUBSTACK"
+    ],
+    "category": "control",
+    "branchCount": 1,
+    "text": {
+      "en": "while ? ? *",
+      "zh": "当 ? 重复执行 ? *"
+    }
+  },
+  "data_addtolist": {
+    "shape": "command",
+    "inputs": {
+      "ITEM": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "ITEM",
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "add ? to ?",
+      "zh": "将 ? 加入 ?"
+    }
+  },
+  "data_changevariableby": {
+    "shape": "command",
+    "inputs": {
+      "VALUE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {
+      "VARIABLE": {
+        "variableType": "variable"
+      }
+    },
+    "parameters": [
+      "VARIABLE",
+      "VALUE"
+    ],
+    "category": "data",
+    "text": {
+      "en": "change ? by ?",
+      "zh": "将 ? 增加 ?"
+    }
+  },
+  "data_deletealloflist": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "delete all of ?",
+      "zh": "删除 ? 的全部项目"
+    }
+  },
+  "data_deleteoflist": {
+    "shape": "command",
+    "inputs": {
+      "INDEX": {
+        "type": "string",
+        "shadowOpcode": "math_integer"
+      }
+    },
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "INDEX",
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "delete ? of ?",
+      "zh": "删除 ? 的第 ? 项"
+    }
+  },
+  "data_hidelist": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "hide list ?",
+      "zh": "隐藏列表 ?"
+    }
+  },
+  "data_hidevariable": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "VARIABLE": {
+        "variableType": "variable"
+      }
+    },
+    "parameters": [
+      "VARIABLE"
+    ],
+    "category": "data",
+    "text": {
+      "en": "hide variable ?",
+      "zh": "隐藏变量 ?"
+    }
+  },
+  "data_insertatlist": {
+    "shape": "command",
+    "inputs": {
+      "ITEM": {
+        "type": "string",
+        "shadowOpcode": "text"
+      },
+      "INDEX": {
+        "type": "string",
+        "shadowOpcode": "math_integer"
+      }
+    },
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "ITEM",
+      "INDEX",
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "insert ? at ? of ?",
+      "zh": "在 ? 的第 ? 项前插入 ?"
+    }
+  },
+  "data_itemnumoflist": {
+    "shape": "reporter",
+    "inputs": {
+      "ITEM": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "ITEM",
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "item # of ? in ?",
+      "zh": "? 中第一个 ? 的编号"
+    }
+  },
+  "data_itemoflist": {
+    "shape": "reporter",
+    "inputs": {
+      "INDEX": {
+        "type": "string",
+        "shadowOpcode": "math_integer"
+      }
+    },
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "INDEX",
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "item ? of ?",
+      "zh": "? 的第 ? 项"
+    }
+  },
+  "data_lengthoflist": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "length of ?",
+      "zh": "? 的项目数"
+    }
+  },
+  "data_listcontainsitem": {
+    "shape": "boolean",
+    "inputs": {
+      "ITEM": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "LIST",
+      "ITEM"
+    ],
+    "category": "data",
+    "text": {
+      "en": "? contains ? ?",
+      "zh": "? 包含 ? ?"
+    }
+  },
+  "data_listcontents": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "data_listindexall": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "INDEX": {}
+    },
+    "parameters": [
+      "INDEX"
+    ],
+    "category": "data",
+    "text": {
+      "en": "1",
+      "zh": "1"
+    }
+  },
+  "data_listindexrandom": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "INDEX": {}
+    },
+    "parameters": [
+      "INDEX"
+    ],
+    "category": "data",
+    "text": {
+      "en": "1",
+      "zh": "1"
+    }
+  },
+  "data_replaceitemoflist": {
+    "shape": "command",
+    "inputs": {
+      "INDEX": {
+        "type": "string",
+        "shadowOpcode": "math_integer"
+      },
+      "ITEM": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "INDEX",
+      "LIST",
+      "ITEM"
+    ],
+    "category": "data",
+    "text": {
+      "en": "replace item ? of ? with ?",
+      "zh": "将 ? 的第 ? 项替换为 ?"
+    }
+  },
+  "data_setvariableto": {
+    "shape": "command",
+    "inputs": {
+      "VALUE": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {
+      "VARIABLE": {
+        "variableType": "variable"
+      }
+    },
+    "parameters": [
+      "VARIABLE",
+      "VALUE"
+    ],
+    "category": "data",
+    "text": {
+      "en": "set ? to ?",
+      "zh": "将 ? 设为 ?"
+    }
+  },
+  "data_showlist": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "LIST": {
+        "variableType": "list"
+      }
+    },
+    "parameters": [
+      "LIST"
+    ],
+    "category": "data",
+    "text": {
+      "en": "show list ?",
+      "zh": "显示列表 ?"
+    }
+  },
+  "data_showvariable": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "VARIABLE": {
+        "variableType": "variable"
+      }
+    },
+    "parameters": [
+      "VARIABLE"
+    ],
+    "category": "data",
+    "text": {
+      "en": "show variable ?",
+      "zh": "显示变量 ?"
+    }
+  },
+  "data_variable": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "VARIABLE": {
+        "variableType": "variable"
+      }
+    },
+    "parameters": [
+      "VARIABLE"
+    ],
+    "category": "data",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "event_broadcast": {
+    "shape": "command",
+    "inputs": {
+      "BROADCAST_INPUT": {
+        "type": "string",
+        "shadowOpcode": "event_broadcast_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "BROADCAST_INPUT"
+    ],
+    "category": "event",
+    "text": {
+      "en": "broadcast ?",
+      "zh": "广播 ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "ARG",
+            "kind": "input",
+            "type": "string",
+            "shadowOpcode": "text"
+          }
+        ],
+        "min": 0,
+        "max": 16,
+        "start": 0,
+        "compact": true,
+        "mutation": {
+          "count": "items",
+          "prefix": "ARG",
+          "omitEmpty": true
+        }
+      }
+    ]
+  },
+  "event_broadcast_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "BROADCAST_OPTION": {
+        "variableType": "broadcast"
+      }
+    },
+    "parameters": [
+      "BROADCAST_OPTION"
+    ],
+    "category": "event",
+    "text": {
+      "en": "?",
+      "zh": "?"
+    }
+  },
+  "event_broadcastandwait": {
+    "shape": "command",
+    "inputs": {
+      "BROADCAST_INPUT": {
+        "type": "string",
+        "shadowOpcode": "event_broadcast_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "BROADCAST_INPUT"
+    ],
+    "category": "event",
+    "text": {
+      "en": "broadcast ? and wait",
+      "zh": "广播 ? 并等待"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "ARG",
+            "kind": "input",
+            "type": "string",
+            "shadowOpcode": "text"
+          }
+        ],
+        "min": 0,
+        "max": 16,
+        "start": 0,
+        "compact": true,
+        "mutation": {
+          "count": "items",
+          "prefix": "ARG",
+          "omitEmpty": true
+        }
+      }
+    ]
+  },
+  "event_touchingobjectmenu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TOUCHINGOBJECTMENU": {
+        "options": [
+          "_mouse_",
+          "_edge_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "TOUCHINGOBJECTMENU"
+    ],
+    "category": "event",
+    "text": {
+      "en": "mouse-pointer",
+      "zh": "鼠标指针"
+    }
+  },
+  "event_whenbackdropswitchesto": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {
+      "BACKDROP": {
+        "options": [
+          "BACKDROP1"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "BACKDROP"
+    ],
+    "category": "event",
+    "text": {
+      "en": "when backdrop switches to backdrop1",
+      "zh": "当背景切换到 backdrop1"
+    }
+  },
+  "event_whenbroadcastreceived": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {
+      "BROADCAST_OPTION": {
+        "variableType": "broadcast"
+      }
+    },
+    "parameters": [
+      "BROADCAST_OPTION"
+    ],
+    "category": "event",
+    "text": {
+      "en": "when I receive ?",
+      "zh": "当接收到 ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "PARAM",
+            "kind": "input",
+            "type": "string",
+            "shadowOpcode": "ccw_hat_parameter",
+            "hatParam": true
+          }
+        ],
+        "min": 0,
+        "max": 16,
+        "start": 0,
+        "compact": true,
+        "rename": true,
+        "mutation": {
+          "count": "items",
+          "prefix": "PARAM",
+          "omitEmpty": true
+        }
+      }
+    ]
+  },
+  "event_whenflagclicked": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "event",
+    "text": {
+      "en": "when flag clicked",
+      "zh": "当 flag 被点击"
+    }
+  },
+  "event_whengreaterthan": {
+    "shape": "hat",
+    "inputs": {
+      "VALUE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {
+      "WHENGREATERTHANMENU": {
+        "options": [
+          "LOUDNESS",
+          "TIMER"
+        ]
+      }
+    },
+    "parameters": [
+      "WHENGREATERTHANMENU",
+      "VALUE"
+    ],
+    "category": "event",
+    "text": {
+      "en": "when loudness > ?",
+      "zh": "当 响度 > ?"
+    }
+  },
+  "event_whenkeypressed": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {
+      "KEY_OPTION": {
+        "options": [
+          "space",
+          "up arrow",
+          "down arrow",
+          "right arrow",
+          "left arrow",
+          "any",
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j",
+          "k",
+          "l",
+          "m",
+          "n",
+          "o",
+          "p",
+          "q",
+          "r",
+          "s",
+          "t",
+          "u",
+          "v",
+          "w",
+          "x",
+          "y",
+          "z",
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "-",
+          ",",
+          ".",
+          "`",
+          "=",
+          "[",
+          "]",
+          "\\",
+          ";",
+          "'",
+          "/",
+          "!",
+          "@",
+          "#",
+          "$",
+          "%",
+          "^",
+          "&",
+          "*",
+          "(",
+          ")",
+          "_",
+          "+",
+          "?",
+          "{",
+          "}",
+          "<",
+          ">",
+          "|",
+          ":",
+          "\"",
+          "~",
+          "enter",
+          "backspace",
+          "delete",
+          "shift",
+          "caps lock",
+          "scroll lock",
+          "control",
+          "escape",
+          "insert",
+          "home",
+          "end",
+          "page up",
+          "page down",
+          "alt",
+          "tab",
+          "f1",
+          "f2",
+          "f3",
+          "f4",
+          "f5",
+          "f6",
+          "f7",
+          "f8",
+          "f9",
+          "f10",
+          "f11",
+          "f12"
+        ]
+      }
+    },
+    "parameters": [
+      "KEY_OPTION"
+    ],
+    "category": "event",
+    "text": {
+      "en": "when space key pressed",
+      "zh": "当按下 空格 键"
+    }
+  },
+  "event_whenstageclicked": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "event",
+    "text": {
+      "en": "when stage clicked",
+      "zh": "当舞台被点击"
+    }
+  },
+  "event_whenthisspriteclicked": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "event",
+    "text": {
+      "en": "when this sprite clicked",
+      "zh": "当角色被点击"
+    }
+  },
+  "event_whentouchingobject": {
+    "shape": "hat",
+    "inputs": {
+      "TOUCHINGOBJECTMENU": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "TOUCHINGOBJECTMENU"
+    ],
+    "category": "event",
+    "text": {
+      "en": "when this sprite touches ?",
+      "zh": "当该角色碰到 ?"
+    }
+  },
+  "extension_microbit_display": {
+    "shape": "command",
+    "inputs": {
+      "MATRIX": {
+        "type": "string",
+        "shadowOpcode": "matrix"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "MATRIX"
+    ],
+    "category": "extension",
+    "text": {
+      "en": "display ?",
+      "zh": "display ?"
+    }
+  },
+  "extension_music_drum": {
+    "shape": "command",
+    "inputs": {
+      "NUMBER": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUMBER"
+    ],
+    "category": "extension",
+    "text": {
+      "en": "play drum ?",
+      "zh": "play drum ?"
+    }
+  },
+  "extension_music_play_note": {
+    "shape": "command",
+    "inputs": {
+      "NOTE": {
+        "type": "string",
+        "shadowOpcode": "note"
+      },
+      "BEATS": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NOTE",
+      "BEATS"
+    ],
+    "category": "extension",
+    "text": {
+      "en": "play note ? for ? beats",
+      "zh": "play note ? for ? beats"
+    }
+  },
+  "extension_music_reporter": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "extension",
+    "text": {
+      "en": "hey now, you're an all-star",
+      "zh": "hey now, you're an all-star"
+    }
+  },
+  "extension_pen_down": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "extension",
+    "text": {
+      "en": "pen down",
+      "zh": "pen down"
+    }
+  },
+  "extension_wedo_boolean": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "extension",
+    "text": {
+      "en": "O RLY?",
+      "zh": "O RLY?"
+    }
+  },
+  "extension_wedo_hat": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "extension",
+    "text": {
+      "en": "when I am wearing a hat",
+      "zh": "when I am wearing a hat"
+    }
+  },
+  "extension_wedo_motor": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "extension",
+    "text": {
+      "en": "turn a motor",
+      "zh": "turn a motor"
+    }
+  },
+  "extension_wedo_tilt_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TILT": {
+        "options": [
+          "Any",
+          "Whirl",
+          "South",
+          "Back in time"
+        ]
+      }
+    },
+    "parameters": [
+      "TILT"
+    ],
+    "category": "extension",
+    "text": {
+      "en": "Any",
+      "zh": "Any"
+    }
+  },
+  "extension_wedo_tilt_reporter": {
+    "shape": "reporter",
+    "inputs": {
+      "TILT": {
+        "type": "string",
+        "shadowOpcode": "extension_wedo_tilt_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "TILT"
+    ],
+    "category": "extension",
+    "text": {
+      "en": "tilt angle ?",
+      "zh": "tilt angle ?"
+    }
+  },
+  "interpolation_enabled": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "interpolation",
+    "text": {
+      "en": "interpolation on?",
+      "zh": "interpolation on?"
+    }
+  },
+  "interpolation_projectframerate": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "interpolation",
+    "text": {
+      "en": "project frame rate",
+      "zh": "project frame rate"
+    }
+  },
+  "interpolation_gotoxy": {
+    "shape": "command",
+    "inputs": {
+      "X": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "Y": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "X",
+      "Y"
+    ],
+    "category": "interpolation",
+    "text": {
+      "en": "snap to x: ? y: ?",
+      "zh": "snap to x: ? y: ?"
+    }
+  },
+  "INTERPOLATION_ICON_URI": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "INTERPOLATION",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "interpolation_pointindirection": {
+    "shape": "command",
+    "inputs": {
+      "DIRECTION": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DIRECTION"
+    ],
+    "category": "interpolation",
+    "text": {
+      "en": "snap to direction ?",
+      "zh": "snap to direction ?"
+    }
+  },
+  "interpolation_seteffect": {
+    "shape": "command",
+    "inputs": {
+      "VALUE": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "EFFECT": {
+        "options": [
+          "COLOR",
+          "FISHEYE",
+          "WHIRL",
+          "PIXELATE",
+          "MOSAIC",
+          "BRIGHTNESS",
+          "GHOST",
+          "SATURATION",
+          "LIGHTNESS"
+        ]
+      }
+    },
+    "parameters": [
+      "EFFECT",
+      "VALUE"
+    ],
+    "category": "interpolation",
+    "text": {
+      "en": "snap color effect to ?",
+      "zh": "snap 颜色 effect to ?"
+    }
+  },
+  "interpolation_setmode": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "MODE": {
+        "options": [
+          "auto",
+          "on",
+          "off"
+        ]
+      }
+    },
+    "parameters": [
+      "MODE"
+    ],
+    "category": "interpolation",
+    "text": {
+      "en": "set my interpolation to auto",
+      "zh": "set my interpolation to auto"
+    }
+  },
+  "interpolation_setsize": {
+    "shape": "command",
+    "inputs": {
+      "SIZE": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SIZE"
+    ],
+    "category": "interpolation",
+    "text": {
+      "en": "snap size to ? %",
+      "zh": "snap size to ? %"
+    }
+  },
+  "interpolation_settolerance": {
+    "shape": "command",
+    "inputs": {
+      "TOLERANCE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "TOLERANCE"
+    ],
+    "category": "interpolation",
+    "text": {
+      "en": "set my interpolation tolerance to ?",
+      "zh": "set my interpolation tolerance to ?"
+    }
+  },
+  "interpolation_snap": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "WHAT": {
+        "options": [
+          "all",
+          "position",
+          "direction",
+          "size",
+          "effects"
+        ]
+      }
+    },
+    "parameters": [
+      "WHAT"
+    ],
+    "category": "interpolation",
+    "text": {
+      "en": "do not interpolate my everything this frame",
+      "zh": "do not interpolate my everything this frame"
+    }
+  },
+  "looks_backdropnumbername": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "NUMBER_NAME": {
+        "options": [
+          "number",
+          "name"
+        ]
+      }
+    },
+    "parameters": [
+      "NUMBER_NAME"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "backdrop number",
+      "zh": "背景 编号"
+    }
+  },
+  "looks_backdrops": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "BACKDROP": {
+        "options": [
+          "BACKDROP1"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "BACKDROP"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "backdrop1",
+      "zh": "backdrop1"
+    }
+  },
+  "looks_changeeffectby": {
+    "shape": "command",
+    "inputs": {
+      "CHANGE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {
+      "EFFECT": {
+        "options": [
+          "COLOR",
+          "FISHEYE",
+          "WHIRL",
+          "PIXELATE",
+          "MOSAIC",
+          "BRIGHTNESS",
+          "GHOST",
+          "SATURATION",
+          "LIGHTNESS"
+        ]
+      }
+    },
+    "parameters": [
+      "EFFECT",
+      "CHANGE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "change color effect by ?",
+      "zh": "将 颜色 特效增加 ?"
+    }
+  },
+  "looks_changesizeby": {
+    "shape": "command",
+    "inputs": {
+      "CHANGE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CHANGE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "change size by ?",
+      "zh": "将大小增加 ?"
+    }
+  },
+  "looks_changestretch": {
+    "shape": "command",
+    "inputs": {
+      "X": {
+        "type": "string"
+      },
+      "Y": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "X",
+      "Y"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "change stretch by x: ? y: ?",
+      "zh": "change stretch by x: ? y: ?"
+    }
+  },
+  "looks_changestretchby": {
+    "shape": "command",
+    "inputs": {
+      "CHANGE": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CHANGE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "change stretch by ?",
+      "zh": "伸缩 ?"
+    }
+  },
+  "looks_changestretchx": {
+    "shape": "command",
+    "inputs": {
+      "DX": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DX"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "change x stretch by ?",
+      "zh": "change x stretch by ?"
+    }
+  },
+  "looks_changestretchy": {
+    "shape": "command",
+    "inputs": {
+      "DY": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DY"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "change y stretch by ?",
+      "zh": "change y stretch by ?"
+    }
+  },
+  "looks_cleargraphiceffects": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "clear graphic effects",
+      "zh": "清除图形特效"
+    }
+  },
+  "looks_costume": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "COSTUME": {
+        "options": [
+          "COSTUME1",
+          "COSTUME2"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "COSTUME"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "costume1",
+      "zh": "costume1"
+    }
+  },
+  "looks_costumecount": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TYPE": {
+        "options": [
+          "costume",
+          "backdrop"
+        ]
+      }
+    },
+    "parameters": [
+      "TYPE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "number of costumes",
+      "zh": "number of costumes"
+    }
+  },
+  "looks_costumeinfo": {
+    "shape": "reporter",
+    "inputs": {
+      "COSTUME": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "PROPERTY": {
+        "options": [
+          "width",
+          "height",
+          "name",
+          "number",
+          "centerx",
+          "centery"
+        ]
+      }
+    },
+    "parameters": [
+      "COSTUME",
+      "PROPERTY"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "costume ? width",
+      "zh": "costume ? width"
+    }
+  },
+  "looks_costumeinfo_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "COSTUME": {
+        "options": [
+          "_current_",
+          "costume1"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "COSTUME"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "current costume",
+      "zh": "current costume"
+    }
+  },
+  "looks_costumenumbername": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "NUMBER_NAME": {
+        "options": [
+          "number",
+          "name"
+        ]
+      }
+    },
+    "parameters": [
+      "NUMBER_NAME"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "costume number",
+      "zh": "造型 编号"
+    }
+  },
+  "looks_effectvalue": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "EFFECT": {
+        "options": [
+          "COLOR",
+          "FISHEYE",
+          "WHIRL",
+          "PIXELATE",
+          "MOSAIC",
+          "BRIGHTNESS",
+          "GHOST",
+          "SATURATION",
+          "LIGHTNESS"
+        ]
+      }
+    },
+    "parameters": [
+      "EFFECT"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "color effect",
+      "zh": "颜色 effect"
+    }
+  },
+  "looks_goforwardbackwardlayers": {
+    "shape": "command",
+    "inputs": {
+      "NUM": {
+        "type": "string",
+        "shadowOpcode": "math_integer"
+      }
+    },
+    "fields": {
+      "FORWARD_BACKWARD": {
+        "options": [
+          "forward",
+          "backward"
+        ]
+      }
+    },
+    "parameters": [
+      "FORWARD_BACKWARD",
+      "NUM"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "go forward ? layers",
+      "zh": "前移 ? 层"
+    }
+  },
+  "looks_gotofrontback": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "FRONT_BACK": {
+        "options": [
+          "front",
+          "back"
+        ]
+      }
+    },
+    "parameters": [
+      "FRONT_BACK"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "go to front layer",
+      "zh": "移到最 前面"
+    }
+  },
+  "looks_gotolayer": {
+    "shape": "command",
+    "inputs": {
+      "LAYER": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "LAYER"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "go to layer ?",
+      "zh": "go to layer ?"
+    }
+  },
+  "looks_hide": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "hide",
+      "zh": "隐藏"
+    }
+  },
+  "looks_hideallsprites": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "hide all sprites",
+      "zh": "隐藏所有角色"
+    }
+  },
+  "looks_layer": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "layer",
+      "zh": "layer"
+    }
+  },
+  "looks_loopvideo": {
+    "shape": "command",
+    "inputs": {
+      "VIDEO": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "VIDEO"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "loop video ?",
+      "zh": "loop video ?"
+    }
+  },
+  "looks_nextbackdrop": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "next backdrop",
+      "zh": "下一个背景"
+    }
+  },
+  "looks_nextcostume": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "next costume",
+      "zh": "下一个造型"
+    }
+  },
+  "looks_playvideo": {
+    "shape": "command",
+    "inputs": {
+      "VIDEO": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "VIDEO"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "play video ?",
+      "zh": "play video ?"
+    }
+  },
+  "looks_playvideountildone": {
+    "shape": "command",
+    "inputs": {
+      "VIDEO": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "VIDEO"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "play video ? until done",
+      "zh": "play video ? until done"
+    }
+  },
+  "looks_say": {
+    "shape": "command",
+    "inputs": {
+      "MESSAGE": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "MESSAGE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "say ?",
+      "zh": "说 ?"
+    }
+  },
+  "looks_sayforsecs": {
+    "shape": "command",
+    "inputs": {
+      "MESSAGE": {
+        "type": "string"
+      },
+      "SECS": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "MESSAGE",
+      "SECS"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "say ? for ? seconds",
+      "zh": "说 ? ? 秒"
+    }
+  },
+  "looks_seekvideo": {
+    "shape": "command",
+    "inputs": {
+      "VIDEO": {
+        "type": "string"
+      },
+      "SECS": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "VIDEO",
+      "SECS"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "seek video ? to ? seconds",
+      "zh": "seek video ? to ? seconds"
+    }
+  },
+  "looks_setbubblecolor": {
+    "shape": "command",
+    "inputs": {
+      "COLOR": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "PART": {
+        "options": [
+          "fill",
+          "text",
+          "stroke"
+        ]
+      }
+    },
+    "parameters": [
+      "PART",
+      "COLOR"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set speech bubble fill color to ?",
+      "zh": "set speech bubble fill color to ?"
+    }
+  },
+  "looks_setbubblestyle": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "STYLE": {
+        "options": [
+          "default",
+          "rounded",
+          "square",
+          "borderless",
+          "dark"
+        ]
+      }
+    },
+    "parameters": [
+      "STYLE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set speech bubble style to default",
+      "zh": "set speech bubble style to default"
+    }
+  },
+  "looks_seteffectto": {
+    "shape": "command",
+    "inputs": {
+      "VALUE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {
+      "EFFECT": {
+        "options": [
+          "COLOR",
+          "FISHEYE",
+          "WHIRL",
+          "PIXELATE",
+          "MOSAIC",
+          "BRIGHTNESS",
+          "GHOST",
+          "SATURATION",
+          "LIGHTNESS"
+        ]
+      }
+    },
+    "parameters": [
+      "EFFECT",
+      "VALUE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set color effect to ?",
+      "zh": "将 颜色 特效设定为 ?"
+    }
+  },
+  "looks_setsizeto": {
+    "shape": "command",
+    "inputs": {
+      "SIZE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SIZE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set size to ? %",
+      "zh": "将大小设为 ?"
+    }
+  },
+  "looks_setstretch": {
+    "shape": "command",
+    "inputs": {
+      "X": {
+        "type": "string"
+      },
+      "Y": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "X",
+      "Y"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set stretch to x: ? y: ? %",
+      "zh": "set stretch to x: ? y: ? %"
+    }
+  },
+  "looks_setstretchto": {
+    "shape": "command",
+    "inputs": {
+      "STRETCH": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "STRETCH"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set stretch to ? %",
+      "zh": "设置伸缩为 ? %"
+    }
+  },
+  "looks_setstretchx": {
+    "shape": "command",
+    "inputs": {
+      "X": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "X"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set x stretch to ? %",
+      "zh": "set x stretch to ? %"
+    }
+  },
+  "looks_setstretchy": {
+    "shape": "command",
+    "inputs": {
+      "Y": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "Y"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set y stretch to ? %",
+      "zh": "set y stretch to ? %"
+    }
+  },
+  "looks_setvideo": {
+    "shape": "command",
+    "inputs": {
+      "VIDEO": {
+        "type": "string"
+      },
+      "VALUE": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "PROPERTY": {
+        "options": [
+          "speed",
+          "volume"
+        ]
+      }
+    },
+    "parameters": [
+      "VIDEO",
+      "PROPERTY",
+      "VALUE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set video ? speed to ? %",
+      "zh": "set video ? speed to ? %"
+    }
+  },
+  "looks_show": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "show",
+      "zh": "显示"
+    }
+  },
+  "looks_size": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "size",
+      "zh": "大小"
+    }
+  },
+  "looks_stretch": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "AXIS": {
+        "options": [
+          "x",
+          "y"
+        ]
+      }
+    },
+    "parameters": [
+      "AXIS"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "stretch x",
+      "zh": "stretch x"
+    }
+  },
+  "looks_switchbackdropto": {
+    "shape": "command",
+    "inputs": {
+      "BACKDROP": {
+        "type": "string",
+        "shadowOpcode": "looks_backdrops"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "BACKDROP"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "switch backdrop to ?",
+      "zh": "将背景切换为 ?"
+    }
+  },
+  "looks_switchbackdroptoandwait": {
+    "shape": "command",
+    "inputs": {
+      "BACKDROP": {
+        "type": "string",
+        "shadowOpcode": "looks_backdrops"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "BACKDROP"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "switch backdrop to ? and wait",
+      "zh": "换成 ? 背景并等待"
+    }
+  },
+  "looks_switchcostumeto": {
+    "shape": "command",
+    "inputs": {
+      "COSTUME": {
+        "type": "string",
+        "shadowOpcode": "looks_costume"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "COSTUME"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "switch costume to ?",
+      "zh": "将造型切换为 ?"
+    }
+  },
+  "looks_think": {
+    "shape": "command",
+    "inputs": {
+      "MESSAGE": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "MESSAGE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "think ?",
+      "zh": "思考 ?"
+    }
+  },
+  "looks_thinkforsecs": {
+    "shape": "command",
+    "inputs": {
+      "MESSAGE": {
+        "type": "string"
+      },
+      "SECS": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "MESSAGE",
+      "SECS"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "think ? for ? seconds",
+      "zh": "思考 ? ? 秒"
+    }
+  },
+  "looks_videocontrol": {
+    "shape": "command",
+    "inputs": {
+      "VIDEO": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "ACTION": {
+        "options": [
+          "pause",
+          "resume",
+          "stop"
+        ]
+      }
+    },
+    "parameters": [
+      "ACTION",
+      "VIDEO"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "pause video ?",
+      "zh": "pause video ?"
+    }
+  },
+  "looks_videoduration": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "video duration",
+      "zh": "video duration"
+    }
+  },
+  "looks_videoinfo": {
+    "shape": "reporter",
+    "inputs": {
+      "VIDEO": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "PROPERTY": {
+        "options": [
+          "time",
+          "duration",
+          "speed",
+          "volume"
+        ]
+      }
+    },
+    "parameters": [
+      "VIDEO",
+      "PROPERTY"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "video ? time",
+      "zh": "video ? time"
+    }
+  },
+  "looks_videoisplaying": {
+    "shape": "boolean",
+    "inputs": {
+      "VIDEO": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "VIDEO"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "video ? playing?",
+      "zh": "video ? playing?"
+    }
+  },
+  "looks_videoloop": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "STATE": {
+        "options": [
+          "on",
+          "off"
+        ]
+      }
+    },
+    "parameters": [
+      "STATE"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set video loop to on",
+      "zh": "set video loop to on"
+    }
+  },
+  "looks_videomenu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "VIDEO": {
+        "options": [
+          "_current_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "VIDEO"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "current costume",
+      "zh": "current costume"
+    }
+  },
+  "looks_videopause": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "pause video",
+      "zh": "pause video"
+    }
+  },
+  "looks_videoplay": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "play video from start",
+      "zh": "play video from start"
+    }
+  },
+  "looks_videoplaying": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "video playing?",
+      "zh": "video playing?"
+    }
+  },
+  "looks_videoresume": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "resume video",
+      "zh": "resume video"
+    }
+  },
+  "looks_videoseek": {
+    "shape": "command",
+    "inputs": {
+      "SECS": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SECS"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "seek video to ? seconds",
+      "zh": "seek video to ? seconds"
+    }
+  },
+  "looks_videospeed": {
+    "shape": "command",
+    "inputs": {
+      "SPEED": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SPEED"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "set video speed to ? %",
+      "zh": "set video speed to ? %"
+    }
+  },
+  "looks_videotime": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "video time",
+      "zh": "video time"
+    }
+  },
+  "looks_visible": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "shown?",
+      "zh": "shown?"
+    }
+  },
+  "looks_whenvideoended": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "looks",
+    "text": {
+      "en": "when video ends",
+      "zh": "when video ends"
+    }
+  },
+  "looks_whenvideoends": {
+    "shape": "hat",
+    "inputs": {},
+    "fields": {
+      "VIDEO": {
+        "options": [
+          "_any_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "VIDEO"
+    ],
+    "category": "looks",
+    "text": {
+      "en": "when video any ends",
+      "zh": "when video any ends"
+    }
+  },
+  "math_angle": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "NUM": {}
+    },
+    "parameters": [
+      "NUM"
+    ],
+    "category": "math",
+    "text": {
+      "en": "0",
+      "zh": "0"
+    }
+  },
+  "math_integer": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "NUM": {}
+    },
+    "parameters": [
+      "NUM"
+    ],
+    "category": "math",
+    "text": {
+      "en": "0",
+      "zh": "0"
+    }
+  },
+  "math_number": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "NUM": {}
+    },
+    "parameters": [
+      "NUM"
+    ],
+    "category": "math",
+    "text": {
+      "en": "0",
+      "zh": "0"
+    }
+  },
+  "math_positive_number": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "NUM": {}
+    },
+    "parameters": [
+      "NUM"
+    ],
+    "category": "math",
+    "text": {
+      "en": "0",
+      "zh": "0"
+    }
+  },
+  "math_whole_number": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "NUM": {}
+    },
+    "parameters": [
+      "NUM"
+    ],
+    "category": "math",
+    "text": {
+      "en": "0",
+      "zh": "0"
+    }
+  },
+  "motion_align_scene": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "ALIGNMENT": {
+        "options": [
+          "bottom-left",
+          "bottom-right",
+          "middle",
+          "top-left",
+          "top-right"
+        ]
+      }
+    },
+    "parameters": [
+      "ALIGNMENT"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "align scene bottom-left",
+      "zh": "和场景 左下角 对齐"
+    }
+  },
+  "motion_changexby": {
+    "shape": "command",
+    "inputs": {
+      "DX": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DX"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "change x by ?",
+      "zh": "将x坐标增加 ?"
+    }
+  },
+  "motion_changeyby": {
+    "shape": "command",
+    "inputs": {
+      "DY": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DY"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "change y by ?",
+      "zh": "将y坐标增加 ?"
+    }
+  },
+  "motion_direction": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "motion",
+    "text": {
+      "en": "direction",
+      "zh": "方向"
+    }
+  },
+  "motion_glidesecstoxy": {
+    "shape": "command",
+    "inputs": {
+      "SECS": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "X": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "Y": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SECS",
+      "X",
+      "Y"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "glide ? secs to x: ? y: ?",
+      "zh": "在 ? 秒内滑行到 x: ? y: ?"
+    }
+  },
+  "motion_glideto": {
+    "shape": "command",
+    "inputs": {
+      "SECS": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "TO": {
+        "type": "string",
+        "shadowOpcode": "motion_glideto_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SECS",
+      "TO"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "glide ? secs to ?",
+      "zh": "在 ? 秒内滑行到 ?"
+    }
+  },
+  "motion_glideto_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TO": {
+        "options": [
+          "_mouse_",
+          "_random_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "TO"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "mouse-pointer",
+      "zh": "鼠标指针"
+    }
+  },
+  "motion_goto": {
+    "shape": "command",
+    "inputs": {
+      "TO": {
+        "type": "string",
+        "shadowOpcode": "motion_goto_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "TO"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "go to ?",
+      "zh": "移到 ?"
+    }
+  },
+  "motion_goto_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TO": {
+        "options": [
+          "_mouse_",
+          "_random_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "TO"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "mouse-pointer",
+      "zh": "鼠标指针"
+    }
+  },
+  "motion_gotoxy": {
+    "shape": "command",
+    "inputs": {
+      "X": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "Y": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "X",
+      "Y"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "go to x: ? y: ?",
+      "zh": "移到 x: ? y: ?"
+    }
+  },
+  "motion_ifonedgebounce": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "motion",
+    "text": {
+      "en": "if on edge, bounce",
+      "zh": "碰到边缘就反弹"
+    }
+  },
+  "motion_isrotationstyle": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {
+      "STYLE": {
+        "options": [
+          "left-right",
+          "don't rotate",
+          "all around"
+        ]
+      }
+    },
+    "parameters": [
+      "STYLE"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "rotation style is left-right ?",
+      "zh": "rotation style is 左右翻转 ?"
+    }
+  },
+  "motion_movegrids": {
+    "shape": "command",
+    "inputs": {
+      "GRIDS": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "GRIDS"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "move ? grids(40 steps)",
+      "zh": "移动 ? 格(40步)"
+    }
+  },
+  "motion_movesteps": {
+    "shape": "command",
+    "inputs": {
+      "STEPS": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "STEPS"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "move ? steps",
+      "zh": "移动 ? 步"
+    }
+  },
+  "motion_pointindirection": {
+    "shape": "command",
+    "inputs": {
+      "DIRECTION": {
+        "type": "string",
+        "shadowOpcode": "math_angle"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DIRECTION"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "point in direction ?",
+      "zh": "面向 ? 方向"
+    }
+  },
+  "motion_pointtowards": {
+    "shape": "command",
+    "inputs": {
+      "TOWARDS": {
+        "type": "string",
+        "shadowOpcode": "motion_pointtowards_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "TOWARDS"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "point towards ?",
+      "zh": "面向 ?"
+    }
+  },
+  "motion_pointtowards_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TOWARDS": {
+        "options": [
+          "_mouse_",
+          "_random_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "TOWARDS"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "mouse-pointer",
+      "zh": "鼠标指针"
+    }
+  },
+  "motion_rotationcenteroffset": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "AXIS": {
+        "options": [
+          "x",
+          "y"
+        ]
+      }
+    },
+    "parameters": [
+      "AXIS"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "rotation center offset x",
+      "zh": "rotation center offset x"
+    }
+  },
+  "motion_rotationstyle": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "motion",
+    "text": {
+      "en": "rotation style",
+      "zh": "rotation style"
+    }
+  },
+  "motion_scroll_right": {
+    "shape": "command",
+    "inputs": {
+      "DISTANCE": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DISTANCE"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "scroll right ?",
+      "zh": "向右滚动 ?"
+    }
+  },
+  "motion_scroll_up": {
+    "shape": "command",
+    "inputs": {
+      "DISTANCE": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DISTANCE"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "scroll up ?",
+      "zh": "向上滚动 ?"
+    }
+  },
+  "motion_setrotationcenteroffset": {
+    "shape": "command",
+    "inputs": {
+      "X": {
+        "type": "string"
+      },
+      "Y": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "X",
+      "Y"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "set rotation center offset to x: ? y: ?",
+      "zh": "set rotation center offset to x: ? y: ?"
+    }
+  },
+  "motion_setrotationstyle": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "STYLE": {
+        "options": [
+          "left-right",
+          "don't rotate",
+          "all around"
+        ]
+      }
+    },
+    "parameters": [
+      "STYLE"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "set rotation style left-right",
+      "zh": "将旋转方式设为 左右翻转"
+    }
+  },
+  "motion_setx": {
+    "shape": "command",
+    "inputs": {
+      "X": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "X"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "set x to ?",
+      "zh": "将x坐标设为 ?"
+    }
+  },
+  "motion_sety": {
+    "shape": "command",
+    "inputs": {
+      "Y": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "Y"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "set y to ?",
+      "zh": "将y坐标设为 ?"
+    }
+  },
+  "motion_turnleft": {
+    "shape": "command",
+    "inputs": {
+      "DEGREES": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DEGREES"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "turn  ? degrees",
+      "zh": "向左旋转  ? 度"
+    }
+  },
+  "motion_turnright": {
+    "shape": "command",
+    "inputs": {
+      "DEGREES": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DEGREES"
+    ],
+    "category": "motion",
+    "text": {
+      "en": "turn  ? degrees",
+      "zh": "向右旋转  ? 度"
+    }
+  },
+  "motion_xposition": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "motion",
+    "text": {
+      "en": "x position",
+      "zh": "x 坐标"
+    }
+  },
+  "motion_xscroll": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "motion",
+    "text": {
+      "en": "x scroll",
+      "zh": "x滚动位置"
+    }
+  },
+  "motion_yposition": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "motion",
+    "text": {
+      "en": "y position",
+      "zh": "y 坐标"
+    }
+  },
+  "motion_yscroll": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "motion",
+    "text": {
+      "en": "y scroll",
+      "zh": "y滚动位置"
+    }
+  },
+  "operator_add": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM1": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "NUM2": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUM1",
+      "NUM2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? + ?",
+      "zh": "? + ?"
+    }
+  },
+  "operator_and": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND1": {
+        "type": "boolean"
+      },
+      "OPERAND2": {
+        "type": "boolean"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "OPERAND1",
+      "OPERAND2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? and ?",
+      "zh": "? 与 ?"
+    }
+  },
+  "operator_arithmetic": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM1": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "NUM2": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {
+      "OP1": {
+        "options": [
+          "+",
+          "-",
+          "*",
+          "/",
+          "^"
+        ]
+      }
+    },
+    "parameters": [
+      "NUM1",
+      "OP1",
+      "NUM2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? + ?",
+      "zh": "? + ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "NUM",
+            "kind": "input",
+            "type": "string"
+          }
+        ],
+        "min": 2,
+        "max": 64,
+        "start": 2,
+        "firstDynamic": 3,
+        "separator": "OP",
+        "mutation": {
+          "count": "items"
+        }
+      }
+    ]
+  },
+  "operator_compare": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND1": {
+        "type": "string",
+        "shadowOpcode": "text"
+      },
+      "OPERAND2": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {
+      "OP1": {
+        "options": [
+          ">",
+          "<",
+          "=",
+          "≠",
+          "≥",
+          "≤",
+          "≡"
+        ]
+      }
+    },
+    "parameters": [
+      "OPERAND1",
+      "OP1",
+      "OPERAND2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? > ?",
+      "zh": "? > ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "OPERAND",
+            "kind": "input",
+            "type": "string"
+          }
+        ],
+        "min": 2,
+        "max": 64,
+        "start": 2,
+        "firstDynamic": 3,
+        "separator": "OP",
+        "mutation": {
+          "count": "items"
+        }
+      }
+    ]
+  },
+  "operator_contains": {
+    "shape": "boolean",
+    "inputs": {
+      "STRING1": {
+        "type": "string",
+        "shadowOpcode": "text"
+      },
+      "STRING2": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "STRING1",
+      "STRING2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? contains ? ?",
+      "zh": "? 包含 ? ?"
+    }
+  },
+  "operator_divide": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM1": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "NUM2": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUM1",
+      "NUM2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? / ?",
+      "zh": "? / ?"
+    }
+  },
+  "operator_equals": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND1": {
+        "type": "string",
+        "shadowOpcode": "text"
+      },
+      "OPERAND2": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "OPERAND1",
+      "OPERAND2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? = ?",
+      "zh": "? = ?"
+    }
+  },
+  "operator_gt": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND1": {
+        "type": "string",
+        "shadowOpcode": "text"
+      },
+      "OPERAND2": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "OPERAND1",
+      "OPERAND2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? > ?",
+      "zh": "? > ?"
+    }
+  },
+  "operator_join": {
+    "shape": "reporter",
+    "inputs": {
+      "STRING1": {
+        "type": "string",
+        "shadowOpcode": "text"
+      },
+      "STRING2": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "STRING1",
+      "STRING2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "join ? ?",
+      "zh": "连接 ? 和 ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "STRING",
+            "kind": "input",
+            "type": "string"
+          }
+        ],
+        "min": 2,
+        "max": 64,
+        "start": 2,
+        "firstDynamic": 3,
+        "mutation": {
+          "count": "items"
+        }
+      }
+    ]
+  },
+  "OPERATOR_JOIN_MAX_ITEMS": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "OPERATOR",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "OPERATOR_JOIN_TAIL": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "OPERATOR",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "operator_length": {
+    "shape": "reporter",
+    "inputs": {
+      "STRING": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "STRING"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "length of ?",
+      "zh": "? 的字符数"
+    }
+  },
+  "operator_letter_of": {
+    "shape": "reporter",
+    "inputs": {
+      "LETTER": {
+        "type": "string",
+        "shadowOpcode": "math_whole_number"
+      },
+      "STRING": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "LETTER",
+      "STRING"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "letter ? of ?",
+      "zh": "? 的第 ? 个字符"
+    }
+  },
+  "operator_logic": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND1": {
+        "type": "boolean"
+      },
+      "OPERAND2": {
+        "type": "boolean"
+      }
+    },
+    "fields": {
+      "OP1": {
+        "options": [
+          "&",
+          "|"
+        ]
+      }
+    },
+    "parameters": [
+      "OPERAND1",
+      "OP1",
+      "OPERAND2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? and ?",
+      "zh": "? 与 ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "OPERAND",
+            "kind": "input",
+            "type": "boolean"
+          }
+        ],
+        "min": 2,
+        "max": 64,
+        "start": 2,
+        "firstDynamic": 3,
+        "separator": "OP",
+        "mutation": {
+          "count": "items"
+        }
+      }
+    ]
+  },
+  "operator_lt": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND1": {
+        "type": "string",
+        "shadowOpcode": "text"
+      },
+      "OPERAND2": {
+        "type": "string",
+        "shadowOpcode": "text"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "OPERAND1",
+      "OPERAND2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? < ?",
+      "zh": "? < ?"
+    }
+  },
+  "operator_mathop": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {
+      "OPERATOR": {
+        "options": [
+          "abs",
+          "floor",
+          "ceiling",
+          "sqrt",
+          "sin",
+          "cos",
+          "tan",
+          "asin",
+          "acos",
+          "atan",
+          "ln",
+          "log",
+          "e ^",
+          "10 ^"
+        ]
+      }
+    },
+    "parameters": [
+      "OPERATOR",
+      "NUM"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "abs of ?",
+      "zh": "绝对值 ?"
+    }
+  },
+  "operator_mod": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM1": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "NUM2": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUM1",
+      "NUM2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? mod ?",
+      "zh": "? 除以 ? 的余数"
+    }
+  },
+  "operator_multiply": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM1": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "NUM2": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUM1",
+      "NUM2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? * ?",
+      "zh": "? * ?"
+    }
+  },
+  "operator_not": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND": {
+        "type": "boolean"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "OPERAND"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "not ?",
+      "zh": "? 不成立"
+    }
+  },
+  "operator_or": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND1": {
+        "type": "boolean"
+      },
+      "OPERAND2": {
+        "type": "boolean"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "OPERAND1",
+      "OPERAND2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? or ?",
+      "zh": "? 或 ?"
+    }
+  },
+  "operator_power": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM1": {
+        "type": "string"
+      },
+      "NUM2": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUM1",
+      "NUM2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? ^ ?",
+      "zh": "? ^ ?"
+    }
+  },
+  "operator_random": {
+    "shape": "reporter",
+    "inputs": {
+      "FROM": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "TO": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "FROM",
+      "TO"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "pick random ? to ?",
+      "zh": "在 ? 和 ? 之间取随机数"
+    }
+  },
+  "operator_round": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUM"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "round ?",
+      "zh": "四舍五入 ?"
+    }
+  },
+  "operator_roundto": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM": {
+        "type": "string"
+      },
+      "DIGITS": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUM",
+      "DIGITS"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "round ? to ? decimal places",
+      "zh": "round ? to ? decimal places"
+    }
+  },
+  "operator_strictequals": {
+    "shape": "boolean",
+    "inputs": {
+      "OPERAND1": {
+        "type": "string"
+      },
+      "OPERAND2": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "OPERAND1",
+      "OPERAND2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? ≡ ?",
+      "zh": "? ≡ ?"
+    }
+  },
+  "operator_subtract": {
+    "shape": "reporter",
+    "inputs": {
+      "NUM1": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      },
+      "NUM2": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "NUM1",
+      "NUM2"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "? - ?",
+      "zh": "? - ?"
+    }
+  },
+  "operator_ternary": {
+    "shape": "reporter",
+    "inputs": {
+      "CONDITION": {
+        "type": "boolean"
+      },
+      "THEN": {
+        "type": "string"
+      },
+      "ELSE": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "CONDITION",
+      "THEN",
+      "ELSE"
+    ],
+    "category": "operator",
+    "text": {
+      "en": "if ? then ? else ?",
+      "zh": "if ? then ? else ?"
+    },
+    "variadic": [
+      {
+        "slots": [
+          {
+            "name": "CONDITION",
+            "kind": "input",
+            "type": "boolean"
+          },
+          {
+            "name": "THEN",
+            "kind": "input",
+            "type": "string"
+          }
+        ],
+        "min": 1,
+        "max": 64,
+        "start": 1,
+        "firstDynamic": 2,
+        "insertAfter": "THEN",
+        "mutation": {
+          "count": "items",
+          "prefix": "CONDITION,THEN"
+        }
+      }
+    ]
+  },
+  "procedures_branch_editor": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "VALUE": {}
+    },
+    "parameters": [
+      "VALUE"
+    ],
+    "category": "procedures",
+    "text": {
+      "en": "run",
+      "zh": "执行"
+    }
+  },
+  "procedures_call": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "procedures",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "procedures_call_with_return": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "procedures",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "procedures_declaration": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "procedures",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "procedures_definition": {
+    "shape": "hat",
+    "inputs": {
+      "custom_block": {
+        "type": "stack"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "custom_block"
+    ],
+    "category": "procedures",
+    "branchCount": 1,
+    "text": {
+      "en": "define ?",
+      "zh": "定义 ?"
+    }
+  },
+  "procedures_dropdown_arg": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "VALUE": {
+        "options": [
+          ""
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "VALUE"
+    ],
+    "category": "procedures",
+    "text": {
+      "en": "?",
+      "zh": "?"
+    }
+  },
+  "procedures_prototype": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "procedures",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "procedures_return": {
+    "shape": "command",
+    "inputs": {
+      "RETURN": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "RETURN"
+    ],
+    "category": "procedures",
+    "terminal": true,
+    "text": {
+      "en": "return ?",
+      "zh": "返回 ?"
+    }
+  },
+  "procedures_run_branch": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "VALUE": {}
+    },
+    "parameters": [
+      "VALUE"
+    ],
+    "category": "procedures",
+    "text": {
+      "en": "run",
+      "zh": "执行"
+    }
+  },
+  "sensing_answer": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "answer",
+      "zh": "回答"
+    }
+  },
+  "sensing_askandwait": {
+    "shape": "command",
+    "inputs": {
+      "QUESTION": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "QUESTION"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "ask ? and wait",
+      "zh": "询问 ? 并等待"
+    }
+  },
+  "sensing_coloristouchingcolor": {
+    "shape": "boolean",
+    "inputs": {
+      "COLOR": {
+        "type": "string",
+        "shadowOpcode": "colour_picker"
+      },
+      "COLOR2": {
+        "type": "string",
+        "shadowOpcode": "colour_picker"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "COLOR",
+      "COLOR2"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "color ? is touching ? ?",
+      "zh": "颜色 ? 碰到 ? ?"
+    }
+  },
+  "sensing_current": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "CURRENTMENU": {
+        "options": [
+          "YEAR",
+          "MONTH",
+          "DATE",
+          "DAYOFWEEK",
+          "HOUR",
+          "MINUTE",
+          "SECOND"
+        ]
+      }
+    },
+    "parameters": [
+      "CURRENTMENU"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "current year",
+      "zh": "当前时间的 年"
+    }
+  },
+  "sensing_dayssince2000": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "days since 2000",
+      "zh": "2000年至今的天数"
+    }
+  },
+  "sensing_deltatime": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "delta time",
+      "zh": "delta time"
+    }
+  },
+  "sensing_distanceto": {
+    "shape": "reporter",
+    "inputs": {
+      "DISTANCETOMENU": {
+        "type": "string",
+        "shadowOpcode": "sensing_distancetomenu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "DISTANCETOMENU"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "distance to ?",
+      "zh": "到 ? 的距离"
+    }
+  },
+  "sensing_distancetomenu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "DISTANCETOMENU": {
+        "options": [
+          "_mouse_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "DISTANCETOMENU"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "mouse-pointer",
+      "zh": "鼠标指针"
+    }
+  },
+  "sensing_framerate": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "frame rate",
+      "zh": "frame rate"
+    }
+  },
+  "sensing_keyoptions": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "KEY_OPTION": {
+        "options": [
+          "space",
+          "up arrow",
+          "down arrow",
+          "right arrow",
+          "left arrow",
+          "any",
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j",
+          "k",
+          "l",
+          "m",
+          "n",
+          "o",
+          "p",
+          "q",
+          "r",
+          "s",
+          "t",
+          "u",
+          "v",
+          "w",
+          "x",
+          "y",
+          "z",
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "-",
+          ",",
+          ".",
+          "`",
+          "=",
+          "[",
+          "]",
+          "\\",
+          ";",
+          "'",
+          "/",
+          "!",
+          "@",
+          "#",
+          "$",
+          "%",
+          "^",
+          "&",
+          "*",
+          "(",
+          ")",
+          "_",
+          "+",
+          "?",
+          "{",
+          "}",
+          "<",
+          ">",
+          "|",
+          ":",
+          "\"",
+          "~",
+          "enter",
+          "backspace",
+          "delete",
+          "shift",
+          "caps lock",
+          "scroll lock",
+          "control",
+          "escape",
+          "insert",
+          "home",
+          "end",
+          "page up",
+          "page down",
+          "alt",
+          "tab",
+          "f1",
+          "f2",
+          "f3",
+          "f4",
+          "f5",
+          "f6",
+          "f7",
+          "f8",
+          "f9",
+          "f10",
+          "f11",
+          "f12"
+        ]
+      }
+    },
+    "parameters": [
+      "KEY_OPTION"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "space",
+      "zh": "空格"
+    }
+  },
+  "sensing_keypressed": {
+    "shape": "boolean",
+    "inputs": {
+      "KEY_OPTION": {
+        "type": "string",
+        "shadowOpcode": "sensing_keyoptions"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "KEY_OPTION"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "key ? pressed?",
+      "zh": "按键 ? 是否按下?"
+    }
+  },
+  "sensing_loud": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "loud?",
+      "zh": "响声？"
+    }
+  },
+  "sensing_loudness": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "loudness",
+      "zh": "响度"
+    }
+  },
+  "sensing_mousebutton": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {
+      "BUTTON": {
+        "options": [
+          "right",
+          "left",
+          "middle",
+          "any"
+        ]
+      }
+    },
+    "parameters": [
+      "BUTTON"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "right mouse button down?",
+      "zh": "right mouse button down?"
+    }
+  },
+  "sensing_mousedown": {
+    "shape": "boolean",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "mouse down?",
+      "zh": "按下鼠标?"
+    }
+  },
+  "sensing_mousex": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "mouse x",
+      "zh": "鼠标的x坐标"
+    }
+  },
+  "sensing_mousey": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "mouse y",
+      "zh": "鼠标的y坐标"
+    }
+  },
+  "sensing_of": {
+    "shape": "reporter",
+    "inputs": {
+      "OBJECT": {
+        "type": "string",
+        "shadowOpcode": "sensing_of_object_menu"
+      }
+    },
+    "fields": {
+      "PROPERTY": {
+        "options": [
+          "x position",
+          "y position",
+          "direction",
+          "costume #",
+          "costume name",
+          "size",
+          "volume",
+          "backdrop #",
+          "backdrop name"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "PROPERTY",
+      "OBJECT"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "x position of ?",
+      "zh": "? 的 x 坐标"
+    }
+  },
+  "sensing_of_object_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "OBJECT": {
+        "options": [
+          "Sprite1",
+          "_stage_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "OBJECT"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "Sprite1",
+      "zh": "Sprite1"
+    }
+  },
+  "sensing_persecond": {
+    "shape": "reporter",
+    "inputs": {
+      "VALUE": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "VALUE"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "? per second",
+      "zh": "? per second"
+    }
+  },
+  "sensing_resettimer": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "reset timer",
+      "zh": "计时器归零"
+    }
+  },
+  "sensing_setdragmode": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {
+      "DRAG_MODE": {
+        "options": [
+          "draggable",
+          "not draggable"
+        ]
+      }
+    },
+    "parameters": [
+      "DRAG_MODE"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "set drag mode draggable",
+      "zh": "将拖动模式设为 可拖动"
+    }
+  },
+  "sensing_timer": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "timer",
+      "zh": "计时器"
+    }
+  },
+  "sensing_touchingcolor": {
+    "shape": "boolean",
+    "inputs": {
+      "COLOR": {
+        "type": "string",
+        "shadowOpcode": "colour_picker"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "COLOR"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "touching color ? ?",
+      "zh": "碰到颜色 ? ?"
+    }
+  },
+  "sensing_touchingobject": {
+    "shape": "boolean",
+    "inputs": {
+      "TOUCHINGOBJECTMENU": {
+        "type": "string",
+        "shadowOpcode": "sensing_touchingobjectmenu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "TOUCHINGOBJECTMENU"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "touching ? ?",
+      "zh": "碰到 ? ?"
+    }
+  },
+  "sensing_touchingobjectmenu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "TOUCHINGOBJECTMENU": {
+        "options": [
+          "_mouse_",
+          "_edge_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "TOUCHINGOBJECTMENU"
+    ],
+    "category": "sensing",
+    "text": {
+      "en": "mouse-pointer",
+      "zh": "鼠标指针"
+    }
+  },
+  "sensing_userid": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "user id",
+      "zh": "用户id"
+    }
+  },
+  "sensing_username": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sensing",
+    "text": {
+      "en": "username",
+      "zh": "用户名"
+    }
+  },
+  "sound_changeeffectby": {
+    "shape": "command",
+    "inputs": {
+      "VALUE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {
+      "EFFECT": {
+        "options": [
+          "PITCH",
+          "PAN"
+        ]
+      }
+    },
+    "parameters": [
+      "EFFECT",
+      "VALUE"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "change pitch effect by ?",
+      "zh": "将 音调 音效增加 ?"
+    }
+  },
+  "sound_changevolumeby": {
+    "shape": "command",
+    "inputs": {
+      "VOLUME": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "VOLUME"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "change volume by ?",
+      "zh": "将音量增加 ?"
+    }
+  },
+  "sound_cleareffects": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sound",
+    "text": {
+      "en": "clear sound effects",
+      "zh": "清除音效"
+    }
+  },
+  "sound_control": {
+    "shape": "command",
+    "inputs": {
+      "SOUND_MENU": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "ACTION": {
+        "options": [
+          "stop",
+          "pause",
+          "resume"
+        ]
+      }
+    },
+    "parameters": [
+      "SOUND_MENU",
+      "ACTION"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "make ? stop",
+      "zh": "make ? stop"
+    }
+  },
+  "sound_duration": {
+    "shape": "reporter",
+    "inputs": {
+      "SOUND_MENU": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SOUND_MENU"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "length of ?",
+      "zh": "length of ?"
+    }
+  },
+  "sound_effectvalue": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "EFFECT": {
+        "options": [
+          "PITCH",
+          "PAN"
+        ]
+      }
+    },
+    "parameters": [
+      "EFFECT"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "pitch effect",
+      "zh": "音调 effect"
+    }
+  },
+  "sound_isplaying": {
+    "shape": "boolean",
+    "inputs": {
+      "SOUND_MENU": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SOUND_MENU"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "? playing?",
+      "zh": "? playing?"
+    }
+  },
+  "sound_play": {
+    "shape": "command",
+    "inputs": {
+      "SOUND_MENU": {
+        "type": "string",
+        "shadowOpcode": "sound_sounds_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SOUND_MENU"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "start sound ?",
+      "zh": "播放声音 ?"
+    }
+  },
+  "sound_playfrom": {
+    "shape": "command",
+    "inputs": {
+      "SOUND_MENU": {
+        "type": "string"
+      },
+      "SECONDS": {
+        "type": "string"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SOUND_MENU",
+      "SECONDS"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "start sound ? at ? seconds",
+      "zh": "start sound ? at ? seconds"
+    }
+  },
+  "sound_playuntildone": {
+    "shape": "command",
+    "inputs": {
+      "SOUND_MENU": {
+        "type": "string",
+        "shadowOpcode": "sound_sounds_menu"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "SOUND_MENU"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "play sound ? until done",
+      "zh": "播放 ? 声音，直到播放完毕"
+    }
+  },
+  "sound_seteffectto": {
+    "shape": "command",
+    "inputs": {
+      "VALUE": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {
+      "EFFECT": {
+        "options": [
+          "PITCH",
+          "PAN"
+        ]
+      }
+    },
+    "parameters": [
+      "EFFECT",
+      "VALUE"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "set pitch effect to ?",
+      "zh": "将 音调 音效设为 ?"
+    }
+  },
+  "sound_setvolumeto": {
+    "shape": "command",
+    "inputs": {
+      "VOLUME": {
+        "type": "string",
+        "shadowOpcode": "math_number"
+      }
+    },
+    "fields": {},
+    "parameters": [
+      "VOLUME"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "set volume to ? %",
+      "zh": "将音量设为 ? %"
+    }
+  },
+  "sound_sounds_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "SOUND_MENU": {
+        "options": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          null
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "SOUND_MENU"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "1",
+      "zh": "1"
+    }
+  },
+  "sound_soundsorall_menu": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "SOUND_MENU": {
+        "options": [
+          "_all_"
+        ],
+        "dynamicOptions": true
+      }
+    },
+    "parameters": [
+      "SOUND_MENU"
+    ],
+    "category": "sound",
+    "text": {
+      "en": "all sounds",
+      "zh": "all sounds"
+    }
+  },
+  "sound_stopallsounds": {
+    "shape": "command",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sound",
+    "text": {
+      "en": "stop all sounds",
+      "zh": "停止所有声音"
+    }
+  },
+  "sound_volume": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "sound",
+    "text": {
+      "en": "volume",
+      "zh": "音量"
+    }
+  },
+  "VARIADIC_OPERATOR_MAX": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "VARIADIC",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "VARIADIC_OPERATOR_SPEC": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "VARIADIC",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "VARIADIC_OPERATOR_TAIL": {
+    "shape": "shadow",
+    "inputs": {},
+    "fields": {},
+    "parameters": [],
+    "category": "VARIADIC",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "xigua_matrix": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "XIGUA_MATRIX": {}
+    },
+    "parameters": [
+      "XIGUA_MATRIX"
+    ],
+    "category": "xigua",
+    "text": {
+      "en": "???",
+      "zh": "???"
+    }
+  },
+  "xigua_white_board_note": {
+    "shape": "reporter",
+    "inputs": {},
+    "fields": {
+      "XIGUA_WHITE_BOARD_NOTE": {}
+    },
+    "parameters": [
+      "XIGUA_WHITE_BOARD_NOTE"
+    ],
+    "category": "xigua",
+    "text": {
+      "en": "0",
+      "zh": "0"
+    }
+  }
+}

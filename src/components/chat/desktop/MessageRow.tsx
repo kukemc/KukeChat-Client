@@ -45,8 +45,9 @@ import {
   userShareCardOf
 } from '../message/messageMeta';
 import { BilibiliVideoCards } from '../message/BilibiliVideoCard';
-import { CcwCreationCards, renderMentionedText } from '../message/messageText';
+import { CcwCreationCards } from '../message/messageText';
 import { renderBotElementContent, renderSafeBotMarkdown } from '../message/botMarkdown';
+import { renderMessageText } from '../gandiDsl/DslMessageText';
 import { VoiceMessageBubble } from '../message/VoiceMessage';
 import { BotShareCard, ForwardBundleCard, GroupShareCard, PostShareCard, TeamupShareCard, UserShareCard } from '../message/shareCards';
 import type { BotInteraction } from '../message/types';
@@ -163,7 +164,7 @@ function renderTextContent(message: Message, context: ChatRowContextValue): Reac
   if (isBotMarkdownMessage(message)) {
     return renderSafeBotMarkdown(botMarkdownContent(message), interact, message);
   }
-  return renderMentionedText(message.content, resolveMentionData(message, context.memberByUserId));
+  return renderMessageText(message.content, resolveMentionData(message, context.memberByUserId));
 }
 
 /** 返回消息主体，以及它是否自带外框（图片、语音、卡片不套气泡）。皮肤只交给语音：它不套气泡，但自己就是一个气泡。 */

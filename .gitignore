@@ -16,6 +16,7 @@ keystore.properties
 # 前端构建产物
 dist/
 dist-desktop/
+dist-dsl-render/
 .vite/
 
 # Tauri 桌面端

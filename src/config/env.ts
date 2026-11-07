@@ -57,3 +57,10 @@ export const EXTENSION_ASSET_URL = readEnv('VITE_EXTENSION_ASSET_URL') ?? null;
  * 未配置时不展示文档入口。
  */
 export const BOT_API_DOCS_URL = readEnv('VITE_BOT_API_DOCS_URL') ?? null;
+
+/**
+ * gandi-blocks（积木渲染库）文件所在目录，社区扩展在宿主页面没有积木库时（播放器页）从这里懒加载。
+ * 桌面端、网页、安卓渲染页把这些文件随包发布，不读这个变量。未配置时扩展只能借宿主编辑器的积木库，
+ * 借不到就把积木文本按代码显示。部署见 docs/gandi-dsl-blocks.md。
+ */
+export const GANDI_BLOCKS_BASE = readEnv('VITE_GANDI_BLOCKS_BASE') ?? null;

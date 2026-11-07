@@ -6,6 +6,11 @@ import { Cover, Icon, extensionId } from './assets';
 import KukeChatExtension from './extension';
 import { installGandiToolbarButton } from './gandiToolbar';
 import { notifyScratchRealtimeEvent } from './bridge';
+import { GANDI_BLOCKS_BASE } from '@/config/env';
+import { setGandiBlocksRemoteBase } from '@/gandiDsl';
+
+// 播放器页没有宿主积木库时，积木消息从这里懒加载 gandi-blocks（docs/gandi-dsl-blocks.md）
+setGandiBlocksRemoteBase(GANDI_BLOCKS_BASE);
 
 subscribeRealtimeEvents((event) => {
   notifyScratchRealtimeEvent(event);

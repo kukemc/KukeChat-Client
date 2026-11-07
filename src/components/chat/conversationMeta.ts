@@ -1,3 +1,4 @@
+import { dslPreviewText } from '@/gandiDsl/detect';
 import { getDisplayName } from '@/components/ui/Avatar';
 import type { Conversation, MessageSetting, User } from '@/types/api';
 import { isConversationPinnedForMe } from '@/utils/conversations';
@@ -107,7 +108,7 @@ export function lastMessagePreview(conversation: Conversation): string {
     return message.content ? `${senderPrefix}${message.content} ${label}` : `${senderPrefix}${label}`;
   }
 
-  return `${senderPrefix}${message.content || '新消息'}`;
+  return `${senderPrefix}${dslPreviewText(message.content) || '新消息'}`;
 }
 
 export function fieldText(value?: string | number | null): string {

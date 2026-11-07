@@ -1,0 +1,10217 @@
+{
+ "$meta": {
+  "source": "scripts/gandi-dsl/generate-extension-schemas.mjs",
+  "gandi3": "049fd8f"
+ },
+ "schema": {
+  "boost_getMotorPosition": {
+   "shape": "reporter",
+   "inputs": {
+    "MOTOR_REPORTER_ID": {
+     "type": "string",
+     "defaultValue": "A",
+     "shadowOpcode": "boost_menu_MOTOR_REPORTER_ID"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_REPORTER_ID"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "motor [MOTOR_REPORTER_ID] position",
+    "zh": "马达 [MOTOR_REPORTER_ID] 位置"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_getTiltAngle": {
+   "shape": "reporter",
+   "inputs": {
+    "TILT_DIRECTION": {
+     "type": "string",
+     "defaultValue": "up",
+     "shadowOpcode": "boost_menu_TILT_DIRECTION"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILT_DIRECTION"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "tilt angle [TILT_DIRECTION]",
+    "zh": "向[TILT_DIRECTION]倾角"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_menu_COLOR": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "COLOR": {
+     "options": [
+      "red",
+      "blue",
+      "green",
+      "yellow",
+      "white",
+      "black",
+      "any"
+     ]
+    }
+   },
+   "category": "boost",
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_menu_MOTOR_DIRECTION": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "MOTOR_DIRECTION": {
+     "options": [
+      "this way",
+      "that way",
+      "reverse"
+     ]
+    }
+   },
+   "category": "boost",
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_menu_MOTOR_ID": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "MOTOR_ID": {
+     "options": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "AB",
+      "ABCD"
+     ]
+    }
+   },
+   "category": "boost",
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_menu_MOTOR_REPORTER_ID": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "MOTOR_REPORTER_ID": {
+     "options": [
+      "A",
+      "B",
+      "C",
+      "D"
+     ]
+    }
+   },
+   "category": "boost",
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_menu_TILT_DIRECTION": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "TILT_DIRECTION": {
+     "options": [
+      "up",
+      "down",
+      "left",
+      "right"
+     ]
+    }
+   },
+   "category": "boost",
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_menu_TILT_DIRECTION_ANY": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "TILT_DIRECTION_ANY": {
+     "options": [
+      "up",
+      "down",
+      "left",
+      "right",
+      "any"
+     ]
+    }
+   },
+   "category": "boost",
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_motorOff": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "A",
+     "shadowOpcode": "boost_menu_MOTOR_ID"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "turn motor [MOTOR_ID] off",
+    "zh": "关闭马达 [MOTOR_ID]"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_motorOn": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "A",
+     "shadowOpcode": "boost_menu_MOTOR_ID"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "turn motor [MOTOR_ID] on",
+    "zh": "开启马达 [MOTOR_ID]"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_motorOnFor": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "A",
+     "shadowOpcode": "boost_menu_MOTOR_ID"
+    },
+    "DURATION": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID",
+    "DURATION"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "turn motor [MOTOR_ID] for [DURATION] seconds",
+    "zh": "使马达 [MOTOR_ID]转动 [DURATION] 秒"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_motorOnForRotation": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "A",
+     "shadowOpcode": "boost_menu_MOTOR_ID"
+    },
+    "ROTATION": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID",
+    "ROTATION"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "turn motor [MOTOR_ID] for [ROTATION] rotations",
+    "zh": "使马达 [MOTOR_ID]转动 [ROTATION] 圈"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_seeingColor": {
+   "shape": "boolean",
+   "inputs": {
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "boost_menu_COLOR"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "COLOR"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "seeing [COLOR] brick?",
+    "zh": "看到 [COLOR]积木 ?"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_setLightHue": {
+   "shape": "command",
+   "inputs": {
+    "HUE": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "HUE"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "set light color to [HUE]",
+    "zh": "将灯光颜色设为[HUE]"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_setMotorDirection": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "A",
+     "shadowOpcode": "boost_menu_MOTOR_ID"
+    },
+    "MOTOR_DIRECTION": {
+     "type": "string",
+     "defaultValue": "this way",
+     "shadowOpcode": "boost_menu_MOTOR_DIRECTION"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID",
+    "MOTOR_DIRECTION"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "set motor [MOTOR_ID] direction [MOTOR_DIRECTION]",
+    "zh": "将马达[MOTOR_ID] 方向设为 [MOTOR_DIRECTION]"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_setMotorPower": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "ABCD",
+     "shadowOpcode": "boost_menu_MOTOR_ID"
+    },
+    "POWER": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID",
+    "POWER"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "set motor [MOTOR_ID] speed to [POWER] %",
+    "zh": "将马达 [MOTOR_ID] 速度设为 [POWER]%"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_whenColor": {
+   "shape": "hat",
+   "inputs": {
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "boost_menu_COLOR"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "COLOR"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "when [COLOR] brick seen",
+    "zh": "当看到[COLOR]积木"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "boost_whenTilted": {
+   "shape": "hat",
+   "inputs": {
+    "TILT_DIRECTION_ANY": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "boost_menu_TILT_DIRECTION_ANY"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILT_DIRECTION_ANY"
+   ],
+   "category": "boost",
+   "text": {
+    "en": "when tilted [TILT_DIRECTION_ANY]",
+    "zh": "当向[TILT_DIRECTION_ANY]倾斜"
+   },
+   "extension": {
+    "id": "boost"
+   }
+  },
+  "ev3_beep": {
+   "shape": "command",
+   "inputs": {
+    "NOTE": {
+     "type": "number",
+     "defaultValue": 60,
+     "shadowOpcode": "note"
+    },
+    "TIME": {
+     "type": "number",
+     "defaultValue": 0.5,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NOTE",
+    "TIME"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "beep note [NOTE] for [TIME] secs",
+    "zh": "鸣笛[NOTE][TIME]秒"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_buttonPressed": {
+   "shape": "boolean",
+   "inputs": {
+    "PORT": {
+     "type": "string",
+     "defaultValue": 0,
+     "shadowOpcode": "ev3_menu_sensorPorts"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PORT"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "button [PORT] pressed?",
+    "zh": "按下按钮[PORT]？"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_getBrightness": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "ev3",
+   "text": {
+    "en": "brightness",
+    "zh": "亮度"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_getDistance": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "ev3",
+   "text": {
+    "en": "distance",
+    "zh": "距离"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_getMotorPosition": {
+   "shape": "reporter",
+   "inputs": {
+    "PORT": {
+     "type": "string",
+     "defaultValue": 0,
+     "shadowOpcode": "ev3_menu_motorPorts"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PORT"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "motor [PORT] position",
+    "zh": "马达[PORT]的位置"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_menu_motorPorts": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "motorPorts": {
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    }
+   },
+   "category": "ev3",
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_menu_sensorPorts": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "sensorPorts": {
+     "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    }
+   },
+   "category": "ev3",
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_motorSetPower": {
+   "shape": "command",
+   "inputs": {
+    "PORT": {
+     "type": "string",
+     "defaultValue": 0,
+     "shadowOpcode": "ev3_menu_motorPorts"
+    },
+    "POWER": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PORT",
+    "POWER"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "motor [PORT] set power [POWER] %",
+    "zh": "马达[PORT]功率设为[POWER]%"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_motorTurnClockwise": {
+   "shape": "command",
+   "inputs": {
+    "PORT": {
+     "type": "string",
+     "defaultValue": 0,
+     "shadowOpcode": "ev3_menu_motorPorts"
+    },
+    "TIME": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PORT",
+    "TIME"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "motor [PORT] turn this way for [TIME] seconds",
+    "zh": "马达[PORT]正转[TIME]秒"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_motorTurnCounterClockwise": {
+   "shape": "command",
+   "inputs": {
+    "PORT": {
+     "type": "string",
+     "defaultValue": 0,
+     "shadowOpcode": "ev3_menu_motorPorts"
+    },
+    "TIME": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PORT",
+    "TIME"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "motor [PORT] turn that way for [TIME] seconds",
+    "zh": "马达[PORT]反转[TIME]秒"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_whenBrightnessLessThan": {
+   "shape": "hat",
+   "inputs": {
+    "DISTANCE": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DISTANCE"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "when brightness < [DISTANCE]",
+    "zh": "当亮度 < [DISTANCE]"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_whenButtonPressed": {
+   "shape": "hat",
+   "inputs": {
+    "PORT": {
+     "type": "string",
+     "defaultValue": 0,
+     "shadowOpcode": "ev3_menu_sensorPorts"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PORT"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "when button [PORT] pressed",
+    "zh": "当按下按钮[PORT]"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "ev3_whenDistanceLessThan": {
+   "shape": "hat",
+   "inputs": {
+    "DISTANCE": {
+     "type": "number",
+     "defaultValue": 5,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DISTANCE"
+   ],
+   "category": "ev3",
+   "text": {
+    "en": "when distance < [DISTANCE]",
+    "zh": "当距离 < [DISTANCE]"
+   },
+   "extension": {
+    "id": "ev3"
+   }
+  },
+  "gandiLighting_brightness": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiLighting",
+   "text": {
+    "en": "brightness here",
+    "zh": "我这里的亮度"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_changeLight": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "intensity",
+      "radius",
+      "falloff",
+      "halo",
+      "height",
+      "direction",
+      "angle",
+      "softness",
+      "shadowSoftness"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "change [NAME] [PROP] by [VALUE]",
+    "zh": "把 [NAME] 的 [PROP] 增加 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_changeMine": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "emission",
+      "receive",
+      "receiveLights",
+      "relief",
+      "lift",
+      "height"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "change my [PROP] by [VALUE]",
+    "zh": "把我的 [PROP] 增加 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_changeScreen": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "exposure",
+      "ambientIntensity",
+      "sunIntensity",
+      "sunDirection",
+      "sunElevation",
+      "bloom",
+      "mist",
+      "vignette",
+      "saturation",
+      "contrast",
+      "warmth",
+      "relief",
+      "skyIntensity",
+      "sunShadowSoftness"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "change picture [PROP] by [VALUE]",
+    "zh": "把画面的 [PROP] 增加 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_fadeLight": {
+   "shape": "command",
+   "inputs": {
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    },
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "intensity",
+      "radius",
+      "falloff",
+      "halo",
+      "height",
+      "direction",
+      "angle",
+      "softness",
+      "shadowSoftness"
+     ]
+    }
+   },
+   "parameters": [
+    "SECONDS",
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "in [SECONDS] secs fade [NAME] [PROP] to [VALUE]",
+    "zh": "在 [SECONDS] 秒内把 [NAME] 的 [PROP] 变为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_fadeMine": {
+   "shape": "command",
+   "inputs": {
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "emission",
+      "receive",
+      "receiveLights",
+      "relief",
+      "lift",
+      "height"
+     ]
+    }
+   },
+   "parameters": [
+    "SECONDS",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "in [SECONDS] secs fade my [PROP] to [VALUE]",
+    "zh": "在 [SECONDS] 秒内把我的 [PROP] 变为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_fadeScreen": {
+   "shape": "command",
+   "inputs": {
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "exposure",
+      "ambientIntensity",
+      "sunIntensity",
+      "sunDirection",
+      "sunElevation",
+      "bloom",
+      "mist",
+      "vignette",
+      "saturation",
+      "contrast",
+      "warmth",
+      "relief",
+      "skyIntensity",
+      "sunShadowSoftness"
+     ]
+    }
+   },
+   "parameters": [
+    "SECONDS",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "in [SECONDS] secs fade picture [PROP] to [VALUE]",
+    "zh": "在 [SECONDS] 秒内把画面的 [PROP] 变为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_fadeScreenColor": {
+   "shape": "command",
+   "inputs": {
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 2,
+     "shadowOpcode": "math_number"
+    },
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#ffffff",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "ambient",
+      "sky",
+      "sun"
+     ]
+    }
+   },
+   "parameters": [
+    "SECONDS",
+    "PROP",
+    "COLOR"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "in [SECONDS] secs fade [PROP] color to [COLOR]",
+    "zh": "在 [SECONDS] 秒内把 [PROP] 的颜色变为 [COLOR]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_fadeStyle": {
+   "shape": "command",
+   "inputs": {
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 2,
+     "shadowOpcode": "math_number"
+    },
+    "STYLE": {
+     "type": "string",
+     "defaultValue": "night",
+     "shadowOpcode": "gandiLighting_menu_styles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SECONDS",
+    "STYLE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "in [SECONDS] secs fade the look to [STYLE]",
+    "zh": "在 [SECONDS] 秒内把画面变成 [STYLE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_flashAt": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#ffd28a",
+     "shadowOpcode": "colour_picker"
+    },
+    "RADIUS": {
+     "type": "number",
+     "defaultValue": 200,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "COLOR",
+    "RADIUS"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "at x [X] y [Y] flash [COLOR] range [RADIUS]",
+    "zh": "在 x [X] y [Y] 闪一下 [COLOR] 范围 [RADIUS]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_flashLight": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "flash [NAME]",
+    "zh": "让 [NAME] 闪一下"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_flashScreen": {
+   "shape": "command",
+   "inputs": {
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#dfe8ff",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "COLOR"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "flash the picture [COLOR]",
+    "zh": "画面闪一下 [COLOR]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_isLightOn": {
+   "shape": "boolean",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "[NAME] is on?",
+    "zh": "[NAME] 亮着？"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_lightValue": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "intensity",
+      "radius",
+      "falloff",
+      "halo",
+      "height",
+      "direction",
+      "angle",
+      "softness",
+      "shadowSoftness",
+      "color",
+      "x",
+      "y",
+      "shaderError"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "[NAME] [PROP]",
+    "zh": "[NAME] 的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_menu_lights": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "lights": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiLighting",
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_menu_presets": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "presets": {
+     "options": [
+      "torch",
+      "candle",
+      "bonfire",
+      "lantern",
+      "window",
+      "neon",
+      "magic",
+      "firefly",
+      "flashlight",
+      "stagelight"
+     ]
+    }
+   },
+   "category": "gandiLighting",
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_menu_removable": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "removable": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiLighting",
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_menu_sceneLights": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "sceneLights": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiLighting",
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_menu_shaderFiles": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "shaderFiles": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiLighting",
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_menu_styles": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "styles": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiLighting",
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_moveLight": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "shadowOpcode": "gandiLighting_menu_sceneLights"
+    },
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "X",
+    "Y"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "move light [NAME] to x [X] y [Y]",
+    "zh": "把灯 [NAME] 移到 x [X] y [Y]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_myValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "emission",
+      "receive",
+      "receiveLights",
+      "relief",
+      "lift",
+      "height"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "my [PROP]",
+    "zh": "我的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_placeLight": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "PRESET": {
+     "type": "string",
+     "defaultValue": "torch",
+     "shadowOpcode": "gandiLighting_menu_presets"
+    },
+    "NAME": {
+     "type": "string",
+     "defaultValue": "light1",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "PRESET",
+    "NAME"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "at x [X] y [Y] place a [PRESET] named [NAME]",
+    "zh": "在 x [X] y [Y] 放一盏 [PRESET] 叫 [NAME]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_removeLight": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "shadowOpcode": "gandiLighting_menu_removable"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "remove light [NAME]",
+    "zh": "删除灯 [NAME]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_resetLight": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "reset [NAME]",
+    "zh": "把 [NAME] 恢复原样"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_screenValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "exposure",
+      "ambientIntensity",
+      "sunIntensity",
+      "sunDirection",
+      "sunElevation",
+      "bloom",
+      "mist",
+      "vignette",
+      "saturation",
+      "contrast",
+      "warmth",
+      "relief",
+      "skyIntensity",
+      "sunShadowSoftness"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "picture [PROP]",
+    "zh": "画面的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setCast": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {
+    "CAST": {
+     "options": [
+      "auto",
+      "wall",
+      "object",
+      "none"
+     ]
+    }
+   },
+   "parameters": [
+    "CAST"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set how I block light to [CAST]",
+    "zh": "把我的挡光设为 [CAST]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setLight": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 200,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "intensity",
+      "radius",
+      "falloff",
+      "halo",
+      "height",
+      "direction",
+      "angle",
+      "softness",
+      "shadowSoftness"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set [NAME] [PROP] to [VALUE]",
+    "zh": "把 [NAME] 的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setLightColor": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    },
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#ff5a4d",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "COLOR"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set [NAME] color to [COLOR]",
+    "zh": "把 [NAME] 的颜色设为 [COLOR]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setLightFlicker": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    }
+   },
+   "fields": {
+    "FLICKER": {
+     "options": [
+      "none",
+      "fire",
+      "breathe",
+      "pulse"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "FLICKER"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set [NAME] flicker to [FLICKER]",
+    "zh": "把 [NAME] 的闪烁设为 [FLICKER]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setLightParam": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    },
+    "INDEX": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "INDEX",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set [NAME] shader param [INDEX] to [VALUE]",
+    "zh": "把 [NAME] 的着色器参数 [INDEX] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setLightShader": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    },
+    "CODE": {
+     "type": "string",
+     "defaultValue": "",
+     "shadowOpcode": "gandiLighting_menu_shaderFiles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "CODE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set [NAME] shader to [CODE]",
+    "zh": "把 [NAME] 的着色器设为 [CODE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setMine": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 150,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "emission",
+      "receive",
+      "receiveLights",
+      "relief",
+      "lift",
+      "height"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set my [PROP] to [VALUE]",
+    "zh": "把我的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setScreen": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "exposure",
+      "ambientIntensity",
+      "sunIntensity",
+      "sunDirection",
+      "sunElevation",
+      "bloom",
+      "mist",
+      "vignette",
+      "saturation",
+      "contrast",
+      "warmth",
+      "relief",
+      "skyIntensity",
+      "sunShadowSoftness"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set picture [PROP] to [VALUE]",
+    "zh": "把画面的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setScreenColor": {
+   "shape": "command",
+   "inputs": {
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#34416f",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "ambient",
+      "sky",
+      "sun"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "COLOR"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set [PROP] color to [COLOR]",
+    "zh": "把 [PROP] 的颜色设为 [COLOR]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_setStyle": {
+   "shape": "command",
+   "inputs": {
+    "STYLE": {
+     "type": "string",
+     "defaultValue": "night",
+     "shadowOpcode": "gandiLighting_menu_styles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "STYLE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "set the look to [STYLE]",
+    "zh": "把画面变成 [STYLE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_switchLight": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiLighting_menu_lights"
+    }
+   },
+   "fields": {
+    "ONOFF": {
+     "options": [
+      "on",
+      "off"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "ONOFF"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "turn [NAME] [ONOFF]",
+    "zh": "让 [NAME] [ONOFF]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_switchScreen": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "lighting",
+      "sun",
+      "sunShadows",
+      "film"
+     ]
+    },
+    "ONOFF": {
+     "options": [
+      "on",
+      "off"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "ONOFF"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "turn [PROP] [ONOFF]",
+    "zh": "让 [PROP] [ONOFF]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiLighting_whenBrightness": {
+   "shape": "hat",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "OP": {
+     "options": [
+      "above",
+      "below"
+     ]
+    }
+   },
+   "parameters": [
+    "OP",
+    "VALUE"
+   ],
+   "category": "gandiLighting",
+   "text": {
+    "en": "when brightness here [OP] [VALUE]",
+    "zh": "当我这里的亮度 [OP] [VALUE]"
+   },
+   "extension": {
+    "id": "gandiLighting"
+   }
+  },
+  "gandiParticles_burstEmitter": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    },
+    "COUNT": {
+     "type": "number",
+     "defaultValue": 30,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "COUNT"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "tell [NAME] to emit [COUNT] particles",
+    "zh": "让 [NAME] 喷出 [COUNT] 颗"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_changeEmitter": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "dynamicOptions": true
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "change [NAME] [PROP] by [VALUE]",
+    "zh": "把 [NAME] 的 [PROP] 增加 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_clearAll": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiParticles",
+   "text": {
+    "en": "clear all particles",
+    "zh": "清空所有粒子"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_controlEmitter": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    }
+   },
+   "fields": {
+    "ACTION": {
+     "options": [
+      "start",
+      "stop",
+      "clear"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "ACTION"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "tell [NAME] to [ACTION]",
+    "zh": "让 [NAME] [ACTION]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_emitterValue": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "dynamicOptions": true
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "[NAME] [PROP]",
+    "zh": "[NAME] 的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_fadeEmitter": {
+   "shape": "command",
+   "inputs": {
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    },
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "dynamicOptions": true
+    }
+   },
+   "parameters": [
+    "SECONDS",
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "in [SECONDS] secs fade [NAME] [PROP] to [VALUE]",
+    "zh": "在 [SECONDS] 秒内把 [NAME] 的 [PROP] 变为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_isTouching": {
+   "shape": "boolean",
+   "inputs": {
+    "EFFECT": {
+     "type": "string",
+     "defaultValue": "_any_",
+     "shadowOpcode": "gandiParticles_menu_touchEffects"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "EFFECT"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "touching [EFFECT] particles?",
+    "zh": "碰到 [EFFECT] 的粒子？"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_menu_effects": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "effects": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiParticles",
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_menu_emitters": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "emitters": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiParticles",
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_menu_places": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "places": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiParticles",
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_menu_removable": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "removable": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiParticles",
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_menu_sceneEmitters": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "sceneEmitters": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiParticles",
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_menu_touchEffects": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "touchEffects": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiParticles",
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_moveEmitter": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "shadowOpcode": "gandiParticles_menu_sceneEmitters"
+    },
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "X",
+    "Y"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "move emitter [NAME] to x [X] y [Y]",
+    "zh": "把发射器 [NAME] 移到 x [X] y [Y]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_notifyValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "x",
+      "y",
+      "direction",
+      "speed",
+      "effect",
+      "other"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "[PROP] of this particle",
+    "zh": "这颗粒子的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_placeEmitter": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "EFFECT": {
+     "type": "string",
+     "defaultValue": "fire",
+     "shadowOpcode": "gandiParticles_menu_effects"
+    },
+    "NAME": {
+     "type": "string",
+     "defaultValue": "fire1",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "EFFECT",
+    "NAME"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "at x [X] y [Y] place a [EFFECT] named [NAME]",
+    "zh": "在 x [X] y [Y] 放一个 [EFFECT] 叫 [NAME]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_play": {
+   "shape": "command",
+   "inputs": {
+    "AT": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiParticles_menu_places"
+    },
+    "EFFECT": {
+     "type": "string",
+     "defaultValue": "explosion",
+     "shadowOpcode": "gandiParticles_menu_effects"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "AT",
+    "EFFECT"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "at [AT] play [EFFECT]",
+    "zh": "在 [AT] 播放 [EFFECT]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_playAt": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "EFFECT": {
+     "type": "string",
+     "defaultValue": "explosion",
+     "shadowOpcode": "gandiParticles_menu_effects"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "EFFECT"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "at x [X] y [Y] play [EFFECT]",
+    "zh": "在 x [X] y [Y] 播放 [EFFECT]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_playWait": {
+   "shape": "command",
+   "inputs": {
+    "AT": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiParticles_menu_places"
+    },
+    "EFFECT": {
+     "type": "string",
+     "defaultValue": "explosion",
+     "shadowOpcode": "gandiParticles_menu_effects"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "AT",
+    "EFFECT"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "at [AT] play [EFFECT] and wait",
+    "zh": "在 [AT] 播放 [EFFECT] 并等待"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_removeEmitter": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "shadowOpcode": "gandiParticles_menu_removable"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "remove emitter [NAME]",
+    "zh": "删除发射器 [NAME]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_removeTouching": {
+   "shape": "command",
+   "inputs": {
+    "EFFECT": {
+     "type": "string",
+     "defaultValue": "_any_",
+     "shadowOpcode": "gandiParticles_menu_touchEffects"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "EFFECT"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "remove [EFFECT] particles touching me",
+    "zh": "清掉碰到我的 [EFFECT] 粒子"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_resetEmitter": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "reset [NAME]",
+    "zh": "把 [NAME] 恢复原样"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_setEmitter": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "dynamicOptions": true
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "set [NAME] [PROP] to [VALUE]",
+    "zh": "把 [NAME] 的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_setEmitterColor": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    },
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#ff4d4d",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "dynamicOptions": true
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "COLOR"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "set [NAME] [PROP] to [COLOR]",
+    "zh": "把 [NAME] 的 [PROP] 设为 [COLOR]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_setEmitterEffect": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_mine_",
+     "shadowOpcode": "gandiParticles_menu_emitters"
+    },
+    "EFFECT": {
+     "type": "string",
+     "defaultValue": "fire",
+     "shadowOpcode": "gandiParticles_menu_effects"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "EFFECT"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "switch [NAME] to [EFFECT]",
+    "zh": "把 [NAME] 换成 [EFFECT]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_setTimeScale": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "VALUE"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "set particle time scale to [VALUE]",
+    "zh": "把粒子的时间倍率设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiParticles_whenNotify": {
+   "shape": "hat",
+   "inputs": {},
+   "fields": {
+    "EVENT": {
+     "dynamicOptions": true
+    }
+   },
+   "parameters": [
+    "EVENT"
+   ],
+   "category": "gandiParticles",
+   "text": {
+    "en": "when a particle signals [EVENT]",
+    "zh": "当粒子通知 [EVENT]"
+   },
+   "extension": {
+    "id": "gandiParticles"
+   }
+  },
+  "gandiPhysics_changeMine": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "friction",
+      "restitution",
+      "mass",
+      "linearDamping",
+      "gravityScale",
+      "layer",
+      "footprint",
+      "surfaceSpeed"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "change my [PROP] by [VALUE]",
+    "zh": "把我的 [PROP] 增加 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_changeVel": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "change velocity by x [X] y [Y]",
+    "zh": "把速度增加 x [X] y [Y]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_charValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "wall",
+      "ceiling",
+      "inWater",
+      "facing",
+      "face4",
+      "faceX",
+      "faceY",
+      "moving",
+      "slopeAngle",
+      "groundNormalX",
+      "groundNormalY",
+      "groundObject",
+      "climbing",
+      "wallSliding"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "character [PROP]",
+    "zh": "角色的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_climb": {
+   "shape": "command",
+   "inputs": {
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "Y"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "climb up/down [Y]",
+    "zh": "按爬梯走：上下 [Y]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_connect": {
+   "shape": "command",
+   "inputs": {
+    "OTHER": {
+     "type": "string",
+     "defaultValue": "_world_",
+     "shadowOpcode": "gandiPhysics_menu_jointOthers"
+    },
+    "NAME": {
+     "type": "string",
+     "defaultValue": "joint1",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {
+    "TYPE": {
+     "options": [
+      "distance",
+      "spring",
+      "rope",
+      "revolute",
+      "prismatic",
+      "weld",
+      "wheel",
+      "motor",
+      "friction",
+      "mouse"
+     ]
+    }
+   },
+   "parameters": [
+    "OTHER",
+    "TYPE",
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "join me to [OTHER] with a [TYPE] joint named [NAME]",
+    "zh": "把我和 [OTHER] 用 [TYPE] 连起来 叫 [NAME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_enableSoft": {
+   "shape": "command",
+   "inputs": {
+    "SPACING": {
+     "type": "number",
+     "defaultValue": 16,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "KIND": {
+     "options": [
+      "soft",
+      "cloth"
+     ]
+    }
+   },
+   "parameters": [
+    "KIND",
+    "SPACING"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "turn me into [KIND] with mesh spacing [SPACING]",
+    "zh": "把我变成 [KIND]，网格间距 [SPACING]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_fillLiquid": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "WIDTH": {
+     "type": "number",
+     "defaultValue": 200,
+     "shadowOpcode": "math_number"
+    },
+    "HEIGHT": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {
+    "TYPE": {
+     "options": [
+      "rectangle",
+      "circle"
+     ]
+    }
+   },
+   "parameters": [
+    "TYPE",
+    "X",
+    "Y",
+    "WIDTH",
+    "HEIGHT",
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "fill [TYPE] x [X] y [Y] width [WIDTH] height [HEIGHT] with [NAME]",
+    "zh": "在 [TYPE] x [X] y [Y] 宽 [WIDTH] 高 [HEIGHT] 里灌满 [NAME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_hitValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "other",
+      "x",
+      "y",
+      "nx",
+      "ny",
+      "impulse",
+      "shape",
+      "otherShape"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "hit [PROP]",
+    "zh": "碰到的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_immersion": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "how much of me is in [NAME]",
+    "zh": "我泡在 [NAME] 里的比例"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_injectLiquid": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "text"
+    },
+    "COUNT": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    },
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "VX": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "VY": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "COUNT",
+    "X",
+    "Y",
+    "VX",
+    "VY"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "into [NAME] add [COUNT] drops at x [X] y [Y] with velocity x [VX] y [VY]",
+    "zh": "往 [NAME] 注入 [COUNT] 滴，在 x [X] y [Y]，速度 x [VX] y [VY]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_interactFront": {
+   "shape": "command",
+   "inputs": {
+    "DISTANCE": {
+     "type": "number",
+     "defaultValue": 16,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DISTANCE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "interact with what is within [DISTANCE] in front of me",
+    "zh": "和面前 [DISTANCE] 以内的东西交互"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_isInLiquid": {
+   "shape": "boolean",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "x [X] y [Y] is in [NAME]?",
+    "zh": "x [X] y [Y] 在 [NAME] 里？"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_isOnGround": {
+   "shape": "boolean",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "on the ground?",
+    "zh": "站在地面上？"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_isTouching": {
+   "shape": "boolean",
+   "inputs": {
+    "OTHER": {
+     "type": "string",
+     "defaultValue": "_any_",
+     "shadowOpcode": "gandiPhysics_menu_who"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "OTHER"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "touching [OTHER]?",
+    "zh": "碰到 [OTHER]？"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_jointValue": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "joint1",
+     "shadowOpcode": "gandiPhysics_menu_jointNames"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "length",
+      "frequency",
+      "damping",
+      "motorSpeed",
+      "maxMotorForce",
+      "lower",
+      "upper",
+      "breakForce"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "joint [NAME] [PROP]",
+    "zh": "关节 [NAME] 的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_liquidAction": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    }
+   },
+   "fields": {
+    "ACTION": {
+     "options": [
+      "clear",
+      "delete"
+     ]
+    }
+   },
+   "parameters": [
+    "ACTION",
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "[ACTION] [NAME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_liquidValue": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "viscosity",
+      "damping",
+      "density",
+      "surfaceTension",
+      "spacing",
+      "gravityScale",
+      "color",
+      "opacity",
+      "deepColor",
+      "clarity",
+      "wave",
+      "waveSpeed",
+      "refraction",
+      "caustics",
+      "rays",
+      "reflection",
+      "pixelSize",
+      "colorSteps",
+      "textureScale",
+      "textureStrength",
+      "textureScrollX",
+      "textureScrollY",
+      "droplets",
+      "count",
+      "shaderError"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "[NAME] [PROP]",
+    "zh": "[NAME] 的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_makeFlowWater": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "text"
+    },
+    "WIDTH": {
+     "type": "number",
+     "defaultValue": 480,
+     "shadowOpcode": "math_number"
+    },
+    "HEIGHT": {
+     "type": "number",
+     "defaultValue": 360,
+     "shadowOpcode": "math_number"
+    },
+    "CELL": {
+     "type": "number",
+     "defaultValue": 8,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "WIDTH",
+    "HEIGHT",
+    "CELL"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "turn me into flowing water [NAME] width [WIDTH] height [HEIGHT] cell [CELL]",
+    "zh": "把我变成流动的水 [NAME] 宽 [WIDTH] 高 [HEIGHT] 格子 [CELL]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_makeWater": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "lake",
+     "shadowOpcode": "text"
+    },
+    "WIDTH": {
+     "type": "number",
+     "defaultValue": 480,
+     "shadowOpcode": "math_number"
+    },
+    "HEIGHT": {
+     "type": "number",
+     "defaultValue": 120,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "WIDTH",
+    "HEIGHT"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "turn me into water surface [NAME] width [WIDTH] height [HEIGHT]",
+    "zh": "把我变成水面 [NAME] 宽 [WIDTH] 高 [HEIGHT]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_fieldNames": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "fieldNames": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_jointNames": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "jointNames": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_jointOthers": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "jointOthers": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_liquidAny": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "liquidAny": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_liquidNames": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "liquidNames": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_myCostumes": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "myCostumes": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_otherProps": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "otherProps": {
+     "options": [
+      "x",
+      "y",
+      "direction",
+      "costume",
+      "name"
+     ]
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_shaderFiles": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "shaderFiles": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_softNames": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "softNames": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_menu_who": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "who": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiPhysics",
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_myValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "vx",
+      "vy",
+      "speed",
+      "spin",
+      "mass",
+      "friction",
+      "restitution",
+      "gravityScale",
+      "kind"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "my [PROP]",
+    "zh": "我的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_nodeValue": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiPhysics_menu_softNames"
+    },
+    "NODE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "x",
+      "y",
+      "vx",
+      "vy",
+      "mass",
+      "radius",
+      "fixed"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "NODE",
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "[NAME] node [NODE] [PROP]",
+    "zh": "[NAME] 第 [NODE] 个节点的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_objectAhead": {
+   "shape": "reporter",
+   "inputs": {
+    "DISTANCE": {
+     "type": "number",
+     "defaultValue": 16,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DISTANCE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "object within [DISTANCE] in front of me",
+    "zh": "面前 [DISTANCE] 以内的物体"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_objectsIn": {
+   "shape": "reporter",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "WIDTH": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "HEIGHT": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "TYPE": {
+     "options": [
+      "rectangle",
+      "circle"
+     ]
+    }
+   },
+   "parameters": [
+    "TYPE",
+    "X",
+    "Y",
+    "WIDTH",
+    "HEIGHT"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "objects in [TYPE] x [X] y [Y] width [WIDTH] height [HEIGHT]",
+    "zh": "[TYPE] x [X] y [Y] 宽 [WIDTH] 高 [HEIGHT] 里的物体"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_objectsInField": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "wind",
+     "shadowOpcode": "gandiPhysics_menu_fieldNames"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "objects in field [NAME]",
+    "zh": "力场 [NAME] 里的物体"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_otherValue": {
+   "shape": "reporter",
+   "inputs": {
+    "PROP": {
+     "type": "string",
+     "defaultValue": "x",
+     "shadowOpcode": "gandiPhysics_menu_otherProps"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "[PROP] of the sprite I hit",
+    "zh": "碰到的角色的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_pinNodes": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiPhysics_menu_softNames"
+    },
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "WIDTH": {
+     "type": "number",
+     "defaultValue": 40,
+     "shadowOpcode": "math_number"
+    },
+    "HEIGHT": {
+     "type": "number",
+     "defaultValue": 40,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "TYPE": {
+     "options": [
+      "rectangle",
+      "circle"
+     ]
+    },
+    "ACTION": {
+     "options": [
+      "pinWorld",
+      "pinMe",
+      "unpin"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "TYPE",
+    "X",
+    "Y",
+    "WIDTH",
+    "HEIGHT",
+    "ACTION"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "for [NAME] nodes in [TYPE] x [X] y [Y] width [WIDTH] height [HEIGHT]: [ACTION]",
+    "zh": "把 [NAME] 在 [TYPE] x [X] y [Y] 宽 [WIDTH] 高 [HEIGHT] 里的节点 [ACTION]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_placeBridge": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "bridge",
+     "shadowOpcode": "text"
+    },
+    "X1": {
+     "type": "number",
+     "defaultValue": -100,
+     "shadowOpcode": "math_number"
+    },
+    "Y1": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "X2": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "Y2": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "SAG": {
+     "type": "number",
+     "defaultValue": 20,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "X1",
+    "Y1",
+    "X2",
+    "Y2",
+    "SAG"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "build a rope bridge [NAME] from x [X1] y [Y1] to x [X2] y [Y2] sagging [SAG]",
+    "zh": "搭一座吊桥 [NAME]，从 x [X1] y [Y1] 到 x [X2] y [Y2]，下垂 [SAG]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_placeField": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "RADIUS": {
+     "type": "number",
+     "defaultValue": 120,
+     "shadowOpcode": "math_number"
+    },
+    "NAME": {
+     "type": "string",
+     "defaultValue": "wind",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {
+    "KIND": {
+     "options": [
+      "force",
+      "attract",
+      "repel",
+      "vortex",
+      "damping"
+     ]
+    }
+   },
+   "parameters": [
+    "X",
+    "Y",
+    "RADIUS",
+    "KIND",
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "at x [X] y [Y] radius [RADIUS] place a [KIND] field named [NAME]",
+    "zh": "在 x [X] y [Y] 半径 [RADIUS] 放一个 [KIND] 力场 叫 [NAME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_placeRope": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "rope1",
+     "shadowOpcode": "text"
+    },
+    "X1": {
+     "type": "number",
+     "defaultValue": -100,
+     "shadowOpcode": "math_number"
+    },
+    "Y1": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "X2": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "Y2": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "SEGMENTS": {
+     "type": "number",
+     "defaultValue": 20,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "X1",
+    "Y1",
+    "X2",
+    "Y2",
+    "SEGMENTS"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "stretch a rope [NAME] from x [X1] y [Y1] to x [X2] y [Y2] in [SEGMENTS] segments",
+    "zh": "拉一根绳 [NAME]，从 x [X1] y [Y1] 到 x [X2] y [Y2]，分 [SEGMENTS] 段"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_platformer": {
+   "shape": "command",
+   "inputs": {
+    "DIR": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "JUMP": {
+     "type": "boolean"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DIR",
+    "JUMP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "walk as a platformer: left/right [DIR] jump [JUMP]",
+    "zh": "按平台角色走：左右 [DIR] 跳 [JUMP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_pourWater": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    },
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "AMOUNT": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    },
+    "RADIUS": {
+     "type": "number",
+     "defaultValue": 16,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "X",
+    "Y",
+    "AMOUNT",
+    "RADIUS"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "pour into [NAME] at x [X] y [Y] amount [AMOUNT] radius [RADIUS]",
+    "zh": "往 [NAME] 的 x [X] y [Y] 倒水 [AMOUNT] 半径 [RADIUS]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_push": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 200,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "push me x [X] y [Y]",
+    "zh": "推我一下 x [X] y [Y]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_rayValue": {
+   "shape": "reporter",
+   "inputs": {
+    "X1": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y1": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "X2": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "Y2": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "object",
+      "x",
+      "y",
+      "distance",
+      "nx",
+      "ny"
+     ]
+    }
+   },
+   "parameters": [
+    "X1",
+    "Y1",
+    "X2",
+    "Y2",
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "ray from x [X1] y [Y1] to x [X2] y [Y2] hits [PROP]",
+    "zh": "从 x [X1] y [Y1] 到 x [X2] y [Y2] 的射线碰到的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_removeField": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "wind",
+     "shadowOpcode": "gandiPhysics_menu_fieldNames"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "remove field [NAME]",
+    "zh": "删除力场 [NAME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_removeJoint": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "joint1",
+     "shadowOpcode": "gandiPhysics_menu_jointNames"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "disconnect joint [NAME]",
+    "zh": "断开关节 [NAME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_restore": {
+   "shape": "command",
+   "inputs": {
+    "DATA": {
+     "type": "string",
+     "defaultValue": "{}",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DATA"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "load world snapshot [DATA]",
+    "zh": "读取世界存档 [DATA]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setFacing": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {
+    "FACE": {
+     "options": [
+      "turn",
+      "left",
+      "right"
+     ]
+    }
+   },
+   "parameters": [
+    "FACE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "make me [FACE]",
+    "zh": "让我 [FACE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setFeel": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 240,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "maxSpeed",
+      "acceleration",
+      "deceleration",
+      "jumpHeight",
+      "fallGravity",
+      "maxFallSpeed",
+      "stepHeight",
+      "bounce",
+      "maxSlope",
+      "pushPower",
+      "uphillSpeed",
+      "downhillSpeed",
+      "wallSlide",
+      "wallJumpX",
+      "wallJumpY",
+      "climbSpeed"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set feel [PROP] to [VALUE]",
+    "zh": "把手感的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setField": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "wind",
+     "shadowOpcode": "gandiPhysics_menu_fieldNames"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "strength",
+      "x",
+      "y",
+      "radius",
+      "direction",
+      "falloff"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set field [NAME] [PROP] to [VALUE]",
+    "zh": "把力场 [NAME] 的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setFlag": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {
+    "FLAG": {
+     "options": [
+      "oneWay",
+      "fixedRotation",
+      "sensor",
+      "bullet",
+      "depthSort"
+     ]
+    },
+    "ONOFF": {
+     "options": [
+      "on",
+      "off"
+     ]
+    }
+   },
+   "parameters": [
+    "FLAG",
+    "ONOFF"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set my [FLAG] to [ONOFF]",
+    "zh": "把我的 [FLAG] 设为 [ONOFF]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setJoint": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "joint1",
+     "shadowOpcode": "gandiPhysics_menu_jointNames"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "length",
+      "frequency",
+      "damping",
+      "motorSpeed",
+      "maxMotorForce",
+      "lower",
+      "upper",
+      "breakForce"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set joint [NAME] [PROP] to [VALUE]",
+    "zh": "把关节 [NAME] 的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setKind": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {
+    "KIND": {
+     "options": [
+      "dynamic",
+      "static",
+      "kinematic",
+      "character",
+      "on",
+      "off"
+     ]
+    }
+   },
+   "parameters": [
+    "KIND"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set my physics to [KIND]",
+    "zh": "把我的物理设为 [KIND]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setLiquid": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "water",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    },
+    "VALUE": {
+     "type": "string",
+     "defaultValue": "1",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "viscosity",
+      "damping",
+      "density",
+      "surfaceTension",
+      "spacing",
+      "gravityScale",
+      "color",
+      "opacity",
+      "deepColor",
+      "clarity",
+      "wave",
+      "waveSpeed",
+      "refraction",
+      "caustics",
+      "rays",
+      "reflection",
+      "pixelSize",
+      "colorSteps",
+      "textureScale",
+      "textureStrength",
+      "textureScrollX",
+      "textureScrollY",
+      "droplets"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set [NAME] [PROP] to [VALUE]",
+    "zh": "把 [NAME] 的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setLiquidTexture": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "lake",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    },
+    "COSTUME": {
+     "type": "string",
+     "defaultValue": "",
+     "shadowOpcode": "gandiPhysics_menu_myCostumes"
+    }
+   },
+   "fields": {
+    "SLOT": {
+     "options": [
+      "surface",
+      "caustics"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "SLOT",
+    "COSTUME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set [NAME] [SLOT] texture to costume [COSTUME]",
+    "zh": "把 [NAME] 的 [SLOT] 纹理设为造型 [COSTUME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setMine": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 0.3,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "friction",
+      "restitution",
+      "mass",
+      "linearDamping",
+      "gravityScale",
+      "layer",
+      "footprint",
+      "surfaceSpeed"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set my [PROP] to [VALUE]",
+    "zh": "把我的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setRopeTexture": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "rope1",
+     "shadowOpcode": "gandiPhysics_menu_softNames"
+    },
+    "COSTUME": {
+     "type": "string",
+     "defaultValue": "",
+     "shadowOpcode": "gandiPhysics_menu_myCostumes"
+    }
+   },
+   "fields": {
+    "MODE": {
+     "options": [
+      "repeat",
+      "stretch"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "COSTUME",
+    "MODE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set [NAME] texture to costume [COSTUME] [MODE]",
+    "zh": "把 [NAME] 的纹理设为造型 [COSTUME] [MODE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setSoft": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiPhysics_menu_softNames"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 0.1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "damping",
+      "shapeStiffness",
+      "stretchCompliance",
+      "bendCompliance",
+      "mass",
+      "friction",
+      "tearThreshold",
+      "width",
+      "textureScale"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set [NAME] [PROP] to [VALUE]",
+    "zh": "把 [NAME] 的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setSoftColor": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "rope1",
+     "shadowOpcode": "gandiPhysics_menu_softNames"
+    },
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#a86a32",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "COLOR"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set [NAME] color to [COLOR]",
+    "zh": "把 [NAME] 的颜色设为 [COLOR]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setSpin": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 90,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set spin to [VALUE]",
+    "zh": "把转速设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setVel": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set velocity to x [X] y [Y]",
+    "zh": "把速度设为 x [X] y [Y]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setWaterParam": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "lake",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    },
+    "INDEX": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "INDEX",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set [NAME] shader param [INDEX] to [VALUE]",
+    "zh": "把 [NAME] 的着色器参数 [INDEX] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setWaterShader": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "lake",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    },
+    "CODE": {
+     "type": "string",
+     "defaultValue": "",
+     "shadowOpcode": "gandiPhysics_menu_shaderFiles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "CODE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set [NAME] shader to [CODE]",
+    "zh": "把 [NAME] 的着色器设为 [CODE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_setWorld": {
+   "shape": "command",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": -980,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "gravityY",
+      "gravityX",
+      "timeScale",
+      "groundFriction"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "set world [PROP] to [VALUE]",
+    "zh": "把世界的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_slide": {
+   "shape": "command",
+   "inputs": {
+    "DX": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    },
+    "DY": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DX",
+    "DY"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "move x [DX] y [DY] and slide along surfaces",
+    "zh": "移动 x [DX] y [DY]，碰到东西沿表面滑"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_snapshot": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "world snapshot",
+    "zh": "世界存档"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_softAction": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiPhysics_menu_softNames"
+    }
+   },
+   "fields": {
+    "ACTION": {
+     "options": [
+      "reset",
+      "remove",
+      "delete"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "ACTION"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "make [NAME] [ACTION]",
+    "zh": "让 [NAME] [ACTION]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_softValue": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiPhysics_menu_softNames"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "damping",
+      "shapeStiffness",
+      "stretchCompliance",
+      "bendCompliance",
+      "mass",
+      "friction",
+      "tearThreshold",
+      "width",
+      "textureScale",
+      "nodes"
+     ]
+    }
+   },
+   "parameters": [
+    "NAME",
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "[NAME] [PROP]",
+    "zh": "[NAME] 的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_splashWater": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "lake",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    },
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "POWER": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "X",
+    "POWER"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "splash [NAME] at x [X] with power [POWER]",
+    "zh": "在 [NAME] 的 x [X] 溅起水花，力度 [POWER]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_startForce": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "wind",
+     "shadowOpcode": "text"
+    },
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "X",
+    "Y"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "keep pushing me [NAME] x [X] y [Y]",
+    "zh": "一直推我 [NAME] x [X] y [Y]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_stopForce": {
+   "shape": "command",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "wind",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "stop pushing me [NAME]",
+    "zh": "停止推我 [NAME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_sweepValue": {
+   "shape": "reporter",
+   "inputs": {
+    "DX": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    },
+    "DY": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "object",
+      "x",
+      "y",
+      "distance",
+      "nx",
+      "ny"
+     ]
+    }
+   },
+   "parameters": [
+    "DX",
+    "DY",
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "what I would hit moving x [DX] y [DY]: [PROP]",
+    "zh": "我往 x [DX] y [DY] 走会碰到的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_teleportTo": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "teleport to x [X] y [Y]",
+    "zh": "传送到 x [X] y [Y]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_topdown": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "walk top-down x [X] y [Y]",
+    "zh": "按俯视角走 x [X] y [Y]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_touchers": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "objects touching me",
+    "zh": "碰着我的物体"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_walkPatrol": {
+   "shape": "command",
+   "inputs": {
+    "SPEED": {
+     "type": "number",
+     "defaultValue": 60,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "LEDGE": {
+     "options": [
+      "fall",
+      "turn"
+     ]
+    }
+   },
+   "parameters": [
+    "SPEED",
+    "LEDGE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "patrol at speed [SPEED], at ledges [LEDGE]",
+    "zh": "巡逻：速度 [SPEED]，到边缘 [LEDGE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_warmUp": {
+   "shape": "command",
+   "inputs": {
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 3,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SECONDS"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "run ahead for [SECONDS] secs",
+    "zh": "先空跑 [SECONDS] 秒"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_waterLevel": {
+   "shape": "reporter",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "lake",
+     "shadowOpcode": "gandiPhysics_menu_liquidNames"
+    },
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME",
+    "X"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "surface height of [NAME] at x [X]",
+    "zh": "[NAME] 在 x [X] 的水面高度"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_whenHit": {
+   "shape": "hat",
+   "inputs": {
+    "OTHER": {
+     "type": "string",
+     "defaultValue": "_any_",
+     "shadowOpcode": "gandiPhysics_menu_who"
+    }
+   },
+   "fields": {
+    "EVENT": {
+     "options": [
+      "touch",
+      "leave",
+      "stomp",
+      "stomped",
+      "head",
+      "headed",
+      "side",
+      "sided",
+      "interacted",
+      "crushed"
+     ]
+    }
+   },
+   "parameters": [
+    "EVENT",
+    "OTHER"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "when I [EVENT] [OTHER]",
+    "zh": "当我 [EVENT] [OTHER]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_whenImpact": {
+   "shape": "hat",
+   "inputs": {
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "VALUE"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "when I am hit harder than [VALUE]",
+    "zh": "当我被撞的力度超过 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_whenJointBreak": {
+   "shape": "hat",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "joint1",
+     "shadowOpcode": "gandiPhysics_menu_jointNames"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "when joint [NAME] breaks",
+    "zh": "当关节 [NAME] 断裂"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_whenLiquid": {
+   "shape": "hat",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_any_",
+     "shadowOpcode": "gandiPhysics_menu_liquidAny"
+    }
+   },
+   "fields": {
+    "EVENT": {
+     "options": [
+      "enter",
+      "leave"
+     ]
+    }
+   },
+   "parameters": [
+    "EVENT",
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "when I [EVENT] [NAME]",
+    "zh": "当我 [EVENT] [NAME]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_whenSoftTear": {
+   "shape": "hat",
+   "inputs": {
+    "NAME": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiPhysics_menu_softNames"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NAME"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "when [NAME] tears",
+    "zh": "当 [NAME] 撕裂"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_worldAction": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {
+    "ACTION": {
+     "options": [
+      "pause",
+      "resume",
+      "step",
+      "reset",
+      "record"
+     ]
+    }
+   },
+   "parameters": [
+    "ACTION"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "[ACTION] physics",
+    "zh": "[ACTION] 物理"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiPhysics_worldValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "bodies",
+      "joints",
+      "time",
+      "paused",
+      "gravityY",
+      "gravityX",
+      "timeScale"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiPhysics",
+   "text": {
+    "en": "world [PROP]",
+    "zh": "世界的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiPhysics"
+   }
+  },
+  "gandiScene_broadcastAll": {
+   "shape": "command",
+   "inputs": {
+    "MESSAGE": {
+     "type": "string",
+     "defaultValue": "message1",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MESSAGE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "broadcast [MESSAGE] to all scenes",
+    "zh": "向所有场景广播 [MESSAGE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_broadcastTo": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    },
+    "MESSAGE": {
+     "type": "string",
+     "defaultValue": "message1",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE",
+    "MESSAGE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "broadcast [MESSAGE] to scene [SCENE]",
+    "zh": "向场景 [SCENE] 广播 [MESSAGE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_clearParams": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "clear scene parameters",
+    "zh": "清空场景参数"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_currentScene": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "current scene",
+    "zh": "当前场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_entryScene": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "entry scene",
+    "zh": "入口场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_getParam": {
+   "shape": "reporter",
+   "inputs": {
+    "KEY": {
+     "type": "string",
+     "defaultValue": "level",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "KEY"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "scene parameter [KEY]",
+    "zh": "场景参数 [KEY]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_getParamsJSON": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "all scene parameters as JSON",
+    "zh": "全部场景参数 JSON"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_goBack": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "go back to the previous scene",
+    "zh": "返回上一个场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_hasParam": {
+   "shape": "boolean",
+   "inputs": {
+    "KEY": {
+     "type": "string",
+     "defaultValue": "level",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "KEY"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "has scene parameter [KEY]?",
+    "zh": "有场景参数 [KEY]？"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_isCurrent": {
+   "shape": "boolean",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "current scene is [SCENE]?",
+    "zh": "当前场景是 [SCENE]？"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_isReady": {
+   "shape": "boolean",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "costumes and sounds of scene [SCENE] are decoded?",
+    "zh": "场景 [SCENE] 的造型和声音已解码？"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_isSceneLoaded": {
+   "shape": "boolean",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "scene [SCENE] is loaded?",
+    "zh": "场景 [SCENE] 已装入？"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_loadSceneThen": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    },
+    "SUBSTACK": {
+     "type": "stack"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE",
+    "SUBSTACK"
+   ],
+   "category": "gandiScene",
+   "branchCount": 1,
+   "text": {
+    "en": "after scene [SCENE] is loaded",
+    "zh": "加载场景 [SCENE] 完成后"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_menu_onOff": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "onOff": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiScene",
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_menu_scenes": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "scenes": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiScene",
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_menu_scenesOrAny": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "scenesOrAny": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiScene",
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_pauseScene": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "pause scene [SCENE]",
+    "zh": "暂停场景 [SCENE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_preload": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "preload scene [SCENE]",
+    "zh": "预加载场景 [SCENE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_preloadScenes": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "variadic": [
+    {
+     "slots": [
+      {
+       "name": "SCENE",
+       "kind": "input",
+       "type": "string",
+       "shadowOpcode": "gandiScene_menu_scenes",
+       "defaults": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ],
+     "min": 1,
+     "max": 16,
+     "start": 2,
+     "compact": true,
+     "mutation": {
+      "count": "items",
+      "prefix": "SCENE"
+     }
+    }
+   ],
+   "text": {
+    "en": "preload scenes  [SCENE1]     [SCENE2] ",
+    "zh": "预加载场景  [SCENE1]     [SCENE2] "
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_previousScene": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "previous scene",
+    "zh": "上一个场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_restart": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "restart this scene",
+    "zh": "重新开始本场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_resumeScene": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "resume scene [SCENE]",
+    "zh": "继续场景 [SCENE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_runningSceneCount": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "number of running scenes",
+    "zh": "正在运行的场景数"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_runScene": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "run scene [SCENE] in the background",
+    "zh": "在后台运行场景 [SCENE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_runScenes": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "variadic": [
+    {
+     "slots": [
+      {
+       "name": "SCENE",
+       "kind": "input",
+       "type": "string",
+       "shadowOpcode": "gandiScene_menu_scenes",
+       "defaults": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ],
+     "min": 1,
+     "max": 16,
+     "start": 2,
+     "compact": true,
+     "mutation": {
+      "count": "items",
+      "prefix": "SCENE"
+     }
+    }
+   ],
+   "text": {
+    "en": "run scenes  [SCENE1]     [SCENE2]  in the background",
+    "zh": "在后台运行场景  [SCENE1]     [SCENE2] "
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_sceneCount": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "number of scenes",
+    "zh": "场景数量"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_sceneExists": {
+   "shape": "boolean",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "scene [SCENE] exists?",
+    "zh": "存在场景 [SCENE]？"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_sceneIsRunning": {
+   "shape": "boolean",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "scene [SCENE] is running?",
+    "zh": "场景 [SCENE] 正在运行？"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_sceneNameAt": {
+   "shape": "reporter",
+   "inputs": {
+    "INDEX": {
+     "type": "number",
+     "defaultValue": "1",
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "INDEX"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "scene # [INDEX]",
+    "zh": "第 [INDEX] 个场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_sceneNamesJSON": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "all scene names as JSON",
+    "zh": "所有场景名称 JSON"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_sceneState": {
+   "shape": "reporter",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "state of scene [SCENE]",
+    "zh": "场景 [SCENE] 的状态"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_sceneThreadCount": {
+   "shape": "reporter",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "number of threads in scene [SCENE]",
+    "zh": "场景 [SCENE] 的线程数"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_sendToScene": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    },
+    "MESSAGE": {
+     "type": "string",
+     "defaultValue": "message1",
+     "shadowOpcode": "text"
+    },
+    "DATA": {
+     "type": "string",
+     "defaultValue": "data",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE",
+    "MESSAGE",
+    "DATA"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "send [MESSAGE] with data [DATA] to scene [SCENE]",
+    "zh": "向场景 [SCENE] 发送 [MESSAGE] 数据 [DATA]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_setParam": {
+   "shape": "command",
+   "inputs": {
+    "KEY": {
+     "type": "string",
+     "defaultValue": "level",
+     "shadowOpcode": "text"
+    },
+    "VALUE": {
+     "type": "string",
+     "defaultValue": "1",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "KEY",
+    "VALUE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "set scene parameter [KEY] to [VALUE]",
+    "zh": "设置场景参数 [KEY] 为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_setSceneInput": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    },
+    "ONOFF": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_onOff"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE",
+    "ONOFF"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "scene [SCENE] responds to key presses [ONOFF]",
+    "zh": "场景 [SCENE] 响应按键 [ONOFF]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_showScene": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "show scene [SCENE]",
+    "zh": "显示场景 [SCENE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_stopScene": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "stop scene [SCENE]",
+    "zh": "停止场景 [SCENE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_switchTo": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "switch to scene [SCENE]",
+    "zh": "切换到场景 [SCENE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_switchToWithParam": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    },
+    "KEY": {
+     "type": "string",
+     "defaultValue": "level",
+     "shadowOpcode": "text"
+    },
+    "VALUE": {
+     "type": "string",
+     "defaultValue": "1",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE",
+    "KEY",
+    "VALUE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "switch to scene [SCENE] with [KEY] = [VALUE]",
+    "zh": "切换到场景 [SCENE]，参数 [KEY] = [VALUE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_switchToWithParams": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "variadic": [
+    {
+     "slots": [
+      {
+       "name": "KEY",
+       "kind": "input",
+       "type": "string",
+       "shadowOpcode": "text",
+       "defaults": [
+        "level",
+        "difficulty",
+        "param3",
+        "param4",
+        "param5",
+        "param6",
+        "param7",
+        "param8",
+        "param9",
+        "param10",
+        "param11",
+        "param12"
+       ]
+      },
+      {
+       "name": "VALUE",
+       "kind": "input",
+       "type": "string",
+       "shadowOpcode": "text",
+       "defaults": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12"
+       ]
+      }
+     ],
+     "min": 0,
+     "max": 12,
+     "start": 1,
+     "compact": true,
+     "mutation": {
+      "count": "items",
+      "prefix": "KEY,VALUE"
+     }
+    }
+   ],
+   "text": {
+    "en": "switch to scene [SCENE] [KEY1]  =  [VALUE1] ",
+    "zh": "切换到场景 [SCENE]， [KEY1]  =  [VALUE1] "
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_unloadIdleScenes": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "unload idle scenes",
+    "zh": "卸载闲置场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_unloadScene": {
+   "shape": "command",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "unload scene [SCENE]",
+    "zh": "卸载场景 [SCENE]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_unloadScenes": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "variadic": [
+    {
+     "slots": [
+      {
+       "name": "SCENE",
+       "kind": "input",
+       "type": "string",
+       "shadowOpcode": "gandiScene_menu_scenes",
+       "defaults": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ],
+     "min": 1,
+     "max": 16,
+     "start": 2,
+     "compact": true,
+     "mutation": {
+      "count": "items",
+      "prefix": "SCENE"
+     }
+    }
+   ],
+   "text": {
+    "en": "unload scenes  [SCENE1]     [SCENE2] ",
+    "zh": "卸载场景  [SCENE1]     [SCENE2] "
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_whenEnteredFrom": {
+   "shape": "hat",
+   "inputs": {
+    "SCENE": {
+     "type": "string",
+     "shadowOpcode": "gandiScene_menu_scenesOrAny"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SCENE"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "when entering this scene from [SCENE]",
+    "zh": "当从场景 [SCENE] 进入本场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_whenSceneEnds": {
+   "shape": "hat",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "when leaving this scene",
+    "zh": "当离开本场景"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_whenSceneMessage": {
+   "shape": "hat",
+   "inputs": {
+    "MESSAGE": {
+     "type": "string",
+     "defaultValue": "message1",
+     "shadowOpcode": "text"
+    },
+    "DATA": {
+     "type": "string",
+     "defaultValue": "DATA",
+     "shadowOpcode": "ccw_hat_parameter",
+     "hatParam": true
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MESSAGE",
+    "DATA"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "when I receive scene message [MESSAGE], data [DATA]",
+    "zh": "当收到场景消息 [MESSAGE]，数据 [DATA]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_whenSceneStarts": {
+   "shape": "hat",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "text": {
+    "en": "when scene starts",
+    "zh": "当场景开始"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_whenSceneStartsWithParam": {
+   "shape": "hat",
+   "inputs": {
+    "PARAMS": {
+     "type": "string",
+     "defaultValue": "PARAMS",
+     "shadowOpcode": "ccw_hat_parameter",
+     "hatParam": true
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PARAMS"
+   ],
+   "category": "gandiScene",
+   "text": {
+    "en": "when scene starts with [PARAMS]",
+    "zh": "当场景开始，带参数 [PARAMS]"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiScene_whenSceneStartsWithParams": {
+   "shape": "hat",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiScene",
+   "variadic": [
+    {
+     "slots": [
+      {
+       "name": "PARAM",
+       "kind": "input",
+       "type": "string",
+       "shadowOpcode": "ccw_hat_parameter",
+       "defaults": [
+        "level",
+        "difficulty",
+        "param3",
+        "param4",
+        "param5",
+        "param6",
+        "param7",
+        "param8"
+       ],
+       "hatParam": true
+      }
+     ],
+     "min": 0,
+     "max": 8,
+     "start": 0,
+     "rename": true,
+     "compact": true,
+     "mutation": {
+      "count": "items",
+      "prefix": "PARAM"
+     }
+    }
+   ],
+   "text": {
+    "en": "when scene starts",
+    "zh": "当场景开始"
+   },
+   "extension": {
+    "id": "gandiScene"
+   }
+  },
+  "gandiTilemap_canReach": {
+   "shape": "boolean",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "can reach x [X] y [Y]?",
+    "zh": "能走到 x [X] y [Y]？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_cellAt": {
+   "shape": "reporter",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "AXIS": {
+     "options": [
+      "col",
+      "row"
+     ]
+    }
+   },
+   "parameters": [
+    "X",
+    "Y",
+    "AXIS"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "cell at x [X] y [Y]: [AXIS]",
+    "zh": "x [X] y [Y] 所在的 [AXIS]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_cellPoint": {
+   "shape": "reporter",
+   "inputs": {
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "XY": {
+     "options": [
+      "x",
+      "y"
+     ]
+    }
+   },
+   "parameters": [
+    "COL",
+    "ROW",
+    "XY"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "centre of column [COL] row [ROW]: [XY]",
+    "zh": "列 [COL] 行 [ROW] 的 [XY]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_cellUnder": {
+   "shape": "reporter",
+   "inputs": {
+    "WHO": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiTilemap_menu_whos"
+    }
+   },
+   "fields": {
+    "AXIS": {
+     "options": [
+      "col",
+      "row"
+     ]
+    }
+   },
+   "parameters": [
+    "WHO",
+    "AXIS"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "cell under [WHO]: [AXIS]",
+    "zh": "[WHO] 所在的 [AXIS]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_changeLayer": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": -10,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "opacity",
+      "parallax"
+     ]
+    }
+   },
+   "parameters": [
+    "LAYER",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "change layer [LAYER] [PROP] by [VALUE]",
+    "zh": "把图层 [LAYER] 的 [PROP] 增加 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_clearLayer": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "clear layer [LAYER]",
+    "zh": "清空图层 [LAYER]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_cloneAtMarkers": {
+   "shape": "command",
+   "inputs": {
+    "TYPE": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_markerTypes"
+    },
+    "SPRITE": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiTilemap_menu_sprites"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TYPE",
+    "SPRITE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "at every [TYPE] marker clone [SPRITE]",
+    "zh": "在每个 [TYPE] 标记处克隆 [SPRITE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_fadeLayer": {
+   "shape": "command",
+   "inputs": {
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 0.5,
+     "shadowOpcode": "math_number"
+    },
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "opacity",
+      "parallax"
+     ]
+    }
+   },
+   "parameters": [
+    "SECONDS",
+    "LAYER",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "in [SECONDS] seconds change layer [LAYER] [PROP] to [VALUE]",
+    "zh": "在 [SECONDS] 秒内把图层 [LAYER] 的 [PROP] 变为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_fillTiles": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "COL2": {
+     "type": "number",
+     "defaultValue": 9,
+     "shadowOpcode": "math_number"
+    },
+    "ROW2": {
+     "type": "number",
+     "defaultValue": 9,
+     "shadowOpcode": "math_number"
+    },
+    "TILE": {
+     "type": "string",
+     "defaultValue": "_empty_",
+     "shadowOpcode": "gandiTilemap_menu_tiles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "COL",
+    "ROW",
+    "COL2",
+    "ROW2",
+    "TILE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "fill [LAYER] from column [COL] row [ROW] to column [COL2] row [ROW2] with [TILE]",
+    "zh": "把 [LAYER] 从列 [COL] 行 [ROW] 到列 [COL2] 行 [ROW2] 填成 [TILE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_goToCell": {
+   "shape": "command",
+   "inputs": {
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "COL",
+    "ROW"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "go to column [COL] row [ROW]",
+    "zh": "移到 列 [COL] 行 [ROW]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_goToMarker": {
+   "shape": "command",
+   "inputs": {
+    "INDEX": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    },
+    "TYPE": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_markerTypes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "INDEX",
+    "TYPE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "go to marker [INDEX] of type [TYPE]",
+    "zh": "移到第 [INDEX] 个 [TYPE] 标记"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_hitTileValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "col",
+      "row",
+      "name",
+      "x",
+      "y"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "[PROP] of the tile I touched",
+    "zh": "碰到的瓦片的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_isAgainst": {
+   "shape": "boolean",
+   "inputs": {
+    "TAG": {
+     "type": "string",
+     "defaultValue": "_solid_",
+     "shadowOpcode": "gandiTilemap_menu_tags"
+    }
+   },
+   "fields": {
+    "SIDE": {
+     "options": [
+      "down",
+      "up",
+      "left",
+      "right"
+     ]
+    }
+   },
+   "parameters": [
+    "SIDE",
+    "TAG"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "my [SIDE] against [TAG]?",
+    "zh": "[SIDE] 贴着 [TAG]？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_isInRegion": {
+   "shape": "boolean",
+   "inputs": {
+    "TYPE": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_markerTypes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TYPE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "inside a [TYPE] region?",
+    "zh": "在 [TYPE] 区域里？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_isLineClear": {
+   "shape": "boolean",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "TAG": {
+     "type": "string",
+     "defaultValue": "_solid_",
+     "shadowOpcode": "gandiTilemap_menu_tags"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "TAG"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "path to x [X] y [Y] free of [TAG]?",
+    "zh": "到 x [X] y [Y] 之间没有 [TAG]？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_isSeen": {
+   "shape": "boolean",
+   "inputs": {},
+   "fields": {
+    "SEEN": {
+     "options": [
+      "visible",
+      "explored"
+     ]
+    }
+   },
+   "parameters": [
+    "SEEN"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "am I [SEEN]?",
+    "zh": "我在 [SEEN]？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_isTagAt": {
+   "shape": "boolean",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "TAG": {
+     "type": "string",
+     "defaultValue": "_solid_",
+     "shadowOpcode": "gandiTilemap_menu_tags"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "TAG"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "is x [X] y [Y] [TAG]?",
+    "zh": "x [X] y [Y] 处是 [TAG]？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_isTile": {
+   "shape": "boolean",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "TILE": {
+     "type": "string",
+     "defaultValue": "_empty_",
+     "shadowOpcode": "gandiTilemap_menu_tiles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "COL",
+    "ROW",
+    "TILE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "[LAYER] column [COL] row [ROW] is [TILE]?",
+    "zh": "[LAYER] 列 [COL] 行 [ROW] 是 [TILE]？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_isTouchingTile": {
+   "shape": "boolean",
+   "inputs": {
+    "TAG": {
+     "type": "string",
+     "defaultValue": "_solid_",
+     "shadowOpcode": "gandiTilemap_menu_tags"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TAG"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "touching a [TAG] tile?",
+    "zh": "碰到 [TAG] 的瓦片？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_layerValue": {
+   "shape": "reporter",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "opacity",
+      "parallax"
+     ]
+    }
+   },
+   "parameters": [
+    "LAYER",
+    "PROP"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "layer [LAYER] [PROP]",
+    "zh": "图层 [LAYER] 的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_mapValue": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PROP": {
+     "options": [
+      "name",
+      "index",
+      "cols",
+      "rows",
+      "tileWidth",
+      "tileHeight",
+      "left",
+      "right",
+      "top",
+      "bottom"
+     ]
+    }
+   },
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "[PROP] of the map",
+    "zh": "地图的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_markerCount": {
+   "shape": "reporter",
+   "inputs": {
+    "TYPE": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_markerTypes"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TYPE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "number of [TYPE] markers",
+    "zh": "[TYPE] 标记的个数"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_markerValue": {
+   "shape": "reporter",
+   "inputs": {
+    "INDEX": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    },
+    "TYPE": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_markerTypes"
+    },
+    "PROP": {
+     "type": "string",
+     "defaultValue": "x",
+     "shadowOpcode": "gandiTilemap_menu_markerProps"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "INDEX",
+    "TYPE",
+    "PROP"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "marker [INDEX] of type [TYPE]: [PROP]",
+    "zh": "第 [INDEX] 个 [TYPE] 标记的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_dirs": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "dirs": {
+     "options": [
+      "up",
+      "down",
+      "left",
+      "right"
+     ]
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_layers": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "layers": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_lists": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "lists": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_maps": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "maps": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_mapsAny": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "mapsAny": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_mapSprites": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "mapSprites": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_markerProps": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "markerProps": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_markerTypes": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "markerTypes": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_sprites": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "sprites": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_tags": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "tags": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_targets": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "targets": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_terrains": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "terrains": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_tileProps": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "tileProps": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_tiles": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "tiles": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_menu_whos": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "whos": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "gandiTilemap",
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_moveAlong": {
+   "shape": "command",
+   "inputs": {
+    "DX": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    },
+    "DY": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DX",
+    "DY"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "move along the map x [DX] y [DY]",
+    "zh": "沿地图移动 x [DX] y [DY]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_moveLayer": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "SPRITE": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "gandiTilemap_menu_sprites"
+    }
+   },
+   "fields": {
+    "WHERE": {
+     "options": [
+      "front",
+      "behind"
+     ]
+    }
+   },
+   "parameters": [
+    "LAYER",
+    "SPRITE",
+    "WHERE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "move layer [LAYER] relative to [SPRITE]: [WHERE]",
+    "zh": "把图层 [LAYER] 移到 [SPRITE] 的 [WHERE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_myMarkerValue": {
+   "shape": "reporter",
+   "inputs": {
+    "PROP": {
+     "type": "string",
+     "defaultValue": "name",
+     "shadowOpcode": "gandiTilemap_menu_markerProps"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PROP"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "[PROP] of my marker",
+    "zh": "我的标记的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_nextDir": {
+   "shape": "reporter",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "direction of the next step to x [X] y [Y]",
+    "zh": "去 x [X] y [Y] 的下一步方向"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_pathToList": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "LIST": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_lists"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "LIST"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "write the path to x [X] y [Y] into list [LIST]",
+    "zh": "把去 x [X] y [Y] 的路写进列表 [LIST]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_rayDistance": {
+   "shape": "reporter",
+   "inputs": {
+    "DIR": {
+     "type": "string",
+     "defaultValue": "down",
+     "shadowOpcode": "gandiTilemap_menu_dirs"
+    },
+    "TAG": {
+     "type": "string",
+     "defaultValue": "_solid_",
+     "shadowOpcode": "gandiTilemap_menu_tags"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DIR",
+    "TAG"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "distance [DIR] to [TAG]",
+    "zh": "向 [DIR] 到 [TAG] 的距离"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_replaceTiles": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "FROM": {
+     "type": "string",
+     "defaultValue": "_empty_",
+     "shadowOpcode": "gandiTilemap_menu_tiles"
+    },
+    "TO": {
+     "type": "string",
+     "defaultValue": "_empty_",
+     "shadowOpcode": "gandiTilemap_menu_tiles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "FROM",
+    "TO"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "in [LAYER] replace every [FROM] with [TO]",
+    "zh": "把 [LAYER] 里所有 [FROM] 换成 [TO]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_resetMap": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "restore the map",
+    "zh": "把地图恢复原样"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_restore": {
+   "shape": "command",
+   "inputs": {
+    "DATA": {
+     "type": "string",
+     "defaultValue": "",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DATA"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "load map save data [DATA]",
+    "zh": "读取地图存档 [DATA]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_revealFog": {
+   "shape": "command",
+   "inputs": {
+    "RADIUS": {
+     "type": "number",
+     "defaultValue": 5,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "RADIUS"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "clear the fog [RADIUS] cells around me",
+    "zh": "揭开我周围 [RADIUS] 格的迷雾"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_setFog": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {
+    "FOG": {
+     "options": [
+      "on",
+      "off"
+     ]
+    }
+   },
+   "parameters": [
+    "FOG"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "[FOG] the fog",
+    "zh": "[FOG] 迷雾"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_setHitTile": {
+   "shape": "command",
+   "inputs": {
+    "TILE": {
+     "type": "string",
+     "defaultValue": "_empty_",
+     "shadowOpcode": "gandiTilemap_menu_tiles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "set the tile I touched to [TILE]",
+    "zh": "把碰到的瓦片设为 [TILE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_setLayer": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "PROP": {
+     "options": [
+      "opacity",
+      "parallax"
+     ]
+    }
+   },
+   "parameters": [
+    "LAYER",
+    "PROP",
+    "VALUE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "set layer [LAYER] [PROP] to [VALUE]",
+    "zh": "把图层 [LAYER] 的 [PROP] 设为 [VALUE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_setLayerVisible": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    }
+   },
+   "fields": {
+    "VISIBLE": {
+     "options": [
+      "show",
+      "hide"
+     ]
+    }
+   },
+   "parameters": [
+    "LAYER",
+    "VISIBLE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "make layer [LAYER] [VISIBLE]",
+    "zh": "把图层 [LAYER] [VISIBLE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_setSideReach": {
+   "shape": "command",
+   "inputs": {
+    "UP": {
+     "type": "number",
+     "defaultValue": 3,
+     "shadowOpcode": "math_number"
+    },
+    "ACROSS": {
+     "type": "number",
+     "defaultValue": 4,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "UP",
+    "ACROSS"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "side-view paths: can jump [UP] cells high, [ACROSS] cells far",
+    "zh": "横版找路：能跳 [UP] 格高 [ACROSS] 格远"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_setTerrain": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "TERRAIN": {
+     "type": "string",
+     "defaultValue": "_empty_",
+     "shadowOpcode": "gandiTilemap_menu_terrains"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "COL",
+    "ROW",
+    "TERRAIN"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "set the terrain of [LAYER] column [COL] row [ROW] to [TERRAIN]",
+    "zh": "把 [LAYER] 列 [COL] 行 [ROW] 的地形设为 [TERRAIN]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_setTile": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "TILE": {
+     "type": "string",
+     "defaultValue": "_empty_",
+     "shadowOpcode": "gandiTilemap_menu_tiles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "COL",
+    "ROW",
+    "TILE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "set [LAYER] column [COL] row [ROW] to [TILE]",
+    "zh": "把 [LAYER] 列 [COL] 行 [ROW] 设为 [TILE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_sideMoveDir": {
+   "shape": "reporter",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "side-view: which way to x [X] y [Y]",
+    "zh": "横版去 x [X] y [Y] 该往哪边"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_sideShouldJump": {
+   "shape": "boolean",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "side-view: jump now to x [X] y [Y]?",
+    "zh": "横版去 x [X] y [Y] 该跳了？"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_snapshot": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "map save data",
+    "zh": "地图存档"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_snapToCell": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {
+    "WHERE": {
+     "options": [
+      "center",
+      "bottom"
+     ]
+    }
+   },
+   "parameters": [
+    "WHERE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "snap to the cell [WHERE]",
+    "zh": "对齐到格子的 [WHERE]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_stepCell": {
+   "shape": "command",
+   "inputs": {
+    "DIR": {
+     "type": "string",
+     "defaultValue": "right",
+     "shadowOpcode": "gandiTilemap_menu_dirs"
+    },
+    "SECONDS": {
+     "type": "number",
+     "defaultValue": 0.2,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DIR",
+    "SECONDS"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "step one cell [DIR] in [SECONDS] seconds",
+    "zh": "向 [DIR] 走一格，用 [SECONDS] 秒"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_switchMap": {
+   "shape": "command",
+   "inputs": {
+    "MAP": {
+     "type": "string",
+     "defaultValue": "_next_",
+     "shadowOpcode": "gandiTilemap_menu_maps"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MAP"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "switch map to [MAP]",
+    "zh": "换成地图 [MAP]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_tileAt": {
+   "shape": "reporter",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "COL",
+    "ROW"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "tile of [LAYER] at column [COL] row [ROW]",
+    "zh": "[LAYER] 列 [COL] 行 [ROW] 的瓦片"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_tileCount": {
+   "shape": "reporter",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "TILE": {
+     "type": "string",
+     "defaultValue": "_empty_",
+     "shadowOpcode": "gandiTilemap_menu_tiles"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "TILE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "in [LAYER] the number of [TILE]",
+    "zh": "[LAYER] 里 [TILE] 的个数"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_tileValueAt": {
+   "shape": "reporter",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "PROP": {
+     "type": "string",
+     "defaultValue": "name",
+     "shadowOpcode": "gandiTilemap_menu_tileProps"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "PROP"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "tile at x [X] y [Y]: [PROP]",
+    "zh": "x [X] y [Y] 处瓦片的 [PROP]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_tintLayer": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#6f7fb8",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "COLOR"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "tint layer [LAYER] [COLOR]",
+    "zh": "把图层 [LAYER] 染成 [COLOR]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_tintTile": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "COLOR": {
+     "type": "string",
+     "defaultValue": "#ff6b6b",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LAYER",
+    "COL",
+    "ROW",
+    "COLOR"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "tint [LAYER] column [COL] row [ROW] [COLOR]",
+    "zh": "把 [LAYER] 列 [COL] 行 [ROW] 染成 [COLOR]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_turnTile": {
+   "shape": "command",
+   "inputs": {
+    "LAYER": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_layers"
+    },
+    "COL": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "ROW": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {
+    "TURN": {
+     "options": [
+      "flipH",
+      "flipV",
+      "rotate"
+     ]
+    }
+   },
+   "parameters": [
+    "LAYER",
+    "COL",
+    "ROW",
+    "TURN"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "at [LAYER] column [COL] row [ROW] [TURN]",
+    "zh": "把 [LAYER] 列 [COL] 行 [ROW] [TURN]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_useMap": {
+   "shape": "command",
+   "inputs": {
+    "SPRITE": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_mapSprites"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SPRITE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "use the map of [SPRITE]",
+    "zh": "用 [SPRITE] 的地图"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_walkTo": {
+   "shape": "command",
+   "inputs": {
+    "TARGET": {
+     "type": "string",
+     "defaultValue": "_mouse_",
+     "shadowOpcode": "gandiTilemap_menu_targets"
+    },
+    "STEPS": {
+     "type": "number",
+     "defaultValue": 2,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TARGET",
+    "STEPS"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "walk the path to [TARGET] by [STEPS] steps",
+    "zh": "找路走向 [TARGET] [STEPS] 步"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_walkToXY": {
+   "shape": "command",
+   "inputs": {
+    "X": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "Y": {
+     "type": "number",
+     "defaultValue": 0,
+     "shadowOpcode": "math_number"
+    },
+    "STEPS": {
+     "type": "number",
+     "defaultValue": 2,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "X",
+    "Y",
+    "STEPS"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "walk the path to x [X] y [Y] by [STEPS] steps",
+    "zh": "找路走向 x [X] y [Y] [STEPS] 步"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_whenMapSwitched": {
+   "shape": "hat",
+   "inputs": {
+    "MAP": {
+     "type": "string",
+     "defaultValue": "_any_",
+     "shadowOpcode": "gandiTilemap_menu_mapsAny"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MAP"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "when the map switches to [MAP]",
+    "zh": "当换成地图 [MAP]"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_whenRegion": {
+   "shape": "hat",
+   "inputs": {
+    "TYPE": {
+     "type": "string",
+     "shadowOpcode": "gandiTilemap_menu_markerTypes"
+    }
+   },
+   "fields": {
+    "EVENT": {
+     "options": [
+      "enter",
+      "leave"
+     ]
+    }
+   },
+   "parameters": [
+    "EVENT",
+    "TYPE"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "when I [EVENT] a [TYPE] region",
+    "zh": "当我 [EVENT] [TYPE] 区域"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gandiTilemap_whenTouchTile": {
+   "shape": "hat",
+   "inputs": {
+    "TAG": {
+     "type": "string",
+     "defaultValue": "_solid_",
+     "shadowOpcode": "gandiTilemap_menu_tags"
+    }
+   },
+   "fields": {
+    "EVENT": {
+     "options": [
+      "touch",
+      "leave"
+     ]
+    }
+   },
+   "parameters": [
+    "EVENT",
+    "TAG"
+   ],
+   "category": "gandiTilemap",
+   "text": {
+    "en": "when I [EVENT] a [TAG] tile",
+    "zh": "当我 [EVENT] [TAG] 的瓦片"
+   },
+   "extension": {
+    "id": "gandiTilemap"
+   }
+  },
+  "gdxfor_getAcceleration": {
+   "shape": "reporter",
+   "inputs": {
+    "DIRECTION": {
+     "type": "string",
+     "defaultValue": "x",
+     "shadowOpcode": "gdxfor_menu_axisOptions"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DIRECTION"
+   ],
+   "category": "gdxfor",
+   "text": {
+    "en": "acceleration [DIRECTION]",
+    "zh": "向[DIRECTION]的加速度"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_getForce": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gdxfor",
+   "text": {
+    "en": "force",
+    "zh": "受力"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_getSpinSpeed": {
+   "shape": "reporter",
+   "inputs": {
+    "DIRECTION": {
+     "type": "string",
+     "defaultValue": "z",
+     "shadowOpcode": "gdxfor_menu_axisOptions"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DIRECTION"
+   ],
+   "category": "gdxfor",
+   "text": {
+    "en": "spin speed [DIRECTION]",
+    "zh": "向[DIRECTION]的旋转速度"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_getTilt": {
+   "shape": "reporter",
+   "inputs": {
+    "TILT": {
+     "type": "string",
+     "defaultValue": "front",
+     "shadowOpcode": "gdxfor_menu_tiltOptions"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILT"
+   ],
+   "category": "gdxfor",
+   "text": {
+    "en": "tilt angle [TILT]",
+    "zh": "向[TILT]倾角"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_isFreeFalling": {
+   "shape": "boolean",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "gdxfor",
+   "text": {
+    "en": "falling?",
+    "zh": "自由落体？"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_isTilted": {
+   "shape": "boolean",
+   "inputs": {
+    "TILT": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "gdxfor_menu_tiltAnyOptions"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILT"
+   ],
+   "category": "gdxfor",
+   "text": {
+    "en": "tilted [TILT]?",
+    "zh": "向[TILT]倾斜？"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_menu_axisOptions": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "axisOptions": {
+     "options": [
+      "x",
+      "y",
+      "z"
+     ]
+    }
+   },
+   "category": "gdxfor",
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_menu_gestureOptions": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "gestureOptions": {
+     "options": [
+      "shaken",
+      "started falling",
+      "turned face up",
+      "turned face down"
+     ]
+    }
+   },
+   "category": "gdxfor",
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_menu_pushPullOptions": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "pushPullOptions": {
+     "options": [
+      "pushed",
+      "pulled"
+     ]
+    }
+   },
+   "category": "gdxfor",
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_menu_tiltAnyOptions": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "tiltAnyOptions": {
+     "options": [
+      "front",
+      "back",
+      "left",
+      "right",
+      "any"
+     ]
+    }
+   },
+   "category": "gdxfor",
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_menu_tiltOptions": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "tiltOptions": {
+     "options": [
+      "front",
+      "back",
+      "left",
+      "right"
+     ]
+    }
+   },
+   "category": "gdxfor",
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_whenForcePushedOrPulled": {
+   "shape": "hat",
+   "inputs": {
+    "PUSH_PULL": {
+     "type": "string",
+     "defaultValue": "pushed",
+     "shadowOpcode": "gdxfor_menu_pushPullOptions"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PUSH_PULL"
+   ],
+   "category": "gdxfor",
+   "text": {
+    "en": "when force sensor [PUSH_PULL]",
+    "zh": "当力传感器被[PUSH_PULL]"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_whenGesture": {
+   "shape": "hat",
+   "inputs": {
+    "GESTURE": {
+     "type": "string",
+     "defaultValue": "shaken",
+     "shadowOpcode": "gdxfor_menu_gestureOptions"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "GESTURE"
+   ],
+   "category": "gdxfor",
+   "text": {
+    "en": "when [GESTURE]",
+    "zh": "当传感器[GESTURE]"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "gdxfor_whenTilted": {
+   "shape": "hat",
+   "inputs": {
+    "TILT": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "gdxfor_menu_tiltAnyOptions"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILT"
+   ],
+   "category": "gdxfor",
+   "text": {
+    "en": "when tilted [TILT]",
+    "zh": "当向[TILT]倾斜"
+   },
+   "extension": {
+    "id": "gdxfor"
+   }
+  },
+  "makeymakey_menu_KEY": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "KEY": {
+     "options": [
+      "SPACE",
+      "UP",
+      "DOWN",
+      "RIGHT",
+      "LEFT",
+      "w",
+      "a",
+      "s",
+      "d",
+      "f",
+      "g"
+     ]
+    }
+   },
+   "category": "makeymakey",
+   "extension": {
+    "id": "makeymakey"
+   }
+  },
+  "makeymakey_menu_SEQUENCE": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "SEQUENCE": {
+     "options": [
+      "LEFT UP RIGHT",
+      "RIGHT UP LEFT",
+      "LEFT RIGHT",
+      "RIGHT LEFT",
+      "UP DOWN",
+      "DOWN UP",
+      "UP RIGHT DOWN LEFT",
+      "UP LEFT DOWN RIGHT",
+      "UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT"
+     ]
+    }
+   },
+   "category": "makeymakey",
+   "extension": {
+    "id": "makeymakey"
+   }
+  },
+  "makeymakey_whenCodePressed": {
+   "shape": "hat",
+   "inputs": {
+    "SEQUENCE": {
+     "type": "string",
+     "defaultValue": "LEFT UP RIGHT",
+     "shadowOpcode": "makeymakey_menu_SEQUENCE"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SEQUENCE"
+   ],
+   "category": "makeymakey",
+   "text": {
+    "en": "when [SEQUENCE] pressed in order",
+    "zh": "当依次按下[SEQUENCE]键时"
+   },
+   "extension": {
+    "id": "makeymakey"
+   }
+  },
+  "makeymakey_whenMakeyKeyPressed": {
+   "shape": "hat",
+   "inputs": {
+    "KEY": {
+     "type": "string",
+     "defaultValue": "SPACE",
+     "shadowOpcode": "makeymakey_menu_KEY"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "KEY"
+   ],
+   "category": "makeymakey",
+   "text": {
+    "en": "when [KEY] key pressed",
+    "zh": "当按下 [KEY] 键"
+   },
+   "extension": {
+    "id": "makeymakey"
+   }
+  },
+  "matrix": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "MATRIX": {}
+   },
+   "parameters": [
+    "MATRIX"
+   ]
+  },
+  "microbit_displayClear": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "microbit",
+   "text": {
+    "en": "clear display",
+    "zh": "清空屏幕"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_displaySymbol": {
+   "shape": "command",
+   "inputs": {
+    "MATRIX": {
+     "type": "string",
+     "defaultValue": "0101010101100010101000100",
+     "shadowOpcode": "matrix"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MATRIX"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "display [MATRIX]",
+    "zh": "显示[MATRIX]"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_displayText": {
+   "shape": "command",
+   "inputs": {
+    "TEXT": {
+     "type": "string",
+     "defaultValue": "Hello!",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TEXT"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "display text [TEXT]",
+    "zh": "显示文本[TEXT]"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_getTiltAngle": {
+   "shape": "reporter",
+   "inputs": {
+    "DIRECTION": {
+     "type": "string",
+     "defaultValue": "front",
+     "shadowOpcode": "microbit_menu_tiltDirection"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DIRECTION"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "tilt angle [DIRECTION]",
+    "zh": "向[DIRECTION]倾角"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_isButtonPressed": {
+   "shape": "boolean",
+   "inputs": {
+    "BTN": {
+     "type": "string",
+     "defaultValue": "A",
+     "shadowOpcode": "microbit_menu_buttons"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "BTN"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "[BTN] button pressed?",
+    "zh": "按下[BTN]按钮？"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_isTilted": {
+   "shape": "boolean",
+   "inputs": {
+    "DIRECTION": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "microbit_menu_tiltDirectionAny"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DIRECTION"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "tilted [DIRECTION]?",
+    "zh": "向[DIRECTION]倾斜？"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_menu_buttons": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "buttons": {
+     "options": [
+      "A",
+      "B",
+      "any"
+     ]
+    }
+   },
+   "category": "microbit",
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_menu_gestures": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "gestures": {
+     "options": [
+      "moved",
+      "shaken",
+      "jumped"
+     ]
+    }
+   },
+   "category": "microbit",
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_menu_tiltDirection": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "tiltDirection": {
+     "options": [
+      "front",
+      "back",
+      "left",
+      "right"
+     ]
+    }
+   },
+   "category": "microbit",
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_menu_tiltDirectionAny": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "tiltDirectionAny": {
+     "options": [
+      "front",
+      "back",
+      "left",
+      "right",
+      "any"
+     ]
+    }
+   },
+   "category": "microbit",
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_menu_touchPins": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "touchPins": {
+     "options": [
+      "0",
+      "1",
+      "2"
+     ]
+    }
+   },
+   "category": "microbit",
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_whenButtonPressed": {
+   "shape": "hat",
+   "inputs": {
+    "BTN": {
+     "type": "string",
+     "defaultValue": "A",
+     "shadowOpcode": "microbit_menu_buttons"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "BTN"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "when [BTN] button pressed",
+    "zh": "当按下[BTN]按钮"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_whenGesture": {
+   "shape": "hat",
+   "inputs": {
+    "GESTURE": {
+     "type": "string",
+     "defaultValue": "moved",
+     "shadowOpcode": "microbit_menu_gestures"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "GESTURE"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "when [GESTURE]",
+    "zh": "当被[GESTURE]"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_whenPinConnected": {
+   "shape": "hat",
+   "inputs": {
+    "PIN": {
+     "type": "string",
+     "defaultValue": "0",
+     "shadowOpcode": "microbit_menu_touchPins"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "PIN"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "when pin [PIN] connected",
+    "zh": "当引脚[PIN]接地"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "microbit_whenTilted": {
+   "shape": "hat",
+   "inputs": {
+    "DIRECTION": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "microbit_menu_tiltDirectionAny"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DIRECTION"
+   ],
+   "category": "microbit",
+   "text": {
+    "en": "when tilted [DIRECTION]",
+    "zh": "当向[DIRECTION]倾斜"
+   },
+   "extension": {
+    "id": "microbit"
+   }
+  },
+  "music_changeTempo": {
+   "shape": "command",
+   "inputs": {
+    "TEMPO": {
+     "type": "number",
+     "defaultValue": 20,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TEMPO"
+   ],
+   "category": "music",
+   "text": {
+    "en": "change tempo by [TEMPO]",
+    "zh": "将演奏速度增加[TEMPO]"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_getTempo": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "music",
+   "text": {
+    "en": "tempo",
+    "zh": "演奏速度"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_menu_DRUM": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "DRUM": {
+     "options": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18"
+     ]
+    }
+   },
+   "category": "music",
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_menu_INSTRUMENT": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "INSTRUMENT": {
+     "options": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21"
+     ]
+    }
+   },
+   "category": "music",
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_midiPlayDrumForBeats": {
+   "shape": "command",
+   "inputs": {
+    "DRUM": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "music_menu_DRUM"
+    },
+    "BEATS": {
+     "type": "number",
+     "defaultValue": 0.25,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DRUM",
+    "BEATS"
+   ],
+   "category": "music",
+   "text": {
+    "en": "play drum [DRUM] for [BEATS] beats",
+    "zh": "击打 [DRUM] [BEATS] 拍"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_midiSetInstrument": {
+   "shape": "command",
+   "inputs": {
+    "INSTRUMENT": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "INSTRUMENT"
+   ],
+   "category": "music",
+   "text": {
+    "en": "set instrument to [INSTRUMENT]",
+    "zh": "将乐器设为 [INSTRUMENT]"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_playDrumForBeats": {
+   "shape": "command",
+   "inputs": {
+    "DRUM": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "music_menu_DRUM"
+    },
+    "BEATS": {
+     "type": "number",
+     "defaultValue": 0.25,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "DRUM",
+    "BEATS"
+   ],
+   "category": "music",
+   "text": {
+    "en": "play drum [DRUM] for [BEATS] beats",
+    "zh": "击打 [DRUM] [BEATS] 拍"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_playNoteForBeats": {
+   "shape": "command",
+   "inputs": {
+    "NOTE": {
+     "type": "number",
+     "defaultValue": 60,
+     "shadowOpcode": "note"
+    },
+    "BEATS": {
+     "type": "number",
+     "defaultValue": 0.25,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NOTE",
+    "BEATS"
+   ],
+   "category": "music",
+   "text": {
+    "en": "play note [NOTE] for [BEATS] beats",
+    "zh": "演奏音符[NOTE][BEATS]拍"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_restForBeats": {
+   "shape": "command",
+   "inputs": {
+    "BEATS": {
+     "type": "number",
+     "defaultValue": 0.25,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "BEATS"
+   ],
+   "category": "music",
+   "text": {
+    "en": "rest for [BEATS] beats",
+    "zh": "休止[BEATS]拍"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_setInstrument": {
+   "shape": "command",
+   "inputs": {
+    "INSTRUMENT": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "music_menu_INSTRUMENT"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "INSTRUMENT"
+   ],
+   "category": "music",
+   "text": {
+    "en": "set instrument to [INSTRUMENT]",
+    "zh": "将乐器设为 [INSTRUMENT]"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "music_setTempo": {
+   "shape": "command",
+   "inputs": {
+    "TEMPO": {
+     "type": "number",
+     "defaultValue": 60,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TEMPO"
+   ],
+   "category": "music",
+   "text": {
+    "en": "set tempo to [TEMPO]",
+    "zh": "将演奏速度设定为[TEMPO]"
+   },
+   "extension": {
+    "id": "music"
+   }
+  },
+  "note": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "NOTE": {}
+   },
+   "parameters": [
+    "NOTE"
+   ]
+  },
+  "pen_changePenColorParamBy": {
+   "shape": "command",
+   "inputs": {
+    "COLOR_PARAM": {
+     "type": "string",
+     "defaultValue": "color",
+     "shadowOpcode": "pen_menu_colorParam"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "COLOR_PARAM",
+    "VALUE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "change pen [COLOR_PARAM] by [VALUE]",
+    "zh": "将笔的 [COLOR_PARAM] 增加[VALUE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_changePenHueBy": {
+   "shape": "command",
+   "inputs": {
+    "HUE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "HUE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "change pen color by [HUE]",
+    "zh": "将笔的颜色增加[HUE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_changePenShadeBy": {
+   "shape": "command",
+   "inputs": {
+    "SHADE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SHADE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "change pen shade by [SHADE]",
+    "zh": "将笔的亮度增加[SHADE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_changePenSizeBy": {
+   "shape": "command",
+   "inputs": {
+    "SIZE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SIZE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "change pen size by [SIZE]",
+    "zh": "将笔的粗细增加[SIZE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_clear": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "pen",
+   "text": {
+    "en": "erase all",
+    "zh": "全部擦除"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_isPenDown": {
+   "shape": "boolean",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "pen",
+   "text": {
+    "en": "pen down?",
+    "zh": "画笔落下?"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_menu_colorParam": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "colorParam": {
+     "options": [
+      "color",
+      "saturation",
+      "brightness",
+      "transparency"
+     ]
+    }
+   },
+   "category": "pen",
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_menu_stampSprite": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "stampSprite": {
+     "dynamicOptions": true
+    }
+   },
+   "category": "pen",
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_penDown": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "pen",
+   "text": {
+    "en": "pen down",
+    "zh": "落笔"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_penParam": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {
+    "PARAM": {
+     "options": [
+      "color",
+      "saturation",
+      "brightness",
+      "opacity",
+      "hex",
+      "size"
+     ]
+    }
+   },
+   "parameters": [
+    "PARAM"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "pen [PARAM]",
+    "zh": "画笔 [PARAM]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_penUp": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "pen",
+   "text": {
+    "en": "pen up",
+    "zh": "抬笔"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_setPenColorParamTo": {
+   "shape": "command",
+   "inputs": {
+    "COLOR_PARAM": {
+     "type": "string",
+     "defaultValue": "color",
+     "shadowOpcode": "pen_menu_colorParam"
+    },
+    "VALUE": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "COLOR_PARAM",
+    "VALUE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "set pen [COLOR_PARAM] to [VALUE]",
+    "zh": "将笔的 [COLOR_PARAM] 设为[VALUE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_setPenColorToColor": {
+   "shape": "command",
+   "inputs": {
+    "COLOR": {
+     "type": "string",
+     "shadowOpcode": "colour_picker"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "COLOR"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "set pen color to [COLOR]",
+    "zh": "将笔的颜色设为[COLOR]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_setPenHueToNumber": {
+   "shape": "command",
+   "inputs": {
+    "HUE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "HUE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "set pen color to [HUE]",
+    "zh": "将笔的颜色设为[HUE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_setPenShadeToNumber": {
+   "shape": "command",
+   "inputs": {
+    "SHADE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SHADE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "set pen shade to [SHADE]",
+    "zh": "将笔的亮度设为[SHADE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_setPenSizeTo": {
+   "shape": "command",
+   "inputs": {
+    "SIZE": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SIZE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "set pen size to [SIZE]",
+    "zh": "将笔的粗细设为[SIZE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_stamp": {
+   "shape": "command",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "pen",
+   "text": {
+    "en": "stamp",
+    "zh": "图章"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "pen_stampSprite": {
+   "shape": "command",
+   "inputs": {
+    "SPRITE": {
+     "type": "string",
+     "defaultValue": "_myself_",
+     "shadowOpcode": "pen_menu_stampSprite"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "SPRITE"
+   ],
+   "category": "pen",
+   "text": {
+    "en": "stamp [SPRITE]",
+    "zh": "图章 [SPRITE]"
+   },
+   "extension": {
+    "id": "pen"
+   }
+  },
+  "text2speech_menu_languages": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "languages": {
+     "options": [
+      "ar",
+      "zh-cn",
+      "en",
+      "fr",
+      "de",
+      "ja",
+      "ko",
+      "pt",
+      "ru",
+      "es"
+     ]
+    }
+   },
+   "category": "text2speech",
+   "extension": {
+    "id": "text2speech"
+   }
+  },
+  "text2speech_menu_voices": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "voices": {
+     "options": [
+      "ALTO",
+      "TENOR",
+      "SQUEAK",
+      "GIANT",
+      "KITTEN"
+     ]
+    }
+   },
+   "category": "text2speech",
+   "extension": {
+    "id": "text2speech"
+   }
+  },
+  "text2speech_setLanguage": {
+   "shape": "command",
+   "inputs": {
+    "LANGUAGE": {
+     "type": "string",
+     "defaultValue": "en",
+     "shadowOpcode": "text2speech_menu_languages"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "LANGUAGE"
+   ],
+   "category": "text2speech",
+   "text": {
+    "en": "set language to [LANGUAGE]",
+    "zh": "将朗读语言设置为[LANGUAGE]"
+   },
+   "extension": {
+    "id": "text2speech"
+   }
+  },
+  "text2speech_setVoice": {
+   "shape": "command",
+   "inputs": {
+    "VOICE": {
+     "type": "string",
+     "defaultValue": "ALTO",
+     "shadowOpcode": "text2speech_menu_voices"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "VOICE"
+   ],
+   "category": "text2speech",
+   "text": {
+    "en": "set voice to [VOICE]",
+    "zh": "使用 [VOICE] 嗓音"
+   },
+   "extension": {
+    "id": "text2speech"
+   }
+  },
+  "text2speech_speakAndWait": {
+   "shape": "command",
+   "inputs": {
+    "WORDS": {
+     "type": "string",
+     "defaultValue": "hello",
+     "shadowOpcode": "text"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "WORDS"
+   ],
+   "category": "text2speech",
+   "text": {
+    "en": "speak [WORDS]",
+    "zh": "朗读 [WORDS]"
+   },
+   "extension": {
+    "id": "text2speech"
+   }
+  },
+  "translate_getTranslate": {
+   "shape": "reporter",
+   "inputs": {
+    "WORDS": {
+     "type": "string",
+     "defaultValue": "hello",
+     "shadowOpcode": "text"
+    },
+    "LANGUAGE": {
+     "type": "string",
+     "defaultValue": "mi",
+     "shadowOpcode": "translate_menu_languages"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "WORDS",
+    "LANGUAGE"
+   ],
+   "category": "translate",
+   "text": {
+    "en": "translate [WORDS] to [LANGUAGE]",
+    "zh": "将 [WORDS] 译为 [LANGUAGE]"
+   },
+   "extension": {
+    "id": "translate"
+   }
+  },
+  "translate_getViewerLanguage": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "translate",
+   "text": {
+    "en": "language",
+    "zh": "访客语言"
+   },
+   "extension": {
+    "id": "translate"
+   }
+  },
+  "translate_menu_languages": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "languages": {
+     "options": [
+      "am",
+      "ar",
+      "az",
+      "eu",
+      "bg",
+      "ca",
+      "zh-cn",
+      "zh-tw",
+      "hr",
+      "cs",
+      "da",
+      "nl",
+      "en",
+      "et",
+      "fi",
+      "fr",
+      "gl",
+      "de",
+      "el",
+      "he",
+      "hu",
+      "is",
+      "id",
+      "ga",
+      "it",
+      "ja",
+      "ko",
+      "lv",
+      "lt",
+      "mi",
+      "nb",
+      "fa",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "gd",
+      "sr",
+      "sk",
+      "sl",
+      "es",
+      "sv",
+      "th",
+      "tr",
+      "uk",
+      "vi",
+      "cy",
+      "zu"
+     ]
+    }
+   },
+   "category": "translate",
+   "extension": {
+    "id": "translate"
+   }
+  },
+  "tw_getButtonIsDown": {
+   "shape": "boolean",
+   "inputs": {
+    "MOUSE_BUTTON": {
+     "type": "number",
+     "defaultValue": "0",
+     "shadowOpcode": "tw_menu_mouseButton"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOUSE_BUTTON"
+   ],
+   "category": "tw",
+   "text": {
+    "en": "[MOUSE_BUTTON] mouse button down?"
+   },
+   "extension": {
+    "id": "tw"
+   }
+  },
+  "tw_getLastKeyPressed": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "tw",
+   "text": {
+    "en": "last key pressed"
+   },
+   "extension": {
+    "id": "tw"
+   }
+  },
+  "tw_menu_mouseButton": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "mouseButton": {
+     "options": [
+      "0",
+      "1",
+      "2"
+     ]
+    }
+   },
+   "category": "tw",
+   "extension": {
+    "id": "tw"
+   }
+  },
+  "videoSensing_menu_ATTRIBUTE": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "ATTRIBUTE": {
+     "options": [
+      "motion",
+      "direction"
+     ]
+    }
+   },
+   "category": "videoSensing",
+   "extension": {
+    "id": "videoSensing"
+   }
+  },
+  "videoSensing_menu_SUBJECT": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "SUBJECT": {
+     "options": [
+      "this sprite",
+      "Stage"
+     ]
+    }
+   },
+   "category": "videoSensing",
+   "extension": {
+    "id": "videoSensing"
+   }
+  },
+  "videoSensing_menu_VIDEO_STATE": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "VIDEO_STATE": {
+     "options": [
+      "off",
+      "on",
+      "on-flipped"
+     ]
+    }
+   },
+   "category": "videoSensing",
+   "extension": {
+    "id": "videoSensing"
+   }
+  },
+  "videoSensing_setVideoTransparency": {
+   "shape": "command",
+   "inputs": {
+    "TRANSPARENCY": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TRANSPARENCY"
+   ],
+   "category": "videoSensing",
+   "text": {
+    "en": "set video transparency to [TRANSPARENCY]",
+    "zh": "将视频透明度设为[TRANSPARENCY]"
+   },
+   "extension": {
+    "id": "videoSensing"
+   }
+  },
+  "videoSensing_videoOn": {
+   "shape": "reporter",
+   "inputs": {
+    "ATTRIBUTE": {
+     "type": "number",
+     "defaultValue": "motion",
+     "shadowOpcode": "videoSensing_menu_ATTRIBUTE"
+    },
+    "SUBJECT": {
+     "type": "number",
+     "defaultValue": "this sprite",
+     "shadowOpcode": "videoSensing_menu_SUBJECT"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "ATTRIBUTE",
+    "SUBJECT"
+   ],
+   "category": "videoSensing",
+   "text": {
+    "en": "video [ATTRIBUTE] on [SUBJECT]",
+    "zh": "相对于[SUBJECT]的视频[ATTRIBUTE]"
+   },
+   "extension": {
+    "id": "videoSensing"
+   }
+  },
+  "videoSensing_videoToggle": {
+   "shape": "command",
+   "inputs": {
+    "VIDEO_STATE": {
+     "type": "number",
+     "defaultValue": "on",
+     "shadowOpcode": "videoSensing_menu_VIDEO_STATE"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "VIDEO_STATE"
+   ],
+   "category": "videoSensing",
+   "text": {
+    "en": "turn video [VIDEO_STATE]",
+    "zh": "[VIDEO_STATE]摄像头"
+   },
+   "extension": {
+    "id": "videoSensing"
+   }
+  },
+  "videoSensing_whenMotionGreaterThan": {
+   "shape": "hat",
+   "inputs": {
+    "REFERENCE": {
+     "type": "number",
+     "defaultValue": 10,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "REFERENCE"
+   ],
+   "category": "videoSensing",
+   "text": {
+    "en": "when video motion > [REFERENCE]",
+    "zh": "当视频运动 > [REFERENCE]"
+   },
+   "extension": {
+    "id": "videoSensing"
+   }
+  },
+  "wedo2_getDistance": {
+   "shape": "reporter",
+   "inputs": {},
+   "fields": {},
+   "parameters": [],
+   "category": "wedo2",
+   "text": {
+    "en": "distance",
+    "zh": "距离"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_getTiltAngle": {
+   "shape": "reporter",
+   "inputs": {
+    "TILT_DIRECTION": {
+     "type": "string",
+     "defaultValue": "up",
+     "shadowOpcode": "wedo2_menu_TILT_DIRECTION"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILT_DIRECTION"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "tilt angle [TILT_DIRECTION]",
+    "zh": "向[TILT_DIRECTION]倾角"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_isTilted": {
+   "shape": "boolean",
+   "inputs": {
+    "TILT_DIRECTION_ANY": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "wedo2_menu_TILT_DIRECTION_ANY"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILT_DIRECTION_ANY"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "tilted [TILT_DIRECTION_ANY]?",
+    "zh": "向[TILT_DIRECTION_ANY]倾斜？"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_menu_MOTOR_DIRECTION": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "MOTOR_DIRECTION": {
+     "options": [
+      "this way",
+      "that way",
+      "reverse"
+     ]
+    }
+   },
+   "category": "wedo2",
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_menu_MOTOR_ID": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "MOTOR_ID": {
+     "options": [
+      "motor",
+      "motor A",
+      "motor B",
+      "all motors"
+     ]
+    }
+   },
+   "category": "wedo2",
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_menu_OP": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "OP": {
+     "options": [
+      "<",
+      ">"
+     ]
+    }
+   },
+   "category": "wedo2",
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_menu_TILT_DIRECTION": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "TILT_DIRECTION": {
+     "options": [
+      "up",
+      "down",
+      "left",
+      "right"
+     ]
+    }
+   },
+   "category": "wedo2",
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_menu_TILT_DIRECTION_ANY": {
+   "shape": "shadow",
+   "inputs": {},
+   "fields": {
+    "TILT_DIRECTION_ANY": {
+     "options": [
+      "up",
+      "down",
+      "left",
+      "right",
+      "any"
+     ]
+    }
+   },
+   "category": "wedo2",
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_motorOff": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "motor",
+     "shadowOpcode": "wedo2_menu_MOTOR_ID"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "turn [MOTOR_ID] off",
+    "zh": "关闭[MOTOR_ID]"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_motorOn": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "motor",
+     "shadowOpcode": "wedo2_menu_MOTOR_ID"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "turn [MOTOR_ID] on",
+    "zh": "开启[MOTOR_ID]"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_motorOnFor": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "motor",
+     "shadowOpcode": "wedo2_menu_MOTOR_ID"
+    },
+    "DURATION": {
+     "type": "number",
+     "defaultValue": 1,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID",
+    "DURATION"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "turn [MOTOR_ID] on for [DURATION] seconds",
+    "zh": "开启[MOTOR_ID][DURATION]秒"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_playNoteFor": {
+   "shape": "command",
+   "inputs": {
+    "NOTE": {
+     "type": "number",
+     "defaultValue": 60,
+     "shadowOpcode": "math_number"
+    },
+    "DURATION": {
+     "type": "number",
+     "defaultValue": 0.5,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "NOTE",
+    "DURATION"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "play note [NOTE] for [DURATION] seconds",
+    "zh": "演奏音符[NOTE][DURATION]秒"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_setLightHue": {
+   "shape": "command",
+   "inputs": {
+    "HUE": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "HUE"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "set light color to [HUE]",
+    "zh": "将灯光颜色设为[HUE]"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_setMotorDirection": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "motor",
+     "shadowOpcode": "wedo2_menu_MOTOR_ID"
+    },
+    "MOTOR_DIRECTION": {
+     "type": "string",
+     "defaultValue": "this way",
+     "shadowOpcode": "wedo2_menu_MOTOR_DIRECTION"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID",
+    "MOTOR_DIRECTION"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "set [MOTOR_ID] direction to [MOTOR_DIRECTION]",
+    "zh": "将[MOTOR_ID]转向设为[MOTOR_DIRECTION]"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_startMotorPower": {
+   "shape": "command",
+   "inputs": {
+    "MOTOR_ID": {
+     "type": "string",
+     "defaultValue": "motor",
+     "shadowOpcode": "wedo2_menu_MOTOR_ID"
+    },
+    "POWER": {
+     "type": "number",
+     "defaultValue": 100,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "MOTOR_ID",
+    "POWER"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "set [MOTOR_ID] power to [POWER]",
+    "zh": "将[MOTOR_ID]功率设为[POWER]"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_whenDistance": {
+   "shape": "hat",
+   "inputs": {
+    "OP": {
+     "type": "string",
+     "defaultValue": "<",
+     "shadowOpcode": "wedo2_menu_OP"
+    },
+    "REFERENCE": {
+     "type": "number",
+     "defaultValue": 50,
+     "shadowOpcode": "math_number"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "OP",
+    "REFERENCE"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "when distance [OP] [REFERENCE]",
+    "zh": "当距离[OP][REFERENCE]"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  },
+  "wedo2_whenTilted": {
+   "shape": "hat",
+   "inputs": {
+    "TILT_DIRECTION_ANY": {
+     "type": "string",
+     "defaultValue": "any",
+     "shadowOpcode": "wedo2_menu_TILT_DIRECTION_ANY"
+    }
+   },
+   "fields": {},
+   "parameters": [
+    "TILT_DIRECTION_ANY"
+   ],
+   "category": "wedo2",
+   "text": {
+    "en": "when tilted [TILT_DIRECTION_ANY]",
+    "zh": "当向[TILT_DIRECTION_ANY]倾斜"
+   },
+   "extension": {
+    "id": "wedo2"
+   }
+  }
+ }
+}

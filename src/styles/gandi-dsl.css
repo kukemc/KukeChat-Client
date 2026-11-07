@@ -1,0 +1,257 @@
+/* ───────── 聊天里的积木（前缀 kdsl-）─────────
+   积木卡片（components/chat/gandiDsl/DslBlockCard.tsx）和输入框的积木编辑器。
+   卡片放在气泡里：底色、字色都从气泡的前景色混出来，浅色、深色、纯色气泡上都不突兀。 */
+
+.kdsl-card {
+  display: block;
+  width: max-content;
+  min-width: min(240px, 100%);
+  max-width: 100%;
+  margin: 4px 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--kc-text) 12%, transparent);
+  border-radius: var(--kui-r-md, 10px);
+  background: color-mix(in srgb, var(--kc-text) 3%, transparent);
+  color: var(--kc-text);
+  white-space: normal;
+  user-select: none;
+}
+
+.kdsl-card.is-error {
+  border-color: color-mix(in srgb, var(--kui-danger) 36%, transparent);
+}
+
+.kdsl-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 3px 4px 3px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--kc-text) 8%, transparent);
+}
+
+.kdsl-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 6px;
+  color: var(--kc-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.kdsl-card.is-error .kdsl-title {
+  color: var(--kui-danger);
+}
+
+.kdsl-seg button {
+  height: 22px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+/* 选中那一格不用 kui-cap 白底：在纯色气泡里字是白的，白底白字就没了 */
+.kdsl-seg button.is-active {
+  background: color-mix(in srgb, var(--kc-text) 14%, transparent);
+  box-shadow: none;
+  color: var(--kc-text);
+}
+
+.kdsl-spacer {
+  flex: 1;
+}
+
+.kdsl-act.kui-icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+.kdsl-insert {
+  margin-left: 2px;
+}
+
+.kdsl-body {
+  position: relative;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.kdsl-image {
+  display: block;
+  cursor: grab;
+  -webkit-user-drag: element;
+}
+
+.kdsl-image:active {
+  cursor: grabbing;
+}
+
+.kdsl-placeholder,
+.kdsl-preview-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 0 6px;
+  color: var(--kc-muted);
+  font-size: 12px;
+}
+
+.kdsl-code {
+  margin: 0;
+  overflow-x: auto;
+  color: var(--kc-text);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', 'PingFang SC', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  tab-size: 2;
+  user-select: text;
+}
+
+.kdsl-line {
+  display: flex;
+  min-width: max-content;
+  border-radius: 4px;
+}
+
+.kdsl-line.is-bad {
+  background: color-mix(in srgb, var(--kui-danger) 12%, transparent);
+}
+
+.kdsl-ln {
+  width: 2.6em;
+  flex: none;
+  padding-right: 10px;
+  color: var(--kc-subtle, var(--kc-muted));
+  text-align: right;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.kdsl-src {
+  white-space: pre;
+}
+
+.kdsl-diags {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px dashed color-mix(in srgb, var(--kc-text) 14%, transparent);
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.5;
+  user-select: text;
+}
+
+.kdsl-diag {
+  display: grid;
+  gap: 1px;
+}
+
+.kdsl-diag-pos {
+  color: var(--kui-danger);
+  font-weight: 600;
+}
+
+.kdsl-diag-msg code {
+  margin-right: 4px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kc-text) 8%, transparent);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11px;
+}
+
+.kdsl-diag-fix,
+.kdsl-diag--more {
+  color: var(--kc-muted);
+}
+
+.kdsl-note,
+.kdsl-foot {
+  margin: 6px 0 0;
+  color: var(--kc-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.kdsl-foot {
+  margin: 0;
+  padding: 0 10px 8px;
+}
+
+.kdsl-expand {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  border-top: 1px solid color-mix(in srgb, var(--kc-text) 8%, transparent);
+  color: var(--kc-muted);
+  font-size: 12px;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.kdsl-expand:hover {
+  background: color-mix(in srgb, var(--kc-text) 5%, transparent);
+  color: var(--kc-text);
+}
+
+/* 积木围栏前后的文字：气泡本身是 pre-wrap，段与段之间留一点距离 */
+.kdsl-text {
+  display: block;
+  white-space: pre-wrap;
+}
+
+/* ───── 输入框的积木编辑器 ───── */
+
+.kcp-dialog:has(.kdsl-editor) {
+  max-width: 640px;
+}
+
+.kdsl-textarea.kui-input {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 180px;
+  max-height: 40vh;
+  padding: 10px 12px;
+  resize: vertical;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', 'PingFang SC', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.kdsl-preview {
+  min-height: 72px;
+  max-height: 36vh;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kui-r-sm);
+  background: var(--kc-panel-muted);
+}
+
+.kdsl-preview .kdsl-diags {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.kdsl-count {
+  margin-right: auto;
+  color: var(--kc-subtle, var(--kc-muted));
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kdsl-count.is-over {
+  color: var(--kui-danger);
+  font-weight: 600;
+}
