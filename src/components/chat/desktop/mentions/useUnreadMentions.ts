@@ -52,6 +52,11 @@ export interface UseUnreadMentionsOptions {
   hasUnread: boolean;
   /** 进会话那一刻的已读位置；比它新的才算。拿不到时为 null，由 fallbackBaseline 兜底 */
   baselineId: number | null;
+  /**
+   * 会话上服务端给的 mention_pending（已读位置之后有没有 @我 / @全体）。明确是 null 时不用去问服务端 ——
+   * 大群里有未读的人很多，有 @ 的很少；旧服务端没这个字段（undefined）时照旧去问
+   */
+  mentionPending?: MentionKind | null;
 }
 
 export interface UnreadMentionsState {
@@ -63,7 +68,7 @@ export interface UnreadMentionsState {
   remoteGateRef: React.MutableRefObject<Promise<unknown> | null>;
 }
 
-export function useUnreadMentions({ conversationId, currentUserId, messages, hasUnread, baselineId }: UseUnreadMentionsOptions): UnreadMentionsState {
+export function useUnreadMentions({ conversationId, currentUserId, messages, hasUnread, baselineId, mentionPending }: UseUnreadMentionsOptions): UnreadMentionsState {
   const [remote, setRemote] = useState<UnreadMentionItem[]>([]);
   const [seen, setSeen] = useState<ReadonlySet<number>>(() => new Set());
   const remoteGateRef = useRef<Promise<unknown> | null>(null);
@@ -81,7 +86,7 @@ export function useUnreadMentions({ conversationId, currentUserId, messages, has
   // 进会话问一次服务端。和 MessageList 的「标已读」是同一轮 effect，这个声明在前、先跑
   const requestedRef = useRef(false);
   useEffect(() => {
-    if (requestedRef.current || !hasUnread) {
+    if (requestedRef.current || !hasUnread || mentionPending === null) {
       return;
     }
     // 只问一次（StrictMode 下 effect 会跑两遍）；回来时组件已经卸了的话 setState 什么也不做

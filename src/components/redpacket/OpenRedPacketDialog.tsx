@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { cx } from '@/components/chat/desktop/runtime';
 import { formatCoins, formatShopTime } from '@/components/shop/labels';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
@@ -6,7 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import type { User } from '@/types/api';
 import type { RedPacket, RedPacketStatus } from '@/types/redPacket';
 import { parseApiDate } from '@/utils/dateTime';
-import { describeClaimError, redPacketErrorCode, useClaimRedPacket, useRedPacket, voiceMismatchOf, type RedPacketClaimRecording } from './data';
+import { describeClaimError, isRedPacketExpired, redPacketErrorCode, redPacketKeys, useClaimRedPacket, useRedPacket, voiceMismatchOf, type RedPacketClaimRecording } from './data';
 import { redPacketTargetName, useRedPacketExpired } from './RedPacketCard';
 import { RedPacketLayer } from './RedPacketLayer';
 import { useRedPacketMotion, useRedPacketUi, type RedPacketTarget } from './ui';
@@ -100,6 +101,7 @@ interface VoiceMiss {
  */
 export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetail = false, onClose }: { target: RedPacketTarget; isGroup: boolean; currentUser: User; /** 直接看领取详情，不经过「开」的那一面（从红包记录里点开） */ initialDetail?: boolean; onClose: () => void }): JSX.Element {
   const { meta } = target;
+  const queryClient = useQueryClient();
   const query = useRedPacket(meta.id, true);
   const refetch = query.refetch;
   const packet = query.data;
@@ -120,9 +122,19 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
   const [voiceExhausted, setVoiceExhausted] = useState(false);
   const timerRef = useRef<number | null>(null);
 
-  // 卡片的缓存里可能没有金额（事件不带），谁领了多少也可能是旧的：打开时重取一次。正在取就不重复发
+  // 打开时要不要重取：缓存里没有、或者该看得到的金额 / 领取名单没有或对不上，才重取（正在取就不重复发）。
+  // 还在 active、我又看不到名单（没领过、不是我发的）时，正面只用得到状态和领取数，这两样事件一直在补，不用取
   useEffect(() => {
+    const cached = queryClient.getQueryData<RedPacket>(redPacketKeys.detail(meta.id));
+    const now = Date.now();
+    const faceOnly = Boolean(cached && cached.status === 'active' && !isRedPacketExpired(cached, now) && cached.claims === null && !cached.my_claim && cached.sender?.id !== currentUser.id && !initialDetail);
+    const complete = Boolean(cached && cached.claims !== null && cached.claims.length === cached.claimed_count && (cached.status !== 'active' || cached.claimed_amount !== null));
+    if (faceOnly || complete) {
+      return;
+    }
     void refetch({ cancelRefetch: false });
+    // 只在打开的那一下判断
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refetch]);
 
   useEffect(() => () => {
@@ -159,7 +171,7 @@ export function OpenRedPacketDialog({ target, isGroup, currentUser, initialDetai
     const timer = window.setTimeout(() => {
       syncedRef.current = syncKey;
       void refetch({ cancelRefetch: false });
-    }, 500);
+    }, 1500);
     return () => window.clearTimeout(timer);
   }, [listStale, refetch, syncKey]);
 

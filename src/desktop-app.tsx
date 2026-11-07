@@ -75,8 +75,8 @@ function DesktopTitleBar(): JSX.Element {
     queryKey: ['online-users'],
     queryFn: getOnlineUsers,
     enabled: Boolean(token && currentUser),
-    staleTime: 10_000,
-    refetchOnWindowFocus: true,
+    // presence.updated 就地改；打开名单时太旧（30 秒）才重拉
+    staleTime: 5 * 60_000,
     retry: false
   });
   const onlineTotal = onlineUsersQuery.data?.online_count ?? onlineCount;
@@ -120,7 +120,7 @@ function DesktopTitleBar(): JSX.Element {
     clearOnlinePopoverTimer();
     updateOnlinePopoverPosition();
     setOnlinePopoverOpen(true);
-    void onlineUsersQuery.refetch();
+    if (Date.now() - onlineUsersQuery.dataUpdatedAt > 30_000) void onlineUsersQuery.refetch();
   }
 
   function scheduleCloseOnlinePopover(): void {

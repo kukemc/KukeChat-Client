@@ -42,6 +42,15 @@ import { canSendOnBehalf } from './gameMode/permissions';
 import { updateToLatestExtensionUrl } from './extensionUrlUpdater';
 import packageInfo from '../../package.json';
 
+/**
+ * 积木里的「在线人数」「在线用户」可能被作品每一帧都读一次：结果缓存这么久，期间直接给缓存的（在线人数另有 presence.updated 实时更新）。
+ * 同一时间只发一个请求。
+ */
+const ONLINE_CACHE_MS = 30_000;
+let onlineCountFetchedAt = 0;
+let onlineUsersCache: { at: number; json: string } | null = null;
+let onlineUsersInFlight: Promise<string> | null = null;
+
 const fallbackScratch: ScratchLike = {
   BlockType: {
     COMMAND: 'command',
@@ -573,7 +582,8 @@ export default class KukeChatExtension {
       return String(state.unreadCount);
     }
     if (field === 'online_count') {
-      if (state.token) {
+      if (state.token && Date.now() - onlineCountFetchedAt >= ONLINE_CACHE_MS) {
+        onlineCountFetchedAt = Date.now();
         void getOnlineCount().then((count) => useKukeStore.getState().setOnlineCount(count)).catch(() => undefined);
       }
       return String(state.onlineCount);
@@ -592,6 +602,18 @@ export default class KukeChatExtension {
     if (!state.token || !state.currentUser) {
       return '[]';
     }
+    if (onlineUsersCache && Date.now() - onlineUsersCache.at < ONLINE_CACHE_MS) {
+      return onlineUsersCache.json;
+    }
+    if (!onlineUsersInFlight) {
+      onlineUsersInFlight = this.fetchOnlineUsersJson().finally(() => {
+        onlineUsersInFlight = null;
+      });
+    }
+    return onlineUsersInFlight;
+  }
+
+  private async fetchOnlineUsersJson(): Promise<string> {
     try {
       const response = await getOnlineUsers();
       const users = response.users.map((user) => ({
@@ -606,7 +628,10 @@ export default class KukeChatExtension {
         is_bot: user.is_bot
       }));
       useKukeStore.getState().setOnlineCount(response.online_count);
-      return JSON.stringify(users);
+      onlineCountFetchedAt = Date.now();
+      const json = JSON.stringify(users);
+      onlineUsersCache = { at: Date.now(), json };
+      return json;
     } catch {
       return '[]';
     }

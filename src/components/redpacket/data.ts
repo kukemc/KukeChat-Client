@@ -21,7 +21,7 @@ import { isExclusiveForOther, normalizeRedPacketMeta } from '@/utils/redPacket';
  * 一个红包的状态（GET /red-packets/{id}）按 id 缓存一份，聊天里的卡片、拆红包的弹层、领取详情读的都是它：
  *   · 卡片进入视口才取第一次（RedPacketCard），取到之后不再自己重取 —— 一屏很多红包时，请求数就是红包数，滚回来不会再发；
  *   · 之后靠 red_packet.updated 事件把「领了几个、什么状态」补进缓存（事件不带金额，卡片也用不着金额）；
- *   · 金额和谁领了多少只有详情要看：详情打开时重取一次，开着的时候收到事件再取（见 OpenRedPacketDialog）。
+ *   · 金额和谁领了多少只有详情要看：打开时缓存里没有或对不上才重取，开着详情、名单对不上时再取（见 OpenRedPacketDialog）。
  * 余额不另存：商店主数据里的 balance 就是它（components/shop/data.ts），发、抢的回包里带着新余额，直接换进去；
  * 别的原因引起的变化（过期、撤回退回来的）服务端会推 shop.balance.changed，由商店那边重拉。
  *
@@ -80,7 +80,9 @@ export function useRedPacketConfig(enabled = true): UseQueryResult<RedPacketConf
     queryFn: fetchConfig,
     enabled,
     retry: false,
-    staleTime: 60_000,
+    // 开关和上限很少变：发的时候撞上 disabled / daily_limit 会失效重拉，今天发了几个本机自己加，断线重连也会刷新。
+    // 红包入口挂在每个输入框上，过期太快就是切一次会话拉一次
+    staleTime: 15 * 60_000,
     refetchInterval: (query) => (query.state.data === null ? UNAVAILABLE_RETRY_MS : false)
   });
 }
@@ -183,11 +185,11 @@ export function noteRedPacketMessage(queryClient: QueryClient, message: Message)
   if (isExclusiveForOther(normalizeRedPacketMeta(message.metadata?.red_packet), me)) {
     return;
   }
-  refreshPendingList(queryClient, message.conversation_id);
   const mine = (message.sender_id ?? message.sender?.id) === me;
   if (mine && conversationOf(queryClient, message.conversation_id)?.type !== 'group') {
     return;
   }
+  addPendingFromMessage(queryClient, message);
   setRedPacketPending(queryClient, message.conversation_id, true);
 }
 
@@ -216,12 +218,15 @@ export function recheckRedPacketPending(queryClient: QueryClient, conversationId
 }
 
 /* ───────── 聊天区右上角的「N 个红包未领」 ─────────
- * GET /red-packets/pending?conversation_id=…（3.4.1）按会话缓存一份：进会话拉一次（每次进都重拉），之后
- *   · 来了新的红包消息 → 重拉（服务端才知道我能不能领，比如私聊里自己发的不能）；
- *   · red_packet.updated：只管列表里有的那个 —— 不再是 active 就当场去掉；还是 active 但领取数变了，可能是我在别的设备上领了，重拉；
+ * GET /red-packets/pending?conversation_id=…（3.4.1）按会话缓存一份：进会话时拉（一分钟内再进不重拉），之后都不重拉、就地改：
+ *   · 来了新的红包消息 → 按消息上的 metadata.red_packet 加进列表（私聊里自己发的、给别人的专属红包不加，口径和服务端一样）；
+ *     这样加进来的没有 expires_at，过期靠服务端推的 red_packet.updated（expired）去掉；
+ *   · red_packet.updated：只管列表里有的那个 —— 不再是 active（或者领满了）就当场去掉；还是 active 就把领取数改上；
  *     列表里没有的不用管（事件不会让一个红包「变得能领」，新红包走上面的消息）；
- *   · 我领到了、或者领的时候发现它已经领不了（抢完、过期、撤回、领过了）→ 当场去掉；
+ *   · 我领到了（本机的回包，或者别的设备上领的：shop.balance.changed 里 change 是 red_packet.claimed、带着 red_packet_id），
+ *     或者领的时候发现它已经领不了（抢完、过期、撤回、领过了）→ 当场去掉；
  *   · 断线重连 → 重拉；到点过期 → 提示自己按 expires_at 滤掉。
+ * 以前是每次领取数变化、每来一个红包都重拉，一个热闹的群里每个开着它的人都跟着发请求。
  * 旧后端没有这个接口（404 / 422）、我不在这个会话里（403）都是 null：不显示，也不再重试。
  */
 
@@ -243,7 +248,7 @@ export function usePendingRedPackets(conversationId: number, enabled = true): Us
     queryFn: () => fetchPending(conversationId),
     enabled,
     retry: false,
-    staleTime: 0,
+    staleTime: 60_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     // 接口不在的话，开着的这个会话里也别反复去问
@@ -251,21 +256,32 @@ export function usePendingRedPackets(conversationId: number, enabled = true): Us
   });
 }
 
-const pendingListTimers = new Map<number, number>();
-
-/** 让某个会话的待领列表重拉一次。短时间里的多次合成一次（热闹的群里红包一个接一个地来、一个接一个地被领）；没开着的会话只是标成过期。 */
-function refreshPendingList(queryClient: QueryClient, conversationId: number): void {
-  if (pendingListTimers.has(conversationId)) {
+/** 新来的红包消息加进这个会话的待领列表（新的在前）。列表还没拉过（undefined）或者接口不在（null）就不动：拉的时候自然有它。 */
+function addPendingFromMessage(queryClient: QueryClient, message: Message): void {
+  const meta = normalizeRedPacketMeta(message.metadata?.red_packet);
+  if (!meta) {
     return;
   }
-  pendingListTimers.set(conversationId, window.setTimeout(() => {
-    pendingListTimers.delete(conversationId);
-    // 拿到过 null（接口不在）的不重拉
-    if (queryClient.getQueryData<PendingRedPacket[] | null>(redPacketKeys.pending(conversationId)) === null) {
-      return;
+  queryClient.setQueryData<PendingRedPacket[] | null>(redPacketKeys.pending(message.conversation_id), (current) => {
+    if (!current || current.some((item) => item.id === meta.id)) {
+      return current;
     }
-    void queryClient.invalidateQueries({ queryKey: redPacketKeys.pending(conversationId), exact: true });
-  }, 400));
+    const item: PendingRedPacket = {
+      id: meta.id,
+      message_id: message.id,
+      sender_id: message.sender_id ?? message.sender?.id ?? null,
+      kind: meta.kind,
+      greeting: meta.greeting,
+      count: meta.count,
+      claimed_count: 0,
+      expires_at: null,
+      created_at: message.created_at,
+      chain_text: meta.chain_text ?? null,
+      target_user_id: meta.target_user_id ?? null,
+      voice_text: meta.voice_text ?? null
+    };
+    return [item, ...current];
+  });
 }
 
 /** 某个红包领不了了：从所有会话的待领列表里去掉它。 */
@@ -279,13 +295,33 @@ function notePendingUpdate(queryClient: QueryClient, conversationId: number, id:
   if (!item) {
     return;
   }
-  if (status !== 'active') {
+  if (status !== 'active' || claimedCount >= item.count) {
     dropPendingRedPacket(queryClient, id);
     return;
   }
-  if (claimedCount !== item.claimed_count) {
+  // 领取数变了只改数字，不重拉：是不是我在别的设备上领的，看 shop.balance.changed（见 handleRedPacketBalanceEvent）
+  if (claimedCount > item.claimed_count) {
     queryClient.setQueryData<PendingRedPacket[] | null>(redPacketKeys.pending(conversationId), (current) => current?.map((entry) => (entry.id === id ? { ...entry, claimed_count: claimedCount } : entry)) ?? current);
-    refreshPendingList(queryClient, conversationId);
+  }
+}
+
+/**
+ * shop.balance.changed（只发给本人）里 change 是 red_packet.claimed：我领到了 red_packet_id 这个红包 —— 多半是在别的设备上领的
+ * （本机领的回包里已经处理过）。从待领列表里去掉；这个红包的状态缓存里还没有「我领过」的话，重取一次（只有正显示着的才会真的去取）。
+ */
+export function handleRedPacketBalanceEvent(queryClient: QueryClient, data: unknown): void {
+  if (typeof data !== 'object' || data === null) {
+    return;
+  }
+  const { reason, change, red_packet_id: id } = data as { reason?: unknown; change?: unknown; red_packet_id?: unknown };
+  if (reason !== 'red_packet' || change !== 'red_packet.claimed' || typeof id !== 'number' || !Number.isSafeInteger(id)) {
+    return;
+  }
+  dropPendingRedPacket(queryClient, id);
+  const packet = queryClient.getQueryData<RedPacket>(redPacketKeys.detail(id));
+  if (packet && !packet.my_claim) {
+    void queryClient.invalidateQueries({ queryKey: redPacketKeys.detail(id), exact: true, refetchType: 'active' });
+    recheckRedPacketPending(queryClient, packet.conversation_id);
   }
 }
 

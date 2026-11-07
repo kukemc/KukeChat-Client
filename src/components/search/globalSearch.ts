@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/api/client';
 import { createGroupJoinRequest, getOutgoingGroupJoinRequests, getRecommendedGroups, joinGroup, searchGroups } from '@/api/conversations';
-import { getOutgoingFriendRequests, sendFriendRequest } from '@/api/friends';
+import { outgoingFriendRequestsOptions, sendFriendRequest } from '@/api/friends';
 import { searchChatSummary } from '@/api/messageSearch';
 import { useGroupPlusUi } from '@/components/groupPlus/ui';
 import { chatSearchTitle } from './chat/util';
@@ -139,7 +139,7 @@ export function useGlobalSearch({ currentUser, friends, initialKeyword = '', onO
     setSubmittedKeyword(initialKeyword.trim());
   }, [initialKeyword]);
 
-  const outgoingQuery = useQuery({ queryKey: ['friend-requests', 'outgoing'], queryFn: getOutgoingFriendRequests });
+  const outgoingQuery = useQuery(outgoingFriendRequestsOptions);
   const outgoingGroupRequestsQuery = useQuery({ queryKey: ['group-join-requests', 'outgoing'], queryFn: getOutgoingGroupJoinRequests });
   const usersQuery = useQuery({
     queryKey: ['global-search', 'users', cleanKeyword],

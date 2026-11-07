@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createDirectConversation, removeConversationMember, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle } from '@/api/conversations';
-import { getOutgoingFriendRequests, sendFriendRequest } from '@/api/friends';
+import { outgoingFriendRequestsOptions, sendFriendRequest } from '@/api/friends';
 import { getDisplayName } from '@/components/ui/Avatar';
 import type { ProfileAction } from '@/components/ui/MobileUserProfilePage';
 import { useKukeStore } from '@/store/kukeStore';
@@ -54,11 +54,7 @@ export function useMemberActions({ conversation, currentUser, currentRole, frien
   const isGroup = conversation.type === 'group';
   const canManage = isGroup && (currentRole === 'owner' || currentRole === 'admin');
 
-  const outgoingFriendRequestsQuery = useQuery({
-    queryKey: ['friend-requests', 'outgoing'],
-    queryFn: getOutgoingFriendRequests,
-    staleTime: 15_000
-  });
+  const outgoingFriendRequestsQuery = useQuery(outgoingFriendRequestsOptions);
 
   const directMutation = useMutation({
     mutationFn: createDirectConversation,

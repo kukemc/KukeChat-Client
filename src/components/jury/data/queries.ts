@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { keepPreviousData, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { ApiError } from '@/api/client';
 import { getJuryCase, getJuryConfig, getJuryHistory, getJuryMyStats, getJuryOpinions, getJuryOverview, getJuryPublicCase, getJuryPublicCases, getJuryStatus, getJuryVotes } from '@/api/jury';
 import { getModerationRules } from '@/api/moderation';
@@ -58,7 +58,10 @@ export function errorText(error: unknown, fallback: string): string {
  * /jury/me 至少隔这么久才会被「顺手」重拉一次（进入风纪页、窗口重新获得焦点）。
  * 和服务端 jury.queue.changed 的节流窗口一样长：那个事件 30 秒内只发第一次，后面的变化不补发，所以角标不能只靠它。
  */
-const STATUS_MIN_INTERVAL = 30_000;
+/** /jury/me 至少隔这么久才重拉（进风纪页、窗口重新获得焦点）。资格和队列的变化另有实时事件 */
+const STATUS_MIN_INTERVAL = 3 * 60_000;
+/** jury.queue.changed 引起的重拉至少隔这么久：案件一件件进出队列时，每个在任委员都跟着拉一次太多了 */
+const QUEUE_REFRESH_MIN_INTERVAL = 20_000;
 
 export function useJuryStatus(enabled = true): UseQueryResult<JuryStatus> {
   // refetchOnMount：进入风纪页时如果手里的数据超过最小间隔就重拉（应用的全局默认值可能被改，这里写明）
@@ -131,6 +134,30 @@ export function useJuryPublicCases(params: JuryPublicQuery, enabled: boolean): U
 
 export function useJuryPublicCase(caseId: number | null): UseQueryResult<JuryPublicCaseDetail> {
   return useQuery({ queryKey: juryKeys.publicCase(caseId ?? 0), queryFn: () => getJuryPublicCase(caseId ?? 0), enabled: caseId !== null, retry: false, staleTime: 60_000 });
+}
+
+let queueRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let lastQueueRefreshAt = 0;
+
+/**
+ * jury.queue.changed 来了：导航角标（/jury/me 里的 available_cases）要跟着变。节流成最多每 QUEUE_REFRESH_MIN_INTERVAL 一次，攒着的在末尾补一次；
+ * 手头的状态不是在任委员（没有角标）就只标成过期，等用到时再拉。
+ */
+export function scheduleJuryQueueRefresh(queryClient: QueryClient): void {
+  const status = queryClient.getQueryData<JuryStatus>(juryKeys.me);
+  if (status?.status !== 'active') {
+    void queryClient.invalidateQueries({ queryKey: juryKeys.me, refetchType: 'none' });
+    return;
+  }
+  if (queueRefreshTimer !== null) {
+    return;
+  }
+  const delay = Math.max(0, lastQueueRefreshAt + QUEUE_REFRESH_MIN_INTERVAL - Date.now());
+  queueRefreshTimer = setTimeout(() => {
+    queueRefreshTimer = null;
+    lastQueueRefreshAt = Date.now();
+    void queryClient.invalidateQueries({ queryKey: juryKeys.me });
+  }, delay);
 }
 
 /** 导航栏「风纪」入口上的数字：在任委员当前可评审的案件数，资深委员再加上等他合议 / 复审的件数；其他人恒为 0。 */

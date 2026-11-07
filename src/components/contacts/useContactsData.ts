@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { acceptGroupJoinRequest, createDirectConversation, getIncomingGroupJoinRequests, getOutgoingGroupJoinRequests, rejectGroupJoinRequest } from '@/api/conversations';
-import { acceptFriendRequest, deleteFriend, deleteTemporaryConversationBlock, getIncomingFriendRequests, getOutgoingFriendRequests, getTemporaryConversationBlocks, ignoreAllFriendRequests, ignoreFriendRequest, rejectFriendRequest, sendFriendRequest } from '@/api/friends';
+import { acceptFriendRequest, deleteFriend, deleteTemporaryConversationBlock, getIncomingFriendRequests, outgoingFriendRequestsOptions, getTemporaryConversationBlocks, ignoreAllFriendRequests, ignoreFriendRequest, rejectFriendRequest, sendFriendRequest } from '@/api/friends';
 import { applyNotificationsSeen, getNotifications, hasUnseenNotifications, markNotificationsSeen, notificationNewCount } from '@/api/notifications';
 import { searchUsers } from '@/api/users';
 import { getDisplayName } from '@/components/ui/Avatar';
@@ -26,7 +26,7 @@ export function useContactsData({ friends, conversations, currentUser, query, on
   const cleanQueryLower = cleanQuery.toLowerCase();
 
   const incomingQuery = useQuery({ queryKey: ['friend-requests', 'incoming'], queryFn: getIncomingFriendRequests });
-  const outgoingQuery = useQuery({ queryKey: ['friend-requests', 'outgoing'], queryFn: getOutgoingFriendRequests });
+  const outgoingQuery = useQuery(outgoingFriendRequestsOptions);
   const incomingGroupRequestsQuery = useQuery({ queryKey: ['group-join-requests', 'incoming'], queryFn: getIncomingGroupJoinRequests });
   const outgoingGroupRequestsQuery = useQuery({ queryKey: ['group-join-requests', 'outgoing'], queryFn: getOutgoingGroupJoinRequests });
   const notificationsQuery = useQuery({ queryKey: ['notifications'], queryFn: () => getNotifications(120) });

@@ -302,6 +302,7 @@ const MessageListInner = forwardRef<MessageListHandle, MessageListProps>(functio
     currentUserId,
     messages,
     hasUnread: unreadEntry.count > 0 || Boolean(conversation.mention_pending),
+    mentionPending: conversation.mention_pending,
     baselineId: mentionBaselineId ?? (unreadEntry.knownId !== null ? unreadEntry.knownId - 1 : null)
   });
   const noteMentionsSeen = mentions.noteSeen;

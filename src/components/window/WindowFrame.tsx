@@ -130,8 +130,8 @@ export function WindowFrame({ children }: PropsWithChildren): JSX.Element {
     queryKey: ['online-users'],
     queryFn: getOnlineUsers,
     enabled: Boolean(token && currentUser && !isMinimized),
-    staleTime: 10_000,
-    refetchOnWindowFocus: true,
+    // presence.updated 就地改；悬停打开名单时太旧（30 秒）才重拉
+    staleTime: 5 * 60_000,
     retry: false
   });
 
@@ -435,7 +435,7 @@ export function WindowFrame({ children }: PropsWithChildren): JSX.Element {
                 {currentUser ? <SelfCardTrigger user={currentUser} label={title} /> : <h1 className="kwf-title">{title}</h1>}
                 {currentUser ? <span className="kwf-bio">{currentUser.bio?.trim() || '咕咕咕~'}</span> : null}
                 {currentUser ? (
-                  <div data-window-action className="kwf-online" onMouseEnter={() => void onlineUsersQuery.refetch()}>
+                  <div data-window-action className="kwf-online" onMouseEnter={() => { if (Date.now() - onlineUsersQuery.dataUpdatedAt > 30_000) void onlineUsersQuery.refetch(); }}>
                     <span className="kwf-online-count">在线 {onlineTotal}</span>
                     <div className="kwf-popover"><OnlineUsersCard count={onlineTotal} users={onlineUsersQuery.data?.users ?? []} loading={onlineUsersQuery.isLoading} /></div>
                   </div>

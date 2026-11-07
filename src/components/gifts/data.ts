@@ -61,7 +61,8 @@ export function useGiftCatalog(enabled = true): UseQueryResult<GiftCatalog | nul
     queryFn: fetchCatalog,
     enabled,
     retry: false,
-    staleTime: 60_000,
+    // 目录很少变：送礼失败（下架、关了）时会失效重拉，断线重连也会刷新。礼物入口挂在每个输入框上，过期太快就是切一次会话拉一次
+    staleTime: 15 * 60_000,
     refetchInterval: (query) => (query.state.data === null ? UNAVAILABLE_RETRY_MS : false)
   });
 }

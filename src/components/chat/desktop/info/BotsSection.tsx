@@ -23,7 +23,7 @@ export function BotsSection(): JSX.Element {
   const botsQuery = useQuery({
     queryKey,
     queryFn: () => getConversationBots(conversationId),
-    staleTime: 10_000
+    staleTime: 5 * 60_000
   });
 
   const removeMutation = useMutation({

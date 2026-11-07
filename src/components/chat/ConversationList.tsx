@@ -213,8 +213,9 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
   const onlineUsersQuery = useQuery({
     queryKey: ['online-users'],
     queryFn: getOnlineUsers,
-    staleTime: 20_000,
-    refetchInterval: 30_000
+    // 在线人数和已在名单里的人的上下线靠 presence.updated 就地改；新上线的人事件里补不全，隔 5 分钟整份对一次（页面不可见时不拉）
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000
   });
   const addMenuRef = useRef<HTMLDivElement | null>(null);
   const submenuCloseTimerRef = useRef<number | null>(null);

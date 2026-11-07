@@ -7,13 +7,14 @@ import { emitPoke } from './poke';
 import { isRecord, pickNumber } from '@/api/normalizers';
 import { applyNotificationsSeen } from '@/api/notifications';
 import { handleJuryGrowthEvent } from '@/components/jury/data/growth';
+import { scheduleJuryQueueRefresh } from '@/components/jury/data/queries';
 import { handleLevelEvent } from '@/components/level/data';
 import { handleProfileLikeEvent } from '@/components/likes/data';
 import { handleGiftEvent, refreshGiftsAfterReconnect } from '@/components/gifts/data';
 import { handleIntimacyEvent, refreshIntimacyAfterReconnect } from '@/components/intimacy/data';
 import { handleSparkEvent, refreshSparksAfterReconnect } from '@/components/spark/data';
 import { noteGiftArrival } from '@/components/gifts/ui';
-import { handleRedPacketEvent, noteRedPacketMessage, refreshRedPacketsAfterReconnect } from '@/components/redpacket/data';
+import { handleRedPacketBalanceEvent, handleRedPacketEvent, noteRedPacketMessage, refreshRedPacketsAfterReconnect } from '@/components/redpacket/data';
 import { handleShopEvent } from '@/components/shop/data';
 import { groupPlusKeys, handleGroupPlusEvent, refreshGroupPlusAfterReconnect } from '@/components/groupPlus/data';
 import { handleGroupAnnouncementEvent } from '@/components/groupAnnouncement/data';
@@ -34,6 +35,8 @@ const PONG_TIMEOUT_MS = 10_000;
 const RECONNECT_BASE_DELAY_MS = 1_000;
 const RECONNECT_MAX_DELAY_MS = 30_000;
 const RECONNECT_JITTER_MS = 500;
+/** 重连成功后整套刷新前的随机延迟上限（错开一大批客户端同时重连后的请求高峰） */
+const RECONNECT_REFRESH_JITTER_MS = 3000;
 const AUTH_CLOSE_CODES = new Set([1008]);
 
 const MEMBER_REFRESH_DEBOUNCE_MS = 150;
@@ -111,6 +114,7 @@ export function useRealtime(enabled: boolean): void {
     let closedByEffect = false;
     const memberRefreshTimers = new Map<number, number>();
     let conversationRefreshTimer: number | null = null;
+    let reconnectRefreshTimerId: number | null = null;
     const recentlyReceivedMessages = new Set<string>();
     const lastReadMessageIds = new Map<number, number>();
 
@@ -168,19 +172,28 @@ export function useRealtime(enabled: boolean): void {
       clearPendingRefreshes();
       recentlyReceivedMessages.clear();
       lastReadMessageIds.clear();
-      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      void queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
-      void queryClient.invalidateQueries({ queryKey: ['group-join-requests'] });
-      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      const conversationId = activeConversationIdRef.current;
-      if (conversationId !== null) {
-        void queryClient.resetQueries({ queryKey: ['messages', conversationId], exact: true });
-      }
-      refreshRedPacketsAfterReconnect(queryClient);
-      refreshGiftsAfterReconnect(queryClient);
-      refreshIntimacyAfterReconnect(queryClient);
-      refreshSparksAfterReconnect(queryClient);
-      refreshGroupPlusAfterReconnect(queryClient);
+      // 服务端重启后所有客户端几乎同时重连：随机错开 0–3 秒再发这一串刷新，别一起砸过去。
+      // 只重拉正在用的（refetchType 'active'），其余只标成过期、等用到时再拉
+      if (reconnectRefreshTimerId !== null) window.clearTimeout(reconnectRefreshTimerId);
+      reconnectRefreshTimerId = window.setTimeout(() => {
+        reconnectRefreshTimerId = null;
+        if (closedByEffect) return;
+        void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
+        void queryClient.invalidateQueries({ queryKey: ['friend-requests'], refetchType: 'active' });
+        void queryClient.invalidateQueries({ queryKey: ['group-join-requests'], refetchType: 'active' });
+        void queryClient.invalidateQueries({ queryKey: ['notifications'], refetchType: 'active' });
+        // 断开期间可能错过了公告事件：开着的群的进群弹窗重拉一次（弹窗查询的 staleTime 很长）
+        void queryClient.invalidateQueries({ queryKey: ['group-announcement-popups'], refetchType: 'active' });
+        const conversationId = activeConversationIdRef.current;
+        if (conversationId !== null) {
+          void queryClient.resetQueries({ queryKey: ['messages', conversationId], exact: true });
+        }
+        refreshRedPacketsAfterReconnect(queryClient);
+        refreshGiftsAfterReconnect(queryClient);
+        refreshIntimacyAfterReconnect(queryClient);
+        refreshSparksAfterReconnect(queryClient);
+        refreshGroupPlusAfterReconnect(queryClient);
+      }, Math.floor(Math.random() * RECONNECT_REFRESH_JITTER_MS));
     };
 
     const scheduleReconnect = (event?: CloseEvent): void => {
@@ -372,8 +385,10 @@ export function useRealtime(enabled: boolean): void {
           if (conversationId !== null) {
             if (event.type === 'message.featured.updated') {
               void queryClient.invalidateQueries({ queryKey: ['featured-messages', conversationId] });
-              // 精华「已用 / 上限」在档位详情里
-              void queryClient.invalidateQueries({ queryKey: groupPlusKeys.info(conversationId) });
+              // 精华「已用 / 上限」在档位详情里。输入框旁的群文件按钮也一直挂着这份，所以只有精华列表正开着时才当场重拉，
+              // 其余只标成过期（升级面板等下次打开时自己会拉）
+              const featuredOpen = queryClient.getQueryCache().findAll({ queryKey: ['featured-messages', conversationId] }).some((query) => query.isActive());
+              void queryClient.invalidateQueries({ queryKey: groupPlusKeys.info(conversationId), refetchType: featuredOpen ? 'active' : 'none' });
             }
           }
         }
@@ -443,12 +458,21 @@ export function useRealtime(enabled: boolean): void {
             // A delayed receipt may precede a newer WS message; do not roll unread back.
             const readId = pickNumber(event.data, 'last_read_message_id');
             const previousReadId = lastReadMessageIds.get(conversationId) ?? 0;
+            // 新服务端在这里带上读完之后的 mention_pending（以前是另推一条 conversation.updated）；没有这个键的是旧服务端
+            const mentionPending = isRecord(event.data) && 'mention_pending' in event.data
+              ? (event.data.mention_pending === 'me' || event.data.mention_pending === 'all' ? event.data.mention_pending : null)
+              : undefined;
             if (readId !== null && readId >= previousReadId) {
               lastReadMessageIds.set(conversationId, readId);
               queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => patchConversation(current, conversationId, (conversation) => {
-                // 读过了：未读数和「[有人@我]」一起清
-                if ((!conversation.unread_count && !conversation.mention_pending) || (conversation.last_message?.id ?? 0) > readId) return conversation;
-                return { ...conversation, unread_count: 0, mention_pending: null };
+                if ((conversation.last_message?.id ?? 0) > readId) {
+                  // 已读位置后面还有消息：未读不动；服务端说后面有 @我 就标上（说没有不清，可能是比它更新的 @我 已经先到了）
+                  return mentionPending && conversation.mention_pending !== mentionPending ? { ...conversation, mention_pending: mentionPending } : conversation;
+                }
+                // 读过了：未读数和「[有人@我]」一起清（服务端说还有 @我 时以它为准）
+                const nextMention = mentionPending ?? null;
+                if (!conversation.unread_count && (conversation.mention_pending ?? null) === nextMention) return conversation;
+                return { ...conversation, unread_count: 0, mention_pending: nextMention };
               }));
             }
           }
@@ -590,8 +614,8 @@ export function useRealtime(enabled: boolean): void {
         }
         // 风纪 v2（docs/jury-v2.md 1.9）。缓存 key 的定义在 components/jury/data/queries.ts 的 juryKeys
         if (event.rawType === 'jury.queue.changed') {
-          // 有案件进入 / 离开委员队列：导航角标和评审台的「没有案件」要跟着变
-          void queryClient.invalidateQueries({ queryKey: ['jury', 'me'] });
+          // 有案件进入 / 离开委员队列：导航角标和评审台的「没有案件」要跟着变（角标那份 /jury/me 节流，见 scheduleJuryQueueRefresh）
+          scheduleJuryQueueRefresh(queryClient);
           void queryClient.invalidateQueries({ queryKey: ['jury', 'next'] });
           void queryClient.invalidateQueries({ queryKey: ['jury', 'overview'] });
           // 三期：资深委员的合议 / 复审队列也走这个事件（key 在 components/jury/data/senior.ts）
@@ -622,6 +646,8 @@ export function useRealtime(enabled: boolean): void {
         // 商店（docs/shop.md 第 4 节）：目录有变化、我得到了一件商品、有人换了装扮。缓存怎么跟上写在 components/shop/data.ts
         if (event.rawType === 'shop.changed' || event.rawType === 'shop.item.granted' || event.rawType === 'shop.item.expiring' || event.rawType === 'shop.item.expired' || event.rawType === 'shop.balance.changed' || event.rawType === 'user.cosmetics.updated') {
           handleShopEvent(queryClient, event.rawType, event.data);
+          // 我在别的设备上领了红包：从这台的「N 个红包未领」里去掉（不用每次领取数变化都重拉待领列表）
+          if (event.rawType === 'shop.balance.changed') handleRedPacketBalanceEvent(queryClient, event.data);
         }
         // 群升级、群待办、群文件（docs/group-plus.md 第 4 节）：缓存怎么跟上写在 components/groupPlus/data.ts。
         // 购买人的余额变动走上面的 shop.balance.changed（reason 为 group_plus）
@@ -651,7 +677,7 @@ export function useRealtime(enabled: boolean): void {
         }
         // 好友亲密度（KukeChat-Server/docs/intimacy.md 第 4 节）：亲密度涨了、解锁了好友徽章、友谊升级了；加删好友时好友亲密榜也要重拉。
         // 缓存怎么跟上写在 components/intimacy/data.ts，提示由 IntimacyToasts 出
-        if (event.rawType.startsWith('intimacy.') || event.rawType === 'friendship.deleted' || event.rawType === 'friend_request.accepted') {
+        if (event.rawType.startsWith('intimacy.') || event.rawType === 'friendship.deleted' || event.rawType === 'friend_request.accepted' || event.rawType === 'friend.request.accepted') {
           handleIntimacyEvent(queryClient, event.rawType, event.data);
         }
         // 好友火花（KukeChat-Server/docs/sparks.md 第 4 节）：续上、升级、熄灭、重燃。缓存怎么跟上写在 components/spark/data.ts
@@ -700,6 +726,7 @@ export function useRealtime(enabled: boolean): void {
         sendOnSocket = null;
       }
       clearPendingRefreshes();
+      if (reconnectRefreshTimerId !== null) window.clearTimeout(reconnectRefreshTimerId);
       window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (reconnectTimerId !== null) {

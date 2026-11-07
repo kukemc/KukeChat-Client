@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getOutgoingFriendRequests } from '@/api/friends';
+import { outgoingFriendRequestsOptions } from '@/api/friends';
 import { triggerMessageInteraction } from '@/api/messages';
 import { useKukeStore } from '@/store/kukeStore';
 import { openBotForUser } from '@/components/bots/openBotForUser';
@@ -160,7 +160,7 @@ function ChatSession({ conversation, conversations, currentUser, currentRole = '
     onPoked: () => listRef.current?.scrollToLatest()
   });
 
-  const outgoingFriendRequestsQuery = useQuery({ queryKey: ['friend-requests', 'outgoing'], queryFn: getOutgoingFriendRequests, staleTime: 15_000 });
+  const outgoingFriendRequestsQuery = useQuery(outgoingFriendRequestsOptions);
 
   // 趁空闲预热表情回应面板要用的彩色表情字体，第一次打开面板就不会卡（整个应用只做一次）
 

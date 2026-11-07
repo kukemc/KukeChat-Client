@@ -83,7 +83,8 @@ export function useGroupPlusInfo(conversationId: number | null, enabled = true):
     },
     enabled: enabled && conversationId !== null,
     retry: false,
-    staleTime: 30_000
+    // 档位、用量的变化都有事件（group.plus.updated、group.file.updated 等）和重连刷新；每个群的输入框都挂着它，切一次群拉一次太多
+    staleTime: 10 * 60_000
   });
 }
 

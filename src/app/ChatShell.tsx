@@ -112,13 +112,15 @@ export function ChatShell(): JSX.Element {
     });
   }, [accountSuspension, logout]);
 
+  // 只在登录 / 换账号时取一次（以前依赖整个 currentUser 对象，资料、装扮一变就重取）；之后靠 presence.updated 里的 online_count
+  const currentUserId = currentUser?.id ?? null;
   useEffect(() => {
-    if (!token || !currentUser) {
+    if (!token || currentUserId === null) {
       setOnlineCount(0);
       return;
     }
     void getOnlineCount().then(setOnlineCount).catch(() => undefined);
-  }, [currentUser, setOnlineCount, token]);
+  }, [currentUserId, setOnlineCount, token]);
 
   const suspensionModal = accountSuspension ? <AccountSuspensionModal notice={accountSuspension} onClose={() => setAccountSuspension(null)} /> : null;
   // 提示层全站只挂这一处：登录前（改密码、绑定之类的反馈）、登录后、被处罚时的提示都走同一条路

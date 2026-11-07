@@ -5,7 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { ccwStudentProfileUrl } from '@/config';
 import { createDirectConversation, updateConversationMemberMute, updateConversationMemberRole } from '@/api/conversations';
 import { ApiError } from '@/api/client';
-import { getFriends, getOutgoingFriendRequests, sendFriendRequest } from '@/api/friends';
+import { getFriends, outgoingFriendRequestsOptions, sendFriendRequest } from '@/api/friends';
 import { getPost, getTrendingPostTopics, getUserPostStats, getUserPosts, togglePostLike, uploadPostImage } from '@/api/posts';
 import { getUserOnlineStatus, getUserProfile, updateMyProfile, uploadProfileCover } from '@/api/users';
 import { useKukeStore } from '@/store/kukeStore';
@@ -478,7 +478,7 @@ export function MobileUserProfilePage({ user, label, fallbackUserId, currentUser
     enabled: Boolean(userId && !user?.is_bot && effectiveCurrentUser)
   });
   const friendsQuery = useQuery({ queryKey: ['friends'], queryFn: getFriends, enabled: Boolean(effectiveCurrentUser && !isSelf) });
-  const outgoingFriendRequestsQuery = useQuery({ queryKey: ['friend-requests', 'outgoing'], queryFn: getOutgoingFriendRequests, enabled: Boolean(effectiveCurrentUser && !isSelf) });
+  const outgoingFriendRequestsQuery = useQuery({ ...outgoingFriendRequestsOptions, enabled: Boolean(effectiveCurrentUser && !isSelf) });
   const topicsQuery = useQuery({ queryKey: ['post-topics'], queryFn: () => getTrendingPostTopics(5), enabled: Boolean(effectiveCurrentUser) });
 
   const displayUser = profileQuery.data ?? user ?? (isSelf ? currentUser : null);

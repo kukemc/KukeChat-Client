@@ -124,8 +124,8 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
     queryKey: ['conversation-bots', conversationId],
     queryFn: () => getConversationBots(conversationId),
     enabled: isGroup,
-    // 群里装了哪些机器人很少变，进会话取一次就够；装卸机器人的地方会让这份缓存失效
-    staleTime: 60_000
+    // 群里装了哪些机器人很少变，进会话取一次就够；装卸机器人的地方会让这份缓存失效（别人装卸的最多晚 15 分钟出现）
+    staleTime: 15 * 60_000
   });
   const botCommands = useMemo(() => botCommandOptions(botsQuery.data), [botsQuery.data]);
   const botPrefix = botPanel?.query?.toLowerCase();

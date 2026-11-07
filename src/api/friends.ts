@@ -24,6 +24,17 @@ export async function getOutgoingFriendRequests(): Promise<FriendRequest[]> {
   return asList<FriendRequest>(response);
 }
 
+/**
+ * 「我发出的好友申请」的查询配置，各处共用同一份（staleTime 不一致的话，最短的那个说了算）。
+ * 一直算新鲜的：friend.request.* 事件、我自己发申请之后都会让 ['friend-requests'] 失效，断线重连也会重拉。
+ * 以前每个会话面板挂着它、15 秒就过期，切一次会话拉一次。
+ */
+export const outgoingFriendRequestsOptions = {
+  queryKey: ['friend-requests', 'outgoing'] as const,
+  queryFn: getOutgoingFriendRequests,
+  staleTime: Infinity
+};
+
 export async function acceptFriendRequest(requestId: number): Promise<FriendRequest> {
   return apiRequest<FriendRequest>(`/friends/requests/${requestId}/accept`, { method: 'POST' });
 }

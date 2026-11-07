@@ -6,7 +6,7 @@ import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ccwStudentProfileUrl } from '@/config';
 import { createDirectConversation } from '@/api/conversations';
-import { getFriends, getOutgoingFriendRequests, sendFriendRequest } from '@/api/friends';
+import { getFriends, outgoingFriendRequestsOptions, sendFriendRequest } from '@/api/friends';
 import { getUserProfile, updateMyProfile, uploadProfileCover } from '@/api/users';
 import { getDisplayName } from '@/components/ui/Avatar';
 import type { IconName } from '@/components/ui/Icon';
@@ -109,7 +109,7 @@ export function useUserSpace({ profileUser, fallbackId, currentUser, onClose }: 
   const postsQuery = useUserPosts(fallbackId, postSort);
   const stats = useUserPostStats(fallbackId);
   const friendsQuery = useQuery({ queryKey: ['friends'], queryFn: getFriends, enabled: !isSelf });
-  const outgoingFriendRequestsQuery = useQuery({ queryKey: ['friend-requests', 'outgoing'], queryFn: getOutgoingFriendRequests, enabled: !isSelf });
+  const outgoingFriendRequestsQuery = useQuery({ ...outgoingFriendRequestsOptions, enabled: !isSelf });
   const posts = useMemo(() => postsQuery.data?.pages.flat() ?? [], [postsQuery.data]);
   const displayUser = profileQuery.data ?? profileUser ?? (isSelf ? currentUser : null);
   const [profileDraft, setProfileDraft] = useState(() => draftFromUser(displayUser));

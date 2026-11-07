@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGameModeSettings, updateGameModeSettings } from '@/api/game';
 import { getConversationBots, removeBotInstallation, updateBotInstallation } from '@/api/bots';
 import { acceptGroupJoinRequest, addConversationMembers, checkinGroup, clearConversationHistory, createDirectConversation, dissolveConversation, getGroupCheckinStatus, getGroupLeaderboard, getIncomingGroupJoinRequests, leaveConversation, rejectGroupJoinRequest, removeConversationMember, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle, updateConversationProfile, updateGroupSettings, updateMyConversationSettings, uploadConversationAvatar } from '@/api/conversations';
-import { deleteFriend, getOutgoingFriendRequests, sendFriendRequest } from '@/api/friends';
+import { deleteFriend, outgoingFriendRequestsOptions, sendFriendRequest } from '@/api/friends';
 import { createGroupInvite } from '@/api/invites';
 import { sendMessage, shareUserToConversation } from '@/api/messages';
 import { createReport } from '@/api/reports';
@@ -292,11 +292,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     queryFn: getIncomingGroupJoinRequests,
     enabled: canManageGroup
   });
-  const outgoingFriendRequestsQuery = useQuery({
-    queryKey: ['friend-requests', 'outgoing'],
-    queryFn: getOutgoingFriendRequests,
-    staleTime: 15_000
-  });
+  const outgoingFriendRequestsQuery = useQuery(outgoingFriendRequestsOptions);
   const directMutation = useMutation({
     mutationFn: createDirectConversation,
     onSuccess: (nextConversation) => {
@@ -324,7 +320,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     queryKey: ['conversation-bots', conversation.id],
     queryFn: () => getConversationBots(conversation.id),
     enabled: isGroup,
-    staleTime: 10_000
+    staleTime: 5 * 60_000
   });
   const removeBotMutation = useMutation({
     mutationFn: (botId: number) => removeBotInstallation(botId, conversation.id),

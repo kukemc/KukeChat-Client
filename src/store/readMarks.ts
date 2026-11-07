@@ -49,15 +49,140 @@ export function markConversationReadLocally(queryClient: QueryClient, conversati
     markSelfSeen(mark);
     return;
   }
-  // 服务端这一步失败也不回滚：下次打开会话还会再标一次，而把红点弹回来只会让人困惑
+  // 通知服务端这一步节流、去重，见下面的 queueReadPost
   const readId = lastMessageId ?? cached?.last_message?.id ?? null;
-  const gate = options.after ?? Promise.resolve();
-  void gate.catch(() => undefined).then(() => markConversationRead(conversationId, readId)).then((mentionPending) => {
+  queueReadPost(queryClient, conversationId, readId, options.after ?? null);
+}
+
+/**
+ * 「标记已读」请求的节流。
+ *
+ * 大群里每来一条消息，正开着这个群的每个人都会把已读位置往后挪一次；以前每次都发一个 POST，
+ * 一百个人在线就是每条消息一百个请求。现在：
+ * - 每个会话记着发出去过的最大已读位置，不超过它的不再发；
+ * - 每个会话最多每 READ_POST_INTERVAL_MS 发一次，期间攒着的取最大那条，到点再发（第一次立刻发）；
+ * - 页面不可见时不发（本机的未读照样立刻清），切回来再补发；切走的那一刻把之前攒着的先发掉。
+ * 服务端失败也不回滚本机状态：已发位置退回去，下次有新的已读位置时会再发。
+ */
+const READ_POST_INTERVAL_MS = 3000;
+
+interface ReadPostState {
+  /** 服务端已经（或正在）收到的最大已读位置 */
+  sent: number;
+  /** 攒着还没发的最大已读位置 */
+  pending: number | null;
+  /** 发之前要等的请求（options.after），攒着的几次都要等 */
+  gates: Promise<unknown>[];
+  queryClient: QueryClient | null;
+  timer: ReturnType<typeof setTimeout> | null;
+  lastPostAt: number;
+  inFlight: boolean;
+}
+
+const readPosts = new Map<number, ReadPostState>();
+let visibilityListenerInstalled = false;
+
+function pageHidden(): boolean {
+  return typeof document !== 'undefined' && document.visibilityState !== 'visible';
+}
+
+function readPostStateOf(conversationId: number): ReadPostState {
+  let state = readPosts.get(conversationId);
+  if (!state) {
+    state = { sent: 0, pending: null, gates: [], queryClient: null, timer: null, lastPostAt: 0, inFlight: false };
+    readPosts.set(conversationId, state);
+  }
+  return state;
+}
+
+function installVisibilityListener(): void {
+  if (visibilityListenerInstalled || typeof document === 'undefined') {
+    return;
+  }
+  visibilityListenerInstalled = true;
+  document.addEventListener('visibilitychange', () => {
+    for (const [conversationId, state] of readPosts) {
+      if (state.pending === null) {
+        continue;
+      }
+      if (document.visibilityState === 'visible') {
+        scheduleReadPost(conversationId, state);
+      } else {
+        // 切走前看到的那些先发掉，不等节流
+        if (state.timer !== null) {
+          clearTimeout(state.timer);
+          state.timer = null;
+        }
+        void flushReadPost(conversationId, state, true);
+      }
+    }
+  });
+}
+
+function queueReadPost(queryClient: QueryClient, conversationId: number, readId: number | null, gate: Promise<unknown> | null): void {
+  // 还没有真正的消息 id（空会话、乐观发送的临时消息）就不发；有了真 id 时调用方会再来一次
+  if (readId === null || !Number.isSafeInteger(readId) || readId <= 0) {
+    return;
+  }
+  installVisibilityListener();
+  const state = readPostStateOf(conversationId);
+  if (readId <= state.sent || (state.pending !== null && readId <= state.pending && !gate)) {
+    return;
+  }
+  state.queryClient = queryClient;
+  state.pending = Math.max(state.pending ?? 0, readId);
+  if (gate) {
+    state.gates.push(gate);
+  }
+  scheduleReadPost(conversationId, state);
+}
+
+function scheduleReadPost(conversationId: number, state: ReadPostState): void {
+  if (state.timer !== null || state.inFlight || state.pending === null || pageHidden()) {
+    return;
+  }
+  const delay = Math.max(0, state.lastPostAt + READ_POST_INTERVAL_MS - Date.now());
+  state.timer = setTimeout(() => {
+    state.timer = null;
+    void flushReadPost(conversationId, state, false);
+  }, delay);
+}
+
+async function flushReadPost(conversationId: number, state: ReadPostState, force: boolean): Promise<void> {
+  if (state.inFlight || state.pending === null || (!force && pageHidden())) {
+    return;
+  }
+  const readId = state.pending;
+  const gates = state.gates;
+  const queryClient = state.queryClient;
+  state.pending = null;
+  state.gates = [];
+  if (readId <= state.sent || !queryClient) {
+    return;
+  }
+  const previousSent = state.sent;
+  state.sent = readId;
+  state.inFlight = true;
+  state.lastPostAt = Date.now();
+  try {
+    // 进会话时要先等「已读位置之后有哪些 @我」的那个请求落定，服务端再挪已读位置
+    if (gates.length > 0) {
+      await Promise.allSettled(gates);
+    }
+    state.lastPostAt = Date.now();
+    const mentionPending = await markConversationRead(conversationId, readId);
     // 返回里带着读完之后的 mention_pending：读到的位置后面又来了 @我 的消息时它不是 null，以服务端说的为准
     if (mentionPending) {
       queryClient.setQueryData<Conversation[] | undefined>(['conversations'], (current) => current?.map((conversation) => (
         conversation.id === conversationId && (conversation.mention_pending ?? null) !== mentionPending && (conversation.unread_count ?? 0) > 0 ? { ...conversation, mention_pending: mentionPending } : conversation
       )));
     }
-  }).catch(() => undefined);
+  } catch {
+    if (state.sent === readId) {
+      state.sent = previousSent;
+    }
+  } finally {
+    state.inFlight = false;
+    scheduleReadPost(conversationId, state);
+  }
 }

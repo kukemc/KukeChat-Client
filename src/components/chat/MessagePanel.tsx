@@ -43,7 +43,7 @@ import { TaskEventCard } from '@/components/tasks/TaskEventCard';
 import { TaskEditorModal } from '@/components/tasks/TaskEditorModal';
 import { TaskDetailPanel } from '@/components/tasks/TaskDetailPanel';
 import { GroupTasksPanel } from '@/components/tasks/GroupTasksPanel';
-import { getOutgoingFriendRequests } from '@/api/friends';
+import { outgoingFriendRequestsOptions } from '@/api/friends';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 import { applyLatestMessageToConversations } from '@/utils/conversations';
 import { hasPendingOutgoingFriendRequest, isFriendUserId } from '@/utils/friendship';
@@ -240,11 +240,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     staleTime: 15_000
   });
 
-  const outgoingFriendRequestsQuery = useQuery({
-    queryKey: ['friend-requests', 'outgoing'],
-    queryFn: getOutgoingFriendRequests,
-    staleTime: 15_000
-  });
+  const outgoingFriendRequestsQuery = useQuery(outgoingFriendRequestsOptions);
 
   const invalidateMessages = (conversationId = activeConversationId): void => {
     if (conversationId) {

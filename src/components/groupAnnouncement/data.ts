@@ -168,14 +168,16 @@ export function useAnnouncementDetail(conversationId: number, announcementId: nu
   });
 }
 
-/** 我在这个群里该弹出的公告（第 4 节）。进群时拉一次；收到 popup 公告的事件时失效重拉。 */
+/**
+ * 我在这个群里该弹出的公告（第 4 节）。第一次进群时拉；收到 popup 公告的事件时失效重拉，断线重连也会重拉开着的那个。
+ * 以前每次切进群都重拉，来回切群就是一串请求；处理掉的那条本机会直接从缓存里拿掉（PopupQueue）。
+ */
 export function useAnnouncementPopups(conversationId: number | null) {
   return useQuery({
     queryKey: announcementKeys.popups(conversationId ?? 0),
     queryFn: () => listAnnouncementPopups(conversationId ?? 0),
     enabled: conversationId !== null,
-    staleTime: 0,
-    refetchOnMount: 'always',
+    staleTime: 10 * 60_000,
     refetchOnWindowFocus: false,
     retry: false
   });

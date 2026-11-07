@@ -53,7 +53,8 @@ export function useIntimacyRules(enabled = true): UseQueryResult<IntimacyRules |
     queryFn: fetchRules,
     enabled,
     retry: false,
-    staleTime: 5 * 60_000,
+    // 规则几乎不变；断线重连时整个 intimacy 会重拉。名字旁的徽章每行都会挂一个观察者，过期了就是每滚出一行发一次请求
+    staleTime: Infinity,
     refetchInterval: (query) => (query.state.data === null ? UNAVAILABLE_RETRY_MS : false)
   });
 }
@@ -74,7 +75,8 @@ export function useIntimacyEnabled(): boolean {
 /** 我的全部好友的亲密度（好友亲密榜）。功能不存在时不请求。 */
 export function useIntimacyFriends(enabled = true): UseQueryResult<FriendIntimacyList> {
   const available = useIntimacyAvailable();
-  return useQuery({ queryKey: intimacyKeys.friends, queryFn: getIntimacyFriends, enabled: enabled && available, retry: false, staleTime: 60_000 });
+  // 一直算新鲜的：intimacy.* 事件就地改、加删好友和断线重连时重拉（见 handleIntimacyEvent）。聊天里每条消息的徽章都读它，不能每挂一个就去拉
+  return useQuery({ queryKey: intimacyKeys.friends, queryFn: getIntimacyFriends, enabled: enabled && available, retry: false, staleTime: Infinity });
 }
 
 /** 我和某个好友那一行；不是好友、功能不在、还没拉到时是 null。名字旁的徽章、资料卡上的一行都用它。 */
@@ -176,7 +178,7 @@ export function handleIntimacyEvent(queryClient: QueryClient, rawType: string, d
     }
     return;
   }
-  if (rawType === 'intimacy.level.up' || rawType === 'friendship.deleted' || rawType === 'friend_request.accepted') {
+  if (rawType === 'intimacy.level.up' || rawType === 'friendship.deleted' || rawType === 'friend_request.accepted' || rawType === 'friend.request.accepted') {
     void queryClient.invalidateQueries({ queryKey: intimacyKeys.friends });
   }
 }
