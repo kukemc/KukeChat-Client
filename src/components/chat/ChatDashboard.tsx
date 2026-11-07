@@ -415,7 +415,8 @@ export function ChatDashboard({ currentUser }: ChatDashboardProps): JSX.Element 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('invite')?.trim();
-    if (token && /^[A-Za-z0-9_-]{6,80}$/.test(token)) {
+    // 群邀请链接带邀请人签名：<公共 token>.<邀请人 id>.<签名>，中间有点号
+    if (token && /^[A-Za-z0-9_.-]{6,120}$/.test(token)) {
       setInviteToken(token);
       const url = new URL(window.location.href);
       url.searchParams.delete('invite');

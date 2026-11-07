@@ -1,7 +1,12 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { acceptInvite } from '@/api/invites';
+import { acceptInvite, resolveInvite } from '@/api/invites';
+import { INVITE_PENDING_TEXT, inviteAcceptErrorMessage } from '@/components/groups/groupJoin';
+import { InviteModal } from '@/components/invites/InviteModal';
+import { getDesktopPortalRoot } from '@/components/ui/desktop/Modal';
 import { useKukeStore } from '@/store/kukeStore';
-import type { BotShareCardMetadata, Conversation, GroupShareCardMetadata, Message, PostShareCardMetadata, TeamupShareCardMetadata, TeamupSkill, UserShareCardMetadata } from '@/types/api';
+import type { BotShareCardMetadata, Conversation, GroupShareCardMetadata, InviteAcceptRead, Message, PostShareCardMetadata, TeamupShareCardMetadata, TeamupSkill, UserShareCardMetadata } from '@/types/api';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from '@/components/ui/toast';
@@ -261,23 +266,45 @@ export function GroupShareCard({ card, conversations, onError }: { card: GroupSh
   const queryClient = useQueryClient();
   const setActiveConversationId = useKukeStore((state) => state.setActiveConversationId);
   const joinedConversation = conversations.find((item) => item.id === card.conversation_id);
+  // 要回答入群问题的邀请在卡片里放不下答题框，交给邀请弹窗处理
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const acceptMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<{ kind: 'answer' } | { kind: 'done'; result: InviteAcceptRead }> => {
       if (!card.invite_token) {
         throw new Error('这张群名片缺少邀请凭证');
       }
-      return acceptInvite(card.invite_token);
+      // 先看这条邀请点了会怎样（看邀请人现在的身份）：要答题的去弹窗，仅邀请的直接说明，其余照常接受
+      const invite = await resolveInvite(card.invite_token);
+      if (!invite.already_joined && invite.join_action === 'answer') {
+        return { kind: 'answer' };
+      }
+      if (!invite.already_joined && invite.join_action === 'forbidden') {
+        throw new Error('这个群需要群主或管理员邀请才能加入。');
+      }
+      return { kind: 'done', result: await acceptInvite(card.invite_token) };
     },
-    onSuccess: (result) => {
+    onSuccess: (outcome) => {
+      if (outcome.kind === 'answer') {
+        setInviteDialogOpen(true);
+        return;
+      }
+      const { result } = outcome;
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
       void queryClient.invalidateQueries({ queryKey: ['group-join-requests'] });
+      if (result.status === 'pending') {
+        // 提交成了入群申请：还没进群，不打开群
+        setSubmitted(true);
+        toast.success(INVITE_PENDING_TEXT);
+        return;
+      }
       setActiveConversationId(result.conversation_id ?? card.conversation_id);
       toast.success(result.status === 'joined' ? '已加入群聊' : '已处理群邀请');
     },
-    onError: (error) => onError(error instanceof Error ? error.message : '加入群聊失败，请稍后重试。')
+    onError: (error) => onError(inviteAcceptErrorMessage(error))
   });
 
-  const actionLabel = joinedConversation ? '打开群聊' : acceptMutation.isPending ? '加入中...' : '加入群聊';
+  const actionLabel = joinedConversation ? '打开群聊' : submitted ? '已申请' : acceptMutation.isPending ? '处理中...' : '加入群聊';
 
   return (
     <article className="w-80 max-w-full overflow-hidden rounded-2xl border text-left shadow-none [background:var(--kc-panel)] [border-color:var(--kc-border)]">
@@ -293,10 +320,17 @@ export function GroupShareCard({ card, conversations, onError }: { card: GroupSh
       </div>
       <div className="flex items-center justify-between gap-3 border-t px-3.5 py-2.5 [border-color:var(--kc-border)]">
         <span className="text-xs [color:var(--kc-muted)]">群聊名片</span>
-        <button type="button" disabled={acceptMutation.isPending || (!joinedConversation && !card.invite_token)} onClick={() => joinedConversation ? setActiveConversationId(card.conversation_id) : acceptMutation.mutate()} className="rounded-xl px-3 py-1.5 text-xs font-semibold transition [background:var(--kc-accent-soft)] [color:var(--kc-accent)] hover:[background:var(--kc-hover)] disabled:cursor-not-allowed disabled:opacity-45">
+        <button type="button" disabled={acceptMutation.isPending || (!joinedConversation && (!card.invite_token || submitted))} onClick={() => joinedConversation ? setActiveConversationId(card.conversation_id) : acceptMutation.mutate()} className="rounded-xl px-3 py-1.5 text-xs font-semibold transition [background:var(--kc-accent-soft)] [color:var(--kc-accent)] hover:[background:var(--kc-hover)] disabled:cursor-not-allowed disabled:opacity-45">
           {actionLabel}
         </button>
       </div>
+      {inviteDialogOpen && card.invite_token ? createPortal(
+        // 弹窗挂到窗口根上；事件仍沿组件树冒泡，拦住免得点弹窗被消息气泡当成点了消息
+        <div className="contents" onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()} onContextMenu={(event) => event.stopPropagation()}>
+          <InviteModal token={card.invite_token} onClose={() => setInviteDialogOpen(false)} />
+        </div>,
+        getDesktopPortalRoot()
+      ) : null}
     </article>
   );
 }

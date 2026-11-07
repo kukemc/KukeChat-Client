@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { acceptGroupJoinRequest, rejectGroupJoinRequest } from '@/api/conversations';
+import { acceptGroupJoinRequest } from '@/api/conversations';
+import { rejectedNote } from '@/components/groups/groupJoin';
+import { useRejectJoinRequest } from '@/components/groups/RejectJoinRequestDialog';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import type { GroupJoinRequest } from '@/types/api';
 import { parseApiDate } from '@/utils/dateTime';
@@ -28,12 +30,9 @@ export function JoinRequestsDialog(): JSX.Element {
     onSuccess: reviewed,
     onError: () => notify('通过入群申请失败，请稍后重试。', 'error')
   });
-  const rejectMutation = useMutation({
-    mutationFn: (requestId: number) => rejectGroupJoinRequest(requestId),
-    onSuccess: reviewed,
-    onError: () => notify('拒绝入群申请失败，请稍后重试。', 'error')
-  });
-  const reviewing = acceptMutation.isPending || rejectMutation.isPending;
+  // 拒绝先弹框，可以写一句理由（选填）；失败时错误写在那个框里
+  const reject = useRejectJoinRequest({ onSuccess: reviewed });
+  const reviewing = acceptMutation.isPending || reject.isPending;
 
   return (
     <Dialog title="入群申请" onClose={closeDialog}>
@@ -48,10 +47,11 @@ export function JoinRequestsDialog(): JSX.Element {
                 <span>{statusText(request)}</span>
                 {request.message?.trim() ? <p className="kci-item-quote">附言：{request.message}</p> : null}
                 {request.answer?.trim() ? <p className="kci-item-quote">回答：{request.answer}</p> : null}
+                {rejectedNote(request) ? <p className="kci-item-quote">拒绝理由：{rejectedNote(request)}</p> : null}
               </div>
               {request.status === 'pending' ? (
                 <div className="kci-item-actions">
-                  <button type="button" className="kui-btn kui-btn--sm" disabled={reviewing} onClick={() => rejectMutation.mutate(request.id)}>拒绝</button>
+                  <button type="button" className="kui-btn kui-btn--sm" disabled={reviewing} onClick={() => reject.ask(request.id, name)}>拒绝</button>
                   <button type="button" className="kui-btn kui-btn--sm kui-btn--primary" disabled={reviewing} onClick={() => acceptMutation.mutate(request.id)}>通过</button>
                 </div>
               ) : null}
@@ -59,6 +59,7 @@ export function JoinRequestsDialog(): JSX.Element {
           );
         })}
       </DialogList>
+      {reject.dialog}
     </Dialog>
   );
 }

@@ -1,4 +1,4 @@
-import type { InviteAcceptRead, InviteLinkRead, InviteResolveRead } from '@/types/api';
+import type { InviteAcceptPayload, InviteAcceptRead, InviteLinkRead, InviteResolveRead } from '@/types/api';
 import { apiRequest } from './client';
 
 
@@ -17,6 +17,7 @@ export async function resolveInvite(token: string): Promise<InviteResolveRead> {
 }
 
 
-export async function acceptInvite(token: string): Promise<InviteAcceptRead> {
-  return apiRequest<InviteAcceptRead>(`/invites/${encodeURIComponent(token)}/accept`, { method: 'POST' });
+/** 接受邀请。群邀请要审核时返回 status: pending（已提交入群申请），要答题时 payload 里带 answer */
+export async function acceptInvite(token: string, payload?: InviteAcceptPayload): Promise<InviteAcceptRead> {
+  return apiRequest<InviteAcceptRead>(`/invites/${encodeURIComponent(token)}/accept`, payload ? { method: 'POST', body: payload } : { method: 'POST' });
 }

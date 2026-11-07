@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { acceptGroupJoinRequest, createDirectConversation, getIncomingGroupJoinRequests, getOutgoingGroupJoinRequests, rejectGroupJoinRequest } from '@/api/conversations';
+import { acceptGroupJoinRequest, createDirectConversation, getIncomingGroupJoinRequests, getOutgoingGroupJoinRequests } from '@/api/conversations';
+import { useRejectJoinRequest } from '@/components/groups/RejectJoinRequestDialog';
 import { acceptFriendRequest, deleteFriend, deleteTemporaryConversationBlock, getIncomingFriendRequests, outgoingFriendRequestsOptions, getTemporaryConversationBlocks, ignoreAllFriendRequests, ignoreFriendRequest, rejectFriendRequest, sendFriendRequest } from '@/api/friends';
 import { applyNotificationsSeen, getNotifications, hasUnseenNotifications, markNotificationsSeen, notificationNewCount } from '@/api/notifications';
 import { searchUsers } from '@/api/users';
 import { getDisplayName } from '@/components/ui/Avatar';
 import { useKukeStore } from '@/store/kukeStore';
 import type { Conversation, Friendship, UnifiedNotificationList, User } from '@/types/api';
-import { conversationTitle, friendUser, matchesContactUser, matchesGroupConversation, sortGroupJoinRequestsNewestFirst } from './contactsShared';
+import { conversationTitle, friendUser, matchesContactUser, matchesGroupConversation, sortGroupJoinRequests } from './contactsShared';
 
 interface ContactsDataOptions {
   friends: Friendship[];
@@ -103,7 +104,8 @@ export function useContactsData({ friends, conversations, currentUser, query, on
     }
   });
   const acceptGroupRequestMutation = useMutation({ mutationFn: (requestId: number) => acceptGroupJoinRequest(requestId), onSuccess: invalidateGroupRequests });
-  const rejectGroupRequestMutation = useMutation({ mutationFn: (requestId: number) => rejectGroupJoinRequest(requestId), onSuccess: invalidateGroupRequests });
+  // 拒绝入群申请先弹框，可以写一句理由（选填）；框由页面渲染（rejectGroupRequestDialog）
+  const rejectGroupRequest = useRejectJoinRequest({ onSuccess: invalidateGroupRequests });
   const sendRequestMutation = useMutation({ mutationFn: sendFriendRequest, onSuccess: invalidateContacts });
   const deleteMutation = useMutation({ mutationFn: deleteFriend, onSuccess: invalidateContacts });
   const unblockMutation = useMutation({
@@ -115,8 +117,9 @@ export function useContactsData({ friends, conversations, currentUser, query, on
 
   const incoming = incomingQuery.data ?? [];
   const outgoing = outgoingQuery.data ?? [];
-  const incomingGroupRequests = sortGroupJoinRequestsNewestFirst(incomingGroupRequestsQuery.data ?? []);
-  const outgoingGroupRequests = sortGroupJoinRequestsNewestFirst(outgoingGroupRequestsQuery.data ?? []);
+  // 待审核的排最前，其余从新到旧
+  const incomingGroupRequests = sortGroupJoinRequests(incomingGroupRequestsQuery.data ?? []);
+  const outgoingGroupRequests = sortGroupJoinRequests(outgoingGroupRequestsQuery.data ?? []);
   const notifications = notificationsQuery.data?.items ?? [];
   const newCount = notificationNewCount(notificationsQuery.data);
   // 「新朋友」角标：只算还没看过的好友申请通知，看过但没处理的不再一直挂着
@@ -146,7 +149,13 @@ export function useContactsData({ friends, conversations, currentUser, query, on
     ignoreMutation,
     ignoreAllMutation,
     acceptGroupRequestMutation,
-    rejectGroupRequestMutation,
+    /** 拒绝入群申请：弹出填理由的确认框（通知里只有申请 id，申请人名字从收到的申请里找） */
+    askRejectGroupRequest: (requestId: number): void => {
+      const request = incomingGroupRequests.find((item) => item.id === requestId);
+      rejectGroupRequest.ask(requestId, request ? getDisplayName(request.requester, `用户 ${request.requester_id}`) : undefined);
+    },
+    /** 拒绝入群申请的确认框，页面里渲染一下即可（没在拒绝时是 null） */
+    rejectGroupRequestDialog: rejectGroupRequest.dialog,
     sendRequestMutation,
     directMutation,
     deleteMutation,
@@ -175,7 +184,7 @@ export function useContactsData({ friends, conversations, currentUser, query, on
       }
     },
     /** 任何一个申请正在处理时，所有「接受 / 拒绝 / 忽略」都先锁住 */
-    requestBusy: acceptMutation.isPending || rejectMutation.isPending || ignoreMutation.isPending || ignoreAllMutation.isPending || acceptGroupRequestMutation.isPending || rejectGroupRequestMutation.isPending,
+    requestBusy: acceptMutation.isPending || rejectMutation.isPending || ignoreMutation.isPending || ignoreAllMutation.isPending || acceptGroupRequestMutation.isPending || rejectGroupRequest.isPending,
     temporaryBlocks: temporaryBlocksQuery.data ?? [],
     searchResults: usersQuery.data ?? [],
     friendIds: new Set(friends.map((friendship) => friendUser(friendship)?.id).filter((id): id is number => typeof id === 'number')),

@@ -1,3 +1,5 @@
+import { canShareGroupInvite, groupInviteCreateErrorMessage } from '@/components/groups/groupJoin';
+import { toast } from '@/components/ui/toast';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { conversationSpark } from '@/components/spark/data';
@@ -251,7 +253,8 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
   });
   const groupShareMutation = useMutation({
     mutationFn: createGroupInvite,
-    onSuccess: (link) => copyText(link.url)
+    onSuccess: (link) => copyText(link.url),
+    onError: (error) => toast.error(groupInviteCreateErrorMessage(error))
   });
 
   useEffect(() => {
@@ -477,7 +480,7 @@ export function ConversationList({ conversations, isLoading, currentUser, onCrea
     }}>
       <ContextMenuSurface onMouseLeave={closeMessageSubmenuSoon} onMouseDown={(event) => event.stopPropagation()} className="fixed w-[220px] py-1" style={conversationMenuPosition}>
         <ContextMenuItem icon="pin" label={isConversationPinned(conversationMenu.conversation, currentUser, pinnedOverrides) ? '取消置顶' : '设为置顶'} onMouseEnter={closeMessageSubmenuNow} onClick={() => updateMenuConversation(conversationMenu.conversation.id, { pinned: !isConversationPinned(conversationMenu.conversation, currentUser, pinnedOverrides) })} />
-        {conversationMenu.conversation.type === 'group' ? <ContextMenuItem icon="share" label="分享群聊" onMouseEnter={closeMessageSubmenuNow} onClick={() => shareGroup(conversationMenu.conversation.id)} /> : null}
+        {conversationMenu.conversation.type === 'group' && canShareGroupInvite(conversationMenu.conversation) ? <ContextMenuItem icon="share" label="分享群聊" onMouseEnter={closeMessageSubmenuNow} onClick={() => shareGroup(conversationMenu.conversation.id)} /> : null}
         <ContextMenuItem icon="bell" label="消息设置" suffix={messageSettingLabel(currentMessageSetting(conversationMenu.conversation))} onMouseEnter={openMessageSubmenu} onClick={openMessageSubmenu} />
       </ContextMenuSurface>
       {showMessageSubmenu && messageSubmenuBridgePosition ? <div onMouseDown={(event) => event.stopPropagation()} onMouseEnter={openMessageSubmenu} onMouseLeave={closeMessageSubmenuSoon} className="fixed z-0" style={messageSubmenuBridgePosition} /> : null}

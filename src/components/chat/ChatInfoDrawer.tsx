@@ -3,7 +3,7 @@ import { parseApiDate } from '@/utils/dateTime';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGameModeSettings, updateGameModeSettings } from '@/api/game';
 import { getConversationBots, removeBotInstallation, updateBotInstallation } from '@/api/bots';
-import { acceptGroupJoinRequest, addConversationMembers, checkinGroup, clearConversationHistory, createDirectConversation, dissolveConversation, getGroupCheckinStatus, getGroupLeaderboard, getIncomingGroupJoinRequests, leaveConversation, rejectGroupJoinRequest, removeConversationMember, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle, updateConversationProfile, updateGroupSettings, updateMyConversationSettings, uploadConversationAvatar } from '@/api/conversations';
+import { acceptGroupJoinRequest, addConversationMembers, checkinGroup, clearConversationHistory, createDirectConversation, dissolveConversation, getGroupCheckinStatus, getGroupLeaderboard, getIncomingGroupJoinRequests, leaveConversation, removeConversationMember, updateConversationMemberMute, updateConversationMemberRole, updateConversationMemberTitle, updateConversationProfile, updateGroupSettings, updateMyConversationSettings, uploadConversationAvatar } from '@/api/conversations';
 import { deleteFriend, outgoingFriendRequestsOptions, sendFriendRequest } from '@/api/friends';
 import { createGroupInvite } from '@/api/invites';
 import { sendMessage, shareUserToConversation } from '@/api/messages';
@@ -25,6 +25,8 @@ import { registerNativeBackHandler } from '@/native/back';
 import { runNativeRouteTransition } from '@/native/transition';
 import { resolveAssetUrl, resolveThumbnailUrl } from '@/utils/assetUrl';
 import { hasPendingOutgoingFriendRequest, isFriendUserId } from '@/utils/friendship';
+import { canShareGroupInvite, groupInviteCreateErrorMessage, INVITE_ONLY_SHARE_HINT, rejectedNote, sortGroupJoinRequests } from '@/components/groups/groupJoin';
+import { useRejectJoinRequest } from '@/components/groups/RejectJoinRequestDialog';
 import { AnnouncementModal } from './AnnouncementModal';
 import { typingIndicatorMode } from './info/typingIndicator';
 import { conversationPlainTitle as conversationDisplayTitle, copyText, groupCategoryOptions, joinModeOptions, leaderboardPeriodOptions, leaderboardTypeOptions, memberMuted, memberRoleRank, normalizeCreationOid, roleLabel, slowModeOptions, userShareMetadata, type SelectOption } from './info/shared';
@@ -277,6 +279,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
   const openPost = useKukeStore((state) => state.openPost);
   const isGroup = conversation.type === 'group';
   const canManageGroup = isGroup && (currentRole === 'owner' || currentRole === 'admin');
+  const canInviteByLink = isGroup && (canManageGroup || canShareGroupInvite(conversation));
   const memberCount = conversation.member_count ?? members.length;
   const sortedMembers = useMemo(() => [...members].sort((left, right) => {
     const roleDelta = memberRoleRank(left.role) - memberRoleRank(right.role);
@@ -337,7 +340,8 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['conversation-bots', conversation.id] })
   });
   const outgoingFriendRequests = outgoingFriendRequestsQuery.data ?? [];
-  const conversationJoinRequests = (incomingJoinRequestsQuery.data ?? []).filter((request) => request.conversation_id === conversation.id);
+  // 待审核的排最前，其余从新到旧
+  const conversationJoinRequests = sortGroupJoinRequests((incomingJoinRequestsQuery.data ?? []).filter((request) => request.conversation_id === conversation.id));
   const pendingConversationJoinRequests = conversationJoinRequests.filter((request) => request.status === 'pending');
   const searchKeyword = search.trim().toLowerCase();
   const filteredMembers = searchKeyword ? sortedMembers.filter((member) => matchesMember(member, searchKeyword)) : sortedMembers;
@@ -754,14 +758,13 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     onError: () => setErrorText('通过入群申请失败，请稍后重试。')
   });
 
-  const rejectJoinRequestMutation = useMutation({
-    mutationFn: (requestId: number) => rejectGroupJoinRequest(requestId),
+  // 拒绝先弹框，可以写一句理由（选填）；失败时错误写在那个框里
+  const rejectJoinRequest = useRejectJoinRequest({
     onSuccess: () => {
       setErrorText('');
       void queryClient.invalidateQueries({ queryKey: ['group-join-requests'] });
       invalidateConversationData(conversation.id);
-    },
-    onError: () => setErrorText('拒绝入群申请失败，请稍后重试。')
+    }
   });
 
   const friendRequestMutation = useMutation({
@@ -848,7 +851,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
       void queryClient.invalidateQueries({ queryKey: ['messages', variables.targetConversationId] });
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
-    onError: (error) => setErrorText(error instanceof Error ? error.message : '发送名片失败，请稍后重试。')
+    onError: (error) => setErrorText(shareForwardKind === 'group' ? groupInviteCreateErrorMessage(error) : error instanceof Error ? error.message : '发送名片失败，请稍后重试。')
   });
 
   function openUserCard(event: React.MouseEvent<HTMLElement>, user?: User | null, label?: string, member?: ConversationMember | null): void {
@@ -1046,6 +1049,11 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
     setErrorText('');
     setCopied(false);
     if (isGroup) {
+      // 仅邀请的群，普通成员生成不了邀请链接 / 群名片（服务端 403）
+      if (!canInviteByLink) {
+        setErrorText(`${INVITE_ONLY_SHARE_HINT}，你暂时不能分享群聊。`);
+        return;
+      }
       openDrawerModal('shareActions');
       return;
     }
@@ -1066,7 +1074,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
       setCopied(true);
       setModal(null);
       window.setTimeout(() => setCopied(false), 1500);
-    }).catch((error) => setErrorText(error instanceof Error ? error.message : '生成邀请链接失败'));
+    }).catch((error: unknown) => setErrorText(groupInviteCreateErrorMessage(error)));
   }
 
   function openShareForwardModal(kind: ShareForwardKind = 'group'): void {
@@ -1275,7 +1283,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
       acceptJoinRequestMutation.mutate(request.id);
       return;
     }
-    rejectJoinRequestMutation.mutate(request.id);
+    rejectJoinRequest.ask(request.id, getDisplayName(request.requester, `用户 ${request.requester_id}`));
   }
 
   function renderConversationAvatar(): JSX.Element {
@@ -1905,12 +1913,13 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
                           <p className="truncate text-xs [color:var(--kc-muted)]">{pending ? '等待审核' : request.status === 'accepted' ? '已通过' : '已拒绝'}{request.created_at ? ` · ${parseApiDate(request.created_at)?.toLocaleString('zh-CN') ?? ''}` : ''}</p>
                           {request.message?.trim() ? <p className="mt-1 text-xs leading-5 [color:var(--kc-muted)]">附言：{request.message}</p> : null}
                           {request.answer?.trim() ? <p className="mt-1 rounded-xl border px-3 py-2 text-xs leading-5 [background:var(--kc-panel-muted)] [border-color:var(--kc-border)]"><span className="font-semibold [color:var(--kc-accent)]">回答：</span>{request.answer}</p> : null}
+                          {rejectedNote(request) ? <p className="mt-1 break-words text-xs leading-5 [color:var(--kc-muted)]">拒绝理由：{rejectedNote(request)}</p> : null}
                         </div>
                       </div>
                       {pending ? (
                          <div className="kc-mobile-actions mt-3 flex justify-end gap-2">
-                          <button type="button" onClick={() => handleJoinRequestReview(request, false)} disabled={rejectJoinRequestMutation.isPending || acceptJoinRequestMutation.isPending} className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-45">拒绝</button>
-                          <button type="button" onClick={() => handleJoinRequestReview(request, true)} disabled={acceptJoinRequestMutation.isPending || rejectJoinRequestMutation.isPending} className="liquid-button rounded-xl px-3 py-2 text-xs font-semibold disabled:opacity-45">通过</button>
+                          <button type="button" onClick={() => handleJoinRequestReview(request, false)} disabled={rejectJoinRequest.isPending || acceptJoinRequestMutation.isPending} className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-45">拒绝</button>
+                          <button type="button" onClick={() => handleJoinRequestReview(request, true)} disabled={acceptJoinRequestMutation.isPending || rejectJoinRequest.isPending} className="liquid-button rounded-xl px-3 py-2 text-xs font-semibold disabled:opacity-45">通过</button>
                         </div>
                       ) : null}
                     </div>
@@ -2194,6 +2203,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
         {userCard ? <UserCard user={userCard.user} label={userCard.label} anchor={userCard.anchor} containerRef={overlayRootRef} action={profileActionForUser(userCard.user)} onClose={() => setUserCard(null)} /> : null}
         {mobileUserProfile ? <MobileUserProfilePage user={mobileUserProfile.user} label={mobileUserProfile.label} fallbackUserId={mobileUserProfile.fallbackUserId} currentUserId={currentUser.id} currentUser={currentUser} action={profileActionForUser(mobileUserProfile.user)} groupContext={mobileUserProfile.member ? { conversationId: conversation.id, member: mobileUserProfile.member, currentRole, onMemberUpdated: (member) => setMobileUserProfile((current) => current ? { ...current, member } : current) } : undefined} onClose={() => { setMobileProfileMenuOpen(false); setMobileUserProfile(null); }} /> : null}
         {showAnnouncements && isGroup ? <AnnouncementModal conversation={conversation} canPublish={canManageGroup} onClose={() => setShowAnnouncements(false)} /> : null}
+        {rejectJoinRequest.dialog}
       </div>
     );
   }
@@ -2268,6 +2278,7 @@ export function ChatInfoDrawer({ conversation, currentUser, members, friends = [
 
       {userCard ? <UserCard user={userCard.user} label={userCard.label} anchor={userCard.anchor} containerRef={overlayRootRef} action={profileActionForUser(userCard.user)} onClose={() => setUserCard(null)} /> : null}
       {showAnnouncements && isGroup ? <AnnouncementModal conversation={conversation} canPublish={canManageGroup} onClose={() => setShowAnnouncements(false)} /> : null}
+      {rejectJoinRequest.dialog}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { canShareGroupInvite, groupInviteCreateErrorMessage } from '@/components/groups/groupJoin';
+import { toast } from '@/components/ui/toast';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PaneResizeHandle } from './paneSizes';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
@@ -126,7 +128,7 @@ function ConversationPaneInner({ conversations, isLoading, currentUser, onCreate
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
     }
   });
-  const shareGroup = useMutation({ mutationFn: createGroupInvite, onSuccess: (link) => copyText(link.url) });
+  const shareGroup = useMutation({ mutationFn: createGroupInvite, onSuccess: (link) => copyText(link.url), onError: (error) => toast.error(groupInviteCreateErrorMessage(error)) });
 
   useEffect(() => {
     if (!addMenuOpen && !menu) {
@@ -224,7 +226,7 @@ function ConversationPaneInner({ conversations, isLoading, currentUser, onCreate
               settings.mutate({ conversationId: menuConversation.id, payload: { pinned: !menuPinned } });
               setMenu(null);
             }} />
-            {menuConversation.type === 'group' ? <ContextMenuItem icon="share" label="复制邀请链接" onClick={() => {
+            {menuConversation.type === 'group' && canShareGroupInvite(menuConversation) ? <ContextMenuItem icon="share" label="复制邀请链接" onClick={() => {
               shareGroup.mutate(menuConversation.id);
               setMenu(null);
             }} /> : null}

@@ -22,6 +22,7 @@ import { useModerationStore } from '@/store/moderationStore';
 import { messageMentionKind } from '@/utils/mentions';
 import type { AccountSuspension, Conversation, ConversationMember, Message, MessageComponentState, OnlineUsersRead, UnifiedNotificationList } from '@/types/api';
 import { requestDesktopAttention } from '@/utils/desktopAttention';
+import { toast } from '@/components/ui/toast';
 import { applyCreatedMessageToConversations, recordReceivedMessage, shouldAlertIncomingMessage, patchConversation, patchMemberPages, patchMemberPresence, patchMembers, patchMessageInPages, patchUserPresence, upsertMessageIntoFirstPage } from './cache';
 import { settleFromRealtime } from '@/components/chat/message/pendingSend';
 import { settleSelfTransferFromRealtime } from '@/components/selfChat/transfers';
@@ -481,6 +482,10 @@ export function useRealtime(enabled: boolean): void {
             scheduleConversationRefresh();
             void queryClient.invalidateQueries({ queryKey: ['notifications'] });
           }
+          // 我的入群申请被拒了：提示一下，管理员写了拒绝理由就一起带上
+          if (event.type === 'group.join_request.rejected' && currentUser && pickNumber(event.data, 'requester_id') === currentUser.id) {
+            notifyJoinRequestRejected(event.data);
+          }
           if (conversationId !== null) {
             const conversations = queryClient.getQueryData<Conversation[]>(['conversations']);
             const currentConversation = conversations?.find((conversation) => conversation.id === conversationId);
@@ -737,4 +742,17 @@ export function useRealtime(enabled: boolean): void {
       socket = null;
     };
   }, [currentUser?.id, enabled, queryClient, setActiveConversationId, setOnlineCount, token]);
+}
+
+/** 申请人收到「入群申请被拒绝」时的提示（群名 + 拒绝理由，理由可能为空） */
+function notifyJoinRequestRejected(data: unknown): void {
+  if (!isRecord(data)) return;
+  const pickText = (key: string): string => (typeof data[key] === 'string' ? (data[key] as string).trim() : '');
+  const groupName = pickText('conversation_display_title') || pickText('conversation_title') || '群聊';
+  const note = pickText('decision_note');
+  toast.warning(`「${groupName}」拒绝了你的入群申请`, {
+    subtitle: note ? `拒绝理由：${note}` : undefined,
+    id: `group-join-rejected-${pickNumber(data, 'id') ?? groupName}`,
+    duration: note ? 8000 : undefined
+  });
 }

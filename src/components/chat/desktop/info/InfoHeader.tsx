@@ -1,11 +1,12 @@
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
 import { conversationTier } from '@/components/groupPlus/tier';
+import { canShareGroupInvite, INVITE_ONLY_SHARE_HINT } from '@/components/groups/groupJoin';
 import { useInfo } from './infoContext';
 
 /** 侧栏顶部的资料头：群聊是群头像 + 群名 + 群号，私聊是对方的头像和签名。 */
 export function InfoHeader(): JSX.Element {
-  const { conversation, directUser, isGroup, memberCount, notify, openDialog, openUser } = useInfo();
+  const { conversation, directUser, isGroup, canManage, memberCount, notify, openDialog, openUser } = useInfo();
 
   if (isGroup) {
     const title = conversation.title || '未命名群聊';
@@ -19,10 +20,13 @@ export function InfoHeader(): JSX.Element {
             <h3 className="kci-head-name">{title}<PlusTierTag tier={conversationTier(conversation)} size="md" /></h3>
             <p className="kci-head-meta">群号 {conversation.id} · {memberCount} 名成员{category ? ` · ${category}` : ''}</p>
           </div>
-          <button type="button" className="kui-btn kui-btn--sm" onClick={() => {
-            notify('');
-            openDialog({ kind: 'share' });
-          }}>分享</button>
+          {/* 仅邀请的群，普通成员生成不了邀请链接 / 群名片（服务端 403），按钮置灰并说明 */}
+          {canManage || canShareGroupInvite(conversation) ? (
+            <button type="button" className="kui-btn kui-btn--sm" onClick={() => {
+              notify('');
+              openDialog({ kind: 'share' });
+            }}>分享</button>
+          ) : <button type="button" className="kui-btn kui-btn--sm" disabled title={INVITE_ONLY_SHARE_HINT}>分享</button>}
         </div>
         {description ? <p className="kci-head-desc">{description}</p> : null}
       </section>

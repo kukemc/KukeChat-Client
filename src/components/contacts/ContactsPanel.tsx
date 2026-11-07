@@ -1,3 +1,4 @@
+import { rejectedNote } from '@/components/groups/groupJoin';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
 import { parseApiDate } from '@/utils/dateTime';
@@ -85,6 +86,7 @@ function GroupRequestRow({ request, children }: { request: GroupJoinRequest; chi
         <p className="truncate text-xs [color:var(--kc-muted)]">{request.requester ? `${getDisplayName(request.requester, `用户 ${request.requester_id}`)} 申请加入` : `申请人 ${request.requester_id}`} · {formatGroupRequestStatus(request.status)}</p>
         {request.message?.trim() ? <p className="mt-1 truncate text-xs [color:var(--kc-muted)]">附言：{request.message}</p> : null}
         {request.answer?.trim() ? <p className="mt-1 line-clamp-2 text-xs leading-5 [color:var(--kc-muted)]">回答：{request.answer}</p> : null}
+        {rejectedNote(request) ? <p className="mt-1 line-clamp-3 break-words text-xs leading-5 text-red-500/80">拒绝理由：{rejectedNote(request)}</p> : null}
       </div>
       {children ? <div className="kc-mobile-row-actions shrink-0">{children}</div> : null}
     </div>
@@ -171,7 +173,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
   const [query, setQuery] = useState('');
   const {
     cleanQuery, incomingQuery, outgoingQuery, incomingGroupRequestsQuery, outgoingGroupRequestsQuery, notificationsQuery, temporaryBlocksQuery, usersQuery,
-    acceptMutation, rejectMutation, ignoreMutation, acceptGroupRequestMutation, rejectGroupRequestMutation, sendRequestMutation, directMutation, unblockMutation,
+    acceptMutation, rejectMutation, ignoreMutation, acceptGroupRequestMutation, askRejectGroupRequest, rejectGroupRequestDialog, sendRequestMutation, directMutation, unblockMutation,
     incoming, outgoing, incomingGroupRequests, outgoingGroupRequests, notifications, notificationCount, pendingCount, requestBusy, temporaryBlocks,
     newCount, newFriendCount, pendingIncomingFriendCount, markSeen, ignoreAll,
     searchResults, friendIds, pendingOutgoingIds, filteredFriends, groupConversations, openConversation, openPost
@@ -365,7 +367,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
                   {request.status === 'pending' ? (
                     <div className="flex gap-2">
                       <button type="button" onClick={() => acceptGroupRequestMutation.mutate(request.id)} className="rounded-full bg-[#168bff] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50" disabled={acceptGroupRequestMutation.isPending}>通过</button>
-                      <button type="button" onClick={() => rejectGroupRequestMutation.mutate(request.id)} className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-500 disabled:opacity-50" disabled={rejectGroupRequestMutation.isPending}>拒绝</button>
+                      <button type="button" onClick={() => askRejectGroupRequest(request.id)} className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-500 disabled:opacity-50" disabled={requestBusy}>拒绝</button>
                     </div>
                   ) : null}
                 </GroupRequestRow>
@@ -381,6 +383,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
             </div>
           </section>
         </div>
+        {rejectGroupRequestDialog}
       </section>
     );
   }
@@ -428,13 +431,14 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
                   onRejectFriend={(id) => rejectMutation.mutate(id)}
                   onIgnoreFriend={(id) => ignoreMutation.mutate(id)}
                   onAcceptGroup={(id) => acceptGroupRequestMutation.mutate(id)}
-                  onRejectGroup={(id) => rejectGroupRequestMutation.mutate(id)}
+                  onRejectGroup={askRejectGroupRequest}
                   busy={requestBusy}
                 />
               ))}
             </div>
           </section>
         </div>
+        {rejectGroupRequestDialog}
       </section>
     );
   }

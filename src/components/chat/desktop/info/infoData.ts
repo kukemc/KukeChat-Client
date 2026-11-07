@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { getIncomingGroupJoinRequests, updateGroupSettings, updateMyConversationSettings } from '@/api/conversations';
+import { sortGroupJoinRequests } from '@/components/groups/groupJoin';
 import type { Conversation, ConversationMember, GroupJoinRequest, UpdateGroupSettingsPayload, UpdateMyConversationSettingsPayload } from '@/types/api';
 import { memberUserId } from '../../message/messageMeta';
 import type { ConversationMembersPageData, MessagesInfiniteData } from '../../message/types';
@@ -52,7 +53,8 @@ export function useJoinRequests(): { requests: GroupJoinRequest[]; pendingCount:
     queryFn: getIncomingGroupJoinRequests,
     enabled: canManage
   });
-  const requests = (query.data ?? []).filter((request) => request.conversation_id === conversation.id);
+  // 待审核的排最前，其余从新到旧
+  const requests = sortGroupJoinRequests((query.data ?? []).filter((request) => request.conversation_id === conversation.id));
   return { requests, pendingCount: requests.filter((request) => request.status === 'pending').length, loading: query.isLoading };
 }
 

@@ -204,6 +204,13 @@ export interface InviteLinkRead {
   created_at: string;
 }
 
+/**
+ * 点群邀请的「加入」会怎样（看邀请人此刻在群里的身份，KukeChat-Server/docs/chat-features.md 第 14 节）：
+ * join 直接进群；request 提交入群申请；answer 要先回答入群问题再提交申请；forbidden 仅邀请的群、普通成员的链接进不去。
+ * 老服务端不带这个字段，按 join 处理。
+ */
+export type InviteJoinAction = 'join' | 'request' | 'answer' | 'forbidden';
+
 export interface InviteResolveRead {
   token: string;
   target_type: InviteTargetType;
@@ -212,6 +219,14 @@ export interface InviteResolveRead {
   user?: User | null;
   already_joined?: boolean;
   already_friends?: boolean;
+  join_action?: InviteJoinAction | null;
+  inviter_id?: number | null;
+}
+
+export interface InviteAcceptPayload {
+  message?: string;
+  /** join_action 为 answer 时必填，不带返回 422 */
+  answer?: string;
 }
 
 export interface InviteAcceptRead {
@@ -219,7 +234,11 @@ export interface InviteAcceptRead {
   target_id: number;
   conversation_id?: number | null;
   friend_request_id?: number | null;
+  /** 群邀请提交成入群申请时（status 为 pending）的申请 id */
+  join_request_id?: number | null;
+  /** 群：joined 已在群里 / pending 已提交申请等审核；好友：pending 已发好友申请、self 是自己 */
   status: string;
+  joined_now?: boolean;
 }
 
 export interface UploadResponse {
@@ -1385,7 +1404,8 @@ export interface CreateGroupJoinRequestPayload {
 }
 
 export interface GroupJoinRequestDecisionPayload {
-  decision_note?: string;
+  /** 拒绝理由（最多 200 字，选填；空的传 null）。申请人在实时事件和自己的申请列表里看得到 */
+  decision_note?: string | null;
 }
 
 /** 「我的设备」临时文件（KukeChat-Server/docs/self-chat.md 5.2 的 SelfTransferRead） */

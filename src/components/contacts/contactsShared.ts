@@ -60,14 +60,8 @@ export function formatGroupRequestStatus(status: GroupJoinRequest['status']): st
   return '已拒绝';
 }
 
-function groupJoinRequestTime(request: GroupJoinRequest): number {
-  const parsed = parseApiDate(request.created_at || request.updated_at)?.getTime() ?? Number.NaN;
-  return Number.isFinite(parsed) ? parsed : request.id;
-}
-
-export function sortGroupJoinRequestsNewestFirst(requests: GroupJoinRequest[]): GroupJoinRequest[] {
-  return [...requests].sort((left, right) => groupJoinRequestTime(right) - groupJoinRequestTime(left) || right.id - left.id);
-}
+/** 入群申请的顺序：待审核的排最前，其余从新到旧（实现在 groups/groupJoin.ts，群资料页也用它） */
+export { sortGroupJoinRequests } from '@/components/groups/groupJoin';
 
 export function formatNotificationTime(value: string): string {
   // 服务端的时间不带时区、内容是 UTC：直接 new Date 会把刚到的通知算成「8 小时前」

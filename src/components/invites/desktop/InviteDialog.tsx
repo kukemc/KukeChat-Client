@@ -1,11 +1,11 @@
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
 import { Modal, ModalStatus } from '@/components/ui/desktop/Modal';
-import { useInvite, type InviteModalProps } from '../inviteData';
+import { INVITE_ANSWER_MAX, useInvite, type InviteModalProps } from '../inviteData';
 
 /** 桌面端的邀请确认框。 */
 export function InviteDialog(props: InviteModalProps): JSX.Element {
   const { onClose } = props;
-  const { isLoading, failed, title, group, user, acceptLabel, acceptDisabled, accept } = useInvite(props);
+  const { isLoading, failed, title, group, user, needsAnswer, joinQuestion, answer, setAnswer, hint, hintTone, errorText, submitted, acceptLabel, acceptDisabled, accept } = useInvite(props);
 
   return (
     <Modal
@@ -17,7 +17,7 @@ export function InviteDialog(props: InviteModalProps): JSX.Element {
       onClose={onClose}
       footer={(
         <>
-          <button type="button" className="kui-btn" onClick={onClose}>稍后再说</button>
+          <button type="button" className="kui-btn" onClick={onClose}>{submitted ? '关闭' : '稍后再说'}</button>
           <button type="button" className="kui-btn kui-btn--primary" disabled={acceptDisabled} onClick={accept}>{acceptLabel}</button>
         </>
       )}
@@ -34,6 +34,15 @@ export function InviteDialog(props: InviteModalProps): JSX.Element {
           <p>{group.description?.trim() || '这个群还没有简介。'}</p>
         </div>
       ) : null}
+      {needsAnswer ? (
+        <label className="kmd-field">
+          <span className="kmd-label">入群问题</span>
+          <p className="kmd-question">{joinQuestion}</p>
+          <textarea className="kui-textarea kui-scroll" value={answer} rows={3} maxLength={INVITE_ANSWER_MAX} placeholder="输入你的回答（必填），管理员审核时会看到" onChange={(event) => setAnswer(event.target.value)} />
+        </label>
+      ) : null}
+      {hint ? <p className={hintTone === 'warn' ? 'kui-note kui-note--warn' : 'kui-note'} role={hintTone === 'success' ? 'status' : undefined}>{hint}</p> : null}
+      {errorText ? <p className="kui-note kui-note--danger" role="alert">{errorText}</p> : null}
       {user ? (
         <div className="kmd-identity">
           <Avatar user={user} size="lg" />

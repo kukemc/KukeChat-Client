@@ -77,11 +77,12 @@ export function NotificationsPane({ data }: { data: ContactsData }): JSX.Element
             onRejectFriend={(id) => data.rejectMutation.mutate(id)}
             onIgnoreFriend={(id) => data.ignoreMutation.mutate(id)}
             onAcceptGroup={(id) => data.acceptGroupRequestMutation.mutate(id)}
-            onRejectGroup={(id) => data.rejectGroupRequestMutation.mutate(id)}
+            onRejectGroup={data.askRejectGroupRequest}
           />
         ))}
       </div>
       {showPenalties ? <PenaltyCenterModal onClose={() => setShowPenalties(false)} /> : null}
+      {data.rejectGroupRequestDialog}
     </Pane>
   );
 }

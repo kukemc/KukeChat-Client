@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createGroupInvite } from '@/api/invites';
 import { sendMessage, shareUserToConversation } from '@/api/messages';
+import { groupInviteCreateErrorMessage } from '@/components/groups/groupJoin';
 import { getDisplayName } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import type { MessageMetadata } from '@/types/api';
@@ -23,7 +24,7 @@ export function ShareActionsDialog(): JSX.Element {
       }
       notify('群聊链接已复制。');
       closeDialog();
-    }).catch((error: unknown) => notify(error instanceof Error ? error.message : '生成邀请链接失败', 'error'));
+    }).catch((error: unknown) => notify(groupInviteCreateErrorMessage(error), 'error'));
   }
 
   return (
@@ -91,7 +92,7 @@ export function ShareForwardDialog({ card }: { card: 'group' | 'user' }): JSX.El
       void queryClient.invalidateQueries({ queryKey: ['messages', targetConversationId] });
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
-    onError: (error) => notify(error instanceof Error ? error.message : '发送名片失败，请稍后重试。', 'error')
+    onError: (error) => notify(card === 'group' ? groupInviteCreateErrorMessage(error) : error instanceof Error ? error.message : '发送名片失败，请稍后重试。', 'error')
   });
 
   const keyword = query.trim().toLowerCase();
