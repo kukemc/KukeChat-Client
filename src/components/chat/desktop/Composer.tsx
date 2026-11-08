@@ -18,7 +18,7 @@ import { formatMuteEnd, useMuteStatus } from '@/store/moderationStore';
 import { useComposerPrefs } from '@/store/composerPrefs';
 import { matchBotCommandInput } from '@/utils/botCommands';
 import { PollComposerButton } from './polls/PollComposerButton';
-import { DslComposerButton } from '../gandiDsl/DslComposerButton';
+import { DslComposerPreview, composerDslCode, dslContentForSend } from '../gandiDsl/DslComposerPreview';
 import { FileComposerButton, useChatFileSender } from '@/components/groupPlus/files/FileComposerButton';
 import { GiftComposerButton } from '@/components/gifts/GiftEntry';
 import { SelfFileComposerButton, useSelfFileSender } from '@/components/selfChat/SelfFileButton';
@@ -85,6 +85,8 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
   const [text, setText] = useState('');
   // 参数提示看的是已经上屏的文字：组词期间编辑器里是带空格的拼音，按它数参数个数会让提示条来回跳
   const [committedText, setCommittedText] = useState('');
+  // 输入框里写着积木文本时上方出预览；点了 × 这段就按普通文字发，改了文字或发出去之后恢复
+  const [dslDismissed, setDslDismissed] = useState<string | null>(null);
   const [quote, setQuote] = useState<MessageQuoteMetadata | null>(null);
   // 选好、拖进来、粘贴进来的图：「放进输入框」模式下显示在输入框里，和文字一起发；
   // 「弹出确认框」模式下进「发送图片」确认框（ImageSendDialog），点发送才发。模式记在本机（store/composerPrefs）
@@ -406,16 +408,20 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
     if (mentionData.mentions.length > 0) metadata.mentions = mentionData.mentions;
     if (mentionData.mentionAll) metadata.mention_all = true;
     const nextMetadata = Object.keys(metadata).length > 0 ? metadata : undefined;
+    // 整条是积木文本（没点 ×、没带图、没 @ 人）→ 自动包成积木围栏发，见 DslComposerPreview.tsx
+    const plainDsl = dslDismissed === committedText || files.length > 0 || nextMetadata?.mentions || nextMetadata?.mention_all;
+    const sendableText = plainDsl ? raw.trimEnd() : dslContentForSend(raw.trimEnd());
     const type: MessageType = stagedVoice ? 'voice' : files.length === 1 && !content ? 'image' : 'text';
     const variables: SendMessageVariables = stagedVoice
       ? { content: '', type: 'voice', metadata: nextMetadata, voiceFile: stagedVoice.file, voiceDurationMs: stagedVoice.durationMs, voiceWaveform: stagedVoice.waveform }
-      : { content: content ? raw.trimEnd() : '', type, metadata: nextMetadata, files };
+      : { content: content ? sendableText : '', type, metadata: nextMetadata, files };
 
     editor.innerHTML = '';
     drafts.delete(conversationId);
     resetTyping(conversationId);
     setText('');
     setCommittedText('');
+    setDslDismissed(null);
     setQuote(null);
     setMention(null);
     setBotPanel(null);
@@ -575,6 +581,7 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
   }));
 
   const overLimit = text.length > MAX_MESSAGE_CONTENT_LENGTH;
+  const dslCode = stagedImages.length === 0 && !stagedVoice && dslDismissed !== committedText ? composerDslCode(committedText) : null;
   const sendDisabled = (!text.trim() && stagedImages.length === 0 && !stagedVoice) || voice.recording || overLimit || sending;
 
   return (
@@ -655,6 +662,10 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
         <BotCommandHint command={paramHint.command} paramIndex={paramHint.paramIndex} />
       ) : null}
 
+      {dslCode && !mention && !emojiOpen && !openBotPanel && !mute.muted ? (
+        <DslComposerPreview code={dslCode} onDismiss={() => setDslDismissed(committedText)} />
+      ) : null}
+
       {mute.muted && mute.until ? (
         <div className="kcd-composer-muted" role="status">
           <Icon name="lock" className="h-5 w-5" />
@@ -690,10 +701,6 @@ const ComposerInner = forwardRef<ComposerHandle, ComposerProps>(function Compose
           }
         }}><Icon name="atSign" className="h-[18px] w-[18px]" /></button> : null}
         {selfChat ? null : <PollComposerButton conversationId={conversationId} onCreated={onOwnMessageSent} />}
-        <DslComposerButton disabled={sending} onSend={(variables) => {
-          setError('');
-          onSend(variables);
-        }} />
         {canSendRedPacket ? <RedPacketComposerButton conversationId={conversationId} isGroup={isGroup} members={members} variant="desktop" onCreated={onOwnMessageSent} /> : null}
         {canSendRedPacket ? <GiftComposerButton conversationId={conversationId} isGroup={isGroup} members={members} directUser={directUser} variant="desktop" onCreated={onOwnMessageSent} onMembersNeeded={onMembersNeeded} /> : null}
         {botCommands.length > 0 ? <button type="button" className={cx('kcd-tool', openBotPanel && 'is-active')} title="机器人指令" aria-label="机器人指令" aria-expanded={Boolean(openBotPanel)} onMouseDown={(event) => {

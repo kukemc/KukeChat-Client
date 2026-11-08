@@ -4,8 +4,12 @@
 
 ## 用户看到的
 
-- **发**：输入框工具栏的「积木」按钮打开积木编辑器：左边写文本，下面实时预览（停手 300 ms 后重画），报错逐条列出。
-  发出去的是一个 ```` ```gandi-dsl ```` 围栏。消息上限 2000 字（含围栏），编辑器里有计数，超了不能发。
+- **发**：直接在输入框里写（或粘贴）一段积木文本，不用写围栏。输入框里的内容看着像积木时，上方浮出预览（停手 300 ms 后重画），
+  编得过显示积木、编不过逐条列出错误。发送时整条被编译器认作积木的，自动包成 ```` ```gandi-dsl ```` 围栏再发
+  （对方认不全的扩展也一定显示成积木）；点预览上的 × 就按普通文字发。带图片、@ 了人的消息不包，包上围栏超过 2000 字时原样发。
+  手写的 ```` ```gandi ```` 围栏照样认。
+- **说明**：积木卡片底部固定一行「这是 Gandi 3.0 的 DSL 积木语法，可以直接粘贴进 Gandi 编辑器，也能在编辑器里把积木复制为 DSL」
+  和「查看语法文档」（`DSL_DOCS_URL` = https://gandi.kuke.ink/docs/dsl-syntax，安卓 `DslText.DOCS_URL`），输入框预览右上角也有「语法文档」。
   也可以直接在输入框里手写围栏，或者直接贴一整段积木文本。
 - **看**：消息里的积木卡片。默认显示积木图，可切到「代码」；「复制代码」「下载 SVG」；很长的脚本卡片限高 320 px，点「展开全部」。
   编译出错时不画半截图，显示带行号的代码（出错行标红）和每条报错的行号、原因、改法。
@@ -117,7 +121,7 @@ src/gandiDsl/
 src/components/chat/gandiDsl/
   DslMessageText.tsx      renderMessageText：替代 renderMentionedText 用在消息正文上
   DslBlockCard.tsx        积木卡片
-  DslComposerButton.tsx   输入框的「积木」按钮和编辑器
+  DslComposerPreview.tsx  输入框上方的积木预览、发送前自动包围栏
 src/dslRender/main.ts     安卓渲染页入口
 vendor/gandi-blocks/      gandi-blocks 静态文件（Apache-2.0）
 vite.gandiBlocks.ts       开发服务器提供 /gandi-blocks/、构建时拷进产物、注入地址和指纹常量

@@ -7,7 +7,7 @@
  *
  * 设计与部署见 docs/gandi-dsl-blocks.md。
  */
-export { DSL_FENCE_LANG, DSL_FENCE_LANGS, DSL_MAX_LENGTH, dslPreviewText, looksLikeDsl, mayContainDsl, splitDslFences, wrapDslFence } from './detect';
+export { DSL_DOCS_URL, DSL_FENCE_LANG, DSL_FENCE_LANGS, DSL_MAX_LENGTH, dslPreviewText, looksLikeDsl, mayContainDsl, splitDslFences, wrapDslFence } from './detect';
 export type { DslSegment } from './detect';
 export { blocklyMaybeAvailable, setGandiBlocksRemoteBase, setHostBlocklyProvider, setHostRuntimeProvider } from './blockly';
 

@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type DragEvent } from 'react';
+import { DSL_DOCS_URL } from '@/gandiDsl';
 import type { DslDiagnostic, DslRenderResult } from '@/gandiDsl/pipeline';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from '@/components/ui/toast';
@@ -143,6 +144,16 @@ function CardBody({ state, code, view, expanded, onOverflow }: { state: DslRende
  * 消息里的一块积木：默认显示积木图，可切到代码；复制代码、下载 SVG、（在 Gandi 编辑器里）放进编辑器。
  * 编译出错时显示代码和报错（第几行、原因、改法），不画半截的图。
  */
+/** 卡片底部的说明：这是什么、怎么用、去哪看文档。 */
+export function DslAbout(): JSX.Element {
+  return (
+    <p className="kdsl-about">
+      这是 Gandi 3.0 的 DSL 积木语法，可以直接粘贴进 Gandi 编辑器，也能在编辑器里把积木复制为 DSL。
+      <a href={DSL_DOCS_URL} target="_blank" rel="noreferrer" onClick={stop}>查看语法文档</a>
+    </p>
+  );
+}
+
 export function DslBlockCard({ code }: { code: string }): JSX.Element {
   const state = useDslRender(code);
   const [view, setView] = useState<'blocks' | 'code'>('blocks');
@@ -190,6 +201,7 @@ export function DslBlockCard({ code }: { code: string }): JSX.Element {
         </button>
       ) : null}
       {view === 'blocks' ? notes.map((text) => <p key={text} className="kdsl-foot">{text}</p>) : null}
+      <DslAbout />
     </div>
   );
 }

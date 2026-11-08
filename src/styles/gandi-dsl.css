@@ -88,8 +88,7 @@
   cursor: grabbing;
 }
 
-.kdsl-placeholder,
-.kdsl-preview-empty {
+.kdsl-placeholder {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -183,6 +182,26 @@
   padding: 0 10px 8px;
 }
 
+.kdsl-about {
+  margin: 0;
+  padding: 6px 10px 8px;
+  border-top: 1px solid color-mix(in srgb, var(--kc-text) 8%, transparent);
+  color: var(--kc-subtle, var(--kc-muted));
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.kdsl-about a,
+.kdsl-composer-preview-doc {
+  color: var(--kc-accent);
+  white-space: nowrap;
+}
+
+.kdsl-about a:hover,
+.kdsl-composer-preview-doc:hover {
+  text-decoration: underline;
+}
+
 .kdsl-expand {
   display: flex;
   width: 100%;
@@ -207,51 +226,49 @@
   white-space: pre-wrap;
 }
 
-/* ───── 输入框的积木编辑器 ───── */
+/* ───── 输入框上方的积木预览（输入框里写着积木文本时出现）───── */
 
-.kcp-dialog:has(.kdsl-editor) {
-  max-width: 640px;
+.kdsl-composer-preview {
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: flex;
+  max-height: min(320px, 45vh);
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.kdsl-textarea.kui-input {
-  display: block;
-  width: 100%;
-  height: auto;
-  min-height: 180px;
-  max-height: 40vh;
-  padding: 10px 12px;
-  resize: vertical;
-  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', 'PingFang SC', monospace;
-  font-size: 12.5px;
-  line-height: 1.6;
-  tab-size: 2;
-  white-space: pre;
+.kdsl-composer-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 12px;
+  color: var(--kc-muted);
+  font-size: 12px;
 }
 
-.kdsl-preview {
-  min-height: 72px;
-  max-height: 36vh;
+.kdsl-composer-preview-head > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.kdsl-composer-preview-doc {
+  flex: none;
+  font-size: 12px;
+}
+
+.kdsl-composer-preview.is-error .kdsl-composer-preview-head {
+  color: var(--kui-danger);
+}
+
+.kdsl-composer-preview-body {
+  min-height: 0;
   overflow: auto;
-  padding: 10px;
-  border: 1px solid var(--kc-border);
-  border-radius: var(--kui-r-sm);
-  background: var(--kc-panel-muted);
+  padding: 0 12px 10px;
 }
 
-.kdsl-preview .kdsl-diags {
+.kdsl-composer-preview-body .kdsl-diags {
   margin: 0;
   padding: 0;
   border: 0;
-}
-
-.kdsl-count {
-  margin-right: auto;
-  color: var(--kc-subtle, var(--kc-muted));
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.kdsl-count.is-over {
-  color: var(--kui-danger);
-  font-weight: 600;
 }

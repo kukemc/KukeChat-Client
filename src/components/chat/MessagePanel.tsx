@@ -76,10 +76,13 @@ import { reportFeaturedLimit } from './message/featuredLimit';
 import { ForwardTargetModal } from './message/ForwardTargetModal';
 import { FeaturedMessagesModal } from './message/FeaturedMessagesModal';
 import { renderMessageText } from './gandiDsl/DslMessageText';
+import { DslComposerPreview, composerDslCode, dslContentForSend } from './gandiDsl/DslComposerPreview';
 
 export function MessagePanel({ conversations, currentUser, currentRole = 'member', members = [], friends = [], membersLoading = false, membersHasMore = false, membersLoadingMore = false, isMobile = false, mobileBackUnreadCount = 0, onMembersNeeded, onLoadMoreMembers, onMemberSearchChange, onOpenPost, onBack }: MessagePanelProps): JSX.Element {
   const skinSettings = useSkinSettings();
   const [draft, setDraft] = useState('');
+  // 输入框里写着积木文本时上方出预览；点了 × 这段按普通文字发（见 gandiDsl/DslComposerPreview.tsx）
+  const [dslDismissed, setDslDismissed] = useState<string | null>(null);
   const [stagedImages, setStagedImages] = useState<StagedImage[]>([]);
   const [stagedVoice, setStagedVoice] = useState<StagedVoice | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
@@ -1277,8 +1280,9 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     const type: MessageType = stagedVoice ? 'voice' : files.length === 1 && !content ? 'image' : 'text';
     const variables: SendMessageVariables = stagedVoice
       ? { content: '', type: 'voice', metadata: hasMetadata ? metadata : undefined, voiceFile: stagedVoice.file, voiceDurationMs: stagedVoice.durationMs, voiceWaveform: stagedVoice.waveform }
-      : { content: text.trim() ? text.trimEnd() : '', type, metadata: hasMetadata ? metadata : undefined, files };
+      : { content: text.trim() ? (dslDismissed === draft || files.length > 0 || metadata.mentions || metadata.mention_all ? text.trimEnd() : dslContentForSend(text.trimEnd())) : '', type, metadata: hasMetadata ? metadata : undefined, files };
     clearComposer();
+    setDslDismissed(null);
     clearStagedImages();
     clearStagedVoice();
     setActionError('');
@@ -3042,6 +3046,8 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
     );
   }
 
+  const composerDsl = !multiSelectMode && !mentionPicker && stagedImages.length === 0 && !stagedVoice && dslDismissed !== draft ? composerDslCode(draft) : null;
+
   return (
     <section ref={overlayRootRef} className={`relative grid h-full min-h-0 grid-cols-1 overflow-hidden [background:var(--kc-chat)] [color:var(--kc-text)] ${isMobile ? 'kc-mobile-panel' : 'kc-pc-chat-panel md:grid-cols-[minmax(0,1fr)_180px]'}`}>
       <RedPacketHost conversationId={conversation.id} isGroup={isGroup} currentUser={currentUser} />
@@ -3425,6 +3431,7 @@ export function MessagePanel({ conversations, currentUser, currentRole = 'member
         </div>
 
         <form onSubmit={submit} onPaste={handlePaste} className={`relative border-t [background:var(--kc-chat)] [border-color:var(--kc-border)] ${isMobile ? 'kc-mobile-composer border-t-0' : 'kc-pc-composer px-5 py-3'}`}>
+          {composerDsl ? <DslComposerPreview code={composerDsl} onDismiss={() => setDslDismissed(draft)} /> : null}
           {multiSelectMode ? (
             <div className={`absolute left-5 right-5 flex items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 shadow-float [background:var(--kc-panel)] [border-color:var(--kc-border)] ${isMobile ? '-top-16 z-30' : '-top-14'}`}>
               <span className="text-sm font-semibold">已选择 {selectedMessages.length} 条消息</span>

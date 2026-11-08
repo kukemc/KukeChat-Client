@@ -19,6 +19,9 @@ export const DSL_FENCE_LANG = 'gandi-dsl';
 /** 服务端的消息长度上限（和 MAX_MESSAGE_CONTENT_LENGTH 一致）。超过它的文本不可能是一条消息，也不去识别。 */
 export const DSL_MAX_LENGTH = 2000;
 
+/** Gandi 3.0 DSL 语法文档（积木卡片底部、输入框预览里的「语法文档」）。 */
+export const DSL_DOCS_URL = 'https://gandi.kuke.ink/docs/dsl-syntax';
+
 export type DslSegment =
   | { kind: 'text'; text: string }
   | { kind: 'dsl'; code: string; lang: string };
