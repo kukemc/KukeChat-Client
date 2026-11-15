@@ -129,7 +129,10 @@ X-Kuke-Bot-Key: <机器人Key>
 | `POST` | `/bot-api/conversations/{conversation_id}/messages/{message_id}/reactions` | 添加或取消表情回应 |
 | `DELETE` | `/bot-api/conversations/{conversation_id}/messages/{message_id}/reactions/{emoji}` | 删除指定表情回应 |
 | `POST` | `/bot-api/uploads/image` | 上传消息图片 |
-| `POST` | `/bot-api/uploads/voice` | 上传语音 |
+| `POST` | `/bot-api/uploads/voice` | 上传语音（最大 2MB） |
+| `POST` | `/bot-api/conversations/{conversation_id}/files` | 发群文件（需群升级 Pro 及以上） |
+| `POST` | `/bot-api/conversations/{conversation_id}/files/uploads` | 大文件直传：开单拿预签名地址 |
+| `POST` | `/bot-api/conversations/{conversation_id}/files/uploads/{upload_id}/complete` | 大文件直传：传完确认并发出 |
 | `PATCH` | `/bot-api/conversations/{conversation_id}/members/{user_id}/mute` | 禁言或解除禁言（需管理员） |
 | `DELETE` | `/bot-api/conversations/{conversation_id}/members/{user_id}` | 把成员移出群聊（需管理员） |
 | `GET` | `/bot-api/conversations/{conversation_id}/join-requests` | 查看入群申请（需管理员） |
@@ -366,6 +369,71 @@ Content-Type: multipart/form-data
 
 file=<音频文件>
 ```
+
+语音只接受 webm / ogg / mp3 / m4a / aac / wav，**最大 2MB**，超过返回 `413 Voice size must not exceed 2MB`。完整的歌曲、长音频请用下面的群文件发。
+
+## 群文件
+
+机器人发群文件和成员在群里传文件是同一套规则：
+
+- 只能发到群（私聊没有群文件），群要升级到 Pro 及以上；群升级到期后的宽限期内只能看不能传，返回 `403`，`detail.code` 为 `files_locked`。
+- 机器人在群里被禁言、或群开了全员禁言（机器人不是管理员时）：`403`，`code` 为 `muted`。
+- 大小、空间、保留时长按群的档位算：剩余空间放得下就是空间文件，放不下但没超过临时文件上限就存成 24 小时临时文件，都放不下返回 `413`，`code` 为 `file_too_large`。
+- `permanent=true`（永久保存）只有机器人是群主 / 管理员时才生效。
+- `announce=true`（默认）会在群里落一条文件消息，成员点开就能下载 / 播放；`false` 只放进群文件列表。
+- 文件消息只能通过这几个接口产生，在发消息接口里自己拼 `metadata.file` 会被拒绝。
+
+### 普通上传（适合几十 MB 以内）
+
+```http
+POST /bot-api/conversations/{conversation_id}/files
+Content-Type: multipart/form-data
+
+file=<任意文件>
+announce=true        # 可选，默认 true
+permanent=false      # 可选
+folder_id=12         # 可选，放进某个文件夹（群档位支持文件夹时）
+```
+
+响应 `201`：
+
+```json
+{
+  "file": {
+    "id": 31,
+    "name": "song.mp3",
+    "size": 5242880,
+    "content_type": "audio/mpeg",
+    "temporary": false,
+    "permanent": false,
+    "expires_at": "2026-11-05T08:00:00Z",
+    "download_path": "/api/v1/conversations/7/files/31/download"
+  },
+  "message": { "id": 1024, "type": "text", "content": "[文件] song.mp3（5.0 MB）", "metadata": { "file": { "id": 31 } } }
+}
+```
+
+### 直传（大文件）
+
+先开单，拿到预签名地址后把文件直接 `PUT` 到对象存储，传完再确认：
+
+```http
+POST /bot-api/conversations/{conversation_id}/files/uploads
+Content-Type: application/json
+
+{ "name": "big.zip", "size": 104857600, "content_type": "application/zip", "permanent": false, "folder_id": null }
+```
+
+响应里有 `upload_id`、`url`、`method`（`PUT`）、`headers`、`expires_at`。按 `headers` 把文件原样 `PUT` 到 `url`（15 分钟内有效），然后：
+
+```http
+POST /bot-api/conversations/{conversation_id}/files/uploads/{upload_id}/complete
+Content-Type: application/json
+
+{ "announce": true }
+```
+
+响应和普通上传一样。服务器没开直传时开单返回 `409`，`code` 为 `direct_upload_unavailable`，改用普通上传即可；还没传完就 complete 返回 `409 upload_incomplete`；传上去的大小和开单时不一致返回 `422 upload_size_mismatch`。
 
 ## 群管理
 
