@@ -8,6 +8,8 @@ import { syncStickyTop } from '../core/sticky.js';
 import { dayStart, fullTime, relTime } from '../core/time.js';
 import { GROUPS, GROUP_LABEL, SYSTEM_TITLE, buildRows, interactionVerb, replyTail, replyVerb, sender, shareTarget, subjectTitle, thumbOf } from './model.js';
 import { allDone, anyError, anyLoading, loadStream, markAllRead, nextStreamToLoad, observeRow, state, stream, viewGroups, visibleItems } from './state.js';
+import { KC_ICON } from '../core/icons.js';
+import { unreadTotal } from '../kukechat/unread.js';
 
 /* ------------------------------------------------------------------ */
 /* 视图                                                                */
@@ -199,21 +201,22 @@ export function renderNav() {
       if (g.preview && (!latest || Date.parse(g.preview.createdAt) > Date.parse(latest.createdAt))) latest = g.preview;
     });
   }
-  const items = ['ALL'].concat(GROUPS).map((g) => {
-    const n = g === 'ALL' ? total : (info[g] && info[g].unreadCount) || 0;
-    const pv = g === 'ALL' ? latest : info[g] && info[g].preview;
-    const meta = GROUP_META[g];
+  const items = ['ALL', 'CHAT', 'FRIENDS'].concat(GROUPS).map((g) => {
+    const kc = g === 'CHAT' || g === 'FRIENDS';
+    const n = g === 'ALL' ? total : g === 'CHAT' ? unreadTotal() : (info[g] && info[g].unreadCount) || 0;
+    const pv = g === 'ALL' ? latest : kc ? null : info[g] && info[g].preview;
+    const meta = GROUP_META[g] || { tone: 'green' };
     return h('a', {
       class: 'ccwn-nav-item tone-' + meta.tone + (state.view === g ? ' is-active' : ''),
-      href: g === 'ALL' ? '/notice' : '/notice/category/' + g,
+      href: g === 'ALL' ? '/notice' : g === 'CHAT' ? '/notice/chat' : g === 'FRIENDS' ? '/notice/friends' : '/notice/category/' + g,
       onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); go(g, 'ALL'); },
     },
-    h('span', { class: 'ccwn-tile' }, pixImg(g, 30)),
+    h('span', { class: 'ccwn-tile' }, kc ? h('img', { class: 'ccwk-tile', src: KC_ICON, alt: '' }) : pixImg(g, 30)),
     h('span', { class: 'ccwn-nav-text' },
       h('span', { class: 'ccwn-nav-top' },
         h('span', { class: 'ccwn-nav-label', text: GROUP_LABEL[g] }),
         n ? h('span', { class: 'ccwn-count', text: n > 99 ? '99+' : String(n) }) : pv ? h('span', { class: 'ccwn-nav-time', text: relTime(pv.createdAt) }) : null),
-      h('span', { class: 'ccwn-nav-preview', text: pv ? plain(pv.text || '').replace(/\s+/g, ' ') : state.summary ? '暂无消息' : '' })));
+      h('span', { class: 'ccwn-nav-preview', text: kc ? (g === 'CHAT' ? 'KukeChat 私聊和群聊' : '联系人、好友申请') : pv ? plain(pv.text || '').replace(/\s+/g, ' ') : state.summary ? '暂无消息' : '' })));
   });
   navEl.replaceChildren(h('div', { class: 'ccwn-nav-card' }, items));
 }
@@ -555,7 +558,8 @@ export function syncHeaderBadge() {
   if (!state.summary) return;
   const n = state.summary.totalUnread || 0;
   document.querySelectorAll('header a[href*="/notice"]').forEach((a) => {
-    const badge = Array.from(a.querySelectorAll('*')).find((x) => !x.children.length && /^\d+\+?$/.test(x.textContent.trim()));
+    // 跳过我们自己的合计红点（kukechat/badge.js）
+    const badge = Array.from(a.querySelectorAll('*')).find((x) => !x.children.length && !x.classList.contains('ccwk-env-badge') && /^\d+\+?$/.test(x.textContent.trim()));
     if (!badge) return;
     if (n) { badge.textContent = n > 99 ? '99+' : String(n); badge.style.display = ''; }
     else badge.style.display = 'none';

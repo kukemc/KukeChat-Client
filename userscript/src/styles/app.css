@@ -342,6 +342,167 @@ html.ccwf-on body { background: linear-gradient(180deg, #181a2b 0%, #12131f 45%,
   .ccwf-cover, .ccwf-cover.is-wide { width: 100%; height: auto; aspect-ratio: 4 / 3; }
   .ccwf-wall, .ccwf-people { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---------- 消息中心里的私信 / 好友：中栏和右栏交给停靠进来的 KukeChat ---------- */
+html.ccwk-chat .ccwn-main, html.ccwk-chat .ccwn-side { display: none !important; }
+.ccwk-slot { grid-column: 2 / span 2; position: sticky; top: calc(var(--top) + 24px); height: calc(100vh - var(--top) - 48px); min-height: 520px; border-radius: 14px; background: rgba(28,28,42,.82); border: 1px solid rgba(255,255,255,.065); display: grid; place-items: center; }
+.ccwk-loading { color: var(--muted); font-size: 13px; }
+.ccwk-loading.is-error { color: #ff7b72; }
+.ccwk-slot.is-ready .ccwk-loading { display: none; }
+.ccwk-tile { width: 28px; height: 28px; border-radius: 8px; display: block; }
+@media (max-width: 1280px) { .ccwk-slot { grid-column: 2 / span 1; } }
+
+/* ---------- 顶栏信封：CCW 未读 + 私信未读 ---------- */
+html.ccwk-badge #root header [class*="totalNotice-"] { display: none !important; }
+.ccwk-env-badge { position: absolute; top: -4px; right: -6px; z-index: 2; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ff4d4f; color: #fff; font: 600 11px/18px "PingFang SC", "Microsoft YaHei", sans-serif; text-align: center; pointer-events: none; }
+
+/* ---------- 全站新消息提醒 ---------- */
+.ccwk-toasts { position: fixed; right: 24px; bottom: 24px; z-index: 2147483000; display: flex; flex-direction: column; gap: 10px; width: 340px; font: 14px/1.5 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.ccwk-toast { padding: 12px 14px; border-radius: 14px; background: #262636; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 20px 50px rgba(0,0,0,.55); color: #ececf2; animation: ccwk-in .2s ease; transition: opacity .2s, transform .2s; }
+.ccwk-toast.is-out { opacity: 0; transform: translateY(8px); }
+@keyframes ccwk-in { from { opacity: 0; transform: translateY(8px); } }
+.ccwk-toast-head { display: flex; gap: 10px; align-items: flex-start; }
+.ccwk-toast-av { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex: none; }
+.ccwk-toast-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ccwk-toast-text b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-toast-text span { font-size: 13px; color: #b6b6c4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ccwk-toast-x { flex: none; width: 22px; height: 22px; border: 0; border-radius: 6px; background: none; color: #80808f; font-size: 16px; line-height: 20px; cursor: pointer; }
+.ccwk-toast-x:hover { background: rgba(255,255,255,.08); color: #ececf2; }
+.ccwk-toast-reply { display: flex; gap: 8px; margin-top: 10px; }
+.ccwk-toast-input { flex: 1; min-width: 0; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: #ececf2; font: inherit; font-size: 13px; outline: none; }
+.ccwk-toast-input:focus { border-color: rgba(61,220,132,.5); }
+.ccwk-toast.is-sent .ccwk-toast-input { color: #3ddc84; }
+.ccwk-toast-open { flex: none; height: 32px; padding: 0 14px; border-radius: 16px; background: rgba(255,255,255,.08); color: #ececf2 !important; font-size: 13px; line-height: 32px; text-decoration: none; }
+.ccwk-toast-open:hover { background: rgba(255,255,255,.14); }
+
+/* ---------- KukeChat 名片 / 作品群卡片（插在 CCW 原有的右栏卡片里，沿用它的外框类名） ---------- */
+.ccwk-card { height: auto !important; margin-bottom: 24px; padding: 18px 20px !important; display: flex; flex-direction: column; gap: 12px; font: 14px/1.5 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: #ececf2; text-align: left; }
+.ccwk-card a { color: inherit; text-decoration: none; }
+.ccwk-card-head { display: flex; align-items: center; justify-content: space-between; }
+.ccwk-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.ccwk-brand img { width: 20px; height: 20px; border-radius: 6px; }
+.ccwk-state { font-size: 12px; color: #80808f; display: inline-flex; align-items: center; gap: 6px; }
+.ccwk-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #5c5c6b; }
+.ccwk-state.is-online { color: #3ddc84; }
+.ccwk-state.is-online::before { background: #3ddc84; }
+.ccwk-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ccwk-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: none; background: rgba(255,255,255,.06); }
+.ccwk-avatar.is-square { border-radius: 12px; }
+.ccwk-who-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ccwk-name { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; min-width: 0; }
+.ccwk-name > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-lv, .ccwk-clv { flex: none; padding: 0 6px; height: 18px; border-radius: 5px; background: rgba(61,220,132,.14); color: #5fe39b; font: 600 11px/18px "PingFang SC", "Microsoft YaHei", sans-serif; }
+.ccwk-clv { display: inline-block; margin-left: 6px; vertical-align: middle; }
+.ccwk-muted { color: #80808f; font-size: 12px; }
+.ccwk-activity { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: rgba(61,220,132,.08); color: #a9efc6 !important; font-size: 13px; }
+.ccwk-activity:hover { background: rgba(61,220,132,.13); }
+.ccwk-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #3ddc84; }
+.ccwk-facts { font-size: 13px; color: #b6b6c4; }
+.ccwk-gifts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ccwk-gift { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.05); font-size: 12px; color: #b6b6c4; }
+.ccwk-gift i { font-style: normal; font-size: 14px; }
+.ccwk-sub-title { font-size: 12px; color: #80808f; margin-bottom: 6px; }
+.ccwk-posts { border-top: 1px solid rgba(255,255,255,.06); padding-top: 10px; }
+.ccwk-post { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: 13px; }
+.ccwk-post-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d4d4de; }
+.ccwk-post .ccwk-muted { flex: none; }
+.ccwk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ccwk-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 16px; border-radius: 18px; border: 0; background: rgba(255,255,255,.08); color: #ececf2 !important; font: 500 14px/1 "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; white-space: nowrap; text-decoration: none !important; }
+.ccwk-btn:hover { background: rgba(255,255,255,.13); }
+.ccwk-btn.is-primary { background: #3ddc84; color: #10241a !important; }
+.ccwk-btn.is-primary:hover { background: #52e293; }
+.ccwk-btn:disabled { opacity: .55; cursor: default; }
+.ccwk-btn.is-sm { flex: none; height: 30px; padding: 0 14px; font-size: 13px; border-radius: 15px; }
+.ccwk-pill { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; padding: 0 16px; min-height: 32px; border-radius: 999px; border: 0; background: #fff; color: #14141f !important; font: 500 14px/1 "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; text-decoration: none !important; vertical-align: middle; }
+.ccwk-pill img { width: 18px; height: 18px; border-radius: 5px; }
+.ccwk-pill:disabled { opacity: .7; cursor: default; }
+.ccwk-playing { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #b6b6c4; }
+.ccwk-playing b { color: #ececf2; font-weight: 600; }
+.ccwk-faces { display: inline-flex; flex: none; }
+.ccwk-faces img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 2px solid #23232f; margin-left: -8px; background: #2a2a38; }
+.ccwk-faces img:first-child { margin-left: 0; }
+.ccwk-invite { border-top: 1px solid rgba(255,255,255,.06); padding-top: 10px; }
+.ccwk-invite-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
+.ccwk-invite-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.ccwk-invite-row img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.ccwk-invite-row span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- 评论区 ---------- */
+.ccwk-cdot { position: absolute; right: 0; bottom: 0; width: 10px; height: 10px; border-radius: 50%; background: #3ddc84; box-shadow: 0 0 0 2px #1b1b28; }
+.ccwk-cdm { margin-right: 16px; color: inherit; text-decoration: none; }
+
+/* ---------- 互关邀请横幅 ---------- */
+.ccwk-banner { display: flex; align-items: center; gap: 14px; margin: 0 0 16px; padding: 12px 16px; border-radius: 14px; background: linear-gradient(90deg, rgba(61,220,132,.10), rgba(61,220,132,.03)); border: 1px solid rgba(61,220,132,.18); }
+.ccwk-banner .ccwk-faces img { border-color: #1e2a28; }
+.ccwk-banner-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ccwk-banner-text b { font-size: 14px; font-weight: 600; color: #ececf2; }
+.ccwk-banner-text span { font-size: 12px; color: #9a9aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-banner-x { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: #80808f; font-size: 16px; cursor: pointer; }
+.ccwk-banner-x:hover { background: rgba(255,255,255,.08); color: #ececf2; }
+
+/* ---------- 动态页：KukeChat 动态、输入框、好友在玩 ---------- */
+.ccwk-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(61,220,132,.12) !important; color: #5fe39b !important; }
+.ccwk-chip img { width: 14px; height: 14px; border-radius: 4px; }
+.ccwk-feed-body { display: flex; flex-direction: column; gap: 10px; padding-left: 52px; }
+.ccwk-feed-text { white-space: pre-wrap; word-break: break-word; font-size: 15px; line-height: 1.65; color: #e4e4ec; display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
+.ccwk-feed-imgs { display: grid; gap: 6px; max-width: 420px; }
+.ccwk-feed-imgs.n1 { grid-template-columns: 1fr; max-width: 320px; }
+.ccwk-feed-imgs.n2, .ccwk-feed-imgs.n4 { grid-template-columns: 1fr 1fr; }
+.ccwk-feed-imgs.n3 { grid-template-columns: 1fr 1fr 1fr; }
+.ccwk-feed-imgs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; display: block; }
+.ccwk-feed-imgs.n1 img { aspect-ratio: auto; max-height: 360px; }
+.ccwk-feed-repost { padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.04); font-size: 13px; color: #b6b6c4; }
+.ccwk-feed-repost b { color: #d4d4de; font-weight: 600; }
+.ccwk-compose { display: flex; gap: 12px; align-items: flex-start; }
+.ccwk-compose-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ccwk-compose-input { width: 100%; box-sizing: border-box; resize: vertical; min-height: 44px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.04); color: #ececf2; font: 14px/1.6 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; outline: none; }
+.ccwk-compose-input:focus { border-color: rgba(61,220,132,.45); }
+.ccwk-compose-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ccwk-compose-tools { display: inline-flex; align-items: center; gap: 8px; }
+.ccwk-compose-vis { height: 30px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); background: #23232f; color: #d4d4de; font-size: 13px; }
+.ccwk-side-icon { width: 18px; height: 18px; border-radius: 5px; }
+.ccwk-pf-list { display: flex; flex-direction: column; gap: 4px; }
+.ccwk-pf-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px; border-radius: 10px; color: inherit; text-decoration: none; }
+a.ccwk-pf-row:hover { background: rgba(255,255,255,.05); }
+.ccwk-pf-av { position: relative; flex: none; }
+.ccwk-pf-av img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: block; }
+.ccwk-pf-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ccwk-pf-text b { font-size: 13px; font-weight: 600; color: #ececf2; }
+.ccwk-pf-text span { font-size: 12px; color: #80808f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-pf-cover { flex: none; width: 48px; height: 36px; border-radius: 6px; object-fit: cover; }
+
+/* ---------- 作品页「聊天」标签 ---------- */
+.ccwk-wc { display: none; }
+.ccwk-wc-on > :not(.ccwk-wc) { display: none !important; }
+.ccwk-wc-on > .ccwk-wc { display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 20px 16px; font: 14px/1.5 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: #ececf2; }
+.ccwk-wc-head { flex: none; display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.ccwk-wc-gav { width: 40px; height: 40px; border-radius: 12px; object-fit: cover; flex: none; background: rgba(255,255,255,.06); }
+.ccwk-wc-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ccwk-wc-title b { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-wc-title span { font-size: 12px; color: #80808f; }
+.ccwk-wc-open { flex: none; height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(255,255,255,.08); color: #ececf2 !important; font-size: 12px; line-height: 28px; text-decoration: none !important; }
+.ccwk-wc-open:hover { background: rgba(255,255,255,.14); }
+.ccwk-wc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 4px 12px 0; display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
+.ccwk-wc-empty { margin: auto; color: #80808f; font-size: 13px; }
+.ccwk-wc-sys { align-self: center; margin: 8px 0; padding: 2px 10px; border-radius: 10px; background: rgba(255,255,255,.05); color: #80808f; font-size: 12px; }
+.ccwk-wc-msg { display: flex; gap: 10px; margin-top: 10px; }
+.ccwk-wc-msg.is-grouped { margin-top: 2px; }
+.ccwk-wc-av { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: none; display: block; }
+.ccwk-wc-av.is-blank { visibility: hidden; }
+.ccwk-wc-main { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.ccwk-wc-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.ccwk-wc-meta b { font-weight: 600; color: #c9c9d6; }
+.ccwk-wc-meta .ccwk-clv { margin-left: 0; }
+.ccwk-wc-meta time { color: #6c6c7c; }
+.ccwk-wc-bubble { max-width: 100%; padding: 7px 12px; border-radius: 4px 14px 14px 14px; background: rgba(255,255,255,.07); color: #ececf2; font-size: 14px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.ccwk-wc-msg.is-mine .ccwk-wc-bubble { background: rgba(61,220,132,.16); color: #e6fbee; }
+.ccwk-wc-img img { display: block; max-width: 220px; max-height: 220px; border-radius: 10px; object-fit: cover; }
+.ccwk-wc-foot { flex: none; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.07); }
+.ccwk-wc-gate { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: #9a9aaa; }
+.ccwk-wc-compose { display: flex; align-items: flex-end; gap: 8px; }
+.ccwk-wc-input { flex: 1; min-width: 0; box-sizing: border-box; resize: none; max-height: 120px; padding: 7px 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: #ececf2; font: 14px/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; outline: none; }
+.ccwk-wc-input:focus { border-color: rgba(61,220,132,.5); }
+
 @media (max-width: 1280px) {
   .ccwn-layout { grid-template-columns: 272px minmax(0, 1fr); max-width: 1180px; }
   .ccwn-side { display: none; }

@@ -1,7 +1,7 @@
-// 油猴脚本：userscript/src → dist-userscript/kukechat-ccw.user.js
+// 油猴脚本：userscript/src → dist-userscript/kukechat-ccw.user.js，外加只有头部的 kukechat-ccw.meta.js（油猴检查更新用）
 // 库模式打成单个 IIFE，油猴头部作为 banner 放在最前面。不依赖 vite.env.ts：脚本只连 CCW 和公开的 KukeChat 地址。
 import { defineConfig } from 'vite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync(new URL('./userscript/package.json', import.meta.url), 'utf8')) as { version: string };
 
@@ -23,6 +23,14 @@ const header = [
 
 export default defineConfig({
   publicDir: false,
+  plugins: [
+    {
+      name: 'userscript-meta',
+      closeBundle() {
+        writeFileSync(new URL('./dist-userscript/kukechat-ccw.meta.js', import.meta.url), header);
+      }
+    }
+  ],
   // 请求 KukeChat 时的客户端标识 kukechat-ccw/<版本>（KukeChat-Server app/core/request_guard.py）
   define: { __USERSCRIPT_VERSION__: JSON.stringify(pkg.version) },
   build: {

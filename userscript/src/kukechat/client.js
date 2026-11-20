@@ -80,6 +80,18 @@ export function ensureSession() {
   return sessionPromise;
 }
 
+/** 实时连接要用（WebSocket 只认令牌）。没登录时为 null。 */
+export function currentToken() {
+  return token;
+}
+
+export const KUKECHAT_BASE = BASE;
+
+/** KukeChat 接口的时间是不带时区的 UTC（同客户端 src/utils/dateTime.ts parseApiDate）：补上 Z 再交给 Date */
+export function kcIso(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value) ? value + 'Z' : value;
+}
+
 export function currentKukeUser() {
   return me;
 }
@@ -102,4 +114,10 @@ export async function kcRequest(method, path, body, opts) {
 export function kcRequestOnUnload(method, path) {
   if (!token) return;
   rawRequest(method, path, undefined, { token, keepalive: true }).catch(() => {});
+}
+
+/** 不要求登录的公开接口（如作品页「聊天」）；登录了就带上令牌，服务端可以顺便返回和我有关的信息。 */
+export async function kcPublic(method, path) {
+  await ensureSession().catch(() => null);
+  return rawRequest(method, path, undefined, { token: token || undefined });
 }

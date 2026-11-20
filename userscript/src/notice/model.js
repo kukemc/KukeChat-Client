@@ -3,6 +3,8 @@ import { sectionOf } from '../core/time.js';
 export const GROUPS = ['REPLY', 'CONTENT_INTERACTION', 'SYSTEM', 'COMMUNITY', 'FRIEND_SHARE'];
 export const GROUP_LABEL = {
   ALL: '全部消息',
+  CHAT: '私信',
+  FRIENDS: '好友',
   REPLY: '回复我的',
   CONTENT_INTERACTION: '内容互动',
   SYSTEM: '系统通知',

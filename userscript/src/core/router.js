@@ -3,14 +3,19 @@ import { watchHeader } from './sticky.js';
 import { injectStyle } from './style.js';
 import { activateFeed, deactivateFeed, isFeedPath } from '../feed/index.js';
 import { syncPresence } from '../kukechat/presence.js';
+import { CHAT_VIEWS, enterChat, exitChat } from '../kukechat/chatView.js';
+import { onUnread } from '../kukechat/unread.js';
+import { renderMutualsBanner } from '../kukechat/mutuals.js';
 import { GROUPS } from '../notice/model.js';
 import { io, refreshSummary, state, resetRowObserver } from '../notice/state.js';
-import { listEl, loadStats, mount, pump, renderList, renderNav, renderToolbar, root, rowByItem, rowCache, sectionCache } from '../notice/view.js';
+import { listEl, loadStats, mount, pump, renderList, renderNav, renderToolbar, root, rowByItem, rowCache, sectionCache, toolbarEl } from '../notice/view.js';
 
 /* ------------------------------------------------------------------ */
 /* 路由                                                                */
 /* ------------------------------------------------------------------ */
 export function parseRoute() {
+  if (/^\/notice\/chat\/?$/.test(location.pathname)) return { view: 'CHAT', filter: 'ALL' };
+  if (/^\/notice\/friends\/?$/.test(location.pathname)) return { view: 'FRIENDS', filter: 'ALL' };
   const m = location.pathname.match(/^\/notice(?:\/category\/([A-Z_]+))?\/?$/);
   if (!m) {
     // 旧路由：/notice/like 等
@@ -25,7 +30,8 @@ export function parseRoute() {
 }
 
 export function go(view, filter, force) {
-  const url = (view === 'ALL' ? '/notice' : '/notice/category/' + view) + (filter && filter !== 'ALL' ? '?filter=' + filter : '');
+  const base = view === 'ALL' ? '/notice' : view === 'CHAT' ? '/notice/chat' : view === 'FRIENDS' ? '/notice/friends' : '/notice/category/' + view;
+  const url = base + (filter && filter !== 'ALL' ? '?filter=' + filter : '');
   if (location.pathname + location.search !== url) origPush.call(history, history.state, '', url);
   applyRoute(force);
 }
@@ -36,7 +42,16 @@ export function applyRoute(force) {
   syncPresence();
   if (isFeedPath()) activateFeed(); else deactivateFeed();
   const r = disabledForAccount ? null : parseRoute();
-  if (!r) { if (isActive) deactivate(false); return; }
+  if (!r) { exitChat(); if (isActive) deactivate(false); return; }
+  if (CHAT_VIEWS.includes(r.view)) {
+    // 私信 / 好友：中栏和右栏交给停靠进来的 KukeChat，不加载通知列表
+    if (!isActive) activate();
+    state.view = r.view;
+    renderNav();
+    enterChat(r.view);
+    return;
+  }
+  exitChat();
   const changed = !isActive || r.view !== state.view || r.filter !== state.filter;
   if (!isActive) activate();
   if (!changed && !force) return;
@@ -48,12 +63,15 @@ export function applyRoute(force) {
   // 切回已加载过的分类时保留列表；但其中标过已读的条目按最新状态重画
   listEl.replaceChildren();
   renderNav(); renderToolbar(); renderList();
+  renderMutualsBanner(toolbarEl, state.view);
   window.scrollTo(0, 0);
   pump();
 }
 
+let unreadHooked = false;
 export function activate() {
   isActive = true;
+  if (!unreadHooked) { unreadHooked = true; onUnread(() => { if (isActive) renderNav(); }); }
   document.documentElement.classList.add('ccwn-on');
   injectStyle();
   mount();

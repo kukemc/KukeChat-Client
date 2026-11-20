@@ -155,6 +155,30 @@ export interface KukeChatExtensionBridge {
   minimizeWindow: () => void;
   toggleFullscreen: () => void;
   notifyRealtimeEvent: (event: RealtimeEvent) => void;
+  /** 以下给油猴脚本 KukeChat for CCW 用：把窗口停靠进共创世界页面（src/extension/embed.ts） */
+  embed?: KukeChatEmbedApi;
+}
+
+export interface KukeChatEmbedRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface KukeChatEmbedApi {
+  version: number;
+  /** 停靠到页面上的一块区域（视口坐标）：没有标题栏、不能拖动，位置由宿主决定。重复调用只更新位置 */
+  dock: (rect: KukeChatEmbedRect) => void;
+  /** 取消停靠：关掉窗口，恢复用户自己的浮窗位置和大小 */
+  undock: () => void;
+  isDocked: () => boolean;
+  setView: (view: string) => void;
+  openConversation: (conversationId: number) => void;
+  openDirect: (userId: number) => Promise<void>;
+  /** 订阅总未读数，立刻回调一次；返回取消订阅 */
+  onUnread: (listener: (count: number) => void) => () => void;
+  isLoggedIn: () => boolean;
 }
 
 declare global {

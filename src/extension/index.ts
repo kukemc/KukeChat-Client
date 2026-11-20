@@ -6,6 +6,7 @@ import { Cover, Icon, extensionId } from './assets';
 import KukeChatExtension from './extension';
 import { installGandiToolbarButton } from './gandiToolbar';
 import { notifyScratchRealtimeEvent } from './bridge';
+import { embedApi } from './embed';
 import { GANDI_BLOCKS_BASE } from '@/config/env';
 import { setGandiBlocksRemoteBase } from '@/gandiDsl';
 
@@ -49,7 +50,8 @@ if (typeof window !== 'undefined') {
     closeWindow: closeKukeChatWindow,
     minimizeWindow: minimizeKukeChatWindow,
     toggleFullscreen: toggleKukeChatFullscreen,
-    notifyRealtimeEvent: (event: RealtimeEvent) => emitRealtimeEvent(event)
+    notifyRealtimeEvent: (event: RealtimeEvent) => emitRealtimeEvent(event),
+    embed: embedApi
   };
   installGandiToolbarButton();
 }
