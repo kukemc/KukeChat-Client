@@ -1,6 +1,6 @@
 {
   "name": "kukechat-ccw-userscript",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "KukeChat for CCW 油猴脚本的版本号来源；构建在仓库根目录跑 npm run build:userscript。"
 }
