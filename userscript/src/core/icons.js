@@ -22,6 +22,9 @@ export const ICON = {
   refresh: 'M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.8h-2.8',
   arrow: 'M3 8h10M9 4l4 4-4 4',
   eye: 'M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  image: 'M2.5 3.5h11v9h-11zM2.5 10.5l3-3 2.5 2.5 1.5-1.5 4 3.5M10.5 6.5a1 1 0 1 0 0-.01',
+  hash: 'M6.5 2.5l-1.5 11M11 2.5l-1.5 11M3 6h10.5M2.5 10H13',
+  close: 'M4 4l8 8M12 4l-8 8',
 };
 export function icon(name, size) {
   const NS = 'http://www.w3.org/2000/svg';

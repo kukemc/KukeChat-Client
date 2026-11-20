@@ -34,11 +34,13 @@ async function rawRequest(method, path, body, opts) {
   headers['X-Kuke-Nonce'] = n;
   headers['X-Kuke-Proof'] = await sha256Hex(`${method}|${path.split('?')[0]}|${ts}|${n}|KukeChat`);
   if (o.token) headers.Authorization = 'Bearer ' + o.token;
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const form = typeof FormData !== 'undefined' && body instanceof FormData;
+  // FormData 让浏览器自己带 multipart 的 Content-Type（含 boundary）
+  if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
   const res = await fetch(BASE + '/api/v1' + path, {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : form ? body : JSON.stringify(body),
     credentials: o.cookie ? 'include' : 'omit',
     keepalive: Boolean(o.keepalive),
   });

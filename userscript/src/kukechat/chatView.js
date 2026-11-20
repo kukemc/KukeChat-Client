@@ -22,6 +22,8 @@ function ensureSlot() {
 }
 
 export async function enterChat(view) {
+  // 私信视图锁住了页面滚动（styles/app.css html.ccwk-chat）：先回到顶，免得锁在半截
+  window.scrollTo(0, 0);
   document.documentElement.classList.add('ccwk-chat');
   setViewingConversation('*');
   const el = ensureSlot();
