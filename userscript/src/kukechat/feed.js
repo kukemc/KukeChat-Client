@@ -5,6 +5,7 @@
 import { h } from '../core/dom.js';
 import { KC_ICON, icon } from '../core/icons.js';
 import { compressForUpload } from './imageCompress.js';
+import { bindGallery, openImageViewer } from './imageViewer.js';
 import { fullTime, relTime } from '../core/time.js';
 import { currentKukeUser, ensureSession, kcIso, kcRequest } from './client.js';
 import { myFollowings } from './ccwGraph.js';
@@ -34,6 +35,7 @@ export async function kcFeedEnabled() {
 export function resetKcFeed() {
   stores.follow = fresh();
   stores.square = fresh();
+  cards.clear();
 }
 
 function addPost(store, post, front) {
@@ -103,28 +105,235 @@ function creationQuote(c) {
 }
 
 /** avatarEl / statsRow 由动态页传进来，免得两个模块互相引用 */
-export function renderKcCard(g, { avatarEl, statsRow }) {
-  const p = g.kc;
+/* ---------- KukeChat 动态卡片：点赞、评论、转发 ----------
+ * 动态列表每加载一页都会整个重画：卡片按动态 id 缓存起来复用，展开的评论、写了一半的字不会丢。
+ * 点赞、评论数直接改在动态对象上（它就是 stores 里那一份），重画时读到的也是新值。 */
+const cards = new Map();
+let rerender = () => {};
+/** 动态页传进来：自己转发出一条新动态后要重画列表 */
+export function setFeedRerender(fn) { rerender = fn; }
+
+const userName = (u) => (u && (u.nickname || u.username)) || 'KukeChat 用户';
+
+function commentEl(c, onReply) {
+  const u = c.author || {};
+  const reply = h('button', { type: 'button', class: 'ccwk-cm-reply' }, '回复');
+  reply.addEventListener('click', () => onReply(c));
+  return h('div', { class: 'ccwk-cm' },
+    h('img', { class: 'ccwk-cm-av', src: u.avatar_url || u.ccw_avatar_url || KC_ICON, alt: '' }),
+    h('div', { class: 'ccwk-cm-main' },
+      h('div', { class: 'ccwk-cm-meta' },
+        u.ccw_student_oid ? h('a', { href: '/student/' + u.ccw_student_oid, target: '_blank', rel: 'noreferrer', text: userName(u) }) : h('b', { text: userName(u) }),
+        c.parent_author ? h('span', { class: 'ccwk-cm-to', text: '回复 ' + userName(c.parent_author) }) : null,
+        h('time', { text: relTime(kcIso(c.created_at)) }),
+        reply),
+      h('div', { class: 'ccwk-cm-text', text: c.content })));
+}
+
+function buildCard(p, avatarEl) {
   const a = author(p);
   const iso = kcIso(p.created_at);
-  const imgs = (p.image_urls || []).slice(0, 4);
   const repost = p.repost_of;
-  return h('article', { class: 'ccwf-card ccwk-feed-card' },
+  const me = () => currentKukeUser();
+
+  /* 点赞 */
+  const likeN = h('span');
+  const likeBtn = h('button', { type: 'button', class: 'ccwk-act' }, icon('heart', 15), likeN);
+  const paintLike = () => {
+    likeN.textContent = p.like_count ? fmtCount(p.like_count) : '赞';
+    likeBtn.classList.toggle('is-on', Boolean(p.liked_by_me));
+    likeBtn.title = p.liked_by_me ? '取消点赞' : '点赞';
+  };
+  likeBtn.addEventListener('click', async () => {
+    if (!me() || likeBtn.disabled) return;
+    likeBtn.disabled = true;
+    // 先改界面，失败再改回来
+    const before = [p.liked_by_me, p.like_count];
+    p.liked_by_me = !p.liked_by_me;
+    p.like_count = Math.max(0, (p.like_count || 0) + (p.liked_by_me ? 1 : -1));
+    paintLike();
+    try {
+      const r = await kcRequest('POST', `/posts/${p.id}/like`);
+      if (r) { p.liked_by_me = r.liked; p.like_count = r.like_count; }
+    } catch (_) {
+      [p.liked_by_me, p.like_count] = before;
+    } finally {
+      likeBtn.disabled = false;
+      paintLike();
+    }
+  });
+
+  /* 评论 */
+  const commentN = h('span');
+  const commentBtn = h('button', { type: 'button', class: 'ccwk-act', title: '评论' }, icon('reply', 15), commentN);
+  const paintComments = () => { commentN.textContent = p.comment_count ? fmtCount(p.comment_count) : '评论'; };
+  const panel = h('div', { class: 'ccwk-cmts' });
+  let comments = null;
+  let replyTo = null;
+  const list = h('div', { class: 'ccwk-cm-list' });
+  const input = h('textarea', { class: 'ccwk-cm-input', rows: '1', maxlength: '500', placeholder: '写评论…' });
+  const send = h('button', { type: 'button', class: 'ccwk-cp-send', disabled: true }, '发送');
+  const replyHint = h('span', { class: 'ccwk-cm-hint' });
+  const setReply = (c) => {
+    replyTo = c;
+    replyHint.replaceChildren();
+    if (c) {
+      const x = h('button', { type: 'button', class: 'ccwk-cm-x', title: '不回复了' }, icon('close', 10));
+      x.addEventListener('click', () => setReply(null));
+      replyHint.append('回复 ' + userName(c.author), x);
+    }
+    input.placeholder = c ? '回复 ' + userName(c.author) + '…' : '写评论…';
+    input.focus();
+  };
+  const renderComments = () => {
+    if (!comments) { list.replaceChildren(h('div', { class: 'ccwk-cm-empty', text: '加载中…' })); return; }
+    list.replaceChildren(...(comments.length ? comments.map((c) => commentEl(c, setReply)) : [h('div', { class: 'ccwk-cm-empty', text: '还没有评论' })]));
+  };
+  const loadComments = async () => {
+    renderComments();
+    try {
+      const r = await kcRequest('GET', `/posts/${p.id}/comments?limit=50`);
+      // 接口返回的是旧的在前：新的在下面，像聊天一样
+      comments = Array.isArray(r) ? r : [];
+    } catch (err) {
+      comments = [];
+      list.replaceChildren(h('div', { class: 'ccwk-cm-empty', text: (err && err.message) || '评论加载失败' }));
+      return;
+    }
+    renderComments();
+  };
+  const submitComment = async () => {
+    const content = input.value.trim();
+    if (!content || send.disabled) return;
+    send.disabled = true;
+    input.disabled = true;
+    try {
+      const c = await kcRequest('POST', `/posts/${p.id}/comments`, { content, ...(replyTo ? { parent_id: replyTo.id } : {}) });
+      input.value = '';
+      setReply(null);
+      if (c) { (comments || (comments = [])).push(c); p.comment_count = (p.comment_count || 0) + 1; }
+      renderComments();
+      paintComments();
+    } catch (err) {
+      input.placeholder = (err && err.message) || '发送失败';
+    } finally {
+      input.disabled = false;
+      send.disabled = !input.value.trim();
+      input.focus();
+    }
+  };
+  input.addEventListener('input', () => {
+    send.disabled = !input.value.trim();
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submitComment(); } });
+  send.addEventListener('click', submitComment);
+  panel.append(list, h('div', { class: 'ccwk-cm-compose' },
+    h('div', { class: 'ccwk-cm-field' }, replyHint, input), send));
+  commentBtn.addEventListener('click', () => {
+    const open = !card.classList.contains('is-comments');
+    card.classList.toggle('is-comments', open);
+    commentBtn.classList.toggle('is-on', open);
+    if (open) { if (!comments) loadComments(); input.focus(); }
+  });
+
+  /* 转发 */
+  // 转发一条转发：转的是原动态（和 KukeChat 里一样，不套娃）
+  const target = repost && p.repost_of_id ? { id: p.repost_of_id, who: userName(repost.author) } : { id: p.id, who: a.name };
+  const shareBtn = h('button', { type: 'button', class: 'ccwk-act', title: '转发' }, icon('share', 15), h('span', { text: '转发' }));
+  const rpBox = h('div', { class: 'ccwk-rp' });
+  let rpVis = 'public';
+  const rpInput = h('textarea', { class: 'ccwk-cm-input', rows: '1', maxlength: '2000', placeholder: '说点什么…（可以不写）' });
+  const rpSend = h('button', { type: 'button', class: 'ccwk-cp-send' }, '转发');
+  const rpSeg = h('div', { class: 'ccwk-cp-seg' }, [['public', '公开'], ['friends', '仅好友']].map(([v, t]) => {
+    const b = h('button', { type: 'button', class: 'ccwk-cp-opt' + (v === rpVis ? ' is-on' : '') }, t);
+    b.addEventListener('click', () => { rpVis = v; rpSeg.querySelectorAll('.ccwk-cp-opt').forEach((o) => o.classList.toggle('is-on', o === b)); });
+    return b;
+  }));
+  const rpNote = h('span', { class: 'ccwk-cp-note' });
+  rpSend.addEventListener('click', async () => {
+    if (rpSend.disabled) return;
+    rpSend.disabled = true;
+    rpNote.textContent = '转发中…';
+    try {
+      const post = await kcRequest('POST', '/posts', { content: rpInput.value.trim(), visibility: rpVis, repost_of_id: target.id });
+      rpInput.value = '';
+      rpNote.textContent = '已转发';
+      card.classList.remove('is-reposting');
+      shareBtn.classList.remove('is-on');
+      if (post && post.id) {
+        addPost(stores.follow, post, true);
+        if (post.visibility === 'public') addPost(stores.square, post, true);
+        rerender();
+      }
+    } catch (err) {
+      rpNote.textContent = (err && err.message) || '转发失败';
+    } finally {
+      rpSend.disabled = false;
+    }
+  });
+  rpInput.addEventListener('input', () => { rpInput.style.height = 'auto'; rpInput.style.height = Math.min(rpInput.scrollHeight, 120) + 'px'; });
+  rpInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); rpSend.click(); } });
+  rpBox.append(h('div', { class: 'ccwk-rp-title', text: '转发 ' + target.who + ' 的动态' }), rpInput,
+    h('div', { class: 'ccwk-rp-bar' }, rpSeg, h('span', { class: 'ccwk-cp-right' }, rpNote, rpSend)));
+  shareBtn.addEventListener('click', () => {
+    const open = !card.classList.contains('is-reposting');
+    card.classList.toggle('is-reposting', open);
+    shareBtn.classList.toggle('is-on', open);
+    if (open) rpInput.focus();
+  });
+
+  const signedIn = Boolean(me());
+  const actions = h('div', { class: 'ccwk-acts' + (signedIn ? '' : ' is-readonly') }, likeBtn, commentBtn, shareBtn);
+  paintLike();
+  paintComments();
+
+  const repostEl = repost ? h('div', { class: 'ccwk-feed-repost' },
+    h('div', { class: 'ccwk-rq-head' },
+      h('b', { text: userName(repost.author) }),
+      h('time', { text: relTime(kcIso(repost.created_at)) })),
+    repost.content ? postText(repost.content) : null,
+    (repost.image_urls || []).length ? gallery(repost.image_urls, true) : null) : null;
+
+  const card = h('article', { class: 'ccwf-card ccwk-feed-card' },
     h('header', { class: 'ccwf-head' },
       avatarEl(a.avatar, a.oid, 40),
       h('div', { class: 'ccwf-who' },
         h('div', { class: 'ccwf-names' }, a.oid ? h('a', { class: 'ccwf-name', href: '/student/' + a.oid, target: '_blank', rel: 'noreferrer', text: a.name }) : h('span', { class: 'ccwf-name', text: a.name })),
         h('div', { class: 'ccwf-sub' },
-          h('span', { text: p.visibility === 'friends' ? '仅好友可见' : p.visibility === 'private' ? '仅自己可见' : '发布了动态' }),
+          h('span', { text: repost ? '转发了动态' : p.visibility === 'friends' ? '仅好友可见' : p.visibility === 'private' ? '仅自己可见' : '发布了动态' }),
           h('span', { class: 'ccwf-dot', text: '·' }),
           h('time', { datetime: iso, title: fullTime(iso), text: relTime(iso) }))),
       h('span', { class: 'ccwf-chip ccwk-chip' }, h('img', { src: KC_ICON, alt: '' }), 'KukeChat')),
     h('div', { class: 'ccwk-feed-body' },
       p.content ? postText(p.content) : null,
-      imgs.length ? h('div', { class: 'ccwk-feed-imgs n' + imgs.length }, imgs.map((src) => h('a', { href: src, target: '_blank', rel: 'noreferrer' }, h('img', { src, alt: '', loading: 'lazy' })))) : null,
-      repost ? h('div', { class: 'ccwk-feed-repost' }, h('b', { text: ((repost.author && (repost.author.nickname || repost.author.username)) || '') + '：' }), (repost.content || '').slice(0, 140)) : null,
+      (p.image_urls || []).length ? gallery(p.image_urls, false) : null,
+      repostEl,
       (p.ccw_creations || []).slice(0, 2).map(creationQuote),
-      statsRow(null, p.like_count, p.comment_count)));
+      actions,
+      rpBox,
+      panel));
+  return card;
+}
+
+/** 动态里的图：最多显示 4 张（多出来的在第 4 张上标 +N），点开是查看器，能翻到全部 */
+function gallery(urls, small) {
+  const shown = urls.slice(0, 4);
+  const anchors = shown.map((src, i) => h('a', { href: src, target: '_blank', rel: 'noreferrer', class: 'ccwk-gi' },
+    h('img', { src, alt: '', loading: 'lazy' }),
+    i === 3 && urls.length > 4 ? h('span', { class: 'ccwk-gi-more', text: '+' + (urls.length - 4) }) : null));
+  bindGallery(anchors, urls);
+  return h('div', { class: 'ccwk-feed-imgs n' + shown.length + (small ? ' is-small' : '') }, anchors);
+}
+
+const fmtCount = (n) => (n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w' : String(n));
+
+export function renderKcCard(g, { avatarEl }) {
+  const p = g.kc;
+  let card = cards.get(p.id);
+  if (!card) { card = buildCard(p, avatarEl); cards.set(p.id, card); }
+  return card;
 }
 
 /**
@@ -197,8 +406,10 @@ export function renderComposer(onPosted) {
         renderThumbs();
         sync();
       });
+      const pic = h('img', { src: x.preview, alt: '' });
+      pic.addEventListener('click', () => openImageViewer(images.map((y) => y.preview), images.indexOf(x)));
       return h('div', { class: 'ccwk-cp-img' + (x.uploading ? ' is-busy' : '') + (x.error ? ' is-error' : ''), title: x.error || '' },
-        h('img', { src: x.preview, alt: '' }),
+        pic,
         x.uploading ? h('i', { class: 'ccwk-cp-spin' }) : null,
         x.error ? h('span', { class: 'ccwk-cp-err', text: '失败' }) : null,
         rm);

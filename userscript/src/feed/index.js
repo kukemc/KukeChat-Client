@@ -7,7 +7,7 @@ import { dayStart, fullTime, relTime } from '../core/time.js';
 import { state } from '../notice/state.js';
 import { avatarEl, card, pixImg, toast } from '../notice/view.js';
 import { KC_ICON } from '../core/icons.js';
-import { getKcScope, kcStore, loadKcPage, mergeWithCcw, renderComposer, renderKcCard, renderPlayingFriends, resetKcFeed, setKcScope } from '../kukechat/feed.js';
+import { getKcScope, kcStore, loadKcPage, mergeWithCcw, renderComposer, renderKcCard, renderPlayingFriends, resetKcFeed, setFeedRerender, setKcScope } from '../kukechat/feed.js';
 
 /* ------------------------------------------------------------------ */
 /* 动态页（/feed）                                                      */
@@ -434,6 +434,7 @@ export function resetFeed() {
 }
 
 export function activateFeed() {
+  setFeedRerender(() => { if (feedActive) renderFeedList(); });
   if (feedActive) return;
   feedActive = true;
   document.documentElement.classList.add('ccwf-on');

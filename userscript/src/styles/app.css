@@ -500,6 +500,69 @@ html.ccwk-badge #root header [class*="totalNotice-"] { display: none !important;
 .ccwk-cp-sg span { font-size: 11px; color: #80808f; }
 .ccwk-cp-sg.is-on, .ccwk-cp-sg:hover { background: rgba(255,255,255,.07); }
 .ccwk-topic { color: #5fe39b; }
+.ccwk-acts { display: flex; gap: 4px; margin-left: -8px; }
+.ccwk-act { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: #8a8a9a; font: 13px/1 "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
+.ccwk-act:hover:not(:disabled) { background: rgba(255,255,255,.06); color: #d4d4de; }
+.ccwk-act.is-on { color: #5fe39b; }
+.ccwk-act:first-child.is-on { color: #ff6b81; }
+.ccwk-act:first-child.is-on svg path { fill: currentColor; }
+.ccwk-acts.is-readonly .ccwk-act { pointer-events: none; }
+.ccwk-rp, .ccwk-cmts { display: none; }
+.ccwk-feed-card.is-reposting .ccwk-rp { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.035); }
+.ccwk-feed-card.is-comments .ccwk-cmts { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); }
+.ccwk-rp-title { font-size: 12px; color: #80808f; }
+.ccwk-rp-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ccwk-cm-list { display: flex; flex-direction: column; gap: 12px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
+.ccwk-cm-empty { color: #80808f; font-size: 13px; padding: 4px 0; }
+.ccwk-cm { display: flex; gap: 10px; }
+.ccwk-cm-av { flex: none; width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.ccwk-cm-main { min-width: 0; flex: 1; }
+.ccwk-cm-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #80808f; }
+.ccwk-cm-meta a, .ccwk-cm-meta b { color: #c9c9d6; font-weight: 600; text-decoration: none; }
+.ccwk-cm-to { color: #80808f; }
+.ccwk-cm-reply { margin-left: auto; border: 0; background: none; color: #6f6f80; font-size: 12px; cursor: pointer; opacity: 0; }
+.ccwk-cm:hover .ccwk-cm-reply { opacity: 1; }
+.ccwk-cm-reply:hover { color: #5fe39b; }
+.ccwk-cm-text { margin-top: 2px; font-size: 14px; line-height: 1.55; color: #e4e4ec; white-space: pre-wrap; word-break: break-word; }
+.ccwk-cm-compose { display: flex; align-items: flex-end; gap: 8px; }
+.ccwk-cm-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ccwk-cm-hint { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #5fe39b; }
+.ccwk-cm-hint:empty { display: none; }
+.ccwk-cm-x { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 0; border-radius: 50%; background: rgba(255,255,255,.08); color: #b6b6c4; cursor: pointer; }
+.ccwk-cm-input { width: 100%; box-sizing: border-box; resize: none; max-height: 120px; padding: 7px 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: #ececf2; font: 14px/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; outline: none; }
+.ccwk-cm-input:focus { border-color: rgba(61,220,132,.5); }
+.ccwk-rq-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; color: #80808f; }
+.ccwk-rq-head b { color: #d4d4de; font-weight: 600; font-size: 13px; }
+.ccwk-feed-repost .ccwk-feed-text { font-size: 14px; -webkit-line-clamp: 5; }
+.ccwk-feed-imgs.is-small { max-width: 300px; margin-top: 8px; }
+.ccwk-gi { position: relative; display: block; cursor: zoom-in; }
+.ccwk-gi-more { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 10px; background: rgba(0,0,0,.5); color: #fff; font: 600 20px/1 "PingFang SC", "Microsoft YaHei", sans-serif; }
+.ccwk-cp-img img { cursor: zoom-in; }
+/* ---------- 图片查看器 ---------- */
+.ccwk-iv { position: fixed; inset: 0; z-index: 2147483600; background: rgba(8,8,14,.92); display: flex; flex-direction: column; animation: ccwk-iv-in .15s ease; font: 13px/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: #ececf2; user-select: none; }
+.ccwk-iv.is-out { opacity: 0; transition: opacity .15s; }
+@keyframes ccwk-iv-in { from { opacity: 0; } }
+.ccwk-iv-top { flex: none; display: flex; align-items: center; justify-content: space-between; height: 52px; padding: 0 16px 0 24px; }
+.ccwk-iv-count { color: #b6b6c4; }
+.ccwk-iv-tools { display: inline-flex; gap: 8px; }
+.ccwk-iv-btn { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: rgba(255,255,255,.1); color: #ececf2 !important; text-decoration: none !important; cursor: pointer; font-size: 13px; }
+.ccwk-iv-btn.is-icon { width: 32px; padding: 0; }
+.ccwk-iv-btn:hover { background: rgba(255,255,255,.18); }
+.ccwk-iv-stage { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; padding: 0 72px; }
+.ccwk-iv-img { max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity .15s, transform .08s; transform-origin: center; cursor: zoom-in; touch-action: none; }
+.ccwk-iv-img.is-ready { opacity: 1; }
+.ccwk-iv-img.is-zoomed { cursor: grab; }
+.ccwk-iv-img.is-zoomed:active { cursor: grabbing; }
+.ccwk-iv-nav { position: absolute; top: 50%; width: 44px; height: 44px; margin-top: -22px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: #ececf2; cursor: pointer; }
+.ccwk-iv-nav:hover { background: rgba(255,255,255,.2); }
+.ccwk-iv-nav.is-prev { left: 16px; }
+.ccwk-iv-nav.is-prev svg { transform: scaleX(-1); }
+.ccwk-iv-nav.is-next { right: 16px; }
+.ccwk-iv-strip { flex: none; display: flex; justify-content: center; gap: 8px; padding: 12px 16px 18px; overflow-x: auto; }
+.ccwk-iv-thumb { flex: none; width: 52px; height: 52px; padding: 0; border: 2px solid transparent; border-radius: 8px; overflow: hidden; background: none; cursor: pointer; opacity: .55; }
+.ccwk-iv-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ccwk-iv-thumb.is-on { border-color: #3ddc84; opacity: 1; }
+.ccwk-iv-thumb:hover { opacity: 1; }
 .ccwk-side-icon { width: 18px; height: 18px; border-radius: 5px; }
 .ccwk-pf-list { display: flex; flex-direction: column; gap: 4px; }
 .ccwk-pf-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px; border-radius: 10px; color: inherit; text-decoration: none; }
