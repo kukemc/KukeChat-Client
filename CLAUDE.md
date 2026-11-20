@@ -23,6 +23,7 @@ npm run dev              # 扩展本地预览（:5173，代理到本地后端 :8
 npm run typecheck        # 应用 + 构建脚本类型检查
 npm run build            # 扩展 → dist/KukeChat.js
 npm run build:desktop-web
+npm run build:userscript # 油猴脚本 KukeChat for CCW → dist-userscript/kukechat-ccw.user.js（见 userscript/README.md）
 npm run tauri:dev        # 桌面端调试
 npm run tauri:build      # 桌面端打包
 ```
@@ -79,7 +80,7 @@ src/
 src-tauri/      Tauri 桌面端（Rust）
 ```
 
-两份 Vite 配置对应两个目标：`vite.config.ts`（扩展）、`vite.desktop.config.ts`（桌面端），共用 `vite.env.ts` 做校验。
+Vite 配置对应各个目标：`vite.config.ts`（扩展）、`vite.desktop.config.ts`（桌面端）共用 `vite.env.ts` 做校验；`vite.dsl-render.config.ts`（积木渲染）；`vite.userscript.config.ts`（油猴脚本，源码在 `userscript/`，只连 CCW 和公开的 KukeChat 地址）。
 
 扩展在手机上打开或切到手机布局时（`layoutMode === 'mobile'`）会渲染 `Mobile*` 组件、`src/components/mobile/` 和 `src/mobile/`，这些不是死代码。
 

@@ -73,6 +73,19 @@
   --kit-rose: var(--kui-on-fill, #ffffff);
 }
 
+/* ───────── 名字旁的小手柄：正在共创世界上玩 / 创作（docs/ccw-social.md） ───────── */
+
+.kccw-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin: 0 2px;
+  color: #22a861;
+  vertical-align: -0.18em;
+  line-height: 0;
+}
+
 /* ───────── 名字旁的小徽章 ───────── */
 
 .kit-mark {

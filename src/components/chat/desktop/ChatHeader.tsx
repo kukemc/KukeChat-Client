@@ -8,6 +8,7 @@ import { PlusTierTag } from '@/components/groupPlus/PlusBadge';
 import { conversationTier } from '@/components/groupPlus/tier';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTypingStore } from '@/store/typingStore';
+import { ccwActivityElapsed, ccwActivityLabel, ccwActivityUrl, useCcwActivity } from '@/store/ccwActivityStore';
 import type { Conversation, User } from '@/types/api';
 import { isConversationBlocked, isConversationMuted } from '@/utils/notifications';
 
@@ -51,8 +52,18 @@ function groupFlags(conversation: Conversation): HeaderFlag[] {
  */
 function DirectStatus({ conversationId, user }: { conversationId: number; user: User | null }): JSX.Element {
   const typing = useTypingStore((state) => Boolean(state.byConversation[conversationId]));
+  const activity = useCcwActivity(user?.id);
   if (typing) {
     return <span className="kcd-header-sub is-typing">对方正在输入…</span>;
+  }
+  if (activity) {
+    // 对方正在共创世界上玩 / 创作（docs/ccw-social.md）：点一下去同一个作品
+    const url = ccwActivityUrl(activity);
+    const label = `${ccwActivityLabel(activity)} · ${ccwActivityElapsed(activity)}`;
+    const body = <><Icon name="gamepad" className="h-3.5 w-3.5 shrink-0" /><span className="kcd-header-clip">{label}</span></>;
+    return url
+      ? <a className="kcd-header-sub kcd-header-activity" href={url} target="_blank" rel="noreferrer" title="去共创世界看看" onClick={(event) => event.stopPropagation()}>{body}</a>
+      : <span className="kcd-header-sub kcd-header-activity">{body}</span>;
   }
   const text = user?.presence_text?.trim() || user?.bio?.trim() || (user?.username ? `@${user.username}` : '私聊');
   return <span className="kcd-header-sub"><span className="kcd-header-clip">{text}</span></span>;

@@ -164,6 +164,18 @@
   color: var(--kc-accent);
 }
 
+/* 对方正在共创世界上玩 / 创作（docs/ccw-social.md） */
+.kcd-header-sub.kcd-header-activity {
+  gap: 0 5px;
+  color: #22a861;
+  text-decoration: none;
+}
+
+a.kcd-header-sub.kcd-header-activity:hover .kcd-header-clip {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .kcd-header-flag {
   display: inline-flex;
   align-items: center;

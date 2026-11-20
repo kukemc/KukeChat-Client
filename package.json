@@ -17,7 +17,8 @@
     "preview": "vite preview",
     "tauri:dev": "npm run sync:desktop-version && tauri dev",
     "tauri:build": "npm run sync:desktop-version && tauri build",
-    "typecheck": "tsc --noEmit -p tsconfig.json --pretty && tsc --noEmit -p tsconfig.node.json --pretty"
+    "typecheck": "tsc --noEmit -p tsconfig.json --pretty && tsc --noEmit -p tsconfig.node.json --pretty",
+    "build:userscript": "vite build --config vite.userscript.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.16",

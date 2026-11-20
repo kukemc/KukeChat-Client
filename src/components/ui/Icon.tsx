@@ -47,6 +47,7 @@ import {
   Gift,
   Cake,
   Trophy,
+  Gamepad2,
   Type as TypeGlyph,
   Heart,
   Heading,
@@ -233,6 +234,7 @@ const icons = {
   shirt: Shirt,
   cake: Cake,
   trophy: Trophy,
+  gamepad: Gamepad2,
   type: TypeGlyph
 } satisfies Record<string, LucideIcon | Glyph>;
 

@@ -65,6 +65,10 @@ export interface User {
   ban_reason?: string | null;
   /** 是否向他人显示「我正在输入」，缺省视为 true */
   share_typing?: boolean;
+  /** 在共创世界上：是否公开「正在玩 / 正在创作」，缺省视为 true（后端 docs/ccw-social.md） */
+  share_ccw_activity?: boolean;
+  /** 在共创世界上：别人能否从 CCW 主页查到我的 KukeChat，缺省视为 true */
+  ccw_discoverable?: boolean;
   /** 别人戳我时用的动作（预设里的一个字），缺省视为「戳」 */
   poke_action?: string;
   /** 戳一戳时接在我名字后面的文案，缺省为空 */
@@ -169,6 +173,8 @@ export interface ProfileUpdatePayload {
   profile_accent_color?: string;
   profile_cover_url?: string;
   share_typing?: boolean;
+  share_ccw_activity?: boolean;
+  ccw_discoverable?: boolean;
   /** 传 null 或空串恢复默认 */
   poke_action?: string | null;
   poke_suffix?: string | null;

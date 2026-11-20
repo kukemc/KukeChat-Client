@@ -17,6 +17,7 @@ keystore.properties
 dist/
 dist-desktop/
 dist-dsl-render/
+dist-userscript/
 .vite/
 
 # Tauri 桌面端

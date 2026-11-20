@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { CcwActivityMark } from '@/components/ccw/CcwActivityMark';
 import { BirthdayMark, FriendBirthdayBanner } from '@/components/birthday/BirthdayBits';
 import { UserLevelIcons } from '@/components/level/LevelIcons';
 import { Avatar, getDisplayName } from '@/components/ui/Avatar';
@@ -149,7 +150,7 @@ export function ContactsSidebar({ view, query, friends, friendTotal, friendsLoad
                 >
                   <Avatar user={user} size="message" />
                   <span className="kcc-item-main">
-                    <span className="kcc-item-title">{getDisplayName(user, `用户 ${user.id}`)} <FriendBadgeMark userId={user.id} /><UserLevelIcons user={user} passive /><BirthdayMark user={user} /></span>
+                    <span className="kcc-item-title">{getDisplayName(user, `用户 ${user.id}`)} <FriendBadgeMark userId={user.id} /><CcwActivityMark userId={user.id} /><UserLevelIcons user={user} passive /><BirthdayMark user={user} /></span>
                     <span className="kcc-item-sub">{user.bio || user.email || '这个人很神秘，还没有简介'}</span>
                   </span>
                 </button>

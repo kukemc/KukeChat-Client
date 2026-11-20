@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getMyReports } from '@/api/reports';
 import { ShareTypingRow } from '@/components/chat/desktop/typing/ShareTypingRow';
+import { CcwPrivacyRows } from '@/components/ccw/CcwPrivacyRows';
 import { useLevelAvailable } from '@/components/level/data';
 import { useShopAvailable } from '@/components/shop/data';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -138,6 +139,9 @@ export function GeneralSection(): JSX.Element {
       <ComposerCard />
       <Card title="隐私">
         <ShareTypingRow />
+      </Card>
+      <Card title="在共创世界上">
+        <CcwPrivacyRows />
       </Card>
       {desktop ? (
         <Card title="启动">

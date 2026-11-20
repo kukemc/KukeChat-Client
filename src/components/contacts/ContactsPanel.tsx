@@ -1,6 +1,7 @@
 import { rejectedNote } from '@/components/groups/groupJoin';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { FriendBadgeMark } from '@/components/intimacy/FriendBadgeMark';
+import { CcwActivityMark } from '@/components/ccw/CcwActivityMark';
 import { parseApiDate } from '@/utils/dateTime';
 import { PenaltyCenterModal } from '@/components/moderation/PenaltyCenter';
 import { registerNativeBackHandler } from '@/native/back';
@@ -265,7 +266,7 @@ function MobileContactsPanel({ friends, conversations = [], isLoading, currentUs
               <button key={friendship.id ?? friendId} type="button" onClick={() => directMutation.mutate({ user_id: friendId })} className="kc-qq-contact-entry">
                 <Avatar user={user} />
                 <span className="min-w-0 flex-1 text-left">
-                  <span className="block truncate text-[16px] font-semibold text-[#151922]">{getDisplayName(user, `用户 ${friendId}`)} <FriendBadgeMark userId={user.id} /><UserLevelIcons user={user} passive /><BirthdayMark user={user} /></span>
+                  <span className="block truncate text-[16px] font-semibold text-[#151922]">{getDisplayName(user, `用户 ${friendId}`)} <FriendBadgeMark userId={user.id} /><CcwActivityMark userId={user.id} /><UserLevelIcons user={user} passive /><BirthdayMark user={user} /></span>
                   <span className="block truncate text-[12px] text-[#8b95a5]">{user?.bio || user?.email || '这个人很神秘，还没有简介'}</span>
                 </span>
               </button>
