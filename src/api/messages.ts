@@ -1,6 +1,7 @@
 import type { BookmarkedMessageRead, Conversation, FeaturedMessageRead, Message, MessageBookmarkToggleRead, MessageFeatureToggleRead, MessageMetadata, MessageReactionSummary, MessageSearchResponse, MessageType, Task, UploadResponse } from '@/types/api';
 import { parseApiDate } from '@/utils/dateTime';
-import { apiRequest, uploadFile } from './client';
+import { DIRECT_PROFILE, RELAY_PROFILE, prepareDirectImageUpload, type DirectImageUpload } from '@/utils/imageUpload';
+import { ApiError, apiRequest, uploadFile, uploadForm } from './client';
 import { asList, isRecord } from './normalizers';
 
 export interface FavoriteStickerItem {
@@ -347,8 +348,113 @@ export async function removeFavoriteSticker(assetId: number): Promise<void> {
   });
 }
 
+interface DirectUploadTarget {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+}
+
+interface DirectImageTicket {
+  upload_id: string;
+  image: DirectUploadTarget;
+  thumbnail: DirectUploadTarget;
+}
+
+// 后端没开直传（或者是不认这个接口的老后端）：这次运行里不再开单
+let directImageUnavailable = false;
+// 中转接口不存在（老后端）：这次运行里不再试，一律走普通上传
+let relayUnavailable = false;
+/**
+ * 走中转（压缩好的主图和缩略图交给我们的服务器写进对象存储），不直连对象存储。
+ * 嵌在用 CSP 限制了连接域名的网页里时（共创世界只放行我们自己的域名），直连对象存储的 PUT 会被浏览器直接拦下。
+ * 已知的这类网站一开始就走中转；其他地方直连失败一次也改走中转，这次运行里不再直连。
+ */
+let preferRelay = typeof location !== 'undefined' && /(^|\.)ccw\.site$/i.test(location.hostname);
+
+async function relayImage(prepared: DirectImageUpload): Promise<UploadResponse | null> {
+  if (relayUnavailable) return null;
+  try {
+    return await uploadForm<UploadResponse>('/uploads/message-image/relay', {
+      image: { blob: prepared.image, filename: prepared.image.type === 'image/gif' ? 'image.gif' : 'image.jpg' },
+      thumbnail: { blob: prepared.thumbnail, filename: 'thumbnail.jpg' }
+    });
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 405)) {
+      relayUnavailable = true;
+      return null;
+    }
+    // 400（不是能用的图片）、413 这类结论普通上传也一样，直接报给用户
+    if (error instanceof ApiError && error.status >= 400 && error.status < 500) throw error;
+    console.warn('[KukeChat] 图片中转上传失败，改用普通上传', error);
+    return null;
+  }
+}
+
+async function putDirect(target: DirectUploadTarget, body: Blob): Promise<void> {
+  const response = await fetch(target.url, { method: target.method || 'PUT', headers: target.headers, body });
+  if (!response.ok) throw new Error(`direct upload failed: ${response.status}`);
+}
+
+async function completeDirectImage(uploadId: string): Promise<UploadResponse> {
+  const path = `/uploads/message-image/direct/${encodeURIComponent(uploadId)}/complete`;
+  try {
+    return await apiRequest<UploadResponse>(path, { method: 'POST' });
+  } catch (error) {
+    // 桶刚收完、head 还没看到对象（少数服务商会有一点延迟）：等一下再试一次
+    if (error instanceof ApiError && error.status === 409) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return apiRequest<UploadResponse>(path, { method: 'POST' });
+    }
+    throw error;
+  }
+}
+
+/**
+ * 聊天图片直传（后端 docs/chat-features.md「图片直传」）：本地压缩好主图和缩略图，用预签名 URL 直接传进对象存储，
+ * 后端只校验。服务器到对象存储的带宽很小，经后端转一道时大图常超时。返回 null = 这次没能直传，调用方走普通上传。
+ */
+async function tryDirectImageUpload(file: File): Promise<UploadResponse | null> {
+  const relay = preferRelay || directImageUnavailable;
+  if (relay && relayUnavailable) return null;
+  const prepared = await prepareDirectImageUpload(file, relay ? RELAY_PROFILE : DIRECT_PROFILE);
+  if (!prepared) return null;
+  if (relay) return relayImage(prepared);
+  let ticket: DirectImageTicket;
+  try {
+    ticket = await apiRequest<DirectImageTicket>('/uploads/message-image/direct', {
+      method: 'POST',
+      body: { content_type: prepared.image.type, size: prepared.image.size, thumbnail_size: prepared.thumbnail.size }
+    });
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 405 ||
+        (error.status === 409 && isRecord(error.detail) && isRecord(error.detail.detail) &&
+          error.detail.detail.code === 'direct_upload_unavailable'))) {
+      directImageUnavailable = true;
+      // 服务器没开直传（比如用本地存储）：中转同样不用后端重新压缩，比普通上传省
+      return relayImage(prepared);
+    }
+    return null;
+  }
+  try {
+    await Promise.all([putDirect(ticket.image, prepared.image), putDirect(ticket.thumbnail, prepared.thumbnail)]);
+  } catch (error) {
+    // 多半是网页的 CSP 拦下了对象存储的地址（被拦是瞬间失败，没白传）：这张和以后的都走中转
+    preferRelay = true;
+    console.warn('[KukeChat] 图片直传被拦，改走中转', error);
+    return relayImage(prepared);
+  }
+  try {
+    return await completeDirectImage(ticket.upload_id);
+  } catch (error) {
+    // 400（不是能用的图片）这类结论普通上传也一样，直接报给用户
+    if (error instanceof ApiError && error.status === 400) throw error;
+    console.warn('[KukeChat] 图片直传完成失败，改用普通上传', error);
+    return null;
+  }
+}
+
 export async function uploadMessageImage(file: File): Promise<UploadResponse> {
-  return uploadFile<UploadResponse>('/uploads/message-image', file);
+  return (await tryDirectImageUpload(file)) ?? uploadFile<UploadResponse>('/uploads/message-image', file);
 }
 
 export async function uploadMessageVoice(file: File): Promise<UploadResponse> {

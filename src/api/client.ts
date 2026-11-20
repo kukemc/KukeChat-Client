@@ -279,6 +279,29 @@ export async function uploadFile<T>(path: string, file: File, fieldName = 'file'
   return payload as T;
 }
 
+/** 多个字段的表单上传（如图片中转直传：主图 + 缩略图）。各字段的内容由调用方准备好，这里不再压缩。 */
+export async function uploadForm<T>(path: string, fields: Record<string, { blob: Blob; filename: string }>): Promise<T> {
+  const state = useKukeStore.getState();
+  const headers: Record<string, string> = {};
+  const body = new FormData();
+  for (const [name, field] of Object.entries(fields)) body.append(name, field.blob, field.filename);
+  if (state.token) {
+    headers.Authorization = `Bearer ${state.token}`;
+  }
+  const sentDevice = await attachRequestHeaders(headers, 'POST', path);
+  const url = joinApiPath(resolveApiBaseUrl(), path);
+  const response = await fetch(url, { method: 'POST', headers, body }).catch((error: unknown) => {
+    throw new NetworkError(url, error);
+  });
+  noteDeviceIssue(response.headers, sentDevice);
+  const payload = await readJson(response);
+  if (!response.ok) {
+    handleAccountSuspension(payload);
+    throw new ApiError(response.status, payload);
+  }
+  return payload as T;
+}
+
 /**
  * 和 apiRequest 一样，但把响应头一起交出来。精华列表的分页信息在 X-Total-Count / X-Has-More 里，
  * 响应体仍是数组（老客户端不受影响），所以要读头。

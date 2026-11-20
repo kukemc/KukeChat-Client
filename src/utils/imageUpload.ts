@@ -256,3 +256,117 @@ async function compressImage(file: File, signal?: AbortSignal): Promise<File> {
     return useOriginal(file);
   }
 }
+
+// ---------------------------------------------------------------- 图片直传（后端 docs/chat-features.md「图片直传」）
+// 直传时后端不再压缩、不再生成缩略图，只校验：静态图必须是 JPEG（最长边 ≤ 2048、不带 EXIF 等元数据段），
+// 动图原样传 GIF；缩略图是最长边 ≤ 360 的 JPEG。canvas 重新编码出来的 JPEG 天然不带元数据。
+// 透明的地方垫白底，和后端把 PNG / WebP 转成 JPEG 的结果一样。
+const THUMBNAIL_SIDE = 360;
+const MAX_THUMBNAIL_BYTES = 256 * 1024;
+
+/**
+ * 主图的压缩档：依次试这些最长边和质量，取第一个不超过 maxBytes 的结果。
+ * 中转（经我们服务器写进对象存储）时用更省流量的一档：服务器到对象存储的带宽很小，每一字节都要过它。
+ */
+export interface DirectImageProfile {
+  sides: number[];
+  qualities: number[];
+  maxBytes: number;
+}
+
+export const DIRECT_PROFILE: DirectImageProfile = { sides: [MAX_SIDE, 1600, 1280], qualities: [0.82, 0.68], maxBytes: MAX_UPLOAD_BYTES };
+// 1600 在聊天里看大图也足够清楚；绝大多数照片在 0.78 下是 200–500KB
+export const RELAY_PROFILE: DirectImageProfile = { sides: [1600, 1280, 1080], qualities: [0.78, 0.66, 0.56], maxBytes: 900 * 1024 };
+
+export interface DirectImageUpload {
+  /** image/jpeg（静态图）或 image/gif（动图） */
+  image: Blob;
+  /** image/jpeg */
+  thumbnail: Blob;
+}
+
+function drawOnWhite(image: CanvasImageSource, width: number, height: number, maxSide: number): HTMLCanvasElement | null {
+  const scale = Math.min(1, maxSide / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context || typeof canvas.toBlob !== 'function') return null;
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+async function encodeJpeg(canvas: HTMLCanvasElement, qualities: number[], maxBytes: number, signal?: AbortSignal): Promise<Blob | null> {
+  for (const quality of qualities) {
+    await yieldToUi(signal);
+    const blob = await encode(canvas, 'image/jpeg', quality);
+    checkAbort(signal);
+    if (blob && blob.type === 'image/jpeg' && blob.size > 0 && blob.size <= maxBytes) return blob;
+  }
+  return null;
+}
+
+async function buildDirectImage(file: File, animated: string | null, profile: DirectImageProfile, signal?: AbortSignal): Promise<DirectImageUpload | null> {
+  await yieldToUi(signal);
+  if (animated === 'image/gif') {
+    if (file.size > MAX_UPLOAD_BYTES) throw new Error('动图超过 3MB，发不了');
+    // canvas 画 GIF 只画第一帧：正好拿来做缩略图
+    const frame = await loadImage(file, signal);
+    const canvas = drawOnWhite(frame, frame.naturalWidth, frame.naturalHeight, THUMBNAIL_SIDE);
+    const thumbnail = canvas && await encodeJpeg(canvas, [0.7, 0.5], MAX_THUMBNAIL_BYTES, signal);
+    return thumbnail ? { image: file.type === 'image/gif' ? file : new Blob([file], { type: 'image/gif' }), thumbnail } : null;
+  }
+  // 动态 WebP / APNG 要后端转成 GIF，走普通上传
+  if (animated) return null;
+  const type = file.type.toLowerCase();
+  if (!IMAGE_TYPES.has(type) || file.size > MAX_SOURCE_BYTES) return null;
+  const dimensions = await readImageDimensions(file);
+  if (!dimensions || !dimensions[0] || !dimensions[1] || dimensions[0] * dimensions[1] > MAX_SOURCE_PIXELS) return null;
+  const source = await loadImage(file, signal);
+  checkAbort(signal);
+  const width = source.naturalWidth;
+  const height = source.naturalHeight;
+  if (!width || !height || width * height > MAX_SOURCE_PIXELS) return null;
+  let image: Blob | null = null;
+  for (const side of profile.sides) {
+    await yieldToUi(signal);
+    const canvas = drawOnWhite(source, width, height, side);
+    if (!canvas) return null;
+    image = await encodeJpeg(canvas, profile.qualities, profile.maxBytes, signal);
+    if (image) break;
+  }
+  // 省流量那一档压不进上限（极少数细节特别多的图）：退回默认档，宁可多传一点也别发不出去
+  if (!image && profile !== DIRECT_PROFILE) return buildDirectImage(file, animated, DIRECT_PROFILE, signal);
+  if (!image) return null;
+  const thumbCanvas = drawOnWhite(source, width, height, THUMBNAIL_SIDE);
+  const thumbnail = thumbCanvas && await encodeJpeg(thumbCanvas, [0.7, 0.5], MAX_THUMBNAIL_BYTES, signal);
+  if (!thumbnail) return null;
+  if (!await isDecodable(image, signal)) return null;
+  return { image, thumbnail };
+}
+
+/**
+ * 准备直传用的主图和缩略图。返回 null 表示这张图不适合直传（格式不支持、浏览器解不了、canvas 不可用……），
+ * 调用方改走普通上传（prepareImageUpload + multipart），由后端处理。用户能看懂的错误（动图太大）照常抛出。
+ */
+export async function prepareDirectImageUpload(file: File, profile: DirectImageProfile = DIRECT_PROFILE, signal?: AbortSignal): Promise<DirectImageUpload | null> {
+  checkAbort(signal);
+  if (typeof document === 'undefined' || typeof Image === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
+  const animated = ACCEPTED_IMAGE_TYPES.has(file.type.toLowerCase()) || !file.type ? await sniffAnimatedType(file) : null;
+  const previous = compressionQueue;
+  let release!: () => void;
+  compressionQueue = new Promise<void>((resolve) => { release = resolve; });
+  try {
+    await previous;
+    checkAbort(signal);
+    return await buildDirectImage(file, animated, profile, signal);
+  } catch (error) {
+    checkAbort(signal);
+    if (error instanceof Error && error.message === '动图超过 3MB，发不了') throw error;
+    return null;
+  } finally {
+    release();
+  }
+}
