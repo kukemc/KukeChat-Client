@@ -2,6 +2,7 @@
 // 库模式打成单个 IIFE，油猴头部作为 banner 放在最前面。不依赖 vite.env.ts：脚本只连 CCW 和公开的 KukeChat 地址。
 import { defineConfig } from 'vite';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const pkg = JSON.parse(readFileSync(new URL('./userscript/package.json', import.meta.url), 'utf8')) as { version: string };
 
@@ -26,7 +27,11 @@ export default defineConfig({
   plugins: [
     {
       name: 'userscript-meta',
+      // 头部不能用 rollupOptions.output.banner：Vite 库模式输出时会把开头的注释去掉，油猴就认不出脚本
       closeBundle() {
+        const file = fileURLToPath(new URL('./dist-userscript/kukechat-ccw.user.js', import.meta.url));
+        const code = readFileSync(file, 'utf8');
+        if (!code.startsWith('// ==UserScript==')) writeFileSync(file, header + code);
         writeFileSync(new URL('./dist-userscript/kukechat-ccw.meta.js', import.meta.url), header);
       }
     }
@@ -43,9 +48,6 @@ export default defineConfig({
       name: 'KukeChatCcw',
       formats: ['iife'],
       fileName: () => 'kukechat-ccw.user.js'
-    },
-    rollupOptions: {
-      output: { banner: header }
     }
   }
 });
