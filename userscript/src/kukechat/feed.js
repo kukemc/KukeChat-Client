@@ -10,16 +10,20 @@ import { myFollowings } from './ccwGraph.js';
 import { activityHref, activityText } from './pages.js';
 
 // 两份数据：follow = 好友 + 我在共创世界关注的人 + 自己（/ccw/feed），square = 所有人的公开动态（KukeChat 的广场，/posts/feed?scope=square）。
-// 「全部动态」的混排只用 follow，免得所有人的动态把共创世界自己的动态淹没；「KukeChat」分类可以在两者之间切换。
+// 用哪份由页面上的切换决定（默认所有人，记在 localStorage），「全部动态」的混排和「KukeChat」分类都跟着它。
 const fresh = () => ({ posts: [], ids: new Set(), before: null, hasMore: true, loading: false });
 const stores = { follow: fresh(), square: fresh() };
 const session = { enabled: null, follows: null };
-let kcScope = 'square';
+const SCOPE_KEY = 'kukechat-ccw:feed-scope';
+let kcScope = (() => { try { return localStorage.getItem(SCOPE_KEY) === 'follow' ? 'follow' : 'square'; } catch (_) { return 'square'; } })();
 
 export function getKcScope() { return kcScope; }
-export function setKcScope(scope) { if (scope === 'follow' || scope === 'square') kcScope = scope; }
-/** onlyKc：「KukeChat」分类（按切换选）；否则是混排用的 follow */
-export function kcStore(onlyKc) { return stores[onlyKc ? kcScope : 'follow']; }
+export function setKcScope(scope) {
+  if (scope !== 'follow' && scope !== 'square') return;
+  kcScope = scope;
+  try { localStorage.setItem(SCOPE_KEY, scope); } catch (_) { /* 存不了就只管这次 */ }
+}
+export function kcStore() { return stores[kcScope]; }
 
 export async function kcFeedEnabled() {
   if (session.enabled == null) session.enabled = await ensureSession().catch(() => false);
@@ -38,8 +42,8 @@ function addPost(store, post, front) {
 }
 
 /** 加载一页；返回是否有新内容 */
-export async function loadKcPage(onlyKc) {
-  const scope = onlyKc ? kcScope : 'follow';
+export async function loadKcPage() {
+  const scope = kcScope;
   const store = stores[scope];
   if (store.loading || !store.hasMore || !(await kcFeedEnabled())) return false;
   store.loading = true;
@@ -75,7 +79,7 @@ const byTime = (a, b) => (b.feed.feedTime || 0) - (a.feed.feedTime || 0);
  * 返回 needMore：截断线以上的 KukeChat 动态可能还没拉完，要再拉一页。
  */
 export function mergeWithCcw(ccwGroups, ccwHasMore, onlyKc) {
-  const store = kcStore(onlyKc);
+  const store = kcStore();
   const cutoff = ccwHasMore && ccwGroups.length ? Math.min(...ccwGroups.map((g) => g.feed.feedTime || 0)) : -Infinity;
   const kcGroups = store.posts.map(groupOf).filter((g) => onlyKc || g.feed.feedTime >= cutoff);
   const oldestKc = store.posts.length ? Math.min(...store.posts.map((p) => Date.parse(kcIso(p.created_at)))) : Infinity;

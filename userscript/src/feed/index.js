@@ -124,10 +124,13 @@ export function renderFeedNav() {
 export function renderFeedToolbar() {
   const label = FEED_FILTERS.find((f) => f[0] === feed.filter)[1];
   const kc = feed.filter === 'KUKECHAT';
+  const all = feed.filter === 'ALL';
   const scope = getKcScope();
-  const title = kc ? 'KukeChat 动态' : label === '全部动态' ? '好友动态' : label;
-  const sub = kc ? (scope === 'square' ? '所有人的公开动态' : '好友和你关注的人') : '你关注的创作者';
-  const seg = kc ? h('div', { class: 'ccwk-cp-seg', role: 'radiogroup', 'aria-label': '看谁的动态' },
+  const title = kc ? 'KukeChat 动态' : all ? '好友动态' : label;
+  const sub = kc ? (scope === 'square' ? '所有人的公开动态' : '好友和你关注的人')
+    : all ? (scope === 'square' ? '你关注的创作者 · KukeChat 所有人' : '你关注的创作者 · KukeChat 关注的人') : '你关注的创作者';
+  // 切换的是 KukeChat 动态的范围，共创世界的动态不受影响（它们本来就只有关注的人）
+  const seg = kc || all ? h('div', { class: 'ccwk-cp-seg', role: 'radiogroup', 'aria-label': 'KukeChat 动态看谁的', title: 'KukeChat 动态的范围' },
     [['square', '所有人'], ['follow', '关注的人']].map(([value, text]) => h('button', {
       type: 'button', role: 'radio', class: 'ccwk-cp-opt' + (scope === value ? ' is-on' : ''), 'aria-checked': String(scope === value),
       onclick: () => { if (getKcScope() === value) return; setKcScope(value); renderFeedToolbar(); renderFeedList(); window.scrollTo(0, 0); },
@@ -357,7 +360,7 @@ export function renderFeedList() {
   // 截断线以上的 KukeChat 动态可能还没拉完：补一页，拉到了再重画
   // 混排时只补到截断线；只看 KukeChat 时没有截断线，等底部快露出来再加载下一页（滚动触发 feedPump → 重画到这里）
   const nearBottom = !onlyKc || (feedFootEl && feedFootEl.getBoundingClientRect().top < window.innerHeight + 1200);
-  if (merged.needMore && nearBottom && !kcStore(onlyKc).loading) loadKcPage(onlyKc).then((changed) => { if (changed && feedActive) renderFeedList(); });
+  if (merged.needMore && nearBottom && !kcStore().loading) loadKcPage().then((changed) => { if (changed && feedActive) renderFeedList(); });
   const rows = [];
   let curKey = null;
   let aggMap = null;
@@ -388,7 +391,7 @@ export function renderFeedList() {
 export function renderFeedFoot(count) {
   let content;
   if (feed.error) content = h('div', { class: 'ccwf-state' }, h('span', { text: feed.error.message || '动态加载失败' }), h('button', { type: 'button', class: 'ccwn-btn', onclick: () => { feed.error = null; feedPump(); } }, '重试'));
-  else if (feed.filter === 'KUKECHAT' ? (kcStore(true).loading || kcStore(true).hasMore) : feed.loading || feed.hasMore) content = count ? h('div', { class: 'ccwf-state', text: '加载中…' }) : h('div', null, [0, 1, 2].map(() => h('div', { class: 'ccwf-card ccwf-sk' }, h('div', { class: 'ccwf-sk-head' }, h('i'), h('b')), h('div', { class: 'ccwf-sk-body' }, h('i'), h('div', null, h('b'), h('s'), h('s'))))));
+  else if (feed.filter === 'KUKECHAT' ? (kcStore().loading || kcStore().hasMore) : feed.loading || feed.hasMore) content = count ? h('div', { class: 'ccwf-state', text: '加载中…' }) : h('div', null, [0, 1, 2].map(() => h('div', { class: 'ccwf-card ccwf-sk' }, h('div', { class: 'ccwf-sk-head' }, h('i'), h('b')), h('div', { class: 'ccwf-sk-body' }, h('i'), h('div', null, h('b'), h('s'), h('s'))))));
   else if (!count) content = h('div', { class: 'ccwf-state is-empty', text: feed.filter === 'ALL' ? '还没有动态，去关注一些创作者吧' : feed.filter === 'KUKECHAT' ? (getKcScope() === 'square' ? 'KukeChat 上还没有公开动态' : '好友和你关注的人还没在 KukeChat 发过动态') : '这一类还没有动态' });
   else content = h('div', { class: 'ccwf-state', text: '已经看完了' });
   feedFootEl.replaceChildren(content);
