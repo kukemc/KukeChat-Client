@@ -1,4 +1,4 @@
-// 动态页里并进来的 KukeChat 动态（/ccw/feed：好友 + 我在共创世界关注的人 + 自己），以及发动态的输入框、右栏「好友在玩」。
+// 动态页里并进来的 KukeChat 动态（关注的人 / 所有人），以及发动态的输入框、右栏「好友在玩」。
 //
 // 混排规则：KukeChat 动态包装成和 CCW 动态组同样的结构，按时间混在一起。CCW 那边还有没加载的更早动态时，
 // 只放不早于已加载最旧一条的 KukeChat 动态 —— 否则往下翻时 CCW 的旧动态会插到 KukeChat 动态上面，时间线错乱。
@@ -9,49 +9,78 @@ import { currentKukeUser, ensureSession, kcIso, kcRequest } from './client.js';
 import { myFollowings } from './ccwGraph.js';
 import { activityHref, activityText } from './pages.js';
 
-export const kcFeed = { posts: [], ids: new Set(), before: null, hasMore: true, loading: false, enabled: null, follows: null };
+// 两份数据：follow = 好友 + 我在共创世界关注的人 + 自己（/ccw/feed），square = 所有人的公开动态（KukeChat 的广场，/posts/feed?scope=square）。
+// 「全部动态」的混排只用 follow，免得所有人的动态把共创世界自己的动态淹没；「KukeChat」分类可以在两者之间切换。
+const fresh = () => ({ posts: [], ids: new Set(), before: null, hasMore: true, loading: false });
+const stores = { follow: fresh(), square: fresh() };
+const session = { enabled: null, follows: null };
+let kcScope = 'square';
+
+export function getKcScope() { return kcScope; }
+export function setKcScope(scope) { if (scope === 'follow' || scope === 'square') kcScope = scope; }
+/** onlyKc：「KukeChat」分类（按切换选）；否则是混排用的 follow */
+export function kcStore(onlyKc) { return stores[onlyKc ? kcScope : 'follow']; }
 
 export async function kcFeedEnabled() {
-  if (kcFeed.enabled == null) kcFeed.enabled = await ensureSession().catch(() => false);
-  return kcFeed.enabled;
+  if (session.enabled == null) session.enabled = await ensureSession().catch(() => false);
+  return session.enabled;
 }
 
 export function resetKcFeed() {
-  Object.assign(kcFeed, { posts: [], ids: new Set(), before: null, hasMore: true, loading: false });
+  stores.follow = fresh();
+  stores.square = fresh();
+}
+
+function addPost(store, post, front) {
+  if (!post || store.ids.has(post.id)) return;
+  store.ids.add(post.id);
+  if (front) store.posts.unshift(post); else store.posts.push(post);
 }
 
 /** 加载一页；返回是否有新内容 */
-export async function loadKcPage() {
-  if (kcFeed.loading || !kcFeed.hasMore || !(await kcFeedEnabled())) return false;
-  kcFeed.loading = true;
+export async function loadKcPage(onlyKc) {
+  const scope = onlyKc ? kcScope : 'follow';
+  const store = stores[scope];
+  if (store.loading || !store.hasMore || !(await kcFeedEnabled())) return false;
+  store.loading = true;
   try {
-    if (!kcFeed.follows) kcFeed.follows = (await myFollowings()).map((f) => f.oid);
-    const page = await kcRequest('POST', '/ccw/feed', { ccw_oids: kcFeed.follows, before_id: kcFeed.before, limit: 20 });
+    let page;
+    if (scope === 'square') {
+      page = await kcRequest('GET', '/posts/feed?scope=square&limit=20' + (store.before ? '&before_id=' + store.before : ''));
+    } else {
+      if (!session.follows) session.follows = (await myFollowings()).map((f) => f.oid);
+      page = await kcRequest('POST', '/ccw/feed', { ccw_oids: session.follows, before_id: store.before, limit: 20 });
+    }
     const list = Array.isArray(page) ? page : [];
-    list.forEach((p) => { if (!kcFeed.ids.has(p.id)) { kcFeed.ids.add(p.id); kcFeed.posts.push(p); } });
-    if (list.length) kcFeed.before = list[list.length - 1].id;
-    kcFeed.hasMore = list.length >= 20;
+    list.forEach((p) => addPost(store, p, false));
+    // 广场第一页可能带置顶的旧动态：翻页按不置顶的最小 id 往下翻
+    const ids = list.filter((p) => !p.pinned_at).map((p) => p.id);
+    if (ids.length) store.before = Math.min(...ids);
+    store.hasMore = list.length >= 20;
+    if (stores[scope] !== store) return false; // 加载途中被刷新重置了
     return list.length > 0;
   } catch (_) {
-    kcFeed.hasMore = false;
+    store.hasMore = false;
     return false;
   } finally {
-    kcFeed.loading = false;
+    store.loading = false;
   }
 }
 
 const groupOf = (p) => ({ groupId: 'kc-' + p.id, kc: p, feed: { type: 'KC_POST', feedTime: Date.parse(kcIso(p.created_at)), ownerId: 'kc-' + p.author_id } });
+const byTime = (a, b) => (b.feed.feedTime || 0) - (a.feed.feedTime || 0);
 
 /**
  * 和 CCW 动态组混排。ccwHasMore 时按 CCW 已加载最旧的时间截断；
  * 返回 needMore：截断线以上的 KukeChat 动态可能还没拉完，要再拉一页。
  */
 export function mergeWithCcw(ccwGroups, ccwHasMore, onlyKc) {
+  const store = kcStore(onlyKc);
   const cutoff = ccwHasMore && ccwGroups.length ? Math.min(...ccwGroups.map((g) => g.feed.feedTime || 0)) : -Infinity;
-  const kcGroups = kcFeed.posts.map(groupOf).filter((g) => onlyKc || g.feed.feedTime >= cutoff);
-  const oldestKc = kcFeed.posts.length ? Date.parse(kcIso(kcFeed.posts[kcFeed.posts.length - 1].created_at)) : Infinity;
-  const needMore = kcFeed.hasMore && (onlyKc || oldestKc >= cutoff);
-  const merged = onlyKc ? kcGroups : ccwGroups.concat(kcGroups).sort((a, b) => (b.feed.feedTime || 0) - (a.feed.feedTime || 0));
+  const kcGroups = store.posts.map(groupOf).filter((g) => onlyKc || g.feed.feedTime >= cutoff);
+  const oldestKc = store.posts.length ? Math.min(...store.posts.map((p) => Date.parse(kcIso(p.created_at)))) : Infinity;
+  const needMore = store.hasMore && (onlyKc || oldestKc >= cutoff);
+  const merged = onlyKc ? kcGroups.sort(byTime) : ccwGroups.concat(kcGroups).sort(byTime);
   return { groups: merged, needMore };
 }
 
@@ -148,7 +177,11 @@ export function renderComposer(onPosted) {
       ta.value = '';
       note.textContent = post && post.moderation_status === 'pending' ? '已发布，审核后别人可见' : '已发布';
       window.setTimeout(() => { note.textContent = ''; }, 3000);
-      if (post && post.id && !kcFeed.ids.has(post.id)) { kcFeed.ids.add(post.id); kcFeed.posts.unshift(post); }
+      // 自己发的两份里都有（广场只收公开的）
+      if (post && post.id) {
+        addPost(stores.follow, post, true);
+        if (post.visibility === 'public') addPost(stores.square, post, true);
+      }
       onPosted();
     } catch (err) {
       note.textContent = (err && err.message) || '发布失败';
