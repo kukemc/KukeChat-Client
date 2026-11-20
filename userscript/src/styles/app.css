@@ -440,7 +440,8 @@ html.ccwk-badge #root header [class*="totalNotice-"] { display: none !important;
 .ccwk-feed-imgs.n1 img { aspect-ratio: auto; max-height: 360px; }
 .ccwk-feed-repost { padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.04); font-size: 13px; color: #b6b6c4; }
 .ccwk-feed-repost b { color: #d4d4de; font-weight: 600; }
-.ccwk-cp { padding: 14px 18px !important; }
+/* 卡片都有 backdrop-filter，各自是层叠上下文：话题建议框的 z-index 出不了发帖框，得把整张发帖框抬到下面的动态卡片之上 */
+.ccwk-cp { padding: 14px 18px !important; z-index: 5; }
 .ccwk-cp-row { display: flex; align-items: flex-start; gap: 12px; }
 .ccwk-cp-av { flex: none; width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .ccwk-cp-input { flex: 1; min-width: 0; box-sizing: border-box; height: 36px; max-height: 320px; padding: 7px 0; border: 0; outline: none; resize: none; background: transparent; color: #ececf2; font: 15px/22px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; overflow-y: auto; }
