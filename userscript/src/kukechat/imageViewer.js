@@ -113,3 +113,22 @@ export function bindGallery(anchors, urls) {
     openImageViewer(urls, i);
   }));
 }
+
+/**
+ * 消息中心、动态页里 CCW 内容中的图片（评论、回复里贴的图，系统通知里嵌的图）：点了不再跳到图片地址，打开查看器。
+ * 同一条消息里的几张图可以一起翻。表情、头像、作品封面不算。
+ */
+const CONTENT_IMG = '.ccwn-body img:not(.ccwn-emoji):not(.ccwn-avatar)';
+export function installContentImageViewer() {
+  document.addEventListener('click', (e) => {
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const img = e.target.closest && e.target.closest(CONTENT_IMG);
+    if (!img) return;
+    const body = img.closest('.ccwn-body');
+    const imgs = [...body.querySelectorAll(CONTENT_IMG)];
+    const urls = imgs.map((x) => (x.closest('a.ccwn-img') && x.closest('a.ccwn-img').href) || x.currentSrc || x.src);
+    e.preventDefault();
+    e.stopPropagation();
+    openImageViewer(urls, Math.max(0, imgs.indexOf(img)));
+  }, true);
+}

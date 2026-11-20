@@ -1,6 +1,6 @@
 // 完整的 KukeChat 界面：只在消息中心打开「私信 / 好友」时才加载（chat-api.kuke.ink/embed/kukechat.js，约 5MB，浏览器会缓存）。
 // 用界面包桥接对象上的 embed 接口（KukeChat-Client src/extension/embed.ts）把窗口停靠进页面，
-// 再往它的 Shadow DOM 里注入样式：去掉标题栏、图标栏、缩放角，换成共创世界的配色。
+// 再往它的 Shadow DOM 里注入样式：去掉标题栏和缩放角，换成共创世界的配色。
 //
 // 只在消息中心加载：作品页里可能已经有作品自带的 KukeChat 扩展，两份界面包会抢同一个窗口。
 import { KUKECHAT_BASE } from './client.js';
@@ -27,9 +27,10 @@ export function loadKukeChat() {
 }
 
 const DOCK_CSS = `
+/* 只去掉标题栏和缩放角。左侧图标栏要留着：动态、联系人、设置、商城等都从那里进；
+   而且桌面布局是 grid（图标栏 56px + 列表 + 主区），藏掉图标栏会让后面的列整体错位 */
 :host([data-kc-docked]) .kwf-titlebar,
-:host([data-kc-docked]) .kwf-resize,
-:host([data-kc-docked]) .ksh-rail { display: none !important; }
+:host([data-kc-docked]) .kwf-resize { display: none !important; }
 :host([data-kc-docked]) .kc-window-frame {
   border-radius: 14px !important;
   overflow: hidden;
@@ -37,7 +38,6 @@ const DOCK_CSS = `
   box-shadow: 0 24px 60px -24px rgba(0,0,0,.55) !important;
 }
 :host([data-kc-docked]) .kc-window-frame > div.relative { height: 100% !important; }
-:host([data-kc-docked]) .kc-pc-dashboard { grid-template-columns: var(--ksh-pane-width, 280px) minmax(0, 1fr) !important; }
 /* 共创世界的配色：深底偏蓝紫、绿色强调（和消息中心、动态页一致） */
 :host([data-kc-docked]) #kukechat-root#kukechat-root [data-theme='dark'] {
   --kc-accent: #3ddc84;

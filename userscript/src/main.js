@@ -12,6 +12,7 @@ import { installProfile } from './kukechat/profile.js';
 import { installComments } from './kukechat/comments.js';
 import { installWork } from './kukechat/work.js';
 import { installWorkChat } from './kukechat/workChat.js';
+import { installContentImageViewer } from './kukechat/imageViewer.js';
 
 function installEverywhere() {
   // 这些在所有 CCW 页面都要有：实时连接、私信未读并进信封、新消息提醒
@@ -25,6 +26,7 @@ function installEverywhere() {
   installComments();
   installWork();
   installWorkChat();
+  installContentImageViewer();
   installPages();
 }
 

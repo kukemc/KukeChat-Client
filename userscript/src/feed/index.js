@@ -7,7 +7,7 @@ import { dayStart, fullTime, relTime } from '../core/time.js';
 import { state } from '../notice/state.js';
 import { avatarEl, card, pixImg, toast } from '../notice/view.js';
 import { KC_ICON } from '../core/icons.js';
-import { getKcScope, kcStore, loadKcPage, mergeWithCcw, renderComposer, renderKcCard, renderPlayingFriends, resetKcFeed, setFeedRerender, setKcScope } from '../kukechat/feed.js';
+import { getKcScope, kcStore, loadKcPage, mergeWithCcw, renderComposer, renderKcCard, renderPlayingFriends, resetKcFeed, setFeedRerender, setKcScope, kcSignedOut, onKcLogin, renderLoginPrompt, kcFeedEnabled } from '../kukechat/feed.js';
 
 /* ------------------------------------------------------------------ */
 /* 动态页（/feed）                                                      */
@@ -23,6 +23,7 @@ export const FEED_FILTERS = [
 export const feed = { filter: 'ALL', groups: [], ids: new Set(), cursor: null, hasMore: true, loading: false, error: null, loaded: false, me: null, rec: null, recPage: 0, expanded: new Set(), gen: 0 };
 export let feedRoot = null, feedNavEl = null, feedToolbarEl = null, feedListEl = null, feedFootEl = null, feedSideEl = null, feedMeEl = null, feedPlayEl = null, feedRecEl = null;
 let composerEl = null;
+let loginEl = null;
 export let feedActive = false;
 export const isFeedPath = () => /^\/feed\/?$/.test(location.pathname);
 
@@ -382,6 +383,10 @@ export function renderFeedList() {
   if (feed.filter === 'ALL' || onlyKc) {
     if (!composerEl) composerEl = renderComposer(() => renderFeedList());
     if (composerEl) nodes.unshift(composerEl);
+    else if (kcSignedOut()) {
+      if (!loginEl) loginEl = renderLoginPrompt();
+      nodes.unshift(loginEl);
+    } else kcFeedEnabled().then((ok) => { if (!ok && feedActive) renderFeedList(); });
   }
   feedListEl.replaceChildren(...nodes);
   renderFeedFoot(groups.length);
@@ -391,10 +396,11 @@ export function renderFeedList() {
 export function renderFeedFoot(count) {
   let content;
   if (feed.error) content = h('div', { class: 'ccwf-state' }, h('span', { text: feed.error.message || '动态加载失败' }), h('button', { type: 'button', class: 'ccwn-btn', onclick: () => { feed.error = null; feedPump(); } }, '重试'));
+  else if (feed.filter === 'KUKECHAT' && kcSignedOut()) content = null;
   else if (feed.filter === 'KUKECHAT' ? (kcStore().loading || kcStore().hasMore) : feed.loading || feed.hasMore) content = count ? h('div', { class: 'ccwf-state', text: '加载中…' }) : h('div', null, [0, 1, 2].map(() => h('div', { class: 'ccwf-card ccwf-sk' }, h('div', { class: 'ccwf-sk-head' }, h('i'), h('b')), h('div', { class: 'ccwf-sk-body' }, h('i'), h('div', null, h('b'), h('s'), h('s'))))));
   else if (!count) content = h('div', { class: 'ccwf-state is-empty', text: feed.filter === 'ALL' ? '还没有动态，去关注一些创作者吧' : feed.filter === 'KUKECHAT' ? (getKcScope() === 'square' ? 'KukeChat 上还没有公开动态' : '好友和你关注的人还没在 KukeChat 发过动态') : '这一类还没有动态' });
   else content = h('div', { class: 'ccwf-state', text: '已经看完了' });
-  feedFootEl.replaceChildren(content);
+  feedFootEl.replaceChildren(...(content ? [content] : []));
 }
 
 export let feedPumping = false;
@@ -433,8 +439,14 @@ export function resetFeed() {
   loadFeedSide();
 }
 
+let loginHooked = false;
 export function activateFeed() {
   setFeedRerender(() => { if (feedActive) renderFeedList(); });
+  if (!loginHooked) {
+    loginHooked = true;
+    // 在这里点「登录」、登录完回来：发送框、KukeChat 动态、右栏「好友在玩」都接上
+    onKcLogin(() => { loginEl = null; composerEl = null; if (feedActive) { renderFeedList(); loadFeedSide(); } });
+  }
   if (feedActive) return;
   feedActive = true;
   document.documentElement.classList.add('ccwf-on');

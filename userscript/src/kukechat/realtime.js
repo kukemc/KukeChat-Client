@@ -1,7 +1,7 @@
 // KukeChat 实时连接（常驻轻量层）：每个 CCW 页面一条 WebSocket，收新消息、已读、好友「正在玩」。
 // 完整的聊天界面只在消息中心打开私信时才加载（embed.js），平时不加载 5MB 的界面包。
 // 连上后 KukeChat 里会显示「在线」—— 人在逛共创世界，这是对的。
-import { KUKECHAT_BASE, currentToken, ensureSession } from './client.js';
+import { KUKECHAT_BASE, currentToken, ensureSession, onLogin } from './client.js';
 
 const listeners = new Set();
 let socket = null;
@@ -20,10 +20,13 @@ function emit(event) {
   });
 }
 
+let waitTimer = 0;
 async function connect() {
+  if (socket) return;
   if (!(await ensureSession())) {
-    // 没登录 KukeChat：5 分钟后再看看（ensureSession 自己会节流）
-    window.setTimeout(connect, 5 * 60 * 1000);
+    // 没登录 KukeChat：5 分钟后再看看（ensureSession 自己会节流）；刚登录上会由 onLogin 马上叫醒
+    window.clearTimeout(waitTimer);
+    waitTimer = window.setTimeout(connect, 5 * 60 * 1000);
     return;
   }
   const url = KUKECHAT_BASE.replace(/^http/, 'ws') + '/ws?token=' + encodeURIComponent(currentToken());
@@ -53,5 +56,6 @@ async function connect() {
 export function startRealtime() {
   if (started) return;
   started = true;
+  onLogin(() => { window.clearTimeout(waitTimer); connect(); });
   connect();
 }

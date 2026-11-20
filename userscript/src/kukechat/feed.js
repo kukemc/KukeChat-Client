@@ -7,7 +7,7 @@ import { KC_ICON, icon } from '../core/icons.js';
 import { compressForUpload } from './imageCompress.js';
 import { bindGallery, openImageViewer } from './imageViewer.js';
 import { fullTime, relTime } from '../core/time.js';
-import { currentKukeUser, ensureSession, kcIso, kcRequest } from './client.js';
+import { currentKukeUser, ensureSession, kcIso, kcRequest, onLogin, openKukeChatLogin } from './client.js';
 import { myFollowings } from './ccwGraph.js';
 import { activityHref, activityText } from './pages.js';
 
@@ -26,6 +26,31 @@ export function setKcScope(scope) {
   try { localStorage.setItem(SCOPE_KEY, scope); } catch (_) { /* 存不了就只管这次 */ }
 }
 export function kcStore() { return stores[kcScope]; }
+
+/** 已经确认过没登录（不发请求）。没确认过时返回 false，让界面先当成「还在看」 */
+export function kcSignedOut() { return session.enabled === false; }
+
+/** 登录上了：清掉「没登录」的结论和旧数据，cb 里让动态页重画 */
+export function onKcLogin(cb) {
+  return onLogin(() => {
+    session.enabled = null;
+    session.follows = null;
+    resetKcFeed();
+    cb();
+  });
+}
+
+/** 没登录 KukeChat 时放在发送框的位置 */
+export function renderLoginPrompt() {
+  const btn = h('button', { type: 'button', class: 'ccwk-cp-send' }, '登录');
+  btn.addEventListener('click', () => openKukeChatLogin());
+  return h('div', { class: 'ccwf-card ccwk-login' },
+    h('img', { class: 'ccwk-login-icon', src: KC_ICON, alt: '' }),
+    h('div', { class: 'ccwk-login-text' },
+      h('b', { text: '登录 KukeChat' }),
+      h('span', { text: '看好友和所有人的 KukeChat 动态，发动态、点赞、评论' })),
+    btn);
+}
 
 export async function kcFeedEnabled() {
   if (session.enabled == null) session.enabled = await ensureSession().catch(() => false);

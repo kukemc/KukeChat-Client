@@ -123,3 +123,42 @@ export async function kcPublic(method, path) {
   await ensureSession().catch(() => null);
   return rawRequest(method, path, undefined, { token: token || undefined });
 }
+
+/* ---------- 登录 ----------
+ * 没登录 KukeChat 时，各处给一个「登录」按钮：小窗打开 chat-api.kuke.ink/login，登录成功后那边会种下会话 cookie。
+ * 小窗关掉、或者回到这个页面时重新换一次令牌；换到了就通知各模块（动态、实时连接、未读数）接上，不用刷新页面。 */
+const loginListeners = new Set();
+
+export function onLogin(fn) {
+  loginListeners.add(fn);
+  return () => loginListeners.delete(fn);
+}
+
+/** 不管 5 分钟的节流，马上再试一次；新登录上了就通知 */
+export async function retrySession() {
+  if (token) return me;
+  sessionTried = 0;
+  const user = await ensureSession();
+  if (user) loginListeners.forEach((fn) => { try { fn(user); } catch (_) { /* 一个出错不影响别的 */ } });
+  return user;
+}
+
+let loginWatch = 0;
+export function openKukeChatLogin() {
+  const url = BASE + '/login?origin=' + encodeURIComponent(location.origin);
+  const w = 460;
+  const hgt = 680;
+  const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - w) / 2));
+  const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - hgt) / 2));
+  const popup = window.open(url, 'kukechat-login', `popup=yes,width=${w},height=${hgt},left=${left},top=${top}`);
+  if (!popup) { window.open(url, '_blank', 'noopener'); }
+  window.clearInterval(loginWatch);
+  // 小窗关掉就再试一次；没开成小窗（被拦）就靠下面的 focus 兜底
+  loginWatch = window.setInterval(() => {
+    if (popup && popup.closed) { window.clearInterval(loginWatch); retrySession(); }
+  }, 800);
+  window.setTimeout(() => window.clearInterval(loginWatch), 10 * 60 * 1000);
+}
+
+// 在别的标签页登录完切回来，也接上
+window.addEventListener('focus', () => { if (!token) retrySession(); });

@@ -10,6 +10,7 @@ import { GROUPS, GROUP_LABEL, SYSTEM_TITLE, buildRows, interactionVerb, replyTai
 import { allDone, anyError, anyLoading, loadStream, markAllRead, nextStreamToLoad, observeRow, state, stream, viewGroups, visibleItems } from './state.js';
 import { KC_ICON } from '../core/icons.js';
 import { unreadTotal } from '../kukechat/unread.js';
+import { renderNotifyModeSwitch } from '../kukechat/toast.js';
 
 /* ------------------------------------------------------------------ */
 /* 视图                                                                */
@@ -158,7 +159,11 @@ export function mount() {
   main.append(toolbarEl, listEl, footEl);
   fansEl = h('div', { class: 'ccwn-fans' });
   sideEl = h('aside', { class: 'ccwn-side' });
-  layout.append(h('div', { class: 'ccwn-left' }, navEl, fansEl), main, sideEl);
+  // KukeChat 新消息提醒的设置（kukechat/toast.js），放在导航下面
+  const notifyCard = h('section', { class: 'ccwn-card ccwk-nt-card' },
+    h('div', { class: 'ccwk-nt-card-head' }, h('span', { text: 'KukeChat 消息提醒' }), h('img', { src: KC_ICON, alt: '' })),
+    renderNotifyModeSwitch());
+  layout.append(h('div', { class: 'ccwn-left' }, navEl, notifyCard, fansEl), main, sideEl);
   toastEl = h('div', { class: 'ccwn-toast' });
   root.append(layout, toastEl);
   document.body.appendChild(root);
