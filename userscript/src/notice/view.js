@@ -93,14 +93,15 @@ export function renderSide() {
   }
   const s = computeStats();
   const cap = (g) => (state.stats.capped[g] ? '+' : '');
-  const tile = (ic, tone, n, label, g) => h('div', { class: 'ccwn-stat tone-' + tone },
+  // 「新粉丝」那格点开新粉丝弹窗（以前要去系统通知里翻到最后一页才看得到是谁）
+  const tile = (ic, tone, n, label, g, onclick) => h(onclick ? 'button' : 'div', { class: 'ccwn-stat tone-' + tone + (onclick ? ' is-link' : ''), type: onclick ? 'button' : null, title: onclick ? '查看新粉丝' : null, onclick },
     h('i', { class: 'ccwn-stat-dot' }),
     h('b', { text: n + cap(g) }), h('span', { text: label }));
   const tiles = h('div', { class: 'ccwn-stats' },
     tile('heart', 'pink', s.like.length, '获赞', 'CONTENT_INTERACTION'),
     tile('star', 'amber', s.fav.length, '收藏', 'CONTENT_INTERACTION'),
     tile('reply', 'blue', s.cmt.length, '评论', 'REPLY'),
-    tile('follow', 'green', s.fans.length, '新粉丝', 'SYSTEM'));
+    tile('follow', 'green', s.fans.length, '新粉丝', 'SYSTEM', s.fans.length ? () => openFansDialog() : null));
 
   // 每日消息数：单一系列柱状图，悬停在标题右侧显示当天数值
   const max = Math.max(1, ...s.days.map((d) => d.n));
@@ -160,8 +161,7 @@ export function openFansDialog() {
     h('header', { class: 'ccwn-modal-head' },
       h('h2', { text: '近 7 天新粉丝 · ' + s.fans.length + (state.stats.capped.SYSTEM ? '+' : '') }),
       h('button', { type: 'button', class: 'ccwn-icon', title: '关闭', onclick: close }, icon('close', 16))),
-    list,
-    h('footer', { class: 'ccwn-modal-foot' }, h('button', { type: 'button', class: 'ccwn-link', onclick: () => { close(); go('SYSTEM', 'ALL'); } }, '在系统通知里查看')));
+    list);
   const overlay = h('div', { class: 'ccwn-modal-mask' }, panel);
   overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', onKey, true);
@@ -236,14 +236,16 @@ export function renderNav() {
       if (g.preview && (!latest || Date.parse(g.preview.createdAt) > Date.parse(latest.createdAt))) latest = g.preview;
     });
   }
-  const items = ['ALL', 'CHAT', 'FRIENDS'].concat(GROUPS).map((g) => {
-    const kc = g === 'CHAT' || g === 'FRIENDS';
+  // 好友 / 联系人在 KukeChat 自己的侧边栏里就有，这里只留「私信」一个入口；/notice/friends（名片上「去通过申请」）也高亮它
+  const items = ['ALL', 'CHAT'].concat(GROUPS).map((g) => {
+    const kc = g === 'CHAT';
+    const active = state.view === g || (g === 'CHAT' && state.view === 'FRIENDS');
     const n = g === 'ALL' ? total : g === 'CHAT' ? unreadTotal() : (info[g] && info[g].unreadCount) || 0;
     const pv = g === 'ALL' ? latest : kc ? null : info[g] && info[g].preview;
     const meta = GROUP_META[g] || { tone: 'green' };
     return h('a', {
-      class: 'ccwn-nav-item tone-' + meta.tone + (state.view === g ? ' is-active' : ''),
-      href: g === 'ALL' ? '/notice' : g === 'CHAT' ? '/notice/chat' : g === 'FRIENDS' ? '/notice/friends' : '/notice/category/' + g,
+      class: 'ccwn-nav-item tone-' + meta.tone + (active ? ' is-active' : ''),
+      href: g === 'ALL' ? '/notice' : g === 'CHAT' ? '/notice/chat' : '/notice/category/' + g,
       onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); go(g, 'ALL'); },
     },
     h('span', { class: 'ccwn-tile' }, kc ? h('img', { class: 'ccwk-tile', src: KC_ICON, alt: '' }) : pixImg(g, 30)),
@@ -251,7 +253,7 @@ export function renderNav() {
       h('span', { class: 'ccwn-nav-top' },
         h('span', { class: 'ccwn-nav-label', text: GROUP_LABEL[g] }),
         n ? h('span', { class: 'ccwn-count', text: n > 99 ? '99+' : String(n) }) : pv ? h('span', { class: 'ccwn-nav-time', text: relTime(pv.createdAt) }) : null),
-      h('span', { class: 'ccwn-nav-preview', text: kc ? (g === 'CHAT' ? 'KukeChat 私聊和群聊' : '联系人、好友申请') : pv ? plain(pv.text || '').replace(/\s+/g, ' ') : state.summary ? '暂无消息' : '' })));
+      h('span', { class: 'ccwn-nav-preview', text: kc ? 'KukeChat 私聊、群聊和好友' : pv ? plain(pv.text || '').replace(/\s+/g, ' ') : state.summary ? '暂无消息' : '' })));
   });
   navEl.replaceChildren(h('div', { class: 'ccwn-nav-card' }, items));
 }
