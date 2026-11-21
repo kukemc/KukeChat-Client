@@ -53,7 +53,9 @@ export function renderLoginPrompt() {
 }
 
 export async function kcFeedEnabled() {
-  if (session.enabled == null) session.enabled = await ensureSession().catch(() => false);
+  // ensureSession 没登录时给的是 null，不是 false：必须转成布尔，否则 enabled 一直停在「还没确认」，
+  // 动态页每次重画都再问一次、问完又重画，同步解析的 Promise 连成微任务死循环，页面直接卡死
+  if (session.enabled == null) session.enabled = Boolean(await ensureSession().catch(() => null));
   return session.enabled;
 }
 
@@ -87,8 +89,10 @@ export async function loadKcPage() {
     list.forEach((p) => addPost(store, p, false));
     // 广场第一页可能带置顶的旧动态：翻页按不置顶的最小 id 往下翻
     const ids = list.filter((p) => !p.pinned_at).map((p) => p.id);
+    const before = store.before;
     if (ids.length) store.before = Math.min(...ids);
-    store.hasMore = list.length >= 20;
+    // 翻页游标没往下走（整页都是置顶的旧动态之类）就当到底了，免得一直拉同一页
+    store.hasMore = list.length >= 20 && store.before !== before;
     if (stores[scope] !== store) return false; // 加载途中被刷新重置了
     return list.length > 0;
   } catch (_) {

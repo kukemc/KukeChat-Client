@@ -29,6 +29,9 @@ html.ccwn-on body { background: linear-gradient(180deg, #181a2b 0%, #12131f 45%,
 .ccwn-app button:disabled { cursor: default; opacity: .5; }
 .ccwn-layout { max-width: 1560px; margin: 0 auto; display: grid; grid-template-columns: 272px minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
 .ccwn-left, .ccwn-side { position: sticky; top: calc(var(--top) + 24px); display: flex; flex-direction: column; gap: 16px; }
+/* 侧栏比屏幕高时自己滚，不用把中间的列表滑到底才看得到下半截（互动最多的作品等） */
+.ccwn-side { max-height: calc(100vh - var(--top) - 48px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.ccwn-side::-webkit-scrollbar { display: none; }
 .ccwn-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 16px; box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 24px 60px -24px rgba(0,0,0,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .ccwn-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .ccwn-card-head h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); line-height: 20px; }

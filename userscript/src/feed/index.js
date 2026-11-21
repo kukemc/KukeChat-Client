@@ -24,6 +24,7 @@ export const feed = { filter: 'ALL', groups: [], ids: new Set(), cursor: null, h
 export let feedRoot = null, feedNavEl = null, feedToolbarEl = null, feedListEl = null, feedFootEl = null, feedSideEl = null, feedMeEl = null, feedPlayEl = null, feedRecEl = null;
 let composerEl = null;
 let loginEl = null;
+let kcCheckPending = false;
 export let feedActive = false;
 export const isFeedPath = () => /^\/feed\/?$/.test(location.pathname);
 
@@ -386,7 +387,11 @@ export function renderFeedList() {
     else if (kcSignedOut()) {
       if (!loginEl) loginEl = renderLoginPrompt();
       nodes.unshift(loginEl);
-    } else kcFeedEnabled().then((ok) => { if (!ok && feedActive) renderFeedList(); });
+    } else if (!kcCheckPending) {
+      // 还不知道登没登录：问一次，有结论（没登录 → 换成登录提示）再重画；问的过程中重画不再重复问
+      kcCheckPending = true;
+      kcFeedEnabled().then((ok) => { kcCheckPending = false; if (!ok && kcSignedOut() && feedActive) renderFeedList(); });
+    }
   }
   feedListEl.replaceChildren(...nodes);
   renderFeedFoot(groups.length);
