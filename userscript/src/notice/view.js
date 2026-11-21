@@ -363,10 +363,14 @@ export function renderInteraction(it) {
   const u = sender(it);
   const extra = it.contentCategory === 'CREATION_REMIXED' && it.content && it.content.remixed_creation_title
     ? h('div', { class: 'ccwn-body is-muted', text: '改编作品：' + it.content.remixed_creation_title }) : null;
-  const quote = it.contentCategory === 'COMMENT_LIKED' && it.comment ? bodyEl(richText(plain(it.comment)), 'is-quote') : null;
+  const liked = it.contentCategory === 'COMMENT_LIKED';
+  const quote = liked && it.comment ? bodyEl(richText(plain(it.comment)), 'is-quote') : null;
+  // 评论被赞：和原版一样给「查看对话」，跳到作品页并定位到这条评论
+  const href = liked ? targetHref(it) : '';
+  const acts = href ? [h('a', { class: 'ccwn-act', href, target: '_blank', rel: 'noreferrer' }, '查看对话')] : undefined;
   return [
     leadEl(it, avatarEl(u.avatar, u.oid, 40)),
-    h('div', { class: 'ccwn-main-col' }, line([userLink(u), verb(interactionVerb(it)), subjectLink(it)], it.createdAt), quote, extra),
+    h('div', { class: 'ccwn-main-col' }, line([userLink(u), verb(interactionVerb(it)), subjectLink(it)], it.createdAt, acts), quote, extra),
     asideEl(thumbEl(it)),
   ];
 }

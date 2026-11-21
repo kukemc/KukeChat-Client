@@ -27,6 +27,21 @@ export function stream(g) {
 }
 export const viewGroups = () => (state.view === 'ALL' ? GROUPS : [state.view]);
 
+// 「只看未读」时不用把历史全翻完：未读的都在最前面，拉到已读的就说明后面没有未读了；
+// 摘要里这个分类本来就 0 条未读，干脆不拉。否则点赞这种几千条的分类会一直转圈。
+function unreadCountOf(g) {
+  const sm = state.summary;
+  const x = sm && (sm.groups || []).find((y) => y.group === g);
+  return x && typeof x.unreadCount === 'number' ? x.unreadCount : null;
+}
+function exhausted(s) {
+  if (!state.unreadOnly) return false;
+  if (unreadCountOf(s.group) === 0) return true;
+  const last = s.items[s.items.length - 1];
+  return Boolean(last && last.readState !== 'UNREAD');
+}
+const pending = (s) => s.hasMore && !exhausted(s);
+
 export async function loadStream(s) {
   if (s.loading || !s.hasMore) return;
   s.loading = true; s.error = null;
@@ -57,7 +72,7 @@ export function visibleItems() {
   const ss = groups.map(stream);
   let frontier = -Infinity;
   for (const s of ss) {
-    if (!s.hasMore) continue;
+    if (!pending(s)) continue;
     if (!s.items.length) { frontier = Infinity; break; }
     frontier = Math.max(frontier, Date.parse(s.items[s.items.length - 1].createdAt));
   }
@@ -69,13 +84,13 @@ export function visibleItems() {
   return all;
 }
 export function nextStreamToLoad() {
-  const ss = viewGroups().map(stream).filter((s) => s.hasMore && !s.error);
+  const ss = viewGroups().map(stream).filter((s) => pending(s) && !s.error);
   if (!ss.length) return null;
   const empty = ss.find((s) => !s.items.length);
   if (empty) return empty;
   return ss.reduce((best, s) => (Date.parse(s.items[s.items.length - 1].createdAt) > Date.parse(best.items[best.items.length - 1].createdAt) ? s : best));
 }
-export const allDone = () => viewGroups().map(stream).every((s) => !s.hasMore);
+export const allDone = () => viewGroups().map(stream).every((s) => !pending(s));
 export const anyLoading = () => viewGroups().map(stream).some((s) => s.loading);
 export const anyError = () => viewGroups().map(stream).find((s) => s.error);
 
