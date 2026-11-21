@@ -8,6 +8,7 @@ import { installBadge } from './kukechat/badge.js';
 import { installToast } from './kukechat/toast.js';
 import { injectStyle } from './core/style.js';
 import { applyPrefs } from './core/prefs.js';
+import { installLoginGuard } from './core/loginGuard.js';
 import { installPages } from './kukechat/pages.js';
 import { installProfile } from './kukechat/profile.js';
 import { installComments } from './kukechat/comments.js';
@@ -34,6 +35,8 @@ function installEverywhere() {
 }
 
 function boot() {
+  // 最先装：要赶在共创世界自己的脚本之前接管 document.cookie 和 XHR
+  installLoginGuard();
   applyPrefs();
   // 「正在玩」在所有页面都要跟着路由走；页面重写只接管消息中心和动态页
   installPresence();
