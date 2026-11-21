@@ -25,6 +25,8 @@ export const ICON = {
   image: 'M2.5 3.5h11v9h-11zM2.5 10.5l3-3 2.5 2.5 1.5-1.5 4 3.5M10.5 6.5a1 1 0 1 0 0-.01',
   hash: 'M6.5 2.5l-1.5 11M11 2.5l-1.5 11M3 6h10.5M2.5 10H13',
   close: 'M4 4l8 8M12 4l-8 8',
+  search: 'M7 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM10.3 10.3l3.2 3.2',
+  check: 'M3.5 8.5l3 3 6-7',
 };
 export function icon(name, size) {
   const NS = 'http://www.w3.org/2000/svg';

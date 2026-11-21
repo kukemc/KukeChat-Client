@@ -10,6 +10,7 @@ import { fullTime, relTime } from '../core/time.js';
 import { currentKukeUser, ensureSession, kcIso, kcRequest, onLogin, openKukeChatLogin } from './client.js';
 import { myFollowings } from './ccwGraph.js';
 import { activityHref, activityText } from './pages.js';
+import { openSharePicker } from './sharePicker.js';
 
 // 两份数据：follow = 好友 + 我在共创世界关注的人 + 自己（/ccw/feed），square = 所有人的公开动态（KukeChat 的广场，/posts/feed?scope=square）。
 // 用哪份由页面上的切换决定（默认所有人，记在 localStorage），「全部动态」的混排和「KukeChat」分类都跟着它。
@@ -270,7 +271,7 @@ function buildCard(p, avatarEl) {
   /* 转发 */
   // 转发一条转发：转的是原动态（和 KukeChat 里一样，不套娃）
   const target = repost && p.repost_of_id ? { id: p.repost_of_id, who: userName(repost.author) } : { id: p.id, who: a.name };
-  const shareBtn = h('button', { type: 'button', class: 'ccwk-act', title: '转发' }, icon('share', 15), h('span', { text: '转发' }));
+  const shareBtn = h('button', { type: 'button', class: 'ccwk-act', title: '转发到我的动态' }, icon('remix', 15), h('span', { text: '转发' }));
   const rpBox = h('div', { class: 'ccwk-rp' });
   let rpVis = 'public';
   const rpInput = h('textarea', { class: 'ccwk-cm-input', rows: '1', maxlength: '2000', placeholder: '说点什么…（可以不写）' });
@@ -314,7 +315,27 @@ function buildCard(p, avatarEl) {
   });
 
   const signedIn = Boolean(me());
-  const actions = h('div', { class: 'ccwk-acts' + (signedIn ? '' : ' is-readonly') }, likeBtn, commentBtn, shareBtn);
+  /* 分享：发给好友 / 群聊，消息带 share_card，KukeChat 里显示成动态卡片（同桌面端 postShareMetadata） */
+  const sendBtn = h('button', { type: 'button', class: 'ccwk-act', title: '发给好友或群聊' }, icon('share', 15), h('span', { text: '分享' }));
+  sendBtn.addEventListener('click', () => {
+    const src = repost && p.repost_of_id ? { ...repost, id: p.repost_of_id } : p;
+    const who = userName(src.author);
+    const text = (src.content || '').trim();
+    openSharePicker({
+      title: '分享动态',
+      preview: h('div', { class: 'ccwk-share-post' }, h('b', { text: who }), h('span', { text: text || ((src.image_urls || []).length ? '[图片]' : '分享了一条动态') })),
+      build: (note) => ({
+        content: [note, '[动态] ' + who + '：' + (text || '分享了一条动态')].filter(Boolean).join('\n').slice(0, 500),
+        metadata: { share_card: {
+          type: 'post', post_id: src.id, author_id: src.author_id || (src.author && src.author.id), author_name: who,
+          author_avatar_url: (src.author && src.author.avatar_url) || null, content: src.content || '',
+          image_urls: src.image_urls || [], ccw_creations: src.ccw_creations || [], created_at: src.created_at,
+        } },
+      }),
+    });
+  });
+
+  const actions = h('div', { class: 'ccwk-acts' + (signedIn ? '' : ' is-readonly') }, likeBtn, commentBtn, shareBtn, sendBtn);
   paintLike();
   paintComments();
 

@@ -414,11 +414,6 @@ html.ccwk-badge #root header [class*="totalNotice-"] { display: none !important;
 .ccwk-faces { display: inline-flex; flex: none; }
 .ccwk-faces img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 2px solid #23232f; margin-left: -8px; background: #2a2a38; }
 .ccwk-faces img:first-child { margin-left: 0; }
-.ccwk-invite { border-top: 1px solid rgba(255,255,255,.06); padding-top: 10px; }
-.ccwk-invite-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
-.ccwk-invite-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-.ccwk-invite-row img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
-.ccwk-invite-row span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- 评论区 ---------- */
 .ccwk-cdot { position: absolute; right: 0; bottom: 0; width: 10px; height: 10px; border-radius: 50%; background: #3ddc84; box-shadow: 0 0 0 2px #1b1b28; }
@@ -688,3 +683,47 @@ html.ccwn-noblur .ccwn-app { --surface: var(--surface-solid); }
 .ccwn-fans-user b { font-size: 13px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ccwn-fans-user time { font-size: 11px; color: var(--muted); }
 html.ccwn-noblur .ccwf-card { background: #1c1c2a; }
+
+/* ---------- 分享给好友 / 群聊（作品邀请、动态分享） ---------- */
+.ccwk-share-mask { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; background: rgba(6,6,12,.55); font: 14px/1.5 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: #ececf2; text-align: left; }
+.ccwk-share { width: min(440px, calc(100vw - 32px)); max-height: min(640px, calc(100vh - 48px)); display: flex; flex-direction: column; border-radius: 16px; background: #1d1d2a; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 24px 64px rgba(0,0,0,.5); overflow: hidden; }
+.ccwk-share-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 10px; }
+.ccwk-share-head h2 { margin: 0; font-size: 16px; font-weight: 600; color: #ececf2; }
+.ccwk-share-x { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: none; color: #8a8a9a; cursor: pointer; }
+.ccwk-share-x:hover { background: rgba(255,255,255,.08); color: #ececf2; }
+.ccwk-share-preview { margin: 0 18px 10px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.04); }
+.ccwk-share-work { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ccwk-share-work img { width: 64px; height: 40px; border-radius: 6px; object-fit: cover; flex: none; }
+.ccwk-share-work > span, .ccwk-share-post { display: flex; flex-direction: column; min-width: 0; }
+.ccwk-share-work b, .ccwk-share-post b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-share-work span span { font-size: 12px; color: #8a8a9a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-share-post span { font-size: 12px; color: #a8a8b8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ccwk-share-find { display: flex; align-items: center; gap: 8px; margin: 0 18px 6px; padding: 0 12px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.06); color: #8a8a9a; }
+.ccwk-share-find:focus-within { box-shadow: 0 0 0 1px rgba(61,220,132,.6); }
+.ccwk-share-search { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: #ececf2; font: inherit; }
+.ccwk-share-list { flex: 1; min-height: 160px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 10px 8px; }
+.ccwk-share-sec { padding: 10px 8px 4px; font-size: 12px; color: #8a8a9a; }
+.ccwk-share-empty { padding: 32px 8px; text-align: center; color: #8a8a9a; font-size: 13px; }
+.ccwk-share-row { display: flex; width: 100%; align-items: center; gap: 10px; padding: 7px 8px; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ccwk-share-row:hover { background: rgba(255,255,255,.05); }
+.ccwk-share-row.is-on { background: rgba(61,220,132,.1); }
+.ccwk-share-row img, .ccwk-share-ph { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex: none; background: rgba(255,255,255,.08); }
+.ccwk-share-row .is-square { border-radius: 10px; }
+.ccwk-share-ph { display: inline-flex; align-items: center; justify-content: center; font-size: 14px; color: #a8a8b8; }
+.ccwk-share-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ccwk-share-text b { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-share-text span { font-size: 12px; color: #8a8a9a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccwk-share-row.is-done .ccwk-share-text span { color: #3ddc84; }
+.ccwk-share-row.is-fail .ccwk-share-text span { color: #ff7a7a; }
+.ccwk-share-tick { width: 20px; height: 20px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.22); color: #10241a; }
+.ccwk-share-row.is-on .ccwk-share-tick, .ccwk-share-row.is-done .ccwk-share-tick { background: #3ddc84; border-color: #3ddc84; }
+.ccwk-share-foot { display: flex; flex-direction: column; gap: 8px; padding: 10px 18px 14px; border-top: 1px solid rgba(255,255,255,.06); }
+.ccwk-share-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ccwk-share-chips[hidden] { display: none; }
+.ccwk-share-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 140px; height: 26px; padding: 0 8px 0 10px; border: 0; border-radius: 13px; background: rgba(61,220,132,.14); color: #8ff0bb; font: 12px/1 inherit; cursor: pointer; }
+.ccwk-share-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ccwk-share-note { width: 100%; box-sizing: border-box; min-height: 36px; resize: none; padding: 8px 12px; border: 0; outline: 0; border-radius: 10px; background: rgba(255,255,255,.06); color: #ececf2; font: inherit; }
+.ccwk-share-note:focus { box-shadow: 0 0 0 1px rgba(61,220,132,.6); }
+.ccwk-share-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.ccwk-share-status { flex: 1; font-size: 12px; color: #8a8a9a; }
+html.ccwn-noblur .ccwk-share-mask { backdrop-filter: none; }

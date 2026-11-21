@@ -1,16 +1,16 @@
 // 作品页 /detail/<oid>：右侧信息栏加一张卡片 —— 作品群（作者在 KukeChat 开了游戏模式并绑定这个作品的公开群）
-// 和此刻在玩的好友；「邀请好友一起玩」把作品链接私聊发给选中的好友。没登录 KukeChat 时不显示。
+// 和此刻在玩的好友；「邀请好友一起玩」把作品发给选中的好友或群聊（可搜索、多选）。没登录 KukeChat 时不显示。
 import { h } from '../core/dom.js';
 import { KC_ICON } from '../core/icons.js';
 import { ensureSession, kcRequest } from './client.js';
 import { memo, registerInjector } from './pages.js';
+import { openSharePicker } from './sharePicker.js';
 
 const loadWork = memo(async (oid) => {
   if (!(await ensureSession())) return null;
   return kcRequest('GET', '/ccw/works/' + oid);
 }, 30000);
 
-const loadFriends = memo(() => kcRequest('GET', '/friends').catch(() => []), 120000);
 
 async function join(group, btn) {
   btn.disabled = true;
@@ -25,37 +25,18 @@ async function join(group, btn) {
   }
 }
 
-function invitePanel(oid, anchor) {
-  const old = document.querySelector('.ccwk-invite');
-  if (old) { old.remove(); return; }
+// 邀请：选好友 / 群聊发一条带作品链接的消息，服务端会把链接变成作品卡片
+function openInvite(oid) {
   const title = (document.title || '').replace(/\s*[-|_].*$/, '').trim() || '这个作品';
-  const list = h('div', { class: 'ccwk-invite-list' }, h('div', { class: 'ccwk-muted', text: '加载好友…' }));
-  const panel = h('div', { class: 'ccwk-invite' },
-    h('div', { class: 'ccwk-sub-title', text: '邀请好友一起玩' }),
-    list);
-  anchor.after(panel);
-  loadFriends('all').then((friends) => {
-    const rows = (Array.isArray(friends) ? friends : []).map((f) => f.friend || f.user || f).filter((u) => u && u.id);
-    if (!rows.length) { list.replaceChildren(h('div', { class: 'ccwk-muted', text: '还没有 KukeChat 好友' })); return; }
-    list.replaceChildren(...rows.slice(0, 30).map((u) => {
-      const btn = h('button', { type: 'button', class: 'ccwk-btn is-sm' }, '邀请');
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        try {
-          const conv = await kcRequest('POST', '/conversations/direct', { user_id: u.id, temporary: true });
-          await kcRequest('POST', `/conversations/${conv.id}/messages`, { type: 'text', content: `一起来玩「${title}」吧 https://www.ccw.site/detail/${oid}` });
-          btn.textContent = '已邀请';
-        } catch (err) {
-          btn.disabled = false;
-          btn.textContent = '失败';
-          btn.title = (err && err.message) || '';
-        }
-      });
-      return h('div', { class: 'ccwk-invite-row' },
-        h('img', { src: u.avatar_url || '', alt: '' }),
-        h('span', { text: u.nickname || u.username }),
-        btn);
-    }));
+  const cover = document.querySelector('meta[property="og:image"]')?.content || '';
+  const url = 'https://www.ccw.site/detail/' + oid;
+  openSharePicker({
+    title: '邀请好友一起玩',
+    notePlaceholder: '一起来玩「' + title + '」吧',
+    preview: h('div', { class: 'ccwk-share-work' },
+      cover ? h('img', { src: cover, alt: '' }) : null,
+      h('span', null, h('b', { text: title }), h('span', { text: url }))),
+    build: (note) => ({ content: (note || '一起来玩「' + title + '」吧') + ' ' + url }),
   });
 }
 
@@ -81,7 +62,7 @@ function renderWork(info, className, oid) {
       joinBtn,
       g && g.is_member ? h('a', { class: 'ccwk-btn is-primary', href: '/notice/chat?c=' + g.conversation_id }, '进入群聊') : null,
       inviteBtn));
-  inviteBtn.addEventListener('click', () => invitePanel(oid, card.querySelector('.ccwk-actions')));
+  inviteBtn.addEventListener('click', () => openInvite(oid));
   card.dataset.oid = oid;
   return card;
 }
