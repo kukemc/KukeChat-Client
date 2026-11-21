@@ -655,3 +655,34 @@ a.ccwk-pf-row:hover { background: rgba(255,255,255,.05); }
   .ccwn-row:hover .ccwn-meta .ccwn-time { opacity: 1; }
   .ccwn-hint { display: none; }
 }
+
+/* ---------- 设置：提示音、毛玻璃（core/prefs.js） ---------- */
+.ccwn-prefs { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.ccwn-pref { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; }
+.ccwn-pref-text { display: flex; flex-direction: column; min-width: 0; }
+.ccwn-pref-text b { font-size: 12px; font-weight: 500; color: var(--text); line-height: 18px; }
+.ccwn-pref-text span { font-size: 11px; color: var(--muted); line-height: 16px; }
+.ccwn-switch { flex: none; position: relative; width: 30px; height: 18px; padding: 0; border: 0; border-radius: 999px; background: rgba(255,255,255,.14); cursor: pointer; transition: background .15s; }
+.ccwn-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.ccwn-switch.is-on { background: #23a35e; }
+.ccwn-switch.is-on::after { transform: translateX(12px); }
+.ccwn-switch:focus-visible { outline: 2px solid #3ddc84; outline-offset: 2px; }
+
+/* 关掉毛玻璃：所有脚本画的卡片不再模糊背景，底色换成不透明的，看起来差不多 */
+html.ccwn-noblur [class*="ccw"] { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html.ccwn-noblur .ccwn-app { --surface: var(--surface-solid); }
+
+/* ---------- 新粉丝弹窗 ---------- */
+.ccwn-modal-mask { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; background: rgba(8,8,14,.6); }
+.ccwn-modal { width: min(440px, calc(100vw - 32px)); max-height: min(640px, calc(100vh - 64px)); display: flex; flex-direction: column; background: var(--surface-solid); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+.ccwn-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
+.ccwn-modal-head h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
+.ccwn-fans-list { list-style: none; margin: 0; padding: 0 8px; overflow-y: auto; flex: 1; min-height: 0; }
+.ccwn-fans-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px; border-radius: 10px; }
+.ccwn-fans-list li:hover { background: var(--surface-2); }
+.ccwn-fans-user { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+.ccwn-fans-user > span { display: flex; flex-direction: column; min-width: 0; }
+.ccwn-fans-user b { font-size: 13px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ccwn-fans-user time { font-size: 11px; color: var(--muted); }
+.ccwn-modal-foot { display: flex; justify-content: center; padding: 10px 16px 14px; border-top: 1px solid var(--line); }
+html.ccwn-noblur .ccwf-card { background: #1c1c2a; }

@@ -4,6 +4,7 @@ import { injectStyle } from './style.js';
 import { activateFeed, deactivateFeed, isFeedPath } from '../feed/index.js';
 import { syncPresence } from '../kukechat/presence.js';
 import { CHAT_VIEWS, enterChat, exitChat } from '../kukechat/chatView.js';
+import { warmKukeChat } from '../kukechat/embed.js';
 import { onUnread } from '../kukechat/unread.js';
 import { renderMutualsBanner } from '../kukechat/mutuals.js';
 import { GROUPS } from '../notice/model.js';
@@ -81,6 +82,7 @@ export function activate() {
   loadEmojis().then(() => { rowCache.clear(); renderList(); });
   refreshSummary(0);
   loadStats();
+  warmKukeChat();
 }
 export function deactivate(forAccount) {
   isActive = false;

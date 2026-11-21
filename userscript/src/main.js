@@ -7,12 +7,14 @@ import { installUnread } from './kukechat/unread.js';
 import { installBadge } from './kukechat/badge.js';
 import { installToast } from './kukechat/toast.js';
 import { injectStyle } from './core/style.js';
+import { applyPrefs } from './core/prefs.js';
 import { installPages } from './kukechat/pages.js';
 import { installProfile } from './kukechat/profile.js';
 import { installComments } from './kukechat/comments.js';
 import { installWork } from './kukechat/work.js';
 import { installWorkChat } from './kukechat/workChat.js';
 import { installContentImageViewer } from './kukechat/imageViewer.js';
+import { installEmbedPreload } from './kukechat/embed.js';
 
 function installEverywhere() {
   // 这些在所有 CCW 页面都要有：实时连接、私信未读并进信封、新消息提醒
@@ -28,9 +30,11 @@ function installEverywhere() {
   installWorkChat();
   installContentImageViewer();
   installPages();
+  installEmbedPreload();
 }
 
 function boot() {
+  applyPrefs();
   // 「正在玩」在所有页面都要跟着路由走；页面重写只接管消息中心和动态页
   installPresence();
   if (document.body) installEverywhere();

@@ -5,7 +5,7 @@ import { syncStickyTop, watchHeader } from '../core/sticky.js';
 import { injectStyle } from '../core/style.js';
 import { dayStart, fullTime, relTime } from '../core/time.js';
 import { state } from '../notice/state.js';
-import { avatarEl, card, pixImg, toast } from '../notice/view.js';
+import { avatarEl, card, pixImg, settingsCard, toast } from '../notice/view.js';
 import { KC_ICON } from '../core/icons.js';
 import { getKcScope, kcStore, loadKcPage, mergeWithCcw, renderComposer, renderKcCard, renderPlayingFriends, resetKcFeed, setFeedRerender, setKcScope, kcSignedOut, onKcLogin, renderLoginPrompt, kcFeedEnabled } from '../kukechat/feed.js';
 
@@ -103,7 +103,7 @@ export function mountFeed() {
   feedPlayEl = h('div');
   feedRecEl = h('div');
   feedSideEl = h('aside', { class: 'ccwn-side' }, feedPlayEl, feedRecEl);
-  feedRoot.append(h('div', { class: 'ccwf-layout' }, h('div', { class: 'ccwn-left' }, feedMeEl, feedNavEl), main, feedSideEl));
+  feedRoot.append(h('div', { class: 'ccwf-layout' }, h('div', { class: 'ccwn-left' }, feedMeEl, feedNavEl, settingsCard()), main, feedSideEl));
   document.body.appendChild(feedRoot);
   new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) feedPump(); }, { rootMargin: '900px 0px' }).observe(feedFootEl);
 }

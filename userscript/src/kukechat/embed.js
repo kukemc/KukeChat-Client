@@ -1,4 +1,7 @@
-// 完整的 KukeChat 界面：只在消息中心打开「私信 / 好友」时才加载（chat-api.kuke.ink/embed/kukechat.js，约 5MB，浏览器会缓存）。
+// 完整的 KukeChat 界面：chat-api.kuke.ink/embed/kukechat.js，约 5MB。
+// 缓存：先问 /embed/manifest.json 拿内容的 md5，再按 kukechat.js?v=<md5> 加载。这个地址服务端给的是永久缓存，
+// md5 不变浏览器就直接用本地那份，不下载、也不回服务器校验；界面包更新了 md5 就变，自然拿新的。
+// 预加载：任何共创世界页面空闲时先把界面包下载进缓存（不执行）；进了消息中心空闲时直接执行好，点「私信」就不用等。
 // 用界面包桥接对象上的 embed 接口（KukeChat-Client src/extension/embed.ts）把窗口停靠进页面，
 // 再往它的 Shadow DOM 里注入样式：去掉标题栏和缩放角，换成共创世界的配色。
 //
@@ -6,14 +9,67 @@
 import { KUKECHAT_BASE } from './client.js';
 
 let loading = null;
+let urlPromise = null;
+const MD5_KEY = 'kukechat-ccw:embed-md5';
+
+function bundleUrl() {
+  if (urlPromise) return urlPromise;
+  const plain = KUKECHAT_BASE + '/embed/kukechat.js';
+  const withV = (md5) => (md5 ? plain + '?v=' + encodeURIComponent(md5) : plain);
+  urlPromise = fetch(KUKECHAT_BASE + '/embed/manifest.json', { cache: 'no-cache' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((m) => {
+      const md5 = m && typeof m.md5 === 'string' && /^[0-9a-f]{32}$/.test(m.md5) ? m.md5 : null;
+      if (!md5) throw new Error('no md5');
+      try { localStorage.setItem(MD5_KEY, md5); } catch (_) { /* 存不了就算了 */ }
+      return withV(md5);
+    })
+    .catch(() => {
+      // 问不到就用上次记下的 md5（多半还没变），再不行就用不带版本的地址
+      urlPromise = null;
+      let md5 = null;
+      try { md5 = localStorage.getItem(MD5_KEY); } catch (_) { /* 读不到 */ }
+      return withV(md5);
+    });
+  return urlPromise;
+}
+
+const idle = (fn, timeout) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout }) : window.setTimeout(fn, 1200));
+const isNotice = () => /^\/notice(\/|$)/.test(location.pathname);
+let prefetched = false;
+
+/** 只下载进缓存、不执行（作品页里可能有作品自带的 KukeChat 扩展，不能在那里执行第二份） */
+function prefetchKukeChat() {
+  if (prefetched || loading || window.__KukeChatExtensionBridge) return;
+  prefetched = true;
+  bundleUrl().then((url) => {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.as = 'script';
+    link.href = url;
+    document.head.appendChild(link);
+  });
+}
+
+/** 消息中心空闲时把界面包执行好 */
+export function warmKukeChat() {
+  idle(() => { if (isNotice()) loadKukeChat().catch(() => {}); }, 3000);
+}
+
+/** 页面加载完后：在消息中心就预先执行，别的页面只预下载 */
+export function installEmbedPreload() {
+  const go = () => idle(() => { if (isNotice()) loadKukeChat().catch(() => {}); else prefetchKukeChat(); }, 5000);
+  if (document.readyState === 'complete') go();
+  else window.addEventListener('load', go, { once: true });
+}
 
 export function loadKukeChat() {
   const existing = window.__KukeChatExtensionBridge;
   if (existing && existing.embed) return Promise.resolve(existing);
   if (loading) return loading;
-  loading = new Promise((resolve, reject) => {
+  loading = bundleUrl().then((url) => new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = KUKECHAT_BASE + '/embed/kukechat.js';
+    s.src = url;
     s.async = true;
     s.onload = () => {
       const bridge = window.__KukeChatExtensionBridge;
@@ -22,7 +78,7 @@ export function loadKukeChat() {
     };
     s.onerror = () => reject(new Error('KukeChat 加载失败'));
     document.head.appendChild(s);
-  }).catch((err) => { loading = null; throw err; });
+  })).catch((err) => { loading = null; throw err; });
   return loading;
 }
 

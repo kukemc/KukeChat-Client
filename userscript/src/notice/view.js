@@ -11,6 +11,7 @@ import { allDone, anyError, anyLoading, loadStream, markAllRead, nextStreamToLoa
 import { KC_ICON } from '../core/icons.js';
 import { unreadTotal } from '../kukechat/unread.js';
 import { renderNotifyModeSwitch } from '../kukechat/toast.js';
+import { prefToggle } from '../core/prefs.js';
 
 /* ------------------------------------------------------------------ */
 /* 视图                                                                */
@@ -135,12 +136,44 @@ export function renderSide() {
     card('互动最多的作品', null, works));
 }
 
+/** 左栏的设置：KukeChat 消息提醒三档、提示音、毛玻璃效果（消息中心和动态页共用） */
+export function settingsCard() {
+  return h('section', { class: 'ccwn-card ccwk-nt-card' },
+    h('div', { class: 'ccwk-nt-card-head' }, h('span', { text: 'KukeChat 消息提醒' }), h('img', { src: KC_ICON, alt: '' })),
+    renderNotifyModeSwitch(),
+    h('div', { class: 'ccwn-prefs' },
+      prefToggle('sound', '提示音', '弹出提醒时响一声'),
+      prefToggle('blur', '毛玻璃效果', '滑动卡顿时可以关掉')));
+}
+
+/** 近 7 天的新粉丝全部列出来（不用去系统通知里翻到最后），可以直接回关 */
+export function openFansDialog() {
+  const s = computeStats();
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); };
+  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const list = h('ul', { class: 'ccwn-fans-list' }, s.fans.map(({ u, x }) => h('li', null,
+    h('a', { class: 'ccwn-fans-user', href: '/student/' + u.oid, target: '_blank', rel: 'noreferrer' },
+      avatarEl(u.avatar, '', 40),
+      h('span', null, h('b', { text: u.name || '' }), h('time', { datetime: x.createdAt, title: fullTime(x.createdAt), text: relTime(x.createdAt) + ' 关注了你' }))),
+    followCtl(u, x, true))));
+  const panel = h('section', { class: 'ccwn-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '新粉丝' },
+    h('header', { class: 'ccwn-modal-head' },
+      h('h2', { text: '近 7 天新粉丝 · ' + s.fans.length + (state.stats.capped.SYSTEM ? '+' : '') }),
+      h('button', { type: 'button', class: 'ccwn-icon', title: '关闭', onclick: close }, icon('close', 16))),
+    list,
+    h('footer', { class: 'ccwn-modal-foot' }, h('button', { type: 'button', class: 'ccwn-link', onclick: () => { close(); go('SYSTEM', 'ALL'); } }, '在系统通知里查看')));
+  const overlay = h('div', { class: 'ccwn-modal-mask' }, panel);
+  overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', onKey, true);
+  root.appendChild(overlay);
+}
+
 export function renderFans() {
   if (!fansEl) return;
   if (!state.stats) { fansEl.replaceChildren(); return; }
   const s = computeStats();
   if (!s.fans.length) { fansEl.replaceChildren(); return; }
-  const more = h('button', { type: 'button', class: 'ccwn-link', onclick: () => go('SYSTEM', 'ALL') }, '全部');
+  const more = h('button', { type: 'button', class: 'ccwn-link', onclick: () => openFansDialog() }, '全部');
   fansEl.replaceChildren(card('新粉丝 · ' + s.fans.length + (state.stats.capped.SYSTEM ? '+' : ''), more,
     h('div', { class: 'ccwn-fan-grid' }, s.fans.slice(0, 15).map(({ u }) =>
       h('a', { class: 'ccwn-fan', href: '/student/' + u.oid, target: '_blank', rel: 'noreferrer', title: u.name },
@@ -160,10 +193,7 @@ export function mount() {
   fansEl = h('div', { class: 'ccwn-fans' });
   sideEl = h('aside', { class: 'ccwn-side' });
   // KukeChat 新消息提醒的设置（kukechat/toast.js），放在导航下面
-  const notifyCard = h('section', { class: 'ccwn-card ccwk-nt-card' },
-    h('div', { class: 'ccwk-nt-card-head' }, h('span', { text: 'KukeChat 消息提醒' }), h('img', { src: KC_ICON, alt: '' })),
-    renderNotifyModeSwitch());
-  layout.append(h('div', { class: 'ccwn-left' }, navEl, notifyCard, fansEl), main, sideEl);
+  layout.append(h('div', { class: 'ccwn-left' }, navEl, settingsCard(), fansEl), main, sideEl);
   toastEl = h('div', { class: 'ccwn-toast' });
   root.append(layout, toastEl);
   document.body.appendChild(root);

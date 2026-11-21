@@ -10,6 +10,7 @@ import { icon } from '../core/icons.js';
 import { currentKukeUser, kcRequest } from './client.js';
 import { onRealtime } from './realtime.js';
 import { conversationInfo, refreshUnread } from './unread.js';
+import { playMessageSound } from './sound.js';
 
 const MAX = 3;
 const HIDE_MS = 8000;
@@ -220,6 +221,7 @@ export function installToast() {
       const info = await conversationOf(m.conversation_id, m);
       if (!info || info.type !== 'direct') return;
     }
+    playMessageSound(Boolean(flag) || mode === 'important');
     show(m, flag);
   });
 }
